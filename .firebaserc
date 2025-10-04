@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "fly4all-78277122-3cbd0",
+    "production": "fly4all-mangmants-go-591-d7ffe",
+    "prod": "fly4all-78277122-3cbd0"
+  },
+  "targets": {},
+  "etags": {}
+}
