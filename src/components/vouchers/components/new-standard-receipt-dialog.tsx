@@ -31,6 +31,12 @@ export default function NewStandardReceiptDialog({ onVoucherAdded, children }: N
   const [currency, setCurrency] = useState<Currency>(defaultCurrency as Currency);
 
   useEffect(() => {
+    if (open && !isDataLoaded) {
+      fetchData();
+    }
+  }, [open, isDataLoaded, fetchData]);
+
+  useEffect(() => {
     if(navData?.settings.currencySettings?.defaultCurrency) {
         setCurrency(navData.settings.currencySettings.defaultCurrency);
     }
