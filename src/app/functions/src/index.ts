@@ -44,7 +44,7 @@ const functionOptions = {
 
 // On create booking (from journal-vouchers)
 export const onJournalVoucherCreated = onDocumentCreated(
-  { document: "journal-vouchers/{voucherId}", ...functionOptions },
+  "journal-vouchers/{voucherId}",
   async (event) => {
     const snap = event.data;
     if (!snap) return;
@@ -69,7 +69,7 @@ export const onJournalVoucherCreated = onDocumentCreated(
 
 // On update booking (from journal-vouchers)
 export const onJournalVoucherUpdated = onDocumentUpdated(
-  { document: "journal-vouchers/{voucherId}", ...functionOptions },
+  "journal-vouchers/{voucherId}",
   async (event) => {
     const change = event.data;
     if (!change) return;
@@ -104,7 +104,7 @@ export const onJournalVoucherUpdated = onDocumentUpdated(
 
 // On delete booking (from journal-vouchers)
 export const onJournalVoucherDeleted = onDocumentDeleted(
-  { document: "journal-vouchers/{voucherId}", ...functionOptions },
+  "journal-vouchers/{voucherId}",
   async (event) => {
     const snap = event.data;
     if (!snap) return;
