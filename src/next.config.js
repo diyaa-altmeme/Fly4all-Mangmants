@@ -66,13 +66,7 @@ const nextConfig = {
       }
     ],
   },
-  experimental: {
-    serverComponentsExternalPackages: ['bcrypt']
-  },
   webpack: (config, { isServer }) => {
-    // This is to ignore the warning "require.extensions is not supported by webpack"
-    // from handlebars library.
-    config.externals.push('handlebars');
     config.module.rules.push({
       test: /\.mjs$/,
       include: /node_modules/,

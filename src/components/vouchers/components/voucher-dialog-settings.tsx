@@ -54,6 +54,7 @@ export default function VoucherDialogSettings({ dialogKey, children, onDimension
     
     useEffect(() => {
         loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
