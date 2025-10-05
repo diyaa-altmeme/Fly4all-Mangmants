@@ -29,7 +29,10 @@ async function incrementShardedCounter(counterId, delta = 1) {
     await shardRef.set({ count: admin.firestore.FieldValue.increment(delta) }, { merge: true });
 }
 // On create booking (from journal-vouchers)
-exports.onJournalVoucherCreated = functions.firestore
+exports.onJournalVoucherCreated = functions.runWith({
+    memory: "256MB",
+    timeoutSeconds: 60,
+}).firestore
     .document("journal-vouchers/{voucherId}")
     .onCreate(async (snap, ctx) => {
     var _a, _b, _c, _d;
@@ -47,7 +50,10 @@ exports.onJournalVoucherCreated = functions.firestore
     await incrementShardedCounter(`${companyId}_bookings_count`, 1);
 });
 // On update booking (from journal-vouchers)
-exports.onJournalVoucherUpdated = functions.firestore
+exports.onJournalVoucherUpdated = functions.runWith({
+    memory: "256MB",
+    timeoutSeconds: 60,
+}).firestore
     .document("journal-vouchers/{voucherId}")
     .onUpdate(async (change, ctx) => {
     var _a, _b, _c, _d, _e, _f, _g, _h;
@@ -75,7 +81,10 @@ exports.onJournalVoucherUpdated = functions.firestore
     }
 });
 // On delete booking (from journal-vouchers)
-exports.onJournalVoucherDeleted = functions.firestore
+exports.onJournalVoucherDeleted = functions.runWith({
+    memory: "256MB",
+    timeoutSeconds: 60,
+}).firestore
     .document("journal-vouchers/{voucherId}")
     .onDelete(async (snap, ctx) => {
     var _a, _b, _c, _d;
