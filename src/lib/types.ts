@@ -1238,3 +1238,5 @@ export type FirebaseConfig = {
     measurementId?: string;
     isActive: boolean;
 };
+
+    
