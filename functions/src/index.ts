@@ -37,7 +37,7 @@ export const onJournalVoucherCreated = functions.runWith({
     timeoutSeconds: 60,
   }).firestore
   .document("journal-vouchers/{voucherId}")
-  .onCreate(async (snap, ctx) => {
+  .onCreate(async (snap: functions.firestore.DocumentSnapshot, ctx: functions.EventContext) => {
     const data = snap.data();
     if (!data || !['booking', 'visa', 'subscription'].includes(data.voucherType)) return;
     
@@ -62,7 +62,7 @@ export const onJournalVoucherUpdated = functions.runWith({
     timeoutSeconds: 60,
   }).firestore
   .document("journal-vouchers/{voucherId}")
-  .onUpdate(async (change, ctx) => {
+  .onUpdate(async (change: functions.Change<functions.firestore.DocumentSnapshot>, ctx: functions.EventContext) => {
     const before = change.before.data() || {};
     const after = change.after.data() || {};
     
@@ -97,7 +97,7 @@ export const onJournalVoucherDeleted = functions.runWith({
     timeoutSeconds: 60,
   }).firestore
   .document("journal-vouchers/{voucherId}")
-  .onDelete(async (snap, ctx) => {
+  .onDelete(async (snap: functions.firestore.DocumentSnapshot, ctx: functions.EventContext) => {
     const data = snap.data() || {};
      if (!data || !['booking', 'visa', 'subscription'].includes(data.voucherType)) return;
     
