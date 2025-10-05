@@ -32,7 +32,10 @@ async function incrementShardedCounter(counterId: string, delta = 1) {
 }
 
 // On create booking (from journal-vouchers)
-export const onJournalVoucherCreated = functions.firestore
+export const onJournalVoucherCreated = functions.runWith({
+    memory: "256MB",
+    timeoutSeconds: 60,
+  }).firestore
   .document("journal-vouchers/{voucherId}")
   .onCreate(async (snap, ctx) => {
     const data = snap.data();
@@ -54,7 +57,10 @@ export const onJournalVoucherCreated = functions.firestore
 
 
 // On update booking (from journal-vouchers)
-export const onJournalVoucherUpdated = functions.firestore
+export const onJournalVoucherUpdated = functions.runWith({
+    memory: "256MB",
+    timeoutSeconds: 60,
+  }).firestore
   .document("journal-vouchers/{voucherId}")
   .onUpdate(async (change, ctx) => {
     const before = change.before.data() || {};
@@ -86,7 +92,10 @@ export const onJournalVoucherUpdated = functions.firestore
 
 
 // On delete booking (from journal-vouchers)
-export const onJournalVoucherDeleted = functions.firestore
+export const onJournalVoucherDeleted = functions.runWith({
+    memory: "256MB",
+    timeoutSeconds: 60,
+  }).firestore
   .document("journal-vouchers/{voucherId}")
   .onDelete(async (snap, ctx) => {
     const data = snap.data() || {};
