@@ -1,4 +1,3 @@
-
 // functions/src/index.ts
 import {
   onDocumentCreated,
@@ -44,7 +43,7 @@ const functionOptions = {
 
 // On create booking (from journal-vouchers)
 export const onJournalVoucherCreated = onDocumentCreated(
-  "journal-vouchers/{voucherId}",
+  {...functionOptions, document: "journal-vouchers/{voucherId}"},
   async (event) => {
     const snap = event.data;
     if (!snap) return;
@@ -69,7 +68,7 @@ export const onJournalVoucherCreated = onDocumentCreated(
 
 // On update booking (from journal-vouchers)
 export const onJournalVoucherUpdated = onDocumentUpdated(
-  "journal-vouchers/{voucherId}",
+  {...functionOptions, document: "journal-vouchers/{voucherId}"},
   async (event) => {
     const change = event.data;
     if (!change) return;
@@ -104,7 +103,7 @@ export const onJournalVoucherUpdated = onDocumentUpdated(
 
 // On delete booking (from journal-vouchers)
 export const onJournalVoucherDeleted = onDocumentDeleted(
-  "journal-vouchers/{voucherId}",
+  {...functionOptions, document: "journal-vouchers/{voucherId}"},
   async (event) => {
     const snap = event.data;
     if (!snap) return;
