@@ -1,5 +1,9 @@
 // functions/src/index.ts
-import * as functions from "firebase-functions";
+import {
+  onDocumentCreated,
+  onDocumentUpdated,
+  onDocumentDeleted,
+} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 
 admin.initializeApp();
@@ -31,13 +35,19 @@ async function incrementShardedCounter(counterId: string, delta = 1) {
   await shardRef.set({ count: admin.firestore.FieldValue.increment(delta) }, { merge: true });
 }
 
-// On create booking (from journal-vouchers)
-export const onJournalVoucherCreated = functions.runWith({
-    memory: "256MB",
+const functionOptions = {
+    memory: "256MiB" as const,
     timeoutSeconds: 60,
-  }).firestore
-  .document("journal-vouchers/{voucherId}")
-  .onCreate(async (snap: functions.firestore.DocumentSnapshot, ctx: functions.EventContext) => {
+    region: 'us-central1'
+};
+
+// On create booking (from journal-vouchers)
+export const onJournalVoucherCreated = onDocumentCreated(
+  {...functionOptions, document: "journal-vouchers/{voucherId}"},
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    
     const data = snap.data();
     if (!data || !['booking', 'visa', 'subscription'].includes(data.voucherType)) return;
     
@@ -57,12 +67,12 @@ export const onJournalVoucherCreated = functions.runWith({
 
 
 // On update booking (from journal-vouchers)
-export const onJournalVoucherUpdated = functions.runWith({
-    memory: "256MB",
-    timeoutSeconds: 60,
-  }).firestore
-  .document("journal-vouchers/{voucherId}")
-  .onUpdate(async (change: functions.Change<functions.firestore.DocumentSnapshot>, ctx: functions.EventContext) => {
+export const onJournalVoucherUpdated = onDocumentUpdated(
+  {...functionOptions, document: "journal-vouchers/{voucherId}"},
+  async (event) => {
+    const change = event.data;
+    if (!change) return;
+
     const before = change.before.data() || {};
     const after = change.after.data() || {};
     
@@ -92,12 +102,12 @@ export const onJournalVoucherUpdated = functions.runWith({
 
 
 // On delete booking (from journal-vouchers)
-export const onJournalVoucherDeleted = functions.runWith({
-    memory: "256MB",
-    timeoutSeconds: 60,
-  }).firestore
-  .document("journal-vouchers/{voucherId}")
-  .onDelete(async (snap: functions.firestore.DocumentSnapshot, ctx: functions.EventContext) => {
+export const onJournalVoucherDeleted = onDocumentDeleted(
+  {...functionOptions, document: "journal-vouchers/{voucherId}"},
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
     const data = snap.data() || {};
      if (!data || !['booking', 'visa', 'subscription'].includes(data.voucherType)) return;
     
