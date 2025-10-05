@@ -6,3 +6,4 @@ runConfig:
   # more instances in response to increased traffic.
   maxInstances: 1
 runtime: nodejs20
+serviceAccount: firebase-app-hosting-compute@fly4all-78277122-3cbd0.iam.gserviceaccount.com
