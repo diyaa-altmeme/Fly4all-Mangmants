@@ -32,6 +32,12 @@ export default function NewPaymentVoucherDialog({ onVoucherAdded, children }: Ne
   const [currency, setCurrency] = useState<Currency>(defaultCurrency);
 
    useEffect(() => {
+    if (open && !isDataLoaded) {
+      fetchData();
+    }
+  }, [open, isDataLoaded, fetchData]);
+
+   useEffect(() => {
     if(navData?.settings.currencySettings?.defaultCurrency) {
         setCurrency(navData.settings.currencySettings.defaultCurrency);
     }
