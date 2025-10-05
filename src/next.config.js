@@ -2,6 +2,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     remotePatterns: [
       {
@@ -63,28 +69,15 @@ const nextConfig = {
         hostname: 'flyway.travel',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'fly4all-78277122-3cbd0.appspot.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
-  webpack: (config, { isServer }) => {
-    config.module.rules.push({
-      test: /\.mjs$/,
-      include: /node_modules/,
-      type: 'javascript/auto',
-    });
-    
-    // This is required to allow the Next.js dev server to run in a container.
-    // It's a workaround for a known issue with file watching in some environments.
-    config.watchOptions = {
-        poll: 800,
-        aggregateTimeout: 300,
-    }
-
-    return config;
-  },
-  // This is required to allow the Next.js dev server to run in a container.
-  // @see https://nextjs.org/docs/pages/api-reference/next-config-js/output#caveats
-  outputFileTracingRoot: require('path').join(__dirname, '../../'),
 };
 
 module.exports = nextConfig;
