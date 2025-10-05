@@ -67,12 +67,11 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [loaded, isFetching]);
     
+    // Initial fetch
     useEffect(() => {
-        // Fetch data immediately on provider mount.
-        if (!loaded) {
-            fetchData();
-        }
-    }, [loaded, fetchData]);
+        fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     
     const refreshData = useCallback(async () => {
         await fetchData(true); // Force a refetch

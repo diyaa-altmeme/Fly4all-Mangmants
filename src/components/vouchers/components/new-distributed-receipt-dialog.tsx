@@ -13,7 +13,7 @@ import {
 import type { Currency, Client, Supplier, User, Box, AppSettings } from '@/lib/types';
 import NewDistributedReceiptForm from '@/app/accounts/vouchers/components/new-distributed-receipt-form';
 import type { DistributedVoucherSettings } from '@/app/accounts/vouchers/settings/components/distributed-settings-form';
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from '@/hooks/use-toast';
 import { Loader2, Settings2, ArrowRight, Terminal, User as UserIcon, Building } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import DistributedSettingsForm from '@/app/accounts/vouchers/settings/components/distributed-settings-form';

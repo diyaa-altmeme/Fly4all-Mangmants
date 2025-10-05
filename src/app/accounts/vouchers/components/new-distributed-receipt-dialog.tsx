@@ -98,7 +98,7 @@ export default function NewDistributedReceiptDialog({
               {!showSettings && (
                   <>
                      {(navData?.settings?.currencySettings?.currencies || []).map(c => (
-                        <Button key={c.code} type="button" onClick={() => setCurrency(c.code)} className={cn('text-white h-8', currency === c.code ? 'bg-white/30' : 'bg-transparent border border-white/50')}>
+                        <Button key={c.code} type="button" onClick={() => setCurrency(c.code as Currency)} className={cn('text-white h-8', currency === c.code ? 'bg-white/30' : 'bg-transparent border border-white/50')}>
                             {c.code}
                         </Button>
                       ))}
