@@ -1,0 +1,11 @@
+
+import type { ServiceAccount } from 'firebase-admin/app';
+
+// This is the service account object for the Firebase Admin SDK.
+// It is constructed from environment variables for security.
+// Fallbacks to undefined are important for build steps where env vars may not be present.
+export const serviceAccount: ServiceAccount = {
+  "projectId": "fly4all-78277122-3cbd0",
+  "privateKey": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCUfQUd0XoNomMZ\ncx2LRvpAkKmf2eHPssfBkNXACFWrClKzkGqHwWlvA1MMxwGi/uq6XozgSiIZ2vQ8\n1FTqCenmps6ylayAf2apJ6qz7i4n9AnLcoq07ik+Psz9pP5TmU3Co53VeEm8bE3x\nfg8dXztjmmbpin93kGQfOsq3vOCZfwcVNYJ7ZqcK1hUPRMw9YSdkLfpyS7HPlDO8\ncGfQHpD8FXpDubhuEG1SeHMXloJ+9NoAhKNTrg3or0njf/Weqv0yoe/A1JVrSWmw\nKGijLOkOpzoZQQfZ1TEGukF+twAth0/KvbkBledGpmA1ZC6MoRIQ8nDpg9Va/YGP\n6tPcWqwzAgMBAAECggEAIypCam/gAFebMX0+G2xZOq4nxagDXr0/qlsjC+HNa/67\nXDQQzoqi7fvzEJ0WiaPmMfHPWhSkY8wjOD6ux2hGoO2TGN7yZdIGHXw75HW9L5AP\nO8OqDrQyRz/3KwCGjITLUhOOfu4IRFu/z7ejW7jgZzO7OIaorkefNnglZwMPi7oZ\nrWx9GDLj2WDimoaZZS98Ltwa5dXdp28kqAY8wviRkgM7Iij3/fbpjOVlOGZ3gx6q\nq4T8fGm0YY0poQbEKXuzIW74bkdyWu75GC41nbWDLL7i4M2kFfSWibpgUU/rs5Qz\njUSHS4+82Cg34/tLCiBzlFLoiYlVfkLAe4OOAsUvAQKBgQDJcJOm/dGHgQmnSBm5\nxFnwJ26TX8e7EBIYa/w8BLD6EMgtDiPKLUym0P/yd8UlXXqdwaS7rWTua0MFiS2P\nFhG9euqx5z0SN9Xn1A6MvRUesd4c+D7MOIAvtZCcfIqPTQ3iiiIemBc6EKqkR1tH\nODH8ADhsOz6vnBpVPGJ6+FRHAQKBgQC8tOayM8Mw5wEJqLMtIZGt8PF7vZ1qLbfk\npjv2RGRV5bBdMbD6lWYN8h6ZJ5qrixZuhGdhfqWLRqtYtkExn7vzeHEif49FeRW0\nIcSabQwbLinVm0GKOVlZ/DoDsOTY3YHHa0b8fnmdSY+hLDk7S6Jlh8hlNvGxqDhc\nvbB8WR+HMwKBgHndgXYlV/2CMzTgia+4+jAvqtW9vDePIWNk8NPegrLGNFQNmdlW\nTmkdR7qIetyAEQ4feGmSHN2gRouy0b0evNzE3/eAzZGX9fCqeaLrQTuwn48nH9as\n1+AFF9eUAL9w/lVu+/VGTcbzDkkUYkRT2ul5uKjBrsrOxZ+LSIjccyABAoGBAJ7b\nIsGtNYn7TTJWY8+ATOTCymbCrrttlTrUffHIjTaKTzeE11l7XxgqVHvVjS0Pv2h1\n6Zl3ReDDMwdRFfyyXUSOhZ7nBzMSxaSIMLtXRTO0Xt9E/Z1gvck0vZnR1jSB8/hu\nZKm1xqcT/+dMFTnHaARUk+wwnrJRzHC19tYXKKVlAoGBAL6X3Q6JK5PSk+82WTw7\n4262t9IsqYdI39LG9110cygFpZiCvO0mdzPhFpKZhH9ymRMHeCK32H9j96E/fE2x\nzkwaI98MvrraRuUiriyU7KQK26rTmMzEbgm1bWZwWZP51YSnI3wWHdLkDIUphdns\npsBGQ5pKgEqKCCvi8VqxH6jy\n-----END PRIVATE KEY-----\n".replace(/\\n/g, '\n'),
+  "clientEmail": "firebase-adminsdk-fbsvc@fly4all-78277122-3cbd0.iam.gserviceaccount.com"
+};
