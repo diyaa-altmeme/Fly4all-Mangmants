@@ -1,5 +1,9 @@
 // functions/src/index.ts
-import * as functions from "firebase-functions";
+import {
+  onDocumentCreated,
+  onDocumentUpdated,
+  onDocumentDeleted,
+} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 
 admin.initializeApp();
@@ -31,10 +35,19 @@ async function incrementShardedCounter(counterId: string, delta = 1) {
   await shardRef.set({ count: admin.firestore.FieldValue.increment(delta) }, { merge: true });
 }
 
+const functionOptions = {
+    memory: "256MiB" as const,
+    timeoutSeconds: 60,
+    region: 'us-central1'
+};
+
 // On create booking (from journal-vouchers)
-export const onJournalVoucherCreated = functions.firestore
-  .document("journal-vouchers/{voucherId}")
-  .onCreate(async (snap, ctx) => {
+export const onJournalVoucherCreated = onDocumentCreated(
+  { document: "journal-vouchers/{voucherId}", ...functionOptions },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    
     const data = snap.data();
     if (!data || !['booking', 'visa', 'subscription'].includes(data.voucherType)) return;
     
@@ -54,9 +67,12 @@ export const onJournalVoucherCreated = functions.firestore
 
 
 // On update booking (from journal-vouchers)
-export const onJournalVoucherUpdated = functions.firestore
-  .document("journal-vouchers/{voucherId}")
-  .onUpdate(async (change, ctx) => {
+export const onJournalVoucherUpdated = onDocumentUpdated(
+  { document: "journal-vouchers/{voucherId}", ...functionOptions },
+  async (event) => {
+    const change = event.data;
+    if (!change) return;
+
     const before = change.before.data() || {};
     const after = change.after.data() || {};
     
@@ -86,9 +102,12 @@ export const onJournalVoucherUpdated = functions.firestore
 
 
 // On delete booking (from journal-vouchers)
-export const onJournalVoucherDeleted = functions.firestore
-  .document("journal-vouchers/{voucherId}")
-  .onDelete(async (snap, ctx) => {
+export const onJournalVoucherDeleted = onDocumentDeleted(
+  { document: "journal-vouchers/{voucherId}", ...functionOptions },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+
     const data = snap.data() || {};
      if (!data || !['booking', 'visa', 'subscription'].includes(data.voucherType)) return;
     
