@@ -1,3 +1,4 @@
+
 // functions/src/index.ts
 import {
   onDocumentCreated,
