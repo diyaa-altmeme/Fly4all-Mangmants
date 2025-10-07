@@ -64,69 +64,79 @@ export default function UsersContent({ initialUsers, boxes, roles, onDataChange 
   }, [boxes, roles, handleSuccess]);
   
   return (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-2">
-            <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-                placeholder="بحث بالاسم, البريد الإلكتروني, القسم..."
-                className="ps-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-            />
+    <Card>
+        <CardHeader>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <CardTitle>قائمة الموظفين</CardTitle>
+                    <CardDescription>عرض وتعديل بيانات الموظفين ورواتبهم.</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                     <UserFormDialog boxes={boxes} roles={roles} onUserAdded={handleSuccess} onUserUpdated={handleSuccess}>
+                        <Button>
+                            <PlusCircle className="me-2 h-4 w-4" />
+                            إضافة موظف جديد
+                        </Button>
+                    </UserFormDialog>
+                </div>
             </div>
-             <Popover>
-                <PopoverTrigger asChild>
-                <Button
-                    id="date"
-                    variant={"outline"}
-                    className={cn(
-                    "w-[260px] justify-start text-left font-normal",
-                    !date && "text-muted-foreground"
-                    )}
-                >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date?.from ? (
-                    date.to ? (
-                        <>
-                        {format(date.from, "LLL dd, y")} -{" "}
-                        {format(date.to, "LLL dd, y")}
-                        </>
-                    ) : (
-                        format(date.from, "LLL dd, y")
-                    )
-                    ) : (
-                    <span>اختر فترة</span>
-                    )}
-                </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                    initialFocus
-                    mode="range"
-                    defaultMonth={date?.from}
-                    selected={date}
-                    onSelect={setDate}
-                    numberOfMonths={2}
+        </CardHeader>
+        <CardContent>
+            <div className="flex items-center gap-2 mb-4">
+                <div className="relative flex-grow">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="بحث بالاسم, البريد الإلكتروني, القسم..."
+                    className="ps-10"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                 />
-                </PopoverContent>
-            </Popover>
-            <Button onClick={() => onDataChange(date)} disabled={isLoading}>
-                {isLoading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4" />}
-                تطبيق الفلتر
-            </Button>
-        </div>
-        <UserFormDialog boxes={boxes} roles={roles} onUserAdded={handleSuccess} onUserUpdated={handleSuccess}>
-            <Button>
-                <PlusCircle className="me-2 h-4 w-4" />
-                إضافة موظف جديد
-            </Button>
-        </UserFormDialog>
-      </div>
-      <div className="border rounded-lg overflow-hidden">
-        <DataTable columns={columns} data={filteredUsers} />
-      </div>
-    </div>
+                </div>
+                <Popover>
+                    <PopoverTrigger asChild>
+                    <Button
+                        id="date"
+                        variant={"outline"}
+                        className={cn(
+                        "w-[260px] justify-start text-left font-normal",
+                        !date && "text-muted-foreground"
+                        )}
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date?.from ? (
+                        date.to ? (
+                            <>
+                            {format(date.from, "LLL dd, y")} -{" "}
+                            {format(date.to, "LLL dd, y")}
+                            </>
+                        ) : (
+                            format(date.from, "LLL dd, y")
+                        )
+                        ) : (
+                        <span>اختر فترة</span>
+                        )}
+                    </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={date?.from}
+                        selected={date}
+                        onSelect={setDate}
+                        numberOfMonths={2}
+                    />
+                    </PopoverContent>
+                </Popover>
+                <Button onClick={() => onDataChange(date)} disabled={isLoading}>
+                    {isLoading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4" />}
+                    تطبيق الفلتر
+                </Button>
+            </div>
+            <div className="border rounded-lg overflow-hidden">
+                <DataTable columns={columns} data={filteredUsers} />
+            </div>
+        </CardContent>
+    </Card>
   );
 }

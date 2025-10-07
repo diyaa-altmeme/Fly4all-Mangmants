@@ -1,5 +1,4 @@
 
-
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -38,14 +37,21 @@ export default async function VouchersListPage() {
     const vouchers = await getAllVouchers(clients, suppliers, boxes, users, settings);
 
     return (
-        <VouchersListContent
-            initialVouchers={vouchers}
-            settings={settings}
-            clients={clients}
-            suppliers={suppliers}
-            users={users}
-            boxes={boxes}
-        />
+        <div className="space-y-6">
+            <CardHeader className="px-0 sm:px-6">
+                <CardTitle>سجل السندات الموحد</CardTitle>
+                <CardDescription>
+                    عرض جميع السندات والحركات المالية في النظام مع إمكانية الفلترة والبحث.
+                </CardDescription>
+            </CardHeader>
+            <VouchersListContent
+                initialVouchers={vouchers}
+                settings={settings}
+                clients={clients}
+                suppliers={suppliers}
+                users={users}
+                boxes={boxes}
+            />
+        </div>
     );
 }
-

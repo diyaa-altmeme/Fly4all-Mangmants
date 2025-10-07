@@ -13,7 +13,7 @@ export default async function LoginPage() {
 
     return (
         <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center p-4">
                 <LoginPageClient />
             </div>
             <div className="hidden bg-muted lg:block relative">

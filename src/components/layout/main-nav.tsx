@@ -58,16 +58,18 @@ import {
     ScanSearch,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
-import NewDistributedReceiptDialog from "@/app/accounts/vouchers/components/new-distributed-receipt-dialog";
-import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-payment-voucher-dialog";
-import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
-import NewJournalVoucherDialog from "@/app/accounts/vouchers/components/new-journal-voucher-dialog";
+import NewStandardReceiptDialog from "@/components/vouchers/components/new-standard-receipt-dialog";
+import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
+import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
+import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
+import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
 import AddClientDialog from "@/app/clients/components/add-client-dialog";
 import { DropdownMenuSeparator, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { DialogTrigger } from "@/components/ui/dialog";
+import { useVoucherNav } from "@/context/voucher-nav-context";
 
 const NavLink = ({ href, children, active, className }: { href: string; children: React.ReactNode, active: boolean, className?: string }) => (
     <Link
@@ -234,6 +236,12 @@ const MainNavContent = () => {
   const pathname = usePathname();
   const router = useRouter();
   const isMobile = useIsMobile();
+  const { fetchData } = useVoucherNav();
+
+  React.useEffect(() => {
+      fetchData();
+  }, [fetchData]);
+
 
   const handleDataChange = () => {
     router.refresh();

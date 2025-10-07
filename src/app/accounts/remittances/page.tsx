@@ -1,5 +1,4 @@
 
-
 import * as React from 'react';
 import type { Remittance, RemittanceSettings } from '@/lib/types';
 import { getRemittances } from './actions';
@@ -35,19 +34,17 @@ export default async function RemittancesPage() {
     }
 
     return (
-        <Card>
-            <CardHeader className="text-right">
+        <div className="space-y-6">
+            <CardHeader className="px-0 sm:px-6">
                 <CardTitle>إدارة الحوالات الواردة</CardTitle>
                 <CardDescription>
                     نظام متكامل لتسجيل وتدقيق واستلام الحوالات المالية الواردة من المكاتب الخارجية.
                 </CardDescription>
             </CardHeader>
-            <CardContent>
-                <RemittancesContent
-                    initialRemittances={remittances}
-                    onDataChange={onDataChange}
-                />
-            </CardContent>
-        </Card>
+            <RemittancesContent
+                initialRemittances={remittances}
+                onDataChange={onDataChange}
+            />
+        </div>
     );
 }

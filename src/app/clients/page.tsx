@@ -8,6 +8,7 @@ import { getSettings } from "@/app/settings/actions";
 import ClientsContent from "./components/clients-content";
 import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 async function ClientsDataContainer({ page, limit, searchTerm, relationType, paymentType, status, country, province, sortBy }: {
     page: number;
@@ -66,8 +67,14 @@ export default async function ClientsPage({ searchParams }: { searchParams: { [k
     const sortBy = searchParams?.['sortBy'] as string | undefined;
 
     return (
-        <div className="flex flex-col gap-6">
-            <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+        <div className="space-y-6">
+             <CardHeader className="px-0 sm:px-6">
+                <CardTitle>إدارة العلاقات</CardTitle>
+                <CardDescription>
+                    إدارة جميع العملاء والموردين في مكان واحد.
+                </CardDescription>
+            </CardHeader>
+            <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
                 <ClientsDataContainer 
                     page={page} 
                     limit={limit}

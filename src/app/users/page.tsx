@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { hasPermission } from '@/lib/permissions';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 function UsersPageContainer() {
     const [users, setUsers] = useState<HrData[]>([]);
@@ -79,5 +80,13 @@ export default function UsersPage() {
         );
     }
 
-    return <UsersPageContainer />;
+    return (
+        <div className="space-y-6">
+            <CardHeader className="px-0 sm:px-6">
+                <CardTitle>إدارة المستخدمين والصلاحيات</CardTitle>
+                <CardDescription>إدارة حسابات الموظفين، تحديد أدوارهم، والتحكم في صلاحيات الوصول للنظام.</CardDescription>
+            </CardHeader>
+            <UsersPageContainer />
+        </div>
+    );
 }
