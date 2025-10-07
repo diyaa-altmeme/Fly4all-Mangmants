@@ -33,12 +33,17 @@ function SettingsPageContainer() {
     }, [fetchData]);
 
     if (loading || !settings) {
-        return <Skeleton className="h-[600px] w-full" />;
+        return (
+             <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] gap-6 items-start">
+                 <Skeleton className="h-[600px] w-full rounded-lg" />
+                 <Skeleton className="h-[600px] w-full rounded-lg" />
+             </div>
+        );
     }
 
-     if (error) {
+    if (error) {
         return (
-             <Alert variant="destructive">
+            <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
                 <AlertTitle>حدث خطأ!</AlertTitle>
                 <AlertDescription>{error || "فشل تحميل الإعدادات."}</AlertDescription>
