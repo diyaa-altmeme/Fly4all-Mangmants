@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import ProfitsDashboard from './components/profits-dashboard';
@@ -7,7 +6,6 @@ import { getMonthlyProfits } from '../profit-sharing/actions';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
-
 
 export default async function ProfitsPage() {
     const [monthlyProfits, error] = await getMonthlyProfits().then(res => [res, null]).catch(e => [null, e.message]);

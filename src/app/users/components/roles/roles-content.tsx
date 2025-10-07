@@ -93,8 +93,8 @@ export default function RolesContent({ initialRoles, onDataChange }: RolesConten
 
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-[280px,1fr] gap-6 items-start">
-            <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-6 items-start">
+            <aside className="space-y-4 lg:sticky top-20">
                  <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">الأدوار المتاحة</h3>
                      <RoleFormDialog onRoleAdded={onDataChange}>
@@ -127,8 +127,8 @@ export default function RolesContent({ initialRoles, onDataChange }: RolesConten
                         </Card>
                     ))}
                 </div>
-            </div>
-            <div className="sticky top-20">
+            </aside>
+            <main>
                 {selectedRole ? (
                      <Card>
                         <CardHeader>
@@ -163,7 +163,7 @@ export default function RolesContent({ initialRoles, onDataChange }: RolesConten
                         <p className="text-muted-foreground">الرجاء اختيار دور لعرض صلاحياته.</p>
                     </div>
                 )}
-            </div>
+            </main>
         </div>
     );
 }
