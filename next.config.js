@@ -1,7 +1,6 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -78,23 +77,6 @@ const nextConfig = {
       }
     ],
   },
-  webpack: (config, { isServer }) => {
-    // This is to ignore the warning "require.extensions is not supported by webpack"
-    // from handlebars library.
-    config.externals.push('handlebars');
-    
-    // This is required to allow the Next.js dev server to run in a container.
-    // It's a workaround for a known issue with file watching in some environments.
-    config.watchOptions = {
-        poll: 800,
-        aggregateTimeout: 300,
-    }
-
-    return config;
-  },
-  // This is required to allow the Next.js dev server to run in a container.
-  // @see https://nextjs.org/docs/pages/api-reference/next-config-js/output#caveats
-  outputFileTracingRoot: require('path').join(__dirname, '../../'),
 };
 
 module.exports = nextConfig;
