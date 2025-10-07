@@ -2,6 +2,7 @@
 import { getCurrentUserFromSession } from '@/app/auth/actions';
 import LoginPageClient from './components/login-page-client';
 import { redirect } from 'next/navigation';
+import Image from 'next/image';
 
 export default async function LoginPage() {
     const user = await getCurrentUserFromSession();
