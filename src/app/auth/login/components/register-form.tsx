@@ -68,7 +68,7 @@ export default function RegisterForm() {
           control={form.control}
           name="name"
           render={({ field }) => (
-            <FormItem className="grid gap-2">
+            <FormItem className="grid gap-2 text-right">
               <Label htmlFor="name">الاسم الكامل</Label>
               <FormControl>
                 <Input id="name" placeholder="مثال: علي السعدي" required {...field} />
@@ -81,7 +81,7 @@ export default function RegisterForm() {
           control={form.control}
           name="email"
           render={({ field }) => (
-            <FormItem className="grid gap-2">
+            <FormItem className="grid gap-2 text-right">
               <Label htmlFor="email">البريد الإلكتروني</Label>
               <FormControl>
                 <Input id="email" type="email" placeholder="name@example.com" required {...field} />
@@ -94,7 +94,7 @@ export default function RegisterForm() {
           control={form.control}
           name="phone"
           render={({ field }) => (
-            <FormItem className="grid gap-2">
+            <FormItem className="grid gap-2 text-right">
               <Label htmlFor="phone">رقم الهاتف</Label>
               <FormControl>
                 <Input id="phone" required {...field} />

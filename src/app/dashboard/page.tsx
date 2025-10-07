@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal, Loader2 } from 'lucide-react';
 import DashboardClient from './components/dashboard-client';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
 async function DashboardDataContainer() {
     const [stats, recentBookings, upcomingInstallments, chartData, error] = await Promise.all([
@@ -57,10 +57,10 @@ const DashboardSkeleton = () => (
 export default function DashboardPage() {
     return (
         <div className="space-y-6">
-            <CardHeader className="px-0 sm:px-6">
-                <CardTitle>لوحة التحكم الرئيسية</CardTitle>
-                <CardDescription>نظرة عامة وشاملة على أهم مؤشرات النظام.</CardDescription>
-            </CardHeader>
+            <div className="px-0 sm:px-6">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">لوحة التحكم الرئيسية</h1>
+                <p className="text-muted-foreground">نظرة عامة وشاملة على أهم مؤشرات النظام.</p>
+            </div>
             <Suspense fallback={<DashboardSkeleton />}>
                 <DashboardDataContainer />
             </Suspense>

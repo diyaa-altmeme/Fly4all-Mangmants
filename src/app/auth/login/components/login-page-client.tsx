@@ -36,10 +36,9 @@ export default function LoginPageClient({}: LoginPageClientProps) {
             </p>
         </div>
         <Tabs defaultValue="employee" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="employee">دخول الموظفين</TabsTrigger>
                 <TabsTrigger value="client">دخول العملاء</TabsTrigger>
-                <TabsTrigger value="register">إنشاء حساب</TabsTrigger>
             </TabsList>
             <TabsContent value="employee">
                 <LoginForm />
@@ -47,10 +46,13 @@ export default function LoginPageClient({}: LoginPageClientProps) {
             <TabsContent value="client">
                 <ClientLoginForm />
             </TabsContent>
-            <TabsContent value="register">
-                <RegisterForm />
-            </TabsContent>
         </Tabs>
+         <div className="mt-4 text-center text-sm">
+            لا تملك حسابًا؟{" "}
+            <Link href="#" className="underline">
+                اطلب حسابًا تجريبيًا
+            </Link>
+        </div>
     </div>
   );
 }

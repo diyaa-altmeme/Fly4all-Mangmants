@@ -90,7 +90,7 @@ export default function LoginForm() {
           control={form.control}
           name="identifier"
           render={({ field }) => (
-            <FormItem className="grid gap-2">
+            <FormItem className="grid gap-2 text-right">
               <Label htmlFor="identifier">اسم المستخدم أو البريد الإلكتروني</Label>
               <FormControl>
                 <Input
@@ -108,12 +108,12 @@ export default function LoginForm() {
           control={form.control}
           name="password"
           render={({ field }) => (
-            <FormItem className="grid gap-2">
+            <FormItem className="grid gap-2 text-right">
               <div className="flex items-center">
                 <Label htmlFor="password">كلمة المرور</Label>
                 <Link
                   href="#"
-                  className="ml-auto inline-block text-sm underline"
+                  className="mr-auto inline-block text-sm underline"
                 >
                   هل نسيت كلمة المرور؟
                 </Link>

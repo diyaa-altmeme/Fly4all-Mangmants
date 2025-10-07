@@ -41,12 +41,12 @@ export default async function BookingsPage({ searchParams }: { searchParams: { [
 
     return (
         <div className="space-y-6">
-            <CardHeader className="px-0 sm:px-6">
-                <CardTitle>إدارة الحجوزات والعمليات</CardTitle>
-                <CardDescription>
+            <div className="px-0 sm:px-6">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة الحجوزات والعمليات</h1>
+                <p className="text-muted-foreground">
                     إدارة شاملة لجميع الحجوزات وعمليات التذاكر (إصدار، تغيير، استرجاع، إلغاء) في مكان واحد.
-                </CardDescription>
-            </CardHeader>
+                </p>
+            </div>
             <Suspense fallback={<Skeleton className="h-96 w-full" />}>
                 <BookingsDataContainer
                     page={page}

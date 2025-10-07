@@ -35,12 +35,12 @@ export default async function RemittancesPage() {
 
     return (
         <div className="space-y-6">
-            <CardHeader className="px-0 sm:px-6">
-                <CardTitle>إدارة الحوالات الواردة</CardTitle>
-                <CardDescription>
+            <div className="px-0 sm:px-6">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة الحوالات الواردة</h1>
+                <p className="text-muted-foreground">
                     نظام متكامل لتسجيل وتدقيق واستلام الحوالات المالية الواردة من المكاتب الخارجية.
-                </CardDescription>
-            </CardHeader>
+                </p>
+            </div>
             <RemittancesContent
                 initialRemittances={remittances}
                 onDataChange={onDataChange}

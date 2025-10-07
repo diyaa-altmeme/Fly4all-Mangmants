@@ -36,15 +36,17 @@ async function SubscriptionsData() {
 export default function SubscriptionsPage() {
     return (
         <div className="space-y-6">
-            <CardHeader className="px-0 sm:px-6">
-                <CardTitle>إدارة الاشتراكات</CardTitle>
-                <CardDescription>عرض وإدارة جميع الاشتراكات الدورية في مكان واحد.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-                    <SubscriptionsData />
-                </Suspense>
-            </CardContent>
+            <div className="px-0 sm:px-6">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة الاشتراكات</h1>
+                <p className="text-muted-foreground">عرض وإدارة جميع الاشتراكات الدورية في مكان واحد.</p>
+            </div>
+            <Card>
+                <CardContent className="pt-6">
+                    <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                        <SubscriptionsData />
+                    </Suspense>
+                </CardContent>
+            </Card>
         </div>
     );
 }

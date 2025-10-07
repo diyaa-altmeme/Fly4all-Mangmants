@@ -58,7 +58,7 @@ import {
     ScanSearch,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import NewStandardReceiptDialog from "@/components/vouchers/components/new-standard-receipt-dialog";
+import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
 import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
 import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
 import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
@@ -321,21 +321,16 @@ const MainNavContent = () => {
            )
       }
 
-      if (React.isValidElement(menu.children) && menu.children.type === React.Fragment) {
-          return React.Children.map(menu.children.props.children, (child) => {
-              if (!React.isValidElement(child)) return null;
+      const itemsToRender = menu.id === 'operations' ? operationsItems : menu.id === 'reports' ? reportsItems : [];
 
-              if (child.type === DropdownMenuItem && child.props.asChild) {
-                  const link = child.props.children;
-                  if (React.isValidElement(link) && link.type === Link) {
-                      const text = link.props.children[0];
-                      const icon = link.props.children[1];
-                      return <MobileSubItem href={link.props.href} icon={icon.type}>{text}</MobileSubItem>;
-                  }
-              }
-              return null;
-          });
+      if (itemsToRender.length > 0) {
+           return (
+             <div className="flex flex-col gap-1">
+                {itemsToRender.map(item => <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>)}
+            </div>
+           )
       }
+
       return menu.children;
   }
 

@@ -68,12 +68,10 @@ export default async function ClientsPage({ searchParams }: { searchParams: { [k
 
     return (
         <div className="space-y-6">
-             <CardHeader className="px-0 sm:px-6">
-                <CardTitle>إدارة العلاقات</CardTitle>
-                <CardDescription>
-                    إدارة جميع العملاء والموردين في مكان واحد.
-                </CardDescription>
-            </CardHeader>
+             <div className="px-0 sm:px-6">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة العلاقات</h1>
+                <p className="text-muted-foreground">إدارة جميع العملاء والموردين في مكان واحد.</p>
+            </div>
             <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
                 <ClientsDataContainer 
                     page={page} 
