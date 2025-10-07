@@ -15,11 +15,14 @@ import { Badge } from '@/components/ui/badge';
 import type { LandingPageFeature, LandingPageFaqItem, LandingPagePartner, ThemeCustomizationSettings, SidebarThemeSettings } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
 
 
 export const LandingHeader = ({ showTitle, isScrolled }: { showTitle: boolean, isScrolled: boolean }) => {
     const router = useRouter();
     const { refreshUser } = useAuth();
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
 
     const menuItems = [
         { label: 'خدماتنا', section: 'servicesSection' },
@@ -29,6 +32,7 @@ export const LandingHeader = ({ showTitle, isScrolled }: { showTitle: boolean, i
     ];
 
     const scrollToSection = (sectionId: string) => {
+        setIsSheetOpen(false);
         const element = document.getElementById(sectionId);
         if (element) {
             element.scrollIntoView({ behavior: 'smooth' });
@@ -43,10 +47,38 @@ export const LandingHeader = ({ showTitle, isScrolled }: { showTitle: boolean, i
                 : "bg-background text-foreground border-transparent"
         )}>
             <div className="container mx-auto flex items-center justify-between relative z-10">
-                <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2">
                      <Button asChild size="lg" className="hidden sm:inline-flex text-base lg:text-lg" variant={isScrolled ? "accent" : "default"}>
                         <Link href="/auth/login">الدخول للنظام</Link>
                     </Button>
+                     <div className="md:hidden">
+                        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                            <SheetTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                    <Menu className="h-6 w-6" />
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="right">
+                                <div className="flex flex-col h-full">
+                                    <div className="p-4 border-b">
+                                        <h3 className="font-bold text-lg">القائمة</h3>
+                                    </div>
+                                    <div className="flex flex-col gap-4 p-4 flex-grow">
+                                        {menuItems.map(item => (
+                                            <button key={item.label} onClick={() => scrollToSection(item.section)} className="text-base font-semibold hover:text-primary transition-colors text-right">
+                                                {item.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="p-4 border-t">
+                                        <Button asChild className="w-full">
+                                            <Link href="/auth/login">الدخول للنظام</Link>
+                                        </Button>
+                                    </div>
+                                </div>
+                            </SheetContent>
+                        </Sheet>
+                    </div>
                 </div>
                  <nav className="hidden md:flex items-center justify-center gap-8">
                     {menuItems.map(item => (
@@ -528,28 +560,57 @@ const ProfitsManagementSection = ({ section }: { section?: { title: string, desc
     );
 };
 
-const Preloader = () => (
-    <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-[#23005a] overflow-hidden"
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.5 }}
-    >
-        <Network className="absolute inset-0 h-full w-full text-white/10 opacity-20 blur-sm" />
+const Preloader = () => {
+    const [stars, setStars] = React.useState<React.CSSProperties[]>([]);
+
+    React.useEffect(() => {
+        const generatedStars = [...Array(50)].map(() => ({
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            animation: `twinkle ${Math.random() * 5 + 2}s linear infinite ${Math.random() * 2}s`,
+        }));
+        setStars(generatedStars);
+    }, []);
+
+    return (
         <motion.div
-            animate={{
-                scale: [1, 1.1, 1],
-                y: [0, -10, 0]
-            }}
-            transition={{
-                duration: 2.5,
-                repeat: Infinity,
-                ease: "easeInOut"
-            }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-[#23005a] overflow-hidden"
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
         >
-            <Rocket className="h-20 w-20 text-white/80" />
+            {/* Starry background */}
+            <div className="absolute inset-0 z-0">
+                {stars.map((style, i) => (
+                    <div key={i} className="absolute h-0.5 w-0.5 bg-white rounded-full" style={style}></div>
+                ))}
+            </div>
+            <style jsx>{`
+                @keyframes twinkle {
+                    0%, 100% { opacity: 0; transform: scale(0.8); }
+                    50% { opacity: 1; transform: scale(1.2); }
+                }
+            `}</style>
+
+            <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ 
+                    scale: [0.5, 1.2, 1], 
+                    y: [0, -15, 0],
+                    opacity: 1
+                }}
+                exit={{ scale: 5, opacity: 0 }}
+                transition={{
+                    scale: { duration: 0.8, ease: "backOut" },
+                    y: { duration: 2, repeat: Infinity, ease: "easeInOut" },
+                    opacity: { duration: 0.5 }
+                }}
+                className="z-10"
+            >
+                <Rocket className="h-20 w-20 text-white/90 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
+            </motion.div>
         </motion.div>
-    </motion.div>
-);
+    );
+};
 
 
 const landingPageSettings: Partial<LandingPageSettings> = {
@@ -767,5 +828,3 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
-
-    
