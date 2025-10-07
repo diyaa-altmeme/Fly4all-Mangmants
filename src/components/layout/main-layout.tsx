@@ -134,7 +134,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                               </Button>
                           </SheetTrigger>
                           <SheetContent side="right" className="w-[300px] sm:w-[340px] p-0 flex flex-col">
-                              <SheetHeader className="p-4 border-b shrink-0">
+                              <SheetHeader className="p-4 border-b shrink-0 text-right">
                                   <SheetTitle>القائمة الرئيسية</SheetTitle>
                                   <SheetDescription>
                                       تنقل بين أقسام النظام المختلفة.

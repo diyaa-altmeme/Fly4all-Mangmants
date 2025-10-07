@@ -2,12 +2,12 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ChevronDown, MoreHorizontal, AlertTriangle, PlusCircle, Search, Filter, Settings, Trash2, GitCompareArrows } from 'lucide-react';
 import AddSegmentPeriodDialog from '@/app/segments/components/add-segment-period-dialog';
-import EditSegmentPeriodDialog from '@/app/segments/components/edit-segment-period-dialog';
+import EditSegmentPeriodDialog from '@/components/segments/edit-segment-period-dialog';
 import SegmentSettingsDialog from '@/components/segments/segment-settings-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import SegmentDetailsTable from '@/components/segments/segment-details-table';
@@ -24,7 +24,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, isWithinInterval, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import type { SegmentEntry, Client, Supplier } from '@/lib/types';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { getClients } from '@/app/relations/actions';
 import { getSuppliers } from '@/app/suppliers/actions';
 
@@ -165,9 +165,9 @@ export default function SegmentsPage() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
-                            <CardTitle>سجل حسابات السكمنت</CardTitle>
+                            <CardTitle className="text-2xl md:text-3xl font-bold tracking-tight">سجل حسابات السكمنت</CardTitle>
                             <CardDescription>
                                 عرض ملخص الفترات المحاسبية للسكمنت.
                             </CardDescription>
@@ -232,7 +232,7 @@ export default function SegmentsPage() {
                                     </PopoverContent>
                                 </Popover>
                             </div>
-                            <Button onClick={handleApplyFilters}>
+                             <Button onClick={handleApplyFilters}>
                                 <Filter className="me-2 h-4 w-4" />
                                 تطبيق
                             </Button>

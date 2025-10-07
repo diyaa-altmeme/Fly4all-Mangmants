@@ -24,7 +24,7 @@ function UsersPageContainer() {
         setLoading(true);
         try {
             const [usersData, boxesData, rolesData] = await Promise.all([
-                getUsers({ includeHrData: true }),
+                getUsers({ includeHrData: true, all: true }),
                 getBoxes(),
                 getRoles(),
             ]);
@@ -82,10 +82,10 @@ export default function UsersPage() {
 
     return (
         <div className="space-y-6">
-            <CardHeader className="px-0 sm:px-6">
-                <CardTitle>إدارة المستخدمين والصلاحيات</CardTitle>
-                <CardDescription>إدارة حسابات الموظفين، تحديد أدوارهم، والتحكم في صلاحيات الوصول للنظام.</CardDescription>
-            </CardHeader>
+            <div className="px-0 sm:px-6">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة المستخدمين والصلاحيات</h1>
+                <p className="text-muted-foreground">إدارة حسابات الموظفين، تحديد أدوارهم، والتحكم في صلاحيات الوصول للنظام.</p>
+            </div>
             <UsersPageContainer />
         </div>
     );
