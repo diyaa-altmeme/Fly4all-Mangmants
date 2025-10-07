@@ -48,18 +48,16 @@ export default function VisasPage() {
     }
     
   return (
-      <Card>
-            <CardHeader className="text-right">
+      <div className="space-y-6">
+            <CardHeader className="px-0 sm:px-6">
                 <CardTitle>إدارة طلبات الفيزا</CardTitle>
                 <CardDescription>
                     نظام متكامل لتسجيل ومتابعة جميع طلبات الفيزا وحالاتها.
                 </CardDescription>
             </CardHeader>
-            <CardContent>
-                 <VisasContent
-                    initialData={bookings}
-                />
-            </CardContent>
-        </Card>
+            <VisasContent
+                initialData={bookings}
+            />
+        </div>
   );
 }

@@ -27,7 +27,7 @@ interface LoginPageClientProps {}
 export default function LoginPageClient({}: LoginPageClientProps) {
   
   return (
-      <div className="mx-auto grid w-[350px] gap-6">
+      <div className="mx-auto grid w-full max-w-sm sm:max-w-md gap-6">
         <div className="grid gap-2 text-center">
             <Plane className="h-8 w-8 mx-auto text-primary"/>
             <h1 className="text-3xl font-bold">Mudarib</h1>
@@ -54,5 +54,3 @@ export default function LoginPageClient({}: LoginPageClientProps) {
     </div>
   );
 }
-
-    

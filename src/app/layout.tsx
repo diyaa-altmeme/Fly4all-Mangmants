@@ -26,7 +26,7 @@ export default function RootLayout({
         <head>
             <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" />
         </head>
-        <body className={`font-sans antialiased bg-background`}>
+        <body className={`font-sans antialiased bg-background overflow-x-hidden`}>
             <Providers>
                 {children}
             </Providers>

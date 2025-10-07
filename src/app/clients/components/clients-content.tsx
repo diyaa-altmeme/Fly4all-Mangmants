@@ -7,7 +7,7 @@ import AddClientDialog from '@/app/clients/components/add-client-dialog';
 import ClientsTable from './clients-table';
 import { Button } from '@/components/ui/button';
 import { LayoutGrid, List, Download, X, Trash2, Loader2, Filter, Settings, PlusCircle, Check } from 'lucide-react';
-import ClientCard from '@/components/clients/components/client-card';
+import ClientCard from './client-card';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -105,101 +105,84 @@ export default function ClientsContent({ initialRelations, totalRelations, relat
     const activeFilterCount = Object.values(stagedFilters).filter(v => v && v !== 'all' && v !== '').length;
     
     return (
-        <Card>
-            <CardHeader>
-                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <CardTitle>إدارة العلاقات</CardTitle>
-                        <CardDescription>
-                            إدارة جميع العملاء والموردين في مكان واحد.
-                        </CardDescription>
-                    </div>
-                     <div className="flex items-center gap-2">
-                         <AddClientDialog onClientAdded={(c) => onDataChanged(c)} onClientUpdated={onDataChanged}>
-                             <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة جديدة</Button>
-                         </AddClientDialog>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                         <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" className="h-8">
-                                    <Filter className="me-2 h-4 w-4" />
-                                    الفلاتر
-                                    {activeFilterCount > 0 && <Badge className="ms-2">{activeFilterCount}</Badge>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-80">
-                                <div className="grid gap-4">
-                                    <div className="space-y-2">
-                                        <h4 className="font-medium leading-none">الفلاتر المتقدمة</h4>
-                                        <p className="text-sm text-muted-foreground">
-                                            قم بتصفية النتائج بناءً على المعايير أدناه.
-                                        </p>
-                                    </div>
-                                    <div className="grid gap-4">
-                                         <div className="grid grid-cols-3 items-center gap-4"><Label>نوع العلاقة</Label><Select value={stagedFilters.relationType} onValueChange={(v) => setStagedFilters(f => ({...f, relationType: v}))}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">كل الأنواع</SelectItem><SelectItem value="client">عميل</SelectItem><SelectItem value="supplier">مورد</SelectItem><SelectItem value="both">كلاهما</SelectItem></SelectContent></Select></div>
-                                         <div className="grid grid-cols-3 items-center gap-4"><Label>نوع التعامل</Label><Select value={stagedFilters.paymentType} onValueChange={(v) => setStagedFilters(f => ({...f, paymentType: v}))}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">كل الأنواع</SelectItem><SelectItem value="cash">نقدي</SelectItem><SelectItem value="credit">آجل</SelectItem></SelectContent></Select></div>
-                                         <div className="grid grid-cols-3 items-center gap-4"><Label>الحالة</Label><Select value={stagedFilters.status} onValueChange={(v) => setStagedFilters(f => ({...f, status: v}))}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">كل الحالات</SelectItem><SelectItem value="active">نشط</SelectItem><SelectItem value="inactive">غير نشط</SelectItem></SelectContent></Select></div>
-                                         <Separator />
-                                         <div className="grid grid-cols-3 items-center gap-4"><Label>الدولة</Label><Select value={stagedFilters.country} onValueChange={(v) => setStagedFilters(f => ({...f, country: v, province: 'all'}))}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent>{[{name: 'all'},...COUNTRIES_DATA].map(c => <SelectItem key={c.name} value={c.name}>{c.name === 'all' ? 'كل الدول' : c.name}</SelectItem>)}</SelectContent></Select></div>
-                                         <div className="grid grid-cols-3 items-center gap-4"><Label>المحافظة</Label><Select value={stagedFilters.province} onValueChange={(v) => setStagedFilters(f => ({...f, province: v}))} disabled={stagedFilters.country === 'all'}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">كل المحافظات</SelectItem>{(COUNTRIES_DATA.find(c=>c.name === stagedFilters.country)?.provinces || []).map(p => <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select></div>
-                                         <Separator />
-                                         <Button onClick={handleApplyFilters} disabled={isApplyingFilters}>
-                                             {isApplyingFilters && <Loader2 className="me-2 h-4 w-4 animate-spin"/>}
-                                             تطبيق الفلاتر
-                                        </Button>
-                                    </div>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                         <div className="relative flex-grow sm:flex-grow-0 sm:w-72">
-                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                           <Input
-                               placeholder="بحث بالاسم, الهاتف, المعرف..."
-                               value={stagedFilters.search}
-                               onChange={(e) => setStagedFilters(f => ({...f, search: e.target.value}))}
-                               onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
-                               className="ps-10 h-8"
-                           />
-                       </div>
-                       {searchParams.toString() !== '' && (
-                            <Button variant="ghost" size="sm" onClick={() => router.push(pathname)}>
-                                <X className="me-2 h-4 w-4"/> مسح
+        <div className="space-y-4">
+             <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                     <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className="h-8 w-full sm:w-auto">
+                                <Filter className="me-2 h-4 w-4" />
+                                الفلاتر
+                                {activeFilterCount > 0 && <Badge className="ms-2">{activeFilterCount}</Badge>}
                             </Button>
-                       )}
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <Button variant={viewMode === 'cards' ? 'secondary' : 'outline'} size="sm" onClick={() => setViewMode('cards')}><LayoutGrid className="me-2 h-4 w-4" /> بطاقات</Button>
-                        <Button variant={viewMode === 'table' ? 'secondary' : 'outline'} size="sm" onClick={() => setViewMode('table')}><List className="me-2 h-4 w-4" /> جدول</Button>
-                    </div>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                            <div className="grid gap-4">
+                                <div className="space-y-2">
+                                    <h4 className="font-medium leading-none">الفلاتر المتقدمة</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                        قم بتصفية النتائج بناءً على المعايير أدناه.
+                                    </p>
+                                </div>
+                                <div className="grid gap-4">
+                                     <div className="grid grid-cols-3 items-center gap-4"><Label>نوع العلاقة</Label><Select value={stagedFilters.relationType} onValueChange={(v) => setStagedFilters(f => ({...f, relationType: v}))}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">كل الأنواع</SelectItem><SelectItem value="client">عميل</SelectItem><SelectItem value="supplier">مورد</SelectItem><SelectItem value="both">كلاهما</SelectItem></SelectContent></Select></div>
+                                     <div className="grid grid-cols-3 items-center gap-4"><Label>نوع التعامل</Label><Select value={stagedFilters.paymentType} onValueChange={(v) => setStagedFilters(f => ({...f, paymentType: v}))}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">كل الأنواع</SelectItem><SelectItem value="cash">نقدي</SelectItem><SelectItem value="credit">آجل</SelectItem></SelectContent></Select></div>
+                                     <div className="grid grid-cols-3 items-center gap-4"><Label>الحالة</Label><Select value={stagedFilters.status} onValueChange={(v) => setStagedFilters(f => ({...f, status: v}))}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">كل الحالات</SelectItem><SelectItem value="active">نشط</SelectItem><SelectItem value="inactive">غير نشط</SelectItem></SelectContent></Select></div>
+                                     <Separator />
+                                     <div className="grid grid-cols-3 items-center gap-4"><Label>الدولة</Label><Select value={stagedFilters.country} onValueChange={(v) => setStagedFilters(f => ({...f, country: v, province: 'all'}))}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent>{[{name: 'all'},...COUNTRIES_DATA].map(c => <SelectItem key={c.name} value={c.name}>{c.name === 'all' ? 'كل الدول' : c.name}</SelectItem>)}</SelectContent></Select></div>
+                                     <div className="grid grid-cols-3 items-center gap-4"><Label>المحافظة</Label><Select value={stagedFilters.province} onValueChange={(v) => setStagedFilters(f => ({...f, province: v}))} disabled={stagedFilters.country === 'all'}><SelectTrigger className="col-span-2"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="all">كل المحافظات</SelectItem>{(COUNTRIES_DATA.find(c=>c.name === stagedFilters.country)?.provinces || []).map(p => <SelectItem key={p.name} value={p.name}>{p.name}</SelectItem>)}</SelectContent></Select></div>
+                                     <Separator />
+                                     <Button onClick={handleApplyFilters} disabled={isApplyingFilters}>
+                                         {isApplyingFilters && <Loader2 className="me-2 h-4 w-4 animate-spin"/>}
+                                         تطبيق الفلاتر
+                                    </Button>
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                     <div className="relative flex-grow sm:flex-grow-0 sm:w-72">
+                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                       <Input
+                           placeholder="بحث بالاسم, الهاتف, المعرف..."
+                           value={stagedFilters.search}
+                           onChange={(e) => setStagedFilters(f => ({...f, search: e.target.value}))}
+                           onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+                           className="ps-10 h-8"
+                       />
+                   </div>
+                   {searchParams.toString() !== '' && (
+                        <Button variant="ghost" size="sm" onClick={() => router.push(pathname)}>
+                            <X className="me-2 h-4 w-4"/> مسح
+                        </Button>
+                   )}
                 </div>
-                 
-                {isApplyingFilters ? <div className="flex justify-center items-center h-96"><Loader2 className="h-8 w-8 animate-spin"/></div> : (
-                    <>
-                    {viewMode === 'table' ? (
-                        <ClientsTable
-                            table={table}
-                        />
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {relations.map(client => (
-                                <ClientCard key={client.id} client={client} relationSections={relationSections} onClientUpdated={onDataChanged} />
-                            ))}
-                        </div>
-                    )}
-                    {relations.length === 0 && (
-                       <div className="col-span-full text-center p-8 border-2 border-dashed rounded-lg">
-                          <p className="text-muted-foreground">لا توجد نتائج تطابق الفلتر.</p>
-                       </div>
-                    )}
-                    <DataTablePagination table={table} totalRows={totalRelations} />
-                    </>
+                 <div className="flex items-center gap-2">
+                    <Button variant={viewMode === 'cards' ? 'secondary' : 'outline'} size="sm" onClick={() => setViewMode('cards')}><LayoutGrid className="me-2 h-4 w-4" /> بطاقات</Button>
+                    <Button variant={viewMode === 'table' ? 'secondary' : 'outline'} size="sm" onClick={() => setViewMode('table')}><List className="me-2 h-4 w-4" /> جدول</Button>
+                </div>
+            </div>
+             
+            {isApplyingFilters ? <div className="flex justify-center items-center h-96"><Loader2 className="h-8 w-8 animate-spin"/></div> : (
+                <>
+                {viewMode === 'table' ? (
+                    <ClientsTable
+                        table={table}
+                    />
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {relations.map(client => (
+                            <ClientCard key={client.id} client={client} relationSections={relationSections} onClientUpdated={onDataChanged} />
+                        ))}
+                    </div>
                 )}
-            </CardContent>
-        </Card>
+                {relations.length === 0 && (
+                   <div className="col-span-full text-center p-8 border-2 border-dashed rounded-lg">
+                      <p className="text-muted-foreground">لا توجد نتائج تطابق الفلتر.</p>
+                   </div>
+                )}
+                <DataTablePagination table={table} totalRows={totalRelations} />
+                </>
+            )}
+        </div>
     );
 }

@@ -15,30 +15,27 @@ interface BoxesContentProps {
 }
 
 export default function BoxesContent({ initialBoxes }: BoxesContentProps) {
-    const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+    const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
 
     return (
         <Card>
-            <CardHeader>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle>إدارة الصناديق</CardTitle>
-                        <CardDescription>عرض وإدارة جميع الصناديق المالية في النظام.</CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant={viewMode === 'table' ? 'secondary' : 'outline'} size="icon" onClick={() => setViewMode('table')}>
-                            <List className="h-4 w-4" />
+            <CardHeader className="flex flex-col sm:flex-row items-center justify-between">
+                <div className="w-full">
+                    {/* Title and Description are now in the page.tsx */}
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <Button variant={viewMode === 'table' ? 'secondary' : 'outline'} size="icon" onClick={() => setViewMode('table')}>
+                        <List className="h-4 w-4" />
+                    </Button>
+                    <Button variant={viewMode === 'cards' ? 'secondary' : 'outline'} size="icon" onClick={() => setViewMode('cards')}>
+                        <LayoutGrid className="h-4 w-4" />
+                    </Button>
+                    <AddEditBoxDialog>
+                        <Button className="w-full sm:w-auto">
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            إضافة صندوق جديد
                         </Button>
-                        <Button variant={viewMode === 'cards' ? 'secondary' : 'outline'} size="icon" onClick={() => setViewMode('cards')}>
-                            <LayoutGrid className="h-4 w-4" />
-                        </Button>
-                        <AddEditBoxDialog>
-                            <Button>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                إضافة صندوق جديد
-                            </Button>
-                        </AddEditBoxDialog>
-                    </div>
+                    </AddEditBoxDialog>
                 </div>
             </CardHeader>
             <CardContent>
@@ -49,6 +46,7 @@ export default function BoxesContent({ initialBoxes }: BoxesContentProps) {
                         {initialBoxes.map(box => (
                             <BoxCard key={box.id} box={box} />
                         ))}
+                         {initialBoxes.length === 0 && <p className="col-span-full text-center p-8">لا توجد صناديق.</p>}
                     </div>
                 )}
             </CardContent>

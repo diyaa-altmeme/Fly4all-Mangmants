@@ -4,7 +4,7 @@ import BookingsContent from "./components/bookings-content";
 import { getBookings } from "./actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
-import type { BookingEntry } from "@/lib/types";
+import type { BookingEntry, JournalVoucher } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +24,7 @@ async function BookingsDataContainer({ page, limit }: { page: number, limit: num
         );
     }
     
+    // The getBookings now returns JournalVoucher[], we extract originalData for the components that expect BookingEntry
     const bookingEntries = bookings.map(b => b.originalData as BookingEntry);
 
     return (
@@ -39,21 +40,19 @@ export default async function BookingsPage({ searchParams }: { searchParams: { [
     const limit = Number(searchParams?.['limit'] ?? '15');
 
     return (
-        <Card>
-            <CardHeader className="text-right">
+        <div className="space-y-6">
+            <CardHeader className="px-0 sm:px-6">
                 <CardTitle>إدارة الحجوزات والعمليات</CardTitle>
                 <CardDescription>
                     إدارة شاملة لجميع الحجوزات وعمليات التذاكر (إصدار، تغيير، استرجاع، إلغاء) في مكان واحد.
                 </CardDescription>
             </CardHeader>
-            <CardContent>
-                <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-                    <BookingsDataContainer
-                        page={page}
-                        limit={limit}
-                    />
-                </Suspense>
-            </CardContent>
-        </Card>
+            <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <BookingsDataContainer
+                    page={page}
+                    limit={limit}
+                />
+            </Suspense>
+        </div>
     )
 }
