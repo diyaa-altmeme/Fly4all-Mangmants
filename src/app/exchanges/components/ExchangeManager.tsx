@@ -28,8 +28,6 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { produce } from 'immer';
-import * as XLSX from 'xlsx';
-
 
 interface ExchangeManagerProps {
     initialExchanges: Exchange[];
@@ -371,31 +369,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       toast({ title: 'لا توجد بيانات للتصدير' });
       return;
     }
-    
-    const dataToExport = filteredLedger.flatMap(entry =>
-      (entry.details || []).map((detail: any) => ({
-        'رقم الفاتورة': entry.invoiceNumber,
-        'تاريخ الفاتورة': entry.date,
-        'نوع الدفعة': entry.entryType === 'transaction' ? 'معاملة' : 'تسديد/قبض',
-        'نوع الحركة': entry.entryType === 'transaction' ? 'دين' : detail.type,
-        'الطرف': detail.partyName || detail.paidTo,
-        'الوسيط': entry.entryType === 'payment' ? detail.intermediary : entry.userName,
-        'المبلغ الأصلي': detail.originalAmount,
-        'العملة الأصلية': detail.originalCurrency,
-        'سعر الصرف': detail.rate,
-        'المبلغ بالدولار': detail.amountInUSD,
-        'ملاحظات': detail.note,
-        'تاريخ الإنشاء': format(parseISO(entry.createdAt), 'yyyy-MM-dd HH:mm'),
-        'المستخدم': entry.userName,
-      }))
-    );
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Ledger");
-    
-    const exchangeName = exchanges.find(ex => ex.id === exchangeId)?.name || 'exchange';
-    XLSX.writeFile(workbook, `ExchangeLedger_${exchangeName}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast({ title: "وظيفة معطلة", description: "تم تعطيل تصدير Excel مؤقتًا.", variant: "destructive" });
   };
 
     return (
