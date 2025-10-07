@@ -17,7 +17,7 @@ import { produce } from 'immer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDebounce } from '@/hooks/use-debounce';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
-import * as XLSX from 'xlsx';
+// import * as XLSX from 'xlsx';
 import { isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 
@@ -118,70 +118,11 @@ export default function FlightAnalysisPage() {
     };
 
     const handleExport = () => {
-        if (allReports.length === 0) {
-            toast({ title: "لا توجد بيانات للتصدير", variant: "destructive" });
-            return;
-        }
-
-        const dataToExport = allReports.map(report => ({
-            'اسم الملف': report.fileName,
-            'تاريخ الرحلة': report.flightDate,
-            'الوجهة': report.route,
-            'المصدر': report.supplierName,
-            'عدد الركاب': report.paxCount,
-            'الإجمالي': report.totalRevenue,
-            'خصم العودة': report.totalDiscount,
-            'خصم يدوي': report.manualDiscountValue,
-            'الصافي': report.filteredRevenue,
-        }));
-
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "ملخص الرحلات");
-        XLSX.writeFile(workbook, `Flight_Analysis_Summary_${new Date().toISOString().split('T')[0]}.xlsx`);
-        
-        toast({ title: "تم تصدير الملخص بنجاح" });
+        toast({ title: "وظيفة معطلة", description: "تم تعطيل تصدير الملخص مؤقتًا.", variant: "destructive" });
     };
 
     const handleComprehensiveExport = () => {
-        if (allReports.length === 0) {
-            toast({ title: "لا توجد بيانات للتصدير", variant: "destructive" });
-            return;
-        }
-
-        const dataToExport = allReports.flatMap(report => 
-            (report.passengers || []).map(passenger => ({
-                'ملف المصدر': report.fileName,
-                'تاريخ الرحلة': report.flightDate,
-                'وقت الرحلة': report.flightTime,
-                'الوجهة': report.route,
-                'المورد': report.supplierName,
-                'Booking Reference': passenger.bookingReference,
-                'PNR / Class': passenger.pnrClass,
-                'اسم المسافر': passenger.name,
-                'رقم الجواز': passenger.passportNumber,
-                'نوع المسافر': passenger.passengerType,
-                'السعر': passenger.payable,
-                'نوع الرحلة': passenger.tripType === 'RETURN' ? 'عودة' : (passenger.tripType === 'DEPARTURE' ? 'ذهاب وعودة' : 'ذهاب فقط'),
-                'تاريخ الذهاب (للعودة)': passenger.tripType === 'RETURN' ? passenger.departureDate : '',
-                'السعر الفعلي': passenger.actualPrice,
-                'الخصم التلقائي': report.totalDiscount || 0,
-                'الخصم اليدوي': report.manualDiscountValue || 0,
-                'الصافي النهائي': report.filteredRevenue || 0,
-            }))
-        );
-
-        if (dataToExport.length === 0) {
-            toast({ title: "لا توجد بيانات مسافرين للتصدير", variant: "destructive" });
-            return;
-        }
-
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "تفاصيل الرحلات");
-        XLSX.writeFile(workbook, `Flight_Analysis_Comprehensive_${new Date().toISOString().split('T')[0]}.xlsx`);
-        
-        toast({ title: "تم التصدير الشامل بنجاح" });
+        toast({ title: "وظيفة معطلة", description: "تم تعطيل التصدير الشامل مؤقتًا.", variant: "destructive" });
     };
     
     const sortedReports = useMemo(() => {
