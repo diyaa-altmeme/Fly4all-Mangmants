@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import type { LandingPageFeature, LandingPageFaqItem, LandingPagePartner, ThemeCustomizationSettings, SidebarThemeSettings } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 
 
@@ -59,10 +59,10 @@ export const LandingHeader = ({ showTitle, isScrolled }: { showTitle: boolean, i
                                 </Button>
                             </SheetTrigger>
                             <SheetContent side="right">
+                                <SheetHeader className="p-4 border-b text-right">
+                                    <SheetTitle>القائمة</SheetTitle>
+                                </SheetHeader>
                                 <div className="flex flex-col h-full">
-                                    <div className="p-4 border-b">
-                                        <h3 className="font-bold text-lg">القائمة</h3>
-                                    </div>
                                     <div className="flex flex-col gap-4 p-4 flex-grow">
                                         {menuItems.map(item => (
                                             <button key={item.label} onClick={() => scrollToSection(item.section)} className="text-base font-semibold hover:text-primary transition-colors text-right">
@@ -828,3 +828,5 @@ const LandingPage = () => {
 };
 
 export default LandingPage;
+
+    
