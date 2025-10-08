@@ -30,7 +30,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from '@/context/auth-context';
 import Preloader from './preloader';
-import AuthWrapper from './auth-wrapper';
+
+const protectedRoutes = ['/dashboard', '/settings', '/users', '/reports', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/hr', '/system', '/profile', '/profit-sharing', '/reconciliation', '/exchanges', '/segments', '/templates', '/campaigns'];
+const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/auth/register'];
 
 const MobileNav = () => {
     return (
@@ -147,22 +149,36 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
+    const router = useRouter();
     const pathname = usePathname();
+    const [isClient, setIsClient] = React.useState(false);
 
-    const isAuthPage = pathname.startsWith('/auth');
+    React.useEffect(() => {
+        setIsClient(true);
+    }, []);
 
-    if (loading) {
+    React.useEffect(() => {
+        if (isClient && !loading) {
+            const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+            if (!user && isProtectedRoute) {
+                router.replace('/auth/login');
+            }
+        }
+    }, [user, loading, pathname, router, isClient]);
+
+    if (!isClient || loading) {
         return <Preloader />;
     }
+    
+    const isPublic = publicRoutes.some(route => pathname.startsWith(route)) || pathname === '/';
 
-    if (isAuthPage) {
-        return <>{children}</>;
-    }
-
-    if (!user) {
-        // AuthWrapper will handle the redirect, but as a fallback, show loader
+    if (!user && !isPublic) {
         return <Preloader />;
     }
+    
+    if (isPublic) {
+         return <>{children}</>;
+    }
 
-    return <AuthWrapper><AppLayout>{children}</AppLayout></AuthWrapper>;
+    return <AppLayout>{children}</AppLayout>;
 }
