@@ -1,28 +1,64 @@
+'use client';
+import { useState } from "react";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
+import Link from 'next/link';
 
-import { getCurrentUserFromSession } from '@/app/auth/actions';
-import LoginPageClient from './components/login-page-client';
-import { redirect } from 'next/navigation';
-import Image from 'next/image';
+export default function LoginPage() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const router = useRouter();
 
-export default async function LoginPage() {
-    const user = await getCurrentUserFromSession();
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
 
-    if (user) {
-        redirect('/dashboard');
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push("/dashboard");
+    } catch (err: any) {
+      setError(err.message);
     }
+  };
 
-    return (
-        <div className="w-full min-h-screen lg:grid lg:grid-cols-2">
-            <div className="flex items-center justify-center p-4">
-                <LoginPageClient />
-            </div>
-            <div className="hidden bg-muted lg:block relative">
-                 <div 
-                    className="absolute inset-0 bg-cover bg-center" 
-                    style={{backgroundImage: "url('https://images.unsplash.com/photo-1542314831-068cd1dbb563?q=80&w=2070&auto=format&fit=crop')"}}
-                 />
-                 <div className="absolute inset-0 bg-gradient-to-t from-primary/50 to-transparent"/>
-            </div>
-        </div>
-    );
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen">
+      <h1 className="text-2xl font-bold mb-4">تسجيل الدخول</h1>
+      <form onSubmit={handleLogin} className="flex flex-col w-80 gap-3">
+        <input
+          type="email"
+          placeholder="البريد الإلكتروني"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="border p-2 rounded"
+          required
+        />
+        <input
+          type="password"
+          placeholder="كلمة المرور"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="border p-2 rounded"
+          required
+        />
+        <button className="bg-green-600 text-white p-2 rounded">دخول</button>
+        {error && <p className="text-red-500 text-sm">{error}</p>}
+      </form>
+      <div className="mt-4 text-center text-sm">
+        <p>
+            ليس لديك حساب؟{' '}
+            <Link href="/register" className="underline">
+                إنشاء حساب جديد
+            </Link>
+        </p>
+        <p className="mt-2">
+            <Link href="/auth/forgot-password" className="underline">
+                نسيت كلمة المرور؟
+            </Link>
+        </p>
+      </div>
+    </div>
+  );
 }
