@@ -22,7 +22,7 @@ import { useThemeCustomization } from "@/context/theme-customization-context";
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { VoucherNavProvider } from "@/context/voucher-nav-context";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import NotificationCenter from "./notification-center";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -32,25 +32,6 @@ import Preloader from './preloader';
 import { Skeleton } from "../ui/skeleton";
 import ClientViewLayout from "@/app/clients/[id]/components/client-view-layout";
 import type { User, Client } from "@/lib/types";
-
-const protectedRoutes = ['/dashboard', '/settings', '/users', '/reports', '/bookings', '/visas', '/subscriptions', '/accounts', '/hr', '/system', '/profile', '/profit-sharing', '/reconciliation', '/exchanges', '/segments', '/templates', '/campaigns', '/relations', '/suppliers', '/coming-soon', '/support', '/admin'];
-const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/auth/register'];
-const clientRoutes = ['/clients'];
-
-const MobileNav = () => {
-    return (
-        <div className="grid gap-2 text-lg font-medium p-4">
-           <Link
-                href="/dashboard"
-                className="flex items-center justify-center gap-2 text-lg font-semibold"
-            >
-                <Plane className="h-6 w-6" />
-                <span>Mudarib</span>
-            </Link>
-           <MainNav />
-        </div>
-    )
-}
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
@@ -87,7 +68,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                                   </SheetDescription>
                               </SheetHeader>
                               <ScrollArea className="flex-grow">
-                                  <MobileNav />
+                                  <MainNav />
                               </ScrollArea>
                           </SheetContent>
                       </Sheet>
@@ -153,58 +134,33 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
-    const router = useRouter();
     const pathname = usePathname();
 
-    const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
     const isClientRoute = clientRoutes.some(route => pathname.startsWith(route));
-    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-
-    React.useEffect(() => {
-        if (loading) return;
-
-        if (!user) {
-            if (isProtectedRoute || isClientRoute) {
-                router.replace('/auth/login');
-            }
-        } else {
-             // User is logged in
-            if (isPublicRoute) {
-                router.replace('/dashboard');
-            } else if (isClientRoute && 'role' in user) { // Employee trying to access client route
-                router.replace('/dashboard');
-            } else if (isProtectedRoute && !('role' in user)) { // Client trying to access employee route
-                router.replace(`/clients/${user.uid}`);
-            }
-        }
-        
-        // Handle root path
-        if (pathname === '/') {
-            if (user) {
-                router.replace('/dashboard');
-            } else {
-                router.replace('/auth/login');
-            }
-        }
-    }, [user, loading, pathname, router, isProtectedRoute, isClientRoute, isPublicRoute]);
+    
+    // The core change: Instead of complex redirection logic here,
+    // we simply decide WHICH layout to render based on the user type.
+    // The protection logic itself is now handled by pages/hooks.
 
     if (loading) {
         return <Preloader />;
     }
 
-    if (isProtectedRoute && user && 'role' in user) {
-        return <AppLayout>{children}</AppLayout>;
-    }
-
-    if (isClientRoute && user && !('role' in user)) {
-        return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
+    // If a user is logged in
+    if (user) {
+        // If it's a client user, render the client-specific layout
+        if (!('role' in user)) {
+            // If a client tries to access a non-client page, they will be redirected by that page's useRequireAuth or logic
+            return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
+        }
+        // If it's an employee/admin user, render the main app layout
+        if ('role' in user) {
+            return <AppLayout>{children}</AppLayout>;
+        }
     }
     
-    // For public routes when no user is logged in
-    if (isPublicRoute && !user) {
-        return <>{children}</>;
-    }
-
-    // Fallback for cases where navigation hasn't completed
-    return <Preloader />;
+    // If no user is logged in, render the children directly.
+    // This is for public pages like login, forgot-password, etc.
+    // The protection for other pages will handle redirection if needed.
+    return <>{children}</>;
 }

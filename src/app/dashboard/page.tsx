@@ -5,7 +5,7 @@ import React, { Suspense } from 'react';
 import { getDashboardStats, getRecentBookings, getUpcomingInstallments, getRevenueChartData } from './actions';
 import { Skeleton } from "@/components/ui/skeleton";
 import DashboardClient from './components/dashboard-client';
-import { useRequireAuth } from '@/hooks/useRequireAuth';
+import useRequireAuth from '@/hooks/useRequireAuth';
 import Preloader from '@/components/layout/preloader';
 
 function DashboardDataContainer() {
