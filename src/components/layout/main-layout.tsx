@@ -112,9 +112,9 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
     const handleLogout = async () => {
         await logoutUser();
-        router.push('/auth/login');
-        // Full page reload might be necessary if context is not clearing properly
-        window.location.reload(); 
+        // The onAuthStateChanged listener will handle redirecting to login.
+        // Forcing a reload can ensure all state is cleared.
+        window.location.href = '/auth/login';
     }
 
     return (
@@ -214,6 +214,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         setIsClient(true);
     }, []);
     
+    // This effect now ONLY handles redirection, not loading state.
     React.useEffect(() => {
         if (!isClient || authLoading) {
             return;
@@ -221,12 +222,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
         const isAuthPage = pathname.startsWith('/auth');
         const isPublicPage = pathname === '/';
-        const isSetupPage = pathname === '/setup-admin';
 
-        if (!user && !isAuthPage && !isPublicPage && !isSetupPage) {
-            router.push('/auth/login');
-        } else if (user && (isAuthPage || isPublicPage || isSetupPage)) {
-            router.push('/dashboard');
+        if (!user && !isAuthPage && !isPublicPage) {
+            router.replace('/auth/login');
+        } else if (user && (isAuthPage || isPublicPage)) {
+            router.replace('/dashboard');
         }
 
     }, [user, authLoading, pathname, router, isClient]);
@@ -237,12 +237,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     }
 
     if (!user) {
-        if (pathname.startsWith('/auth') || pathname === '/' || pathname === '/setup-admin') {
+        // If not authenticated, and on a public/auth page, show that page.
+        if (pathname.startsWith('/auth') || pathname === '/') {
             return <>{children}</>;
         }
-        // This case should be handled by the redirect, but as a fallback:
+        // Otherwise, show the preloader while redirecting
         return <Preloader />;
     }
     
+    // If user is authenticated, show the app layout
     return <AppLayout>{children}</AppLayout>;
 }
