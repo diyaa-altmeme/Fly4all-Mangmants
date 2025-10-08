@@ -2,10 +2,11 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
-import { onIdTokenChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { onIdTokenChanged, signOut, User as FirebaseUser, getIdToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { getCurrentUserFromSession } from '@/app/auth/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 // Define a more generic user type that can be a Client or a full User
 type AuthUser = (import('@/lib/types').User & { uid: string }) | (import('@/lib/types').Client & { uid: string });
@@ -22,32 +23,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
+    const router = useRouter();
 
     const handleUserSession = useCallback(async (firebaseUser: FirebaseUser | null) => {
+        setLoading(true);
         if (firebaseUser) {
             try {
+                // Ensure session cookie is set before fetching user data
+                const idToken = await getIdToken(firebaseUser);
+                await fetch('/api/auth/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken }),
+                });
+
                 const sessionUser = await getCurrentUserFromSession();
-                if (sessionUser) {
-                    setUser(sessionUser);
-                } else {
-                    toast({
-                        title: "خطأ في مزامنة الحساب",
-                        description: "لم يتم العثور على ملف تعريف المستخدم. يتم تسجيل الخروج.",
-                        variant: "destructive"
-                    });
-                    await signOut(auth);
-                    setUser(null);
-                }
+                setUser(sessionUser);
             } catch (error) {
-                console.error("Error fetching user session:", error);
+                console.error("Error handling user session:", error);
                 await signOut(auth);
                 setUser(null);
             }
         } else {
+            // Clear session cookie on sign out
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken: null }),
+            });
             setUser(null);
         }
         setLoading(false);
-    }, [toast]);
+    }, []);
 
     useEffect(() => {
         const unsubscribe = onIdTokenChanged(auth, handleUserSession, (error) => {
@@ -60,7 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const logout = useCallback(async () => {
         try {
             await signOut(auth);
-            setUser(null);
+            // The onIdTokenChanged listener will handle clearing the session
         } catch (error) {
             console.error("Error signing out:", error);
             toast({

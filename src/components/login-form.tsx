@@ -1,3 +1,4 @@
+
 // src/components/login-form.tsx
 "use client";
 
@@ -31,36 +32,24 @@ export default function LoginForm() {
       console.log("🔹 محاولة تسجيل دخول...");
       
       const userCred = await signInWithEmailAndPassword(auth, email, password);
-      const uid = userCred.user.uid;
+      const idToken = await userCred.user.getIdToken();
       
-      console.log("✅ تسجيل الدخول نجح:", uid);
+      // Create the session cookie by calling our new API route
+      const response = await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken }),
+      });
 
-      // ✅ تأخير بسيط لضمان تحميل التوكن
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // ✅ محاولة قراءة بيانات المستخدم من Firestore
-      console.log("🔹 محاولة قراءة بيانات المستخدم...");
-      const userDocRef = doc(db, "users", uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (userDoc.exists()) {
-        console.log("✅ ملف المستخدم موجود:", userDoc.data());
-      } else {
-        console.log("⚠️ ملف المستخدم غير موجود - سيتم إنشاؤه");
-        
-        // إنشاء ملف المستخدم
-        await setDoc(userDocRef, {
-          email: userCred.user.email,
-          displayName: userCred.user.displayName || userCred.user.email?.split('@')[0],
-          role: "user",
-          createdAt: new Date(),
-          status: "active"
-        });
-        console.log("✅ ملف المستخدم أنشئ بنجاح");
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "فشل في إنشاء الجلسة.");
       }
+      
+      console.log("✅ تسجيل الدخول وإنشاء الجلسة نجح.");
 
-      console.log("🔹 التوجيه إلى dashboard...");
-      router.replace("/dashboard");
+      // Force a router push to trigger a re-render with the new auth state
+      router.push("/dashboard");
 
     } catch (err: any) {
       console.error("❌ خطأ في تسجيل الدخول:", err);
