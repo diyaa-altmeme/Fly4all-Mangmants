@@ -10,24 +10,25 @@ const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
     if (!data) return null;
 
-    // Create a deep copy to avoid mutating the original data
+    // Create a deep copy to avoid mutating the original data by serializing and deserializing
     const safeData = JSON.parse(JSON.stringify({ ...data, id: doc.id }));
 
-    for (const key in safeData) {
-        if (safeData[key] && (safeData[key].hasOwnProperty('_seconds') || typeof safeData[key].toDate === 'function')) {
-            safeData[key] = new Date(safeData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
-        }
-    }
-    
-    // Deep check for nested dates, especially in originalData
-    if (safeData.originalData && typeof safeData.originalData === 'object') {
-        for (const key in safeData.originalData) {
-             if (safeData.originalData[key] && (safeData.originalData[key].hasOwnProperty('_seconds') || typeof safeData.originalData[key].toDate === 'function')) {
-                safeData.originalData[key] = new Date(safeData.originalData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
+    // Recursively find and convert date-like objects
+    const convertDates = (obj: any) => {
+        for (const key in obj) {
+            if (obj[key] && typeof obj[key] === 'object') {
+                if (obj[key].hasOwnProperty('_seconds') && obj[key].hasOwnProperty('nanoseconds')) {
+                    obj[key] = new Date(obj[key]._seconds * 1000).toISOString();
+                } else if (obj[key] instanceof Date) {
+                    obj[key] = obj[key].toISOString();
+                } else {
+                    convertDates(obj[key]);
+                }
             }
         }
-    }
+    };
 
+    convertDates(safeData);
     return safeData;
 };
 
@@ -84,7 +85,10 @@ export async function getRecentBookings(): Promise<BookingEntry[]> {
             .get();
 
         if (snapshot.empty) return [];
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data().originalData } as BookingEntry));
+        return snapshot.docs.map(doc => {
+            const processedData = processDoc(doc);
+            return processedData.originalData as BookingEntry;
+        });
 
     } catch (error) {
         console.error("Error getting recent bookings:", String(error));
