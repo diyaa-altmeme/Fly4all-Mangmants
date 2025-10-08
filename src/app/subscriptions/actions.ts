@@ -13,19 +13,19 @@ import { getCurrentUserFromSession } from '../auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 
-
-const processSubscriptionData = (doc: FirebaseFirestore.DocumentSnapshot): Subscription => {
+const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
-    return {
-        ...data,
-        id: doc.id,
-        isDeleted: data.isDeleted || false,
-        purchaseDate: data.purchaseDate && typeof data.purchaseDate.toDate === 'function' ? data.purchaseDate.toDate().toISOString() : data.purchaseDate,
-        startDate: data.startDate && typeof data.startDate.toDate === 'function' ? data.startDate.toDate().toISOString() : data.startDate,
-        cancellationDate: data.cancellationDate && typeof data.cancellationDate.toDate === 'function' ? data.cancellationDate.toDate().toISOString() : data.cancellationDate,
-        updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' ? data.updatedAt.toDate().toISOString() : data.updatedAt,
-    } as Subscription;
+    if (!data) return null;
+
+    const safeData = { ...data, id: doc.id };
+    for (const key in safeData) {
+        if (safeData[key] && typeof safeData[key].toDate === 'function') {
+            safeData[key] = safeData[key].toDate().toISOString();
+        }
+    }
+    return safeData;
 };
+
 
 export async function getSubscriptions(includeDeleted = false): Promise<Subscription[]> {
     const db = await getDb();
@@ -47,7 +47,7 @@ export async function getSubscriptions(includeDeleted = false): Promise<Subscrip
             return [];
         }
 
-        const allSubscriptions: Subscription[] = snapshot.docs.map(processSubscriptionData);
+        const allSubscriptions: Subscription[] = snapshot.docs.map(doc => processDoc(doc) as Subscription);
 
         // Fetch client data and attach it
         const clientIds = [...new Set(allSubscriptions.map(s => s.clientId))];
@@ -83,7 +83,7 @@ export async function getSubscriptionById(id: string): Promise<Subscription | nu
             return null;
         }
         
-        const subscriptionData = processSubscriptionData(doc);
+        const subscriptionData = processDoc(doc) as Subscription;
         
         const clientDoc = await db.collection('clients').doc(subscriptionData.clientId).get();
         if(clientDoc.exists) {
@@ -227,7 +227,7 @@ export async function getSubscriptionInstallments(subscriptionId: string): Promi
         
         if (snapshot.empty) return [];
         
-        const installments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SubscriptionInstallment));
+        const installments = snapshot.docs.map(doc => processDoc(doc) as SubscriptionInstallment);
 
         return installments;
 
@@ -254,7 +254,7 @@ export async function getSubscriptionInstallmentsForAll(): Promise<SubscriptionI
         if (snapshot.empty) {
             return [];
         }
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SubscriptionInstallment));
+        return snapshot.docs.map(doc => processDoc(doc) as SubscriptionInstallment);
     } catch (error) {
         console.error("Error getting all subscription installments: ", String(error));
         return [];
@@ -271,7 +271,7 @@ export async function getInstallmentPayments(installmentId: string): Promise<Pay
             
         if (snapshot.empty) return [];
 
-        const payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment));
+        const payments = snapshot.docs.map(doc => processDoc(doc) as Payment);
         payments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         return payments;
 
@@ -333,7 +333,7 @@ export async function paySubscriptionInstallment(
                 exchangeRate: exchangeRate || null,
                 notes: `سداد قسط اشتراك خدمة: ${subscriptionData.serviceName}`,
                 createdBy: user.uid, officer: user.name, createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(), voucherType: 'journal_from_installment',
+                updatedAt: new Date().toISOString(), voucherType: "journal_from_installment",
                 debitEntries,
                 creditEntries: [{ accountId: subscriptionData.clientId, amount: totalAmountToCreditToClient, description: `تسديد دين قسط اشتراك ${subscriptionData.serviceName}` }],
                 isAudited: true, isConfirmed: true,

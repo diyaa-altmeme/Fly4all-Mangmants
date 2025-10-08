@@ -27,7 +27,7 @@ const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
         }
     }
     return safeData;
-}
+};
 
 
 // CRUD for Exchanges
