@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { User, Client } from '@/lib/types';
@@ -21,29 +20,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [loading, setLoading] = useState(true);
     
     const fetchUserSession = useCallback(async () => {
+        // This function will be called by onAuthStateChanged, so we don't need to set loading here.
         try {
             const sessionUser = await getCurrentUserFromSession();
             setUser(sessionUser);
         } catch (error) {
             console.error("Failed to fetch user session", error);
             setUser(null);
-        } finally {
-            // Give a small delay for transitions to feel smoother
-            setTimeout(() => setLoading(false), 250);
         }
+        // Loading state will be managed by the listener
     }, []);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             setLoading(true);
             if (firebaseUser) {
-                // User is signed in, now fetch detailed user data from our backend
-                fetchUserSession();
+                await fetchUserSession();
             } else {
-                // User is signed out
                 setUser(null);
-                setLoading(false);
             }
+             // Add a small delay to prevent UI flashing
+            setTimeout(() => setLoading(false), 300);
         });
 
         return () => unsubscribe();
@@ -52,6 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const refreshUser = useCallback(async () => {
         setLoading(true);
         await fetchUserSession();
+        setLoading(false);
     }, [fetchUserSession]);
 
     return (

@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState } from "react";
@@ -44,7 +43,7 @@ export default function LoginForm() {
     setAuthLoading(true);
     try {
         await signInWithEmailAndPassword(auth, data.identifier, data.password);
-        // The onAuthStateChanged listener in AuthContext will handle the user state and redirect.
+        // The onAuthStateChanged listener in MainLayout will handle the redirect.
     } catch(error: any) {
         console.error("Login error:", error);
         let errorMessage = "فشل تسجيل الدخول. يرجى التحقق من بياناتك.";
