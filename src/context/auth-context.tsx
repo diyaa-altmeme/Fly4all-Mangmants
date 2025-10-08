@@ -18,29 +18,60 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Temporary fake user to bypass login
-const fakeAdminUser: AuthUser = {
-    uid: 'fake-admin-uid',
-    name: 'المدير المؤقت',
-    username: 'tempadmin',
-    email: 'admin@local.dev',
-    role: 'admin', // Crucial for permissions
-    permissions: ['*'], // Grant all permissions
-    status: 'active',
-    phone: '000',
-    requestedAt: new Date().toISOString(),
-};
-
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    
-    const user = fakeAdminUser;
-    const loading = false;
+    const [user, setUser] = useState<AuthUser | null>(null);
+    const [loading, setLoading] = useState(true);
+    const { toast } = useToast();
 
-    const logout = async () => {
-        // In this disabled state, logout does nothing
-        console.log("Logout function is currently disabled.");
-    };
+    const handleUserSession = useCallback(async (firebaseUser: FirebaseUser | null) => {
+        if (firebaseUser) {
+            try {
+                const sessionUser = await getCurrentUserFromSession();
+                if (sessionUser) {
+                    setUser(sessionUser);
+                } else {
+                    // This case handles if a user exists in Auth but not Firestore.
+                    // It logs them out to prevent an inconsistent state.
+                    // A better approach might be to auto-create a Firestore user here.
+                    toast({
+                        title: "خطأ في مزامنة الحساب",
+                        description: "لم يتم العثور على ملف تعريف المستخدم. يتم تسجيل الخروج.",
+                        variant: "destructive"
+                    });
+                    await signOut(auth);
+                    setUser(null);
+                }
+            } catch (error) {
+                console.error("Error fetching user session:", error);
+                await signOut(auth);
+                setUser(null);
+            }
+        } else {
+            setUser(null);
+        }
+        setLoading(false);
+    }, [toast]);
+
+    useEffect(() => {
+        const unsubscribe = onIdTokenChanged(auth, handleUserSession, (error) => {
+            console.error("Auth state error:", error);
+            setLoading(false);
+        });
+        return () => unsubscribe();
+    }, [handleUserSession]);
+
+    const logout = useCallback(async () => {
+        try {
+            await signOut(auth);
+            setUser(null);
+        } catch (error) {
+            console.error("Error signing out:", error);
+            toast({
+                title: "خطأ في تسجيل الخروج",
+                variant: "destructive"
+            });
+        }
+    }, [toast]);
 
     const value = { user, loading, logout };
 
