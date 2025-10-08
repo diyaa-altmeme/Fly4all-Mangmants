@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Mail, Phone } from 'lucide-react';
 import { addUser, updateUser } from '../actions';
 import { useToast } from '@/hooks/use-toast';
 import type { User, Box, Role } from '@/lib/types';
@@ -100,8 +100,8 @@ export default function UserForm({ isEditing = false, initialData, boxes, roles,
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>الاسم الكامل<span className="text-destructive ms-1">*</span></FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
           <FormField control={form.control} name="username" render={({ field }) => (<FormItem><FormLabel>اسم المستخدم<span className="text-destructive ms-1">*</span></FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-          <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>البريد الإلكتروني<span className="text-destructive ms-1">*</span></FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>)} />
-          <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>رقم الهاتف<span className="text-destructive ms-1">*</span></FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+          <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>البريد الإلكتروني<span className="text-destructive ms-1">*</span></FormLabel><div className="relative"><Mail className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><FormControl><Input type="email" {...field} className="pr-10" /></FormControl></div><FormMessage /></FormItem>)} />
+          <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>رقم الهاتف<span className="text-destructive ms-1">*</span></FormLabel><div className="relative"><Phone className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><FormControl><Input {...field} className="pr-10" /></FormControl></div><FormMessage /></FormItem>)} />
           <FormField control={form.control} name="password" render={({ field }) => (<FormItem><FormLabel>كلمة المرور{isEditing ? '' : <span className="text-destructive ms-1">*</span>}</FormLabel><FormControl><Input type="password" placeholder={isEditing ? 'اتركه فارغًا لعدم التغيير' : 'مطلوب'} {...field} /></FormControl><FormMessage /></FormItem>)} />
           <FormField control={form.control} name="avatarUrl" render={({ field }) => (<FormItem><FormLabel>رابط الصورة (اختياري)</FormLabel><FormControl><Input type="url" {...field} placeholder="https://example.com/avatar.png" /></FormControl><FormMessage /></FormItem>)} />
           <FormField control={form.control} name="department" render={({ field }) => (<FormItem><FormLabel>القسم</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
