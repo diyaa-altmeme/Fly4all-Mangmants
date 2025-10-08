@@ -1,9 +1,10 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ✅ قواعد مفتوحة تماماً للتأكد من أن المشكلة ليست في القواعد
+    // ✅ Simple rule: Allow access only to authenticated users.
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
   }
 }
