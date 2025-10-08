@@ -35,15 +35,7 @@ export const getExchanges = cache(async (): Promise<{ accounts?: Exchange[], err
     const db = await getDb();
     if (!db) return { error: "Database not available." };
     const snapshot = await db.collection(EXCHANGES_COLLECTION).orderBy('name').get();
-    const accounts = snapshot.docs.map(doc => {
-        const data = doc.data();
-        const createdAt = data.createdAt;
-        return {
-            id: doc.id,
-            ...data,
-            createdAt: createdAt && typeof createdAt.toDate === 'function' ? createdAt.toDate().toISOString() : new Date().toISOString(),
-        } as Exchange
-    });
+    const accounts = snapshot.docs.map(doc => processDoc(doc) as Exchange);
     return { accounts };
 });
 
@@ -82,15 +74,7 @@ export async function getTransactions(exchangeId: string, from?: Date, to?: Date
     query = query.orderBy('date', 'desc');
     
     const snapshot = await query.get();
-    return snapshot.docs.map(doc => {
-        const data = doc.data();
-        const createdAt = data.createdAt;
-        return { 
-            id: doc.id, 
-            ...data,
-            createdAt: createdAt && typeof createdAt.toDate === 'function' ? createdAt.toDate().toISOString() : new Date().toISOString(),
-        } as ExchangeTransaction
-    });
+    return snapshot.docs.map(doc => processDoc(doc) as ExchangeTransaction);
 }
 
 const checkThresholdAndNotify = async (exchangeId: string, currentUser: any) => {
@@ -237,15 +221,7 @@ export async function getPayments(exchangeId: string, from?: Date, to?: Date): P
     query = query.orderBy('date', 'desc');
 
     const snapshot = await query.get();
-    return snapshot.docs.map(doc => {
-        const data = doc.data();
-        const createdAt = data.createdAt;
-        return { 
-            id: doc.id, 
-            ...data,
-            createdAt: createdAt && typeof createdAt.toDate === 'function' ? createdAt.toDate().toISOString() : new Date().toISOString(),
-        } as ExchangePayment
-    });
+    return snapshot.docs.map(doc => processDoc(doc) as ExchangePayment);
 }
 
 
@@ -520,5 +496,3 @@ export const getExchangesDashboardData = async (): Promise<ExchangeDashboardData
 
     return Promise.all(dashboardDataPromises);
 }
-
-    
