@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { getAuth, onIdTokenChanged, User as FirebaseUser } from 'firebase/auth';
-import type { User, Client } from '@/lib/types';
+import type { User, Client, Role } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/permissions';
 import { app } from '@/lib/firebase';
 import { getDb } from '@/lib/firebase-admin';
@@ -23,15 +23,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Helper function to process Firestore documents
 const processDoc = (docData: any): any => {
     if (!docData) return null;
-
-    const safeData = JSON.parse(JSON.stringify(docData));
-
-    for (const key in safeData) {
-        if (safeData[key] && (safeData[key].hasOwnProperty('_seconds') || typeof safeData[key].toDate === 'function')) {
-            safeData[key] = new Date(safeData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
-        }
-    }
-    return safeData;
+    // This is the safest way to ensure a plain object without class instances
+    return JSON.parse(JSON.stringify(docData));
 };
 
 
@@ -95,11 +88,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 setLoading(true);
+                const idToken = await firebaseUser.getIdToken();
                 // Create session cookie on the server
                 await fetch('/api/auth/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken: await firebaseUser.getIdToken() }),
+                    body: JSON.stringify({ idToken }),
                 });
                 // Fetch user details from Firestore
                 await fetchUserDetails(firebaseUser);

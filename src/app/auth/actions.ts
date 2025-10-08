@@ -6,6 +6,7 @@ import { getDb, getAuthAdmin } from "@/lib/firebase-admin";
 import { cookies } from 'next/headers'
 import { PERMISSIONS } from "@/lib/permissions";
 import { createAuditLog } from "@/app/system/activity-log/actions";
+import { DecodedIdToken } from "firebase-admin/auth";
 
 export async function createSession(idToken: string) {
     try {
@@ -29,6 +30,27 @@ export async function createSession(idToken: string) {
     } catch (error: any) {
         console.error("Session Cookie Error:", error);
         return { success: false, error: "Failed to create session cookie." };
+    }
+}
+
+export async function getCurrentUserFromSession(): Promise<any | null> {
+    const sessionCookie = cookies().get('session')?.value;
+    if (!sessionCookie) return null;
+
+    try {
+        const decodedToken = await getAuthAdmin().verifySessionCookie(sessionCookie, true);
+        const db = await getDb();
+        const userDoc = await db.collection('users').doc(decodedToken.uid).get();
+
+        if (userDoc.exists) {
+            const userData = { id: userDoc.id, ...userDoc.data() };
+            // Ensure it's a plain object
+            return JSON.parse(JSON.stringify(userData));
+        }
+        return null;
+    } catch (error) {
+        console.error("Failed to verify session cookie:", error);
+        return null;
     }
 }
 
