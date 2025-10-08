@@ -6,6 +6,31 @@ import type { BookingEntry, Subscription, SubscriptionInstallment, JournalVouche
 import { startOfMonth, endOfMonth, subMonths, format, parseISO, startOfDay, endOfDay, addDays, isWithinInterval } from 'date-fns';
 import { getSettings } from '@/app/settings/actions';
 
+const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
+    const data = doc.data() as any;
+    if (!data) return null;
+
+    // Create a deep copy to avoid mutating the original data
+    const safeData = JSON.parse(JSON.stringify({ ...data, id: doc.id }));
+
+    for (const key in safeData) {
+        if (safeData[key] && (safeData[key].hasOwnProperty('_seconds') || typeof safeData[key].toDate === 'function')) {
+            safeData[key] = new Date(safeData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
+        }
+    }
+    
+    // Deep check for nested dates, especially in originalData
+    if (safeData.originalData && typeof safeData.originalData === 'object') {
+        for (const key in safeData.originalData) {
+             if (safeData.originalData[key] && (safeData.originalData[key].hasOwnProperty('_seconds') || typeof safeData.originalData[key].toDate === 'function')) {
+                safeData.originalData[key] = new Date(safeData.originalData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
+            }
+        }
+    }
+
+    return safeData;
+};
+
 
 export interface DashboardStats {
     revenue: number;
@@ -85,7 +110,7 @@ export async function getUpcomingInstallments(): Promise<SubscriptionInstallment
         if (snapshot.empty) return [];
         
         // Filter for the next week in code to simplify the query and avoid complex indexes
-        const allUnpaid = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SubscriptionInstallment));
+        const allUnpaid = snapshot.docs.map(doc => processDoc(doc) as SubscriptionInstallment);
         
         return allUnpaid
             .filter(inst => isWithinInterval(parseISO(inst.dueDate), { start: today, end: nextWeek }))
@@ -136,5 +161,3 @@ export async function getRevenueChartData(): Promise<{ name: string; revenue: nu
         return Object.keys(chartData).map(name => ({ name, revenue: 0, profit: 0 }));
     }
 }
-
-    
