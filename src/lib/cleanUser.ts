@@ -1,19 +1,11 @@
-"use client";
-import type { User as FirebaseUser } from "firebase/auth";
 
-// This is a placeholder for the more complex user object you might have
-interface SafeUser {
-  uid: string | null;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
-  phoneNumber: string | null;
-  emailVerified: boolean;
-}
-
-export function cleanUser(user: FirebaseUser | any): SafeUser | null {
+// This utility is not strictly needed anymore as the logic is now embedded
+// within the server actions, but it's good practice to keep it.
+export function cleanUser(user: any) {
   if (!user) return null;
 
+  // This creates a plain JavaScript object without any methods or prototypes
+  // from the Firebase User object, making it safe to pass to Client Components.
   return JSON.parse(JSON.stringify({
     uid: user.uid ?? null,
     email: user.email ?? null,
@@ -21,5 +13,6 @@ export function cleanUser(user: FirebaseUser | any): SafeUser | null {
     photoURL: user.photoURL ?? null,
     phoneNumber: user.phoneNumber ?? null,
     emailVerified: user.emailVerified ?? false,
+    ...user, // include any other custom data from firestore
   }));
 }

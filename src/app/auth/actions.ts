@@ -1,3 +1,4 @@
+
 "use server";
 
 import type { User, Client, Role } from "@/lib/types";
@@ -6,13 +7,6 @@ import { cookies } from "next/headers";
 import { PERMISSIONS } from "@/lib/permissions";
 import { createAuditLog } from "@/app/system/activity-log/actions";
 import { DecodedIdToken } from "firebase-admin/auth";
-
-// This is a new, safe processing function.
-const processDoc = (docData: any): any => {
-    if (!docData) return null;
-    const safeData = JSON.parse(JSON.stringify(docData));
-    return safeData;
-};
 
 export async function createSession(idToken: string | null) {
   try {
@@ -59,11 +53,13 @@ export async function getCurrentUserFromSession(): Promise<any | null> {
                 email: decodedToken.email,
                 name: decodedToken.name || firestoreData.name, 
             };
-            // Ensure the returned object is plain
+            // Ensure the returned object is plain JSON
             return JSON.parse(JSON.stringify(combinedUser));
         } else {
-            // If user is authenticated but has no DB record, return a basic object.
-             const basicUser = {
+            // User is authenticated but has no DB record.
+            // Create a basic user object so the app doesn't crash.
+            // This user will have minimal/no permissions.
+            const basicUser = {
                 uid: decodedToken.uid,
                 email: decodedToken.email,
                 name: decodedToken.name || decodedToken.email,
@@ -74,6 +70,7 @@ export async function getCurrentUserFromSession(): Promise<any | null> {
         }
     } catch (error) {
         console.error("Failed to verify session cookie or fetch user data:", error);
+        // On any error, treat as not logged in.
         return null;
     }
 }
