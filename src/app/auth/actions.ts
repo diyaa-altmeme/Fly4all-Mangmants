@@ -43,6 +43,7 @@ export async function getCurrentUserFromSession(): Promise<(User & { uid: string
         }
     } catch (error) {
         console.error("Error verifying session cookie:", error);
+        // Important: Re-throw or return null to indicate failure
         return null;
     }
 }
