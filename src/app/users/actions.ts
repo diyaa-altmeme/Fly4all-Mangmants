@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getAuth } from 'firebase-admin/auth';
@@ -112,7 +113,7 @@ export async function addUser(data: Omit<User, 'uid' | 'id'>) {
 }
 
 export async function updateUser(uid: string, data: Partial<User>) {
-     await initializeAdmin();
+    await initializeAdmin();
     const auth = getAuth();
     const db = getDb();
     
@@ -140,7 +141,7 @@ export async function updateUser(uid: string, data: Partial<User>) {
 }
 
 export async function deleteUser(uid: string) {
-     await initializeAdmin();
+    await initializeAdmin();
     const auth = getAuth();
     const db = getDb();
 
