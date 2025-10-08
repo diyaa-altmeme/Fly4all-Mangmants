@@ -205,7 +205,6 @@ export async function addClient(data: Partial<Omit<Client, 'id'>>): Promise<{ su
         };
 
         if (clientData.password && clientData.password.length >= 6) {
-            const saltRounds = 10;
             // Password hashing should happen here, but bcrypt is a client-side library in this setup.
             // This is a potential security issue to be addressed.
         } else {
@@ -399,3 +398,5 @@ export async function deleteMultipleClients(ids: string[]): Promise<{ success: b
         return { success: false, error: e.message };
     }
 }
+
+    
