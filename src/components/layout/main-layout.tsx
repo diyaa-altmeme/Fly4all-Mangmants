@@ -52,7 +52,6 @@ const MobileNav = () => {
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
     const { user, logout } = useAuth();
-    const { loaded: navDataLoaded } = useVoucherNav();
     const router = useRouter();
 
     const handleLogout = async () => {
@@ -160,8 +159,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     React.useEffect(() => {
         if (isClient && !loading) {
             const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+            const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+
             if (!user && isProtectedRoute) {
                 router.replace('/auth/login');
+            } else if (user && isPublicRoute) {
+                 router.replace('/dashboard');
             }
         }
     }, [user, loading, pathname, router, isClient]);
@@ -172,12 +175,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     
     const isPublic = publicRoutes.some(route => pathname.startsWith(route));
 
-    if (!user && !isPublic) {
-        return <Preloader />;
+    if (!user && isPublic) {
+         return <>{children}</>;
     }
     
-    if (isPublic) {
-         return <>{children}</>;
+    if (!user) {
+        return <Preloader />;
     }
 
     return <AppLayout>{children}</AppLayout>;
