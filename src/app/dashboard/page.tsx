@@ -1,10 +1,11 @@
-
 "use client";
 
 import React, { Suspense } from 'react';
 import { getDashboardStats, getRecentBookings, getUpcomingInstallments, getRevenueChartData } from './actions';
 import { Skeleton } from "@/components/ui/skeleton";
 import DashboardClient from './components/dashboard-client';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
+import Preloader from '@/components/layout/preloader';
 
 function DashboardDataContainer() {
     const [data, setData] = React.useState<any>(null);
@@ -53,6 +54,12 @@ function DashboardDataContainer() {
 
 
 export default function DashboardPage() {
+    const { user, loading } = useRequireAuth();
+
+    if (loading || !user) {
+        return <Preloader />;
+    }
+
     return (
         <Suspense fallback={<Skeleton className="h-screen w-full" />}>
             <DashboardDataContainer />
