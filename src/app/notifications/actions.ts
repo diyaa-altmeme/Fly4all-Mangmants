@@ -5,7 +5,6 @@
 import { getDb } from '@/lib/firebase-admin';
 import type { Notification } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '../auth/actions';
 
 const NOTIFICATIONS_COLLECTION = 'notifications';
 

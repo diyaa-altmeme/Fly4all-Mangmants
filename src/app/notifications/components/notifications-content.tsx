@@ -18,7 +18,9 @@ const notificationIcons: Record<NotificationType, React.ElementType> = {
     voucher: Ticket,
     remittance: Wallet,
     system: Settings,
-    user: User
+    user: User,
+    error: AlertTriangle,
+    warning: AlertTriangle,
 };
 
 interface NotificationsContentProps {
@@ -57,13 +59,14 @@ export default function NotificationsContent({ initialNotifications, userId }: N
                 ) : (
                     notifications.map(n => {
                         const Icon = notificationIcons[n.type] || Bell;
+                        const isWarning = n.type === 'warning' || n.type === 'error';
                         return (
                             <div key={n.id} className={cn("flex items-start gap-4 p-4 border rounded-lg", !n.isRead && "bg-primary/5")}>
                                 <div className={cn("p-2 rounded-full", !n.isRead ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
                                     <Icon className="h-5 w-5" />
                                 </div>
                                 <div className="flex-grow">
-                                     <Link href={n.link || '#'} className="font-bold hover:underline">{n.title}</Link>
+                                     <Link href={n.link || '#'} className={cn("font-bold hover:underline", isWarning && "text-yellow-600")}>{n.title}</Link>
                                      <p className="text-sm text-muted-foreground">{n.body}</p>
                                      <p className="text-xs text-muted-foreground mt-1">
                                         {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: ar })}

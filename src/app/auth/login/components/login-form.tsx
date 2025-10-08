@@ -30,7 +30,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { reloadUser, setAuthLoading } = useAuth();
+  const { setAuthLoading } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -46,17 +46,8 @@ export default function LoginForm() {
     setAuthLoading(true);
     try {
         const auth = getAuth(app);
-        const userCredential = await signInWithEmailAndPassword(auth, data.identifier, data.password);
-        const idToken = await userCredential.user.getIdToken();
-        
-        const result = await loginWithEmail(idToken);
-        if (!result.success) {
-            throw new Error(result.error);
-        }
-        
-        await reloadUser();
-        router.push('/dashboard');
-        
+        await signInWithEmailAndPassword(auth, data.identifier, data.password);
+        // onAuthStateChanged in AuthProvider will handle the redirect
     } catch(error: any) {
         let errorMessage = "فشل تسجيل الدخول.";
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {

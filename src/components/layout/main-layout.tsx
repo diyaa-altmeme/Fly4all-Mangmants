@@ -22,7 +22,7 @@ import { MainNav } from "@/components/layout/main-nav";
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
-import { VoucherNavProvider, useVoucherNav } from "@/context/voucher-nav-context";
+import { VoucherNavProvider } from "@/context/voucher-nav-context";
 import { usePathname, useRouter } from "next/navigation";
 import NotificationCenter from "./notification-center";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
