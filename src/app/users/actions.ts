@@ -6,7 +6,6 @@ import { initializeAdmin } from '@/lib/firebase-admin';
 import type { User, HrData, Role } from '@/lib/types';
 import { getDb } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
-import bcrypt from 'bcrypt';
 import { getBoxes } from '../boxes/actions';
 import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 

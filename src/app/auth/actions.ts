@@ -6,7 +6,6 @@ import { getDb } from "@/lib/firebase-admin";
 import { cookies } from 'next/headers'
 import { PERMISSIONS } from "@/lib/permissions";
 import { createAuditLog } from "@/app/system/activity-log/actions";
-import bcrypt from 'bcrypt';
 import { getAuth } from 'firebase-admin/auth';
 import { initializeAdmin } from '@/lib/firebase-admin';
 
