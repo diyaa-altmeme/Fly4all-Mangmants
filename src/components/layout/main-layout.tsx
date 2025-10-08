@@ -163,7 +163,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
             if (!user && isProtectedRoute) {
                 router.replace('/auth/login');
-            } else if (user && isPublicRoute) {
+            } else if (user && (isPublicRoute || pathname === '/')) {
                  router.replace('/dashboard');
             }
         }
