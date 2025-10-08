@@ -14,12 +14,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { Client } from '@/lib/types';
 import { Loader2, Save } from 'lucide-react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { updateClient } from '@/app/clients/actions';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   avatarUrl: z.string().url("الرابط غير صحيح").optional().or(z.literal('')),
@@ -36,6 +37,7 @@ interface ChangeAvatarDialogProps {
 export default function ChangeAvatarDialog({ client, onAvatarChanged, children }: ChangeAvatarDialogProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -52,6 +54,7 @@ export default function ChangeAvatarDialog({ client, onAvatarChanged, children }
     if (result.success) {
         toast({ title: "تم تحديث الصورة الرمزية بنجاح" });
         onAvatarChanged();
+        router.refresh();
         setOpen(false);
     } else {
         toast({ title: "خطأ", description: result.error, variant: 'destructive' });

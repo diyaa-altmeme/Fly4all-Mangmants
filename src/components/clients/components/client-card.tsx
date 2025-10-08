@@ -1,8 +1,7 @@
-
 "use client";
 
 import React from 'react';
-import type { Client, CardThemeSettings, RelationSection, CustomRelationField } from '@/lib/types';
+import type { Client, CardThemeSettings, RelationSection, CustomRelationField, RelationType, CompanyPaymentType } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -50,12 +49,12 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
         return;
     }
     
-    onClientUpdated(undefined, id);
-
     const result = await deleteClient(id);
-    if (!result.success) {
+    if (result.success) {
+         toast({ title: 'تم الحذف بنجاح' });
+         onClientUpdated(undefined, id);
+    } else {
         toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
-        router.refresh();
     }
   };
 
@@ -138,7 +137,7 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
              <Link href={`/clients/${client.id}`} className="hover:underline flex items-center gap-2">
                 <Icon className="h-5 w-5" />
                 {client.name}
-                 {client.password && (
+                 {client.loginIdentifier && (
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -167,12 +166,12 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
                  <DropdownMenuItem asChild>
                     <Link href={`/clients/${client.id}`} className="justify-end w-full flex items-center gap-2"><span>عرض البروفايل</span><FileText className="h-4 w-4"/></Link>
                 </DropdownMenuItem>
-                 <AddClientDialog isEditing initialData={client} onClientUpdated={onClientUpdated}>
+                 <AddClientDialog isEditing initialData={client} onClientUpdated={onDataChanged}>
                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="w-full flex justify-between">
                           <span>تعديل</span><Edit className="h-4 w-4"/>
                        </DropdownMenuItem>
                 </AddClientDialog>
-                <CredentialsDialog client={client} onCredentialsUpdated={onClientUpdated}>
+                <CredentialsDialog client={client} onCredentialsUpdated={onDataChanged}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-end w-full flex items-center gap-2">
                         <span>إدارة الدخول</span><KeyRound className="h-4 w-4"/>
                     </DropdownMenuItem>
