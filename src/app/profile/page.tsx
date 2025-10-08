@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -8,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BarChart, Calendar, CheckCircle, Clock, DollarSign, Edit, Frown, Coffee, Coins, FileText, Ticket, CreditCard, ShieldCheck, Bell, ArrowLeft, Mail, Phone, MapPin, CircleUserRound } from "lucide-react";
 import { Bar, BarChart as RechartsBarChart, ResponsiveContainer, XAxis, YAxis } from "recharts";
 import type { User, AttendanceLog, Notification, Box, Role } from "@/lib/types";
-import { getCurrentUserFromSession } from "@/app/auth/actions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { getUserProfileStats, type UserProfileStats } from "./actions";
@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation';
 import UserFormDialog from "@/app/users/components/user-form-dialog";
 import { getBoxes } from "../boxes/actions";
 import { getRoles } from "../users/actions";
+import { useAuth } from "@/context/auth-context";
 
 
 const StatCard = ({ icon: Icon, label, value, currency, colorClass }: { icon: React.ElementType, label: string, value: string | number, currency?: string, colorClass: string }) => (
@@ -75,17 +76,18 @@ export default function UserProfilePage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { user } = useAuth();
 
   const fetchData = React.useCallback(async () => {
     setLoading(true);
-    const user = await getCurrentUserFromSession();
     if (!user) {
-      router.push('/auth/login');
-      return;
-    }
+        setLoading(false);
+        return;
+    };
     // Type guard to ensure it's a User, not a Client
     if (!('role' in user)) {
        router.push('/'); // Or a dedicated client profile page
+       setLoading(false);
        return;
     }
 
@@ -103,7 +105,7 @@ export default function UserProfilePage() {
     setRoles(rolesData);
     
     setLoading(false);
-  }, [router]);
+  }, [router, user]);
 
   useEffect(() => {
     fetchData();
