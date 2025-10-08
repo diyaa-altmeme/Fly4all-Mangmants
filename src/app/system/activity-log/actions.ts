@@ -10,7 +10,17 @@ import { parseISO } from 'date-fns';
 
 const AUDIT_LOGS_COLLECTION = 'audit_logs';
 
-export async function createAuditLog(logData: Omit<AuditLog, 'id' | 'createdAt'>) {
+const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): AuditLog => {
+    const data = doc.data() as any;
+    // Ensure all potential date fields are consistently strings
+    return {
+        ...data,
+        id: doc.id,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+    } as AuditLog;
+};
+
+export async function createAuditLog(logData: Partial<Omit<AuditLog, 'id' | 'createdAt'>>) {
     const db = await getDb();
     if (!db) {
         console.error("Audit Log failed: Database not available.");
@@ -20,6 +30,7 @@ export async function createAuditLog(logData: Omit<AuditLog, 'id' | 'createdAt'>
     try {
         await db.collection(AUDIT_LOGS_COLLECTION).add({
             ...logData,
+            level: logData.level || 'info',
             createdAt: new Date().toISOString(),
         });
         revalidatePath('/system/activity-log');
@@ -42,14 +53,7 @@ export const getAuditLogs = async (): Promise<AuditLog[]> => {
         if (snapshot.empty) return [];
         
         const logs = snapshot.docs
-            .map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    ...data,
-                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-                } as AuditLog
-            })
+            .map(processDoc)
             .filter(log => log.level !== 'error'); // Filter for non-errors in code
 
         return logs;
@@ -72,14 +76,7 @@ export const getErrorLogs = async (): Promise<AuditLog[]> => {
         if (snapshot.empty) return [];
         
         const logs = snapshot.docs
-            .map(doc => {
-                const data = doc.data();
-                return {
-                    id: doc.id,
-                    ...data,
-                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-                } as AuditLog
-            })
+            .map(processDoc)
             .filter(log => log.level === 'error'); // Filter for errors in code
         
         return logs;
@@ -89,8 +86,3 @@ export const getErrorLogs = async (): Promise<AuditLog[]> => {
         throw new Error("Failed to fetch error logs.");
     }
 };
-
-
-
-
-

@@ -31,7 +31,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from '@/context/auth-context';
 import Preloader from './preloader';
 
-const protectedRoutes = ['/dashboard', '/settings', '/users', '/reports', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/hr', '/system', '/profile', '/profit-sharing', '/reconciliation', '/exchanges', '/segments', '/templates', '/campaigns'];
+const protectedRoutes = ['/dashboard', '/settings', '/users', '/reports', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/hr', '/system', '/profile', '/profit-sharing', '/reconciliation', '/exchanges', '/segments', '/templates', '/campaigns', '/relations'];
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/auth/register'];
 
 const MobileNav = () => {
@@ -56,7 +56,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
     const handleLogout = async () => {
         await logout();
-        router.push('/auth/login');
     }
 
     return (
@@ -150,38 +149,30 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
-    const [isClient, setIsClient] = React.useState(false);
 
     React.useEffect(() => {
-        setIsClient(true);
-    }, []);
+        if (loading) return;
 
-    React.useEffect(() => {
-        if (isClient && !loading) {
-            const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
-            const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-
-            if (!user && isProtectedRoute) {
-                router.replace('/auth/login');
-            } else if (user && (isPublicRoute || pathname === '/')) {
-                 router.replace('/dashboard');
-            }
+        const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+        const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+        
+        if (!user && isProtectedRoute) {
+            router.replace('/auth/login');
+        } else if (user && (isPublicRoute || pathname === '/')) {
+            router.replace('/dashboard');
         }
-    }, [user, loading, pathname, router, isClient]);
+    }, [user, loading, pathname, router]);
 
-    if (!isClient || loading) {
-        return <Preloader />;
-    }
-    
-    const isPublic = publicRoutes.some(route => pathname.startsWith(route));
-
-    if (!user && isPublic) {
-         return <>{children}</>;
-    }
-    
-    if (!user) {
+    if (loading) {
         return <Preloader />;
     }
 
-    return <AppLayout>{children}</AppLayout>;
+    const isAppRoute = protectedRoutes.some(route => pathname.startsWith(route));
+
+    if (user && isAppRoute) {
+        return <AppLayout>{children}</AppLayout>;
+    }
+    
+    // For public routes or initial load before redirect
+    return <>{children}</>;
 }

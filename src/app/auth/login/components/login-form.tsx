@@ -14,7 +14,6 @@ import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/context/auth-context";
-import { loginWithEmail } from "../../actions";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { app } from "@/lib/firebase";
 
@@ -46,8 +45,24 @@ export default function LoginForm() {
     setAuthLoading(true);
     try {
         const auth = getAuth(app);
-        await signInWithEmailAndPassword(auth, data.identifier, data.password);
-        // onAuthStateChanged in AuthProvider will handle the redirect
+        const userCredential = await signInWithEmailAndPassword(auth, data.identifier, data.password);
+        
+        const idToken = await userCredential.user.getIdToken();
+
+        const response = await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken })
+        });
+
+        if (response.ok) {
+            // The onAuthStateChanged listener in AuthProvider will handle the redirect
+            // So we don't need to do router.push('/dashboard') here.
+        } else {
+             const errorData = await response.json();
+             throw new Error(errorData.error || 'فشل في إنشاء الجلسة.');
+        }
+
     } catch(error: any) {
         let errorMessage = "فشل تسجيل الدخول.";
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {

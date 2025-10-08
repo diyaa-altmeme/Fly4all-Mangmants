@@ -6,8 +6,6 @@ import { getDb, getAuthAdmin } from "@/lib/firebase-admin";
 import { cookies } from 'next/headers'
 import { PERMISSIONS } from "@/lib/permissions";
 import { createAuditLog } from "@/app/system/activity-log/actions";
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-
 
 export async function createSession(idToken: string) {
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
@@ -33,7 +31,7 @@ export async function loginWithEmail(idToken: string): Promise<{ success: boolea
 }
 
 
-export async function verifyOtpAndLogin(phone: string, otp: string, type: 'employee' | 'client'): Promise<{ success: boolean; error?: string }> {
+export async function verifyOtpAndLogin(phone: string, otp: string, type: 'employee' | 'client'): Promise<{ success: boolean; error?: string; customToken?: string }> {
      const db = await getDb();
      const auth = await getAuthAdmin();
      const otpRef = db.collection('otp_requests').doc(phone);
@@ -57,19 +55,7 @@ export async function verifyOtpAndLogin(phone: string, otp: string, type: 'emplo
          }
          
          const userDoc = userQuery.docs[0];
-         const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-        
-        const customToken = await auth.createCustomToken(userDoc.id);
-
-        // Here we can't set the session cookie directly.
-        // The client will need to take this custom token and sign in with it.
-        // This is a complex flow for a server action. 
-        // For now, we will create a session cookie if we can generate an idToken,
-        // but this part of the logic might need client-side adjustments.
-
-        // For simplicity, let's assume OTP login will be handled on the client-side to get an idToken
-        // This server action is now more for verification. Let's return success and let client handle session.
-        // A better approach would be to return a custom token for the client to use.
+         const customToken = await auth.createCustomToken(userDoc.id);
         
         await createAuditLog({
             userId: userDoc.id,
@@ -79,10 +65,9 @@ export async function verifyOtpAndLogin(phone: string, otp: string, type: 'emplo
             description: `تم تسجيل الدخول بنجاح عبر OTP.`,
         });
 
-        // We can't create a session cookie without an ID token.
-        // Let's return a success and a custom token for the client to use.
-        return { success: true };
-
+        // The client will use this custom token to sign in with the client SDK
+        // which will then trigger onAuthStateChanged.
+        return { success: true, customToken };
 
      } catch(e: any) {
          console.error("OTP verification error:", e);
