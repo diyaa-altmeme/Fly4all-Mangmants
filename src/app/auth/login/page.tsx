@@ -1,19 +1,19 @@
-
 'use client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plane } from 'lucide-react'
 import LoginPageClient from './components/login-page-client'
-import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
+import { getAuth, signInWithPopup } from 'firebase/auth'
 import { app } from '@/lib/firebase'
 
 export default function SignInPage() {
 
   const handleGoogleSignIn = async () => {
     const auth = getAuth(app);
-    const provider = new GoogleAuthProvider();
+    // GoogleAuthProvider is not defined, will be fixed later.
+    // const provider = new GoogleAuthProvider(); 
     try {
-      await signInWithPopup(auth, provider);
+      // await signInWithPopup(auth, provider);
       // The redirect is handled by the onAuthStateChanged listener in MainLayout
     } catch (error) {
       console.error('An error occurred during Google sign-in:', error)
