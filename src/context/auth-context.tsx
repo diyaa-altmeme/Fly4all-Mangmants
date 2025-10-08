@@ -35,7 +35,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             if (!firebaseUser) {
                 setUser(null);
-                setLoading(false); // Make sure to set loading to false
                 return;
             }
 
@@ -43,11 +42,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const userDetails = await getCurrentUserFromSession();
             
             if (!userDetails) {
+                 // This case should now be handled by getCurrentUserFromSession returning a basic user object.
+                 // If it still returns null, it's a critical error (like session cookie verification failed).
                 await signOut(auth);
                 setUser(null);
                 toast({
-                    title: "خطأ في مزامنة الحساب",
-                    description: "لم نتمكن من العثور على ملفك الشخصي في قاعدة البيانات. تم تسجيل خروجك.",
+                    title: "خطأ في الجلسة",
+                    description: "فشلت عملية التحقق من جلستك. تم تسجيل خروجك.",
                     variant: "destructive",
                 });
                 return;
