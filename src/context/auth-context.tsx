@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
@@ -17,69 +18,28 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Temporary fake user to bypass login
+const fakeAdminUser: AuthUser = {
+    uid: 'fake-admin-uid',
+    name: 'المدير المؤقت',
+    username: 'tempadmin',
+    email: 'admin@local.dev',
+    role: 'admin', // Crucial for permissions
+    permissions: ['*'], // Grant all permissions
+    status: 'active',
+    phone: '000',
+    requestedAt: new Date().toISOString(),
+};
+
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    const [user, setUser] = useState<AuthUser | null>(null);
-    const [loading, setLoading] = useState(true);
-    const { toast } = useToast();
-
-    const handleUserSession = useCallback(async (firebaseUser: FirebaseUser | null) => {
-        try {
-            const idToken = await firebaseUser?.getIdToken() || null;
-            
-            // Update the server-side session cookie. This is crucial for Server Actions.
-            await fetch('/api/auth/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ idToken }),
-            });
-
-            if (!firebaseUser) {
-                setUser(null);
-                return;
-            }
-
-            // If user is logged in, fetch full profile from our backend.
-            const userDetails = await getCurrentUserFromSession();
-            
-            if (!userDetails) {
-                 // This case should now be handled by getCurrentUserFromSession returning a basic user object.
-                 // If it still returns null, it's a critical error (like session cookie verification failed).
-                await signOut(auth);
-                setUser(null);
-                toast({
-                    title: "خطأ في الجلسة",
-                    description: "فشلت عملية التحقق من جلستك. تم تسجيل خروجك.",
-                    variant: "destructive",
-                });
-                return;
-            }
-
-            const safeUserDetails = JSON.parse(JSON.stringify(userDetails));
-            setUser(safeUserDetails as AuthUser | null);
-
-        } catch (error) {
-            console.error("Auth State Error:", error);
-            await signOut(auth);
-            setUser(null);
-            toast({
-                title: "حدث خطأ في المصادقة",
-                description: "تم تسجيل خروجك بسبب خطأ. الرجاء المحاولة مرة أخرى.",
-                variant: "destructive",
-            });
-        } finally {
-            setLoading(false);
-        }
-    }, [toast]);
-
-
-    useEffect(() => {
-        const unsubscribe = onIdTokenChanged(auth, handleUserSession);
-        return () => unsubscribe();
-    }, [handleUserSession]);
+    
+    const user = fakeAdminUser;
+    const loading = false;
 
     const logout = async () => {
-        await signOut(auth);
-        setUser(null);
+        // In this disabled state, logout does nothing
+        console.log("Logout function is currently disabled.");
     };
 
     const value = { user, loading, logout };

@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -133,25 +134,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-    const { user, loading } = useAuth();
-    
-    // While the authentication state is being determined, show a preloader.
-    // This is a key part of fixing the redirect loop.
-    if (loading) {
-        return <Preloader />;
-    }
-
-    // Once loading is complete, decide which layout to show.
-    // The actual page protection is now handled by `useRequireAuth` hook in each page.
-    if (user) {
-        // If it's a client user (identified by not having a 'role' property)
-        if (!('role' in user)) {
-            return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
-        }
-        // If it's an admin/employee user
-        return <AppLayout>{children}</AppLayout>;
-    }
-    
-    // If there is no user, render children directly. This is for public pages like /auth/login.
-    return <>{children}</>;
+    // Directly render the AppLayout as authentication is currently bypassed.
+    return <AppLayout>{children}</AppLayout>;
 }
