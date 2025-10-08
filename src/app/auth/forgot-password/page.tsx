@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -10,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { auth } from '@/lib/firebase';
+import { app } from '@/lib/firebase';
 
 
 export default function ForgotPasswordPage() {
@@ -19,6 +18,7 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const auth = getAuth(app);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
