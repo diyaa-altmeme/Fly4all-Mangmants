@@ -16,7 +16,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DialogFooter } from '@/components/ui/dialog';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/context/auth-context';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { createJournalVoucher } from '../journal/actions';
 import { updateVoucher } from '../list/actions';
@@ -59,8 +59,7 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
   
   const { toast } = useToast();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const { data: session } = useSession();
-  const currentUser = session?.user as CurrentUser | undefined;
+  const { user: currentUser } = useAuth();
   const { data: navData } = useVoucherNav();
   
   const accountOptions = React.useMemo(() => {
@@ -181,7 +180,7 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
                      <div key={field.id} className="grid grid-cols-[1fr,auto,auto,auto] gap-2 items-center border p-2 rounded-lg">
                         <Controller name={`entries.${index}.accountId`} control={control} render={({ field }) => (
                            <Autocomplete
-                                searchAction="all"
+                                options={accountOptions}
                                 value={field.value}
                                 onValueChange={field.onChange}
                                 placeholder="ابحث عن حساب..."
@@ -238,3 +237,5 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
     </form>
   );
 }
+
+    

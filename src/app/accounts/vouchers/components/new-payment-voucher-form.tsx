@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -18,7 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DialogFooter } from '@/components/ui/dialog';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/context/auth-context';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { createPaymentVoucher } from '@/app/accounts/vouchers/payment/actions';
 import { updateVoucher } from '../list/actions';
@@ -60,8 +59,7 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
 
 export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency, onVoucherUpdated, isEditing, initialData }: NewPaymentVoucherFormProps) {
   const { data: navData } = useVoucherNav();
-  const { data: session } = useSession();
-  const currentUser = session?.user as CurrentUser | undefined;
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
@@ -144,7 +142,7 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
              <div className="space-y-4">
                  <div className="space-y-1.5">
                     <Label htmlFor="payeeId">اسم المستفيد</Label>
-                     <Controller name="payeeId" control={control} render={({ field }) => ( <Autocomplete searchAction="all" value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..." /> )}/>
+                     <Controller name="payeeId" control={control} render={({ field }) => ( <Autocomplete options={payeeOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..." /> )}/>
                     {errors.payeeId && <p className="text-sm text-destructive mt-1">{errors.payeeId.message}</p>}
                 </div>
                  <div className="space-y-1.5">
@@ -215,3 +213,5 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
     </form>
   );
 }
+
+    
