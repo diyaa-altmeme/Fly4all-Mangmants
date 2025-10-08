@@ -8,7 +8,7 @@ import type { User, Client } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/permissions';
 import { app } from '@/lib/firebase';
 
-type AuthUser = (User & { uid: string; permissions: string[] }) | (Client & { uid: string });
+type AuthUser = (User & { uid: string; permissions: string[] }) | (Client & { uid:string; permissions: never[] });
 
 type AuthContextType = {
     user: AuthUser | null;
@@ -31,17 +31,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const idTokenResult = await firebaseUser.getIdTokenResult();
             const userEmail = firebaseUser.email;
 
-            if (!userEmail) throw new Error("User email is not available.");
+            if (!userEmail) {
+                // This can happen with phone auth, handle appropriately
+                console.warn("User does not have an email.");
+                // For now, let's assume we can't fetch details without email
+                 throw new Error("User email is not available.");
+            }
 
             const usersRef = db.collection('users');
             const querySnapshot = await usersRef.where('email', '==', userEmail).limit(1).get();
-
+            
             if (!querySnapshot.empty) {
                 const userDoc = querySnapshot.docs[0];
                 const userData = userDoc.data() as User;
-
-                if (userData.status !== 'active') throw new Error("User account is not active.");
                 
+                if (userData.status !== 'active') throw new Error("User account is not active.");
+
                 const userRole = idTokenResult.claims.role || userData.role;
                 let permissions: string[] = [];
                 if (userRole === 'admin') {
@@ -51,41 +56,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     if (roleDoc.exists) permissions = roleDoc.data()?.permissions || [];
                 }
                 
-                setUser({ ...userData, uid: firebaseUser.uid, permissions } as AuthUser);
-
+                setUser({ ...userData, uid: firebaseUser.uid, permissions });
             } else {
+                // Fallback to check clients collection if no user found
                 const clientsRef = db.collection('clients');
                 const clientQuerySnapshot = await clientsRef.where('email', '==', userEmail).limit(1).get();
-                if(!clientQuerySnapshot.empty) {
+                if (!clientQuerySnapshot.empty) {
                     const clientDoc = clientQuerySnapshot.docs[0];
                     const clientData = clientDoc.data() as Client;
                     if (clientData.status !== 'active') throw new Error("Client account is not active.");
-                    setUser({ ...clientData, uid: firebaseUser.uid } as AuthUser);
+                     // Clients don't have permissions in this model
+                    setUser({ ...clientData, uid: firebaseUser.uid, permissions: [] });
                 } else {
-                    throw new Error(`No user or client found for email: ${userEmail}`);
+                     throw new Error(`No user or client record found for email: ${userEmail}`);
                 }
             }
         } catch (error) {
             console.error("Error fetching user details:", error);
-            setUser(null); // Clear user state on error
+            // Sign out the user if fetching details fails, to prevent an inconsistent state
+            await auth.signOut();
+            setUser(null);
         } finally {
+            // ALWAYS set loading to false
             setLoading(false);
         }
-    }, []);
+    }, [auth]);
 
     useEffect(() => {
         const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 setLoading(true);
-                const idToken = await firebaseUser.getIdToken();
-                // Send token to server to create session cookie
                 await fetch('/api/auth/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken }),
+                    body: JSON.stringify({ idToken: await firebaseUser.getIdToken() }),
                 });
                 await fetchUserDetails(firebaseUser);
             } else {
+                await fetch('/api/auth/session', { method: 'POST', body: JSON.stringify({ idToken: null }) });
                 setUser(null);
                 setLoading(false);
             }
@@ -97,7 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const logout = async () => {
         setLoading(true);
         await auth.signOut();
-        // onIdTokenChanged will handle setting user to null and clearing server session
+        // onIdTokenChanged will handle setting user to null, clearing session, and setting loading to false
     };
     
     const reloadUser = useCallback(async () => {
