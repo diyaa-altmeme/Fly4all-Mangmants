@@ -3,7 +3,7 @@
 'use server';
 
 import type { User, Client, Role } from "@/lib/types";
-import { getDb, initializeAdmin } from "@/lib/firebase-admin";
+import { getDb, getAuthAdmin } from "@/lib/firebase-admin";
 import { cookies } from 'next/headers'
 import { PERMISSIONS } from "@/lib/permissions";
 import { createAuditLog } from "@/app/system/activity-log/actions";
@@ -84,8 +84,8 @@ export async function getCurrentUserFromSession(): Promise<(User & { uid: string
 
 
 export async function verifyOtpAndLogin(phone: string, otp: string, type: 'employee' | 'client'): Promise<{ success: boolean; error?: string }> {
-     await initializeAdmin();
      const db = await getDb();
+     const auth = await getAuthAdmin();
      const otpRef = db.collection('otp_requests').doc(phone);
      
      try {
@@ -108,7 +108,7 @@ export async function verifyOtpAndLogin(phone: string, otp: string, type: 'emplo
          
          const userDoc = userQuery.docs[0];
          const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-         const sessionCookie = await getAuth().createSessionCookie(userDoc.id, { expiresIn });
+         const sessionCookie = await auth.createSessionCookie(userDoc.id, { expiresIn });
          
          const cookieStore = await cookies();
          cookieStore.set('session', sessionCookie, {
@@ -142,7 +142,6 @@ export async function logoutUser() {
 }
 
 export async function requestPublicAccount(data: Pick<User, 'name' | 'email' | 'phone'>) {
-    await initializeAdmin();
     const db = await getDb();
     
     // Check if user already exists
