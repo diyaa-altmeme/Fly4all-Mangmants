@@ -10,7 +10,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
-import { Loader2 } from "lucide-react"
+import { Loader2, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/context/auth-context";
@@ -30,6 +30,7 @@ export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
   const { setAuthLoading } = useAuth();
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -109,7 +110,18 @@ export default function LoginForm() {
                 </Link>
               </div>
               <FormControl>
-                <Input id="password" type="password" required {...field} />
+                 <div className="relative">
+                  <Input id="password" type={showPassword ? "text" : "password"} required {...field} />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
