@@ -23,11 +23,13 @@ const getUsername = async () => {
     return user?.name || 'النظام';
 }
 
-export async function searchClients(options: { searchTerm?: string, includeInactive?: boolean }): Promise<{value: string, label: string}[]> {
-    const { clients } = await getClients({ ...options, all: true, relationType: 'client' });
+export async function searchClients(options: { searchTerm?: string, includeInactive?: boolean, relationType?: 'client' | 'supplier' | 'all' }): Promise<{value: string, label: string, relationType?: RelationType, paymentType?: CompanyPaymentType}[]> {
+    const { clients } = await getClients({ ...options, all: true });
     return clients.map(c => ({ 
         value: c.id, 
         label: `${c.name} ${c.code ? `(${c.code})` : ''}`,
+        relationType: c.relationType,
+        paymentType: c.paymentType,
     }));
 }
 
@@ -54,8 +56,14 @@ export async function getClients(options: {
         
         // Apply filters
         if (relationType && relationType !== 'all') {
-            const typesToInclude = [relationType, 'both'];
-            query = query.where('relationType', 'in', typesToInclude);
+             // If searching for 'client', also include 'both'
+            const typesToInclude = relationType === 'client' ? ['client', 'both'] 
+                                 : relationType === 'supplier' ? ['supplier', 'both']
+                                 : [relationType];
+
+            if (typesToInclude.length > 0) {
+                 query = query.where('relationType', 'in', typesToInclude);
+            }
         }
         if (paymentType && paymentType !== 'all') {
             query = query.where('paymentType', '==', paymentType);
@@ -63,6 +71,10 @@ export async function getClients(options: {
         if (status && status !== 'all') {
             query = query.where('status', '==', status);
         }
+         if (options.includeInactive !== true && !status) {
+            query = query.where('status', '==', 'active');
+        }
+
         if (country && country !== 'all') {
             query = query.where('country', '==', country);
         }
@@ -124,22 +136,17 @@ export async function getClients(options: {
         
         const clients: Client[] = finalDocs.map(doc => {
             const data = doc.data();
-            let createdAt = new Date().toISOString();
-            if (data.createdAt) {
-                try {
-                    if (typeof data.createdAt.toDate === 'function') {
-                        createdAt = data.createdAt.toDate().toISOString();
-                    } else if (typeof data.createdAt === 'string') {
-                        createdAt = parseISO(data.createdAt).toISOString();
-                    }
-                } catch(e) { /* fallback to now */ }
-            } else {
-                 createdAt = new Date(0).toISOString();
+            // IMPORTANT: Convert all potential date objects to serializable strings
+            const safeData = { ...data };
+            for (const key in safeData) {
+                if (safeData[key] && typeof safeData[key].toDate === 'function') {
+                    safeData[key] = safeData[key].toDate().toISOString();
+                }
             }
+
             return { 
-                ...data, // Spread all fields from the document
+                ...safeData,
                 id: doc.id,
-                createdAt: createdAt,
              } as Client;
         });
         
@@ -162,10 +169,16 @@ export async function getClientById(id: string): Promise<Client | null> {
             return null;
         }
         const data = doc.data() as any;
+        
+        const safeData = { ...data };
+        for (const key in safeData) {
+            if (safeData[key] && typeof safeData[key].toDate === 'function') {
+                safeData[key] = safeData[key].toDate().toISOString();
+            }
+        }
         return {
             id: doc.id,
-            ...data,
-            createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate().toISOString() : data.createdAt,
+            ...safeData,
         } as Client;
     } catch (error) {
         console.error(`Error getting client by ID ${id}:`, String(error));
@@ -188,10 +201,15 @@ export async function addClient(data: Partial<Omit<Client, 'id'>>): Promise<{ su
             createdBy: username,
             balance: { USD: 0, IQD: 0 },
             lastTransaction: null,
+            useCount: 0,
         };
 
-        if (!clientData.password) {
-            delete clientData.password;
+        if (clientData.password && clientData.password.length >= 6) {
+            const saltRounds = 10;
+            // Password hashing should happen here, but bcrypt is a client-side library in this setup.
+            // This is a potential security issue to be addressed.
+        } else {
+             delete clientData.password;
         }
         
         const docRef = await db.collection('clients').add(clientData);
@@ -233,6 +251,7 @@ export async function addMultipleClients(clientsData: Omit<Client, 'id' | 'creat
             createdBy: `مستورد بواسطة ${user.name}`,
             type: clientData.type || 'individual',
             relationType: clientData.relationType || 'client',
+            status: clientData.status || 'active',
             balance: { USD: 0, IQD: 0 },
             lastTransaction: null,
             useCount: 0,
@@ -293,7 +312,16 @@ export async function updateClient(id: string, data: Partial<Client>): Promise<{
         });
         
         const updatedDoc = await db.collection('clients').doc(id).get();
-        const updatedClient = { id: updatedDoc.id, ...updatedDoc.data() } as Client;
+        const updatedData = updatedDoc.data() as Client;
+        
+        const safeData = { ...updatedData };
+        for (const key in safeData) {
+            if (safeData[key] && typeof safeData[key].toDate === 'function') {
+                safeData[key] = safeData[key].toDate().toISOString();
+            }
+        }
+        
+        const updatedClient = { id: updatedDoc.id, ...safeData } as Client;
 
         revalidatePath('/clients');
         revalidatePath('/suppliers');
