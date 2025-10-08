@@ -8,28 +8,48 @@ import { createAuditLog } from "@/app/system/activity-log/actions";
 import { DecodedIdToken } from "firebase-admin/auth";
 import { cleanUser } from "@/lib/cleanUser";
 
-export async function createSession(idToken: string) {
+function processDoc(docData: any): any {
+    if (!docData) return null;
+
+    // Deep copy to avoid mutating cache
+    const safeData = JSON.parse(JSON.stringify(docData));
+
+    for (const key in safeData) {
+        if (safeData[key] && (safeData[key].hasOwnProperty('_seconds') || typeof safeData[key].toDate === 'function')) {
+            try {
+                 safeData[key] = new Date(safeData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
+            } catch(e) {
+                // Ignore invalid date formats
+            }
+        }
+    }
+    return safeData;
+};
+
+export async function createSession(idToken: string | null) {
   try {
+    if (!idToken) {
+        cookies().delete("session");
+        return { success: true, message: "Session cleared." };
+    }
+
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const decodedToken = await getAuthAdmin().verifyIdToken(idToken);
-
-    if (decodedToken) {
-      const sessionCookie = await getAuthAdmin().createSessionCookie(idToken, {
+    const sessionCookie = await getAuthAdmin().createSessionCookie(idToken, {
         expiresIn,
-      });
+    });
 
-      cookies().set("session", sessionCookie, {
+    cookies().set("session", sessionCookie, {
         maxAge: expiresIn,
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         path: "/",
         sameSite: "lax",
-      });
-      return { success: true };
-    }
-    return { success: false, error: "Invalid ID token." };
+    });
+
+    return { success: true };
   } catch (error: any) {
     console.error("Session Cookie Error:", error);
+    // Return a structured error response
     return { success: false, error: "Failed to create session cookie." };
   }
 }
@@ -44,13 +64,27 @@ export async function getCurrentUserFromSession(): Promise<any | null> {
         const userDoc = await db.collection('users').doc(decodedToken.uid).get();
 
         if (userDoc.exists) {
-            const userData = { id: userDoc.id, ...userDoc.data() };
-            // Ensure it's a plain object
-            return JSON.parse(JSON.stringify(userData));
+            const firestoreData = processDoc(userDoc.data());
+            const combinedUser = {
+                ...firestoreData, // Firestore data takes precedence
+                uid: decodedToken.uid,
+                email: decodedToken.email,
+                name: firestoreData.name || decodedToken.name, // Fallback to token name
+            };
+            return JSON.parse(JSON.stringify(combinedUser));
+        } else {
+            // User exists in Auth but not in Firestore. Return a basic user object.
+             const basicUser = {
+                uid: decodedToken.uid,
+                email: decodedToken.email,
+                name: decodedToken.name || decodedToken.email,
+                role: 'viewer', // Assign a default, least-privileged role
+                permissions: [],
+            };
+             return JSON.parse(JSON.stringify(basicUser));
         }
-        return null;
     } catch (error) {
-        console.error("Failed to verify session cookie:", error);
+        console.error("Failed to verify session cookie or fetch user data:", error);
         return null;
     }
 }
@@ -98,8 +132,6 @@ export async function verifyOtpAndLogin(
       description: `تم تسجيل الدخول بنجاح عبر OTP.`,
     });
 
-    // The client will use this custom token to sign in with the client SDK
-    // which will then trigger onAuthStateChanged.
     return { success: true, customToken };
   } catch (e: any) {
     console.error("OTP verification error:", e);
@@ -116,7 +148,6 @@ export async function requestPublicAccount(
 ) {
   const db = await getDb();
 
-  // Check if user already exists
   const emailQuery = await db
     .collection("users")
     .where("email", "==", data.email)
@@ -142,7 +173,6 @@ export async function requestPublicAccount(
       requestedAt: new Date().toISOString(),
     });
 
-    // Notify admins (simplified version)
     await createAuditLog({
       userId: "system",
       userName: "النظام",
