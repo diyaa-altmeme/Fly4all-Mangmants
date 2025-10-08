@@ -27,7 +27,7 @@ const userFormSchema = z.object({
   department: z.string().optional(),
   position: z.string().optional(),
   boxId: z.string().optional(),
-  password: z.string().min(6, "كلمة المرور يجب أن تكون 6 أحرف على الأقل.").optional().or(z.literal('')),
+  password: z.string().optional(),
   avatarUrl: z.string().url().optional().or(z.literal('')),
   baseSalary: z.coerce.number().min(0).optional(),
   otpLoginEnabled: z.boolean().optional(),
@@ -77,10 +77,6 @@ export default function UserForm({ isEditing = false, initialData, boxes, roles,
           throw new Error(result.error);
         }
       } else {
-        if (!data.password) {
-          form.setError("password", { message: "كلمة المرور مطلوبة عند إنشاء مستخدم جديد" });
-          return;
-        }
         const result = await addUser(data as any);
         if (result.success && result.newUser) {
            toast({ title: 'تم إضافة المستخدم بنجاح' });
@@ -102,7 +98,7 @@ export default function UserForm({ isEditing = false, initialData, boxes, roles,
           <FormField control={form.control} name="username" render={({ field }) => (<FormItem><FormLabel>اسم المستخدم<span className="text-destructive ms-1">*</span></FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
           <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>البريد الإلكتروني<span className="text-destructive ms-1">*</span></FormLabel><div className="relative"><Mail className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><FormControl><Input type="email" {...field} className="pr-10" /></FormControl></div><FormMessage /></FormItem>)} />
           <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>رقم الهاتف<span className="text-destructive ms-1">*</span></FormLabel><div className="relative"><Phone className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><FormControl><Input {...field} className="pr-10" /></FormControl></div><FormMessage /></FormItem>)} />
-          <FormField control={form.control} name="password" render={({ field }) => (<FormItem><FormLabel>كلمة المرور{isEditing ? '' : <span className="text-destructive ms-1">*</span>}</FormLabel><FormControl><Input type="password" placeholder={isEditing ? 'اتركه فارغًا لعدم التغيير' : 'مطلوب'} {...field} /></FormControl><FormMessage /></FormItem>)} />
+          <FormField control={form.control} name="password" render={({ field }) => (<FormItem><FormLabel>كلمة المرور</FormLabel><FormControl><Input type="password" placeholder={isEditing ? 'اتركه فارغًا لعدم التغيير' : 'اتركه فارغًا لإنشاء كلمة عشوائية'} {...field} /></FormControl><FormMessage /></FormItem>)} />
           <FormField control={form.control} name="avatarUrl" render={({ field }) => (<FormItem><FormLabel>رابط الصورة (اختياري)</FormLabel><FormControl><Input type="url" {...field} placeholder="https://example.com/avatar.png" /></FormControl><FormMessage /></FormItem>)} />
           <FormField control={form.control} name="department" render={({ field }) => (<FormItem><FormLabel>القسم</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
           <FormField control={form.control} name="position" render={({ field }) => (<FormItem><FormLabel>المنصب</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />

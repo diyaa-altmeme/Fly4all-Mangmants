@@ -7,6 +7,7 @@ import { getDb } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import { getBoxes } from '../boxes/actions';
 import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { randomBytes } from 'crypto';
 
 const processDoc = (docData: any): any => {
     if (!docData) return null;
@@ -97,9 +98,7 @@ export async function addUser(data: Omit<User, 'uid' | 'id'>) {
 
     const { email, password, name, phone, ...firestoreData } = data;
 
-    if (!password) {
-        throw new Error("Password is required for new users.");
-    }
+    const finalPassword = password && password.length >= 6 ? password : randomBytes(16).toString('hex');
     
     // Ensure phone number is in E.164 format
     let formattedPhone = phone;
@@ -114,7 +113,7 @@ export async function addUser(data: Omit<User, 'uid' | 'id'>) {
 
     const userRecord = await auth.createUser({
         email,
-        password,
+        password: finalPassword,
         displayName: name,
         phoneNumber: formattedPhone,
         disabled: data.status === 'blocked',
@@ -141,7 +140,7 @@ export async function updateUser(uid: string, data: Partial<User>) {
     if (email) authUpdatePayload.email = email;
     if (name) authUpdatePayload.displayName = name;
     if (phone) authUpdatePayload.phoneNumber = phone;
-    if (password) authUpdatePayload.password = password;
+    if (password && password.length >=6) authUpdatePayload.password = password;
     if (status) authUpdatePayload.disabled = status === 'blocked';
 
     if (Object.keys(authUpdatePayload).length > 0) {
