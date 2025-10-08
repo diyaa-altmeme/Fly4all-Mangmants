@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import type { User, Client, Role } from "@/lib/types";
@@ -16,10 +17,14 @@ export async function getCurrentUserFromSession(): Promise<(User & { uid: string
     if (!sessionCookie) return null;
     
     try {
-        const decodedToken = JSON.parse(sessionCookie);
+        await initializeAdmin();
+        const decodedToken = await getAuth().verifySessionCookie(sessionCookie, true);
         const db = await getDb();
         
-        const userDoc = await db.collection(decodedToken.type === 'employee' ? 'users' : 'clients').doc(decodedToken.uid).get();
+        const isEmployee = decodedToken.role; // Assuming only employees have roles
+        const collection = isEmployee ? 'users' : 'clients';
+        
+        const userDoc = await db.collection(collection).doc(decodedToken.uid).get();
 
         if (!userDoc.exists) return null;
         
@@ -29,11 +34,11 @@ export async function getCurrentUserFromSession(): Promise<(User & { uid: string
             return null; // Don't allow login for non-active users
         }
 
-        if (decodedToken.type === 'employee') {
+        if (isEmployee) {
             const userRole = (userData as User).role;
             const roleDoc = await db.collection('roles').doc(userRole).get();
             const permissions = roleDoc.exists ? roleDoc.data()?.permissions : [];
-             return { ...userData, uid: userDoc.id, permissions } as (User & { uid: string, permissions: string[] });
+            return { ...userData, uid: userDoc.id, permissions } as (User & { uid: string, permissions: string[] });
         } else {
              return { ...userData, uid: userDoc.id } as (Client & { uid: string });
         }
@@ -67,13 +72,13 @@ export async function verifyOtpAndLogin(phone: string, otp: string, type: 'emplo
          }
          
          const userDoc = userQuery.docs[0];
+         const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+         const sessionCookie = await getAuth().createSessionCookie(userDoc.id, { expiresIn });
          
-         const sessionPayload = { uid: userDoc.id, type };
-         const cookieStore = await cookies();
-         cookieStore.set('session', JSON.stringify(sessionPayload), {
+         cookies().set('session', sessionCookie, {
+            maxAge: expiresIn,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
-            maxAge: 60 * 60 * 24 * 7,
             path: '/',
             sameSite: 'lax',
         });
@@ -96,8 +101,7 @@ export async function verifyOtpAndLogin(phone: string, otp: string, type: 'emplo
 
 
 export async function logoutUser() {
-    const cookieStore = await cookies();
-    cookieStore.delete('session');
+    cookies().delete('session');
 }
 
 export async function requestPublicAccount(data: Pick<User, 'name' | 'email' | 'phone'>) {

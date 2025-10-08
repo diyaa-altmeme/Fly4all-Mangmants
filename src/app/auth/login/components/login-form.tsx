@@ -49,7 +49,7 @@ export default function LoginForm() {
     } catch(error: any) {
         console.error("Login error:", error);
         let errorMessage = "فشل تسجيل الدخول. يرجى التحقق من بياناتك.";
-        if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
             errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
         }
         toast({ title: "خطأ في تسجيل الدخول", description: errorMessage, variant: 'destructive' });
