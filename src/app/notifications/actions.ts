@@ -8,14 +8,17 @@ import { revalidatePath } from 'next/cache';
 
 const NOTIFICATIONS_COLLECTION = 'notifications';
 
-const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): Notification => {
+const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
-    // Ensure all potential date fields are consistently strings
-    return {
-        ...data,
-        id: doc.id,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-    } as Notification;
+    if (!data) return null;
+
+    const safeData = { ...data, id: doc.id };
+    for (const key in safeData) {
+        if (safeData[key] && typeof safeData[key].toDate === 'function') {
+            safeData[key] = safeData[key].toDate().toISOString();
+        }
+    }
+    return safeData;
 };
 
 
@@ -40,7 +43,7 @@ export async function getNotificationsForUser(userId: string, options: { limit?:
 
         if (snapshot.empty) return [];
         
-        return snapshot.docs.map(processDoc);
+        return snapshot.docs.map(doc => processDoc(doc) as Notification);
 
     } catch (error) {
         console.error("Error getting notifications:", String(error));

@@ -8,6 +8,19 @@ import { revalidatePath } from 'next/cache';
 
 const RECONCILIATION_LOGS_COLLECTION = 'reconciliation_logs';
 
+const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
+    const data = doc.data() as any;
+    if (!data) return null;
+
+    const safeData = { ...data, id: doc.id };
+    for (const key in safeData) {
+        if (safeData[key] && typeof safeData[key].toDate === 'function') {
+            safeData[key] = safeData[key].toDate().toISOString();
+        }
+    }
+    return safeData;
+};
+
 export async function addReconciliationLog(logData: Omit<ReconciliationLog, 'id'>) {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
@@ -30,10 +43,7 @@ export async function getReconciliationLogs(): Promise<ReconciliationLog[]> {
         const snapshot = await db.collection(RECONCILIATION_LOGS_COLLECTION).orderBy('runAt', 'desc').limit(50).get();
         if (snapshot.empty) return [];
         
-        return snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as ReconciliationLog));
+        return snapshot.docs.map(doc => processDoc(doc) as ReconciliationLog);
     } catch (error) {
         console.error("Error getting reconciliation logs: ", String(error));
         throw new Error("Failed to fetch reconciliation logs.");
@@ -50,7 +60,7 @@ export async function getReconciliationLogById(id: string): Promise<Reconciliati
         if (!doc.exists) {
             return null;
         }
-        return { id: doc.id, ...doc.data() } as ReconciliationLog;
+        return processDoc(doc) as ReconciliationLog;
     } catch (error) {
         console.error("Error getting reconciliation log by id: ", String(error));
         throw new Error("Failed to fetch reconciliation log.");

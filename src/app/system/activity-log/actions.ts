@@ -10,14 +10,17 @@ import { parseISO } from 'date-fns';
 
 const AUDIT_LOGS_COLLECTION = 'audit_logs';
 
-const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): AuditLog => {
+const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
-    // Ensure all potential date fields are consistently strings
-    return {
-        ...data,
-        id: doc.id,
-        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-    } as AuditLog;
+    if (!data) return null;
+
+    const safeData = { ...data, id: doc.id };
+    for (const key in safeData) {
+        if (safeData[key] && typeof safeData[key].toDate === 'function') {
+            safeData[key] = safeData[key].toDate().toISOString();
+        }
+    }
+    return safeData;
 };
 
 export async function createAuditLog(logData: Partial<Omit<AuditLog, 'id' | 'createdAt'>>) {
@@ -53,7 +56,7 @@ export const getAuditLogs = async (): Promise<AuditLog[]> => {
         if (snapshot.empty) return [];
         
         const logs = snapshot.docs
-            .map(processDoc)
+            .map(doc => processDoc(doc) as AuditLog)
             .filter(log => log.level !== 'error'); // Filter for non-errors in code
 
         return logs;
@@ -76,7 +79,7 @@ export const getErrorLogs = async (): Promise<AuditLog[]> => {
         if (snapshot.empty) return [];
         
         const logs = snapshot.docs
-            .map(processDoc)
+            .map(doc => processDoc(doc) as AuditLog)
             .filter(log => log.level === 'error'); // Filter for errors in code
         
         return logs;
