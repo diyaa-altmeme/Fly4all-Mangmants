@@ -10,7 +10,7 @@ import { serviceAccount } from './firebase-service-account';
 // Holds the single initialized Firebase app instance.
 let firebaseAdminApp: App | null = null;
 
-export async function initializeAdmin(): Promise<App> {
+function getFirebaseAdminApp(): App {
     if (firebaseAdminApp) {
         return firebaseAdminApp;
     }
@@ -40,17 +40,23 @@ export async function initializeAdmin(): Promise<App> {
     }
 }
 
+// These are now async getters to comply with Next.js Server Action requirements.
 export async function getDb(): Promise<Firestore> {
-  const app = await initializeAdmin();
+  const app = getFirebaseAdminApp();
   return getFirestore(app);
 }
 
 export async function getAuthAdmin(): Promise<Auth> {
-  const app = await initializeAdmin();
+  const app = getFirebaseAdminApp();
   return getAuth(app);
 }
 
 export async function getStorageAdmin(): Promise<any> {
-  const app = await initializeAdmin();
+  const app = getFirebaseAdminApp();
   return getStorage(app);
+}
+
+// Deprecated, but keeping for backward compatibility if some old files still use it.
+export async function initializeAdmin(): Promise<App> {
+    return getFirebaseAdminApp();
 }
