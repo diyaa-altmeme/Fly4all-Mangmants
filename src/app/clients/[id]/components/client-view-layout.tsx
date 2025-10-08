@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -10,8 +9,8 @@ import { useRouter } from 'next/navigation';
 import { logoutUser } from '@/app/auth/actions';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import ChangePasswordDialog from './change-password-dialog';
-import ChangeAvatarDialog from './change-avatar-dialog';
+import ChangePasswordDialog from '../auth/change-password-dialog';
+import ChangeAvatarDialog from '../auth/change-avatar-dialog';
 import NotificationCenter from '@/components/layout/notification-center';
 import Link from 'next/link';
 
