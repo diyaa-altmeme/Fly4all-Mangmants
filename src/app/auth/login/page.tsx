@@ -1,15 +1,20 @@
 
 'use client'
-import { signIn } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plane } from 'lucide-react'
+import LoginPageClient from './components/login-page-client'
+import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
+import { app } from '@/lib/firebase'
 
 export default function SignInPage() {
 
   const handleGoogleSignIn = async () => {
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
     try {
-      await signIn('google', { callbackUrl: '/dashboard' })
+      await signInWithPopup(auth, provider);
+      // The redirect is handled by the onAuthStateChanged listener in MainLayout
     } catch (error) {
       console.error('An error occurred during Google sign-in:', error)
     }
@@ -18,22 +23,7 @@ export default function SignInPage() {
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
         <div className="flex items-center justify-center py-12">
-            <Card className="mx-auto max-w-sm">
-                <CardHeader className="text-center">
-                    <Plane className="h-8 w-8 mx-auto text-primary"/>
-                    <CardTitle className="text-3xl font-bold">Mudarib</CardTitle>
-                    <CardDescription>
-                        مرحبًا بك! قم بتسجيل الدخول للمتابعة
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid gap-4">
-                        <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
-                            تسجيل الدخول باستخدام جوجل
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+            <LoginPageClient />
         </div>
          <div className="hidden bg-muted lg:block">
                 <div 

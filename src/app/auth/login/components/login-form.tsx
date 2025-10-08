@@ -1,6 +1,7 @@
+
 "use client"
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,7 +13,9 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { signIn } from "next-auth/react";
+import { useAuth } from "@/context/auth-context";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 const formSchema = z.object({
   identifier: z.string().email({ message: "الرجاء إدخال بريد إلكتروني صحيح" }),
@@ -25,6 +28,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
+  const { setAuthLoading } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -37,21 +41,18 @@ export default function LoginForm() {
   const { isSubmitting } = form.formState;
 
   const onSubmit = async (data: FormValues) => {
-    const result = await signIn("credentials", {
-      redirect: false, // Prevent NextAuth from redirecting automatically
-      email: data.identifier,
-      password: data.password,
-    });
-
-    if (result?.error) {
-      toast({
-        title: "خطأ في تسجيل الدخول",
-        description: "البريد الإلكتروني أو كلمة المرور غير صحيحة.",
-        variant: "destructive",
-      });
-    } else if (result?.ok) {
-      // The user is authenticated. We can now redirect them.
-      router.push("/dashboard"); 
+    setAuthLoading(true);
+    try {
+        await signInWithEmailAndPassword(auth, data.identifier, data.password);
+        router.push('/dashboard');
+        // Preloader will be turned off by MainLayout's loading state via onAuthStateChanged
+    } catch(error: any) {
+        let errorMessage = "فشل تسجيل الدخول.";
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
+        }
+        toast({ title: "خطأ في تسجيل الدخول", description: errorMessage, variant: 'destructive' });
+        setAuthLoading(false);
     }
   }
 

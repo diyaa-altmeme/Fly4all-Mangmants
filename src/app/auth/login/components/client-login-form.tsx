@@ -16,8 +16,6 @@ import { useToast } from "@/hooks/use-toast"
 import { verifyOtpAndLogin } from "../../actions"
 import OtpLoginForm from "./otp-login-form";
 import { useAuth } from "@/context/auth-context";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 
 const formSchema = z.object({
   identifier: z.string().min(1, { message: "الحقل مطلوب" }),
@@ -44,19 +42,10 @@ export default function ClientLoginForm() {
   const { isSubmitting } = form.formState;
 
   const onSubmit = async (data: FormValues) => {
-    setAuthLoading(true);
-    try {
-        await signInWithEmailAndPassword(auth, data.identifier, data.password);
-        router.push('/dashboard');
-        // Preloader will be turned off by MainLayout's loading state via onAuthStateChanged
-    } catch(error: any) {
-        let errorMessage = "فشل تسجيل الدخول.";
-        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-            errorMessage = "بيانات الدخول غير صحيحة.";
-        }
-        toast({ title: "خطأ في تسجيل الدخول", description: errorMessage, variant: 'destructive' });
-        setAuthLoading(false);
-    }
+    // This is a placeholder, as custom client password auth is not fully implemented
+    // In a real scenario, this would call a server action to verify credentials
+    // and then create a session.
+    toast({ title: "ميزة قيد التطوير", description: "تسجيل دخول العملاء بكلمة مرور غير متاح حاليًا.", variant: "destructive" });
   }
   
   const handleOtpSubmit = async (otp: string) => {
