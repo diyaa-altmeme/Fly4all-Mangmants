@@ -1,99 +1,105 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions للتحقق من الصلاحيات
+    // Helper functions for checking permissions
     function isAuthenticated() {
       return request.auth != null;
     }
 
     function isOwner(userId) {
-      return request.auth != null && request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // This function assumes user roles are stored in a 'role' field in their user document.
-    function getRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    // Assumes user document has a 'roles' map, e.g., { "admin": true }
+    function hasRole(role) {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
 
     function isAdmin() {
-      return isAuthenticated() && getRole() == 'admin';
-    }
-    
-    function isEditor() {
-        return isAuthenticated() && (getRole() == 'admin' || getRole() == 'editor');
+      return hasRole('admin');
     }
 
-    // --- RULES ---
-    
-    // Users can read their own data. Admins can read/write any user data.
+    // Specific rules for each collection
     match /users/{userId} {
       allow read, write: if isOwner(userId) || isAdmin();
     }
-    
-    // Most collections should be readable by any authenticated user, but only writable by editors/admins.
-    match /clients/{docId} {
+
+    match /roles/{roleId} {
       allow read: if isAuthenticated();
-      allow write: if isEditor();
+      allow write: if isAdmin();
     }
     
-    match /suppliers/{docId} {
-       allow read: if isAuthenticated();
-       allow write: if isEditor();
+    match /clients/{clientId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if hasRole('editor') || isAdmin();
     }
 
-    match /bookings/{docId} {
-       allow read: if isAuthenticated();
-       allow write: if isEditor();
+    match /suppliers/{supplierId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if hasRole('editor') || isAdmin();
+    }
+
+    match /boxes/{boxId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if hasRole('editor') || isAdmin();
+    }
+
+    match /visaBookings/{visaId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if hasRole('editor') || isAdmin();
     }
     
-     match /visaBookings/{docId} {
-       allow read: if isAuthenticated();
-       allow write: if isEditor();
+    match /journal-vouchers/{voucherId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if hasRole('editor') || isAdmin();
+    }
+
+    match /subscriptions/{subId} {
+        allow read: if isAuthenticated();
+        allow create, update, delete: if hasRole('editor') || isAdmin();
+    }
+
+    match /subscription_installments/{installmentId} {
+        allow read: if isAuthenticated();
+        allow write: if hasRole('editor') || isAdmin();
     }
     
-    match /subscriptions/{docId} {
-         allow read: if isAuthenticated();
-         allow write: if isEditor();
+    match /payments/{paymentId} {
+        allow read: if isAuthenticated();
+        allow create, write: if hasRole('editor') || isAdmin();
+    }
+
+    match /remittances/{remittanceId} {
+        allow read: if isAuthenticated();
+        allow write: if hasRole('editor') || isAdmin();
     }
     
-     match /journal-vouchers/{docId} {
-         allow read: if isAuthenticated();
-         allow write: if isEditor();
+    match /sequences/{sequenceId} {
+      allow read, write: if isAuthenticated(); // Should be locked down further
     }
     
-    // Allow any authenticated user to create these documents
-    match /reconciliation_logs/{docId} {
-        allow read, create: if isAuthenticated();
-        allow write, delete: if isAdmin();
-    }
-    
-     match /audit_logs/{docId} {
-        allow read, create: if isAuthenticated();
-        allow write, delete: if isAdmin();
-    }
-    
-    match /notifications/{docId} {
-        allow read, write: if isAuthenticated(); // Users manage their own notifications
-    }
-    
-    // Settings and roles can only be modified by admins.
-     match /settings/{docId} {
+    match /settings/{docId} {
         allow read: if isAuthenticated();
         allow write: if isAdmin();
     }
-     match /roles/{docId} {
-        allow read: if isAuthenticated();
-        allow write: if isAdmin();
+    
+    match /audit_logs/{logId} {
+        allow read: if isAdmin();
+        allow create: if true; // Allow services and clients to write logs
     }
-     match /sequences/{docId} {
-        allow read, write: if isAuthenticated(); // Allow server-side functions to update
+    
+    match /notifications/{notifId} {
+        allow read, write: if isOwner(resource.data.userId);
+        allow create: if isAuthenticated();
     }
 
-
-    // Default deny all
+    // Default rule to deny all access to any other collections
     match /{document=**} {
       allow read, write: if false;
     }
