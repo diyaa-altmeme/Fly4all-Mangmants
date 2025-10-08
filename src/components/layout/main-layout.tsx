@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -43,9 +44,9 @@ const Preloader = () => {
 
     React.useEffect(() => {
         const generatedStars = [...Array(50)].map(() => ({
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            animation: `twinkle ${Math.random() * 5 + 2}s linear infinite ${Math.random() * 2}s`,
+            left: `${''}${Math.random() * 100}%`,
+            top: `${''}${Math.random() * 100}%`,
+            animation: `twinkle ${''}${Math.random() * 5 + 2}s linear infinite ${''}${Math.random() * 2}s`,
         }));
         setStars(generatedStars);
     }, []);
@@ -114,8 +115,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
     const handleLogout = async () => {
         await logoutUser();
-        // The onAuthStateChanged listener will handle redirecting to login.
-        // Forcing a reload can ensure all state is cleared.
         window.location.href = '/auth/login';
     }
 
@@ -214,12 +213,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     setIsClient(true);
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      await refreshUser();
-    });
-    return () => unsubscribe();
-  }, [refreshUser]);
+  }, []);
 
+  // Development mode: always show the app layout
+  return <AppLayout>{children}</AppLayout>;
+
+  // --- Original Logic (commented out for development) ---
+  /*
   const isAuthPage = pathname.startsWith('/auth');
   const isPublicPage = pathname === '/';
 
@@ -241,4 +241,5 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   }
 
   return <AppLayout>{children}</AppLayout>;
+  */
 }
