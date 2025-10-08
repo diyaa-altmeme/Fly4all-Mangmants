@@ -44,8 +44,7 @@ export default function LoginForm() {
     setAuthLoading(true);
     try {
         await signInWithEmailAndPassword(auth, data.identifier, data.password);
-        // The onAuthStateChanged listener in AuthContext/MainLayout will handle the redirect.
-        // No need to push router here.
+        // The onAuthStateChanged listener in AuthContext will handle the user state and redirect.
     } catch(error: any) {
         console.error("Login error:", error);
         let errorMessage = "فشل تسجيل الدخول. يرجى التحقق من بياناتك.";

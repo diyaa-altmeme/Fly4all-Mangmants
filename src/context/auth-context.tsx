@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(null);
         } finally {
             // Give a small delay for transitions to feel smoother
-            setTimeout(() => setLoading(false), 300);
+            setTimeout(() => setLoading(false), 250);
         }
     }, []);
 
