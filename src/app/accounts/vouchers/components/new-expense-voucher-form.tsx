@@ -17,7 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DialogFooter } from '@/components/ui/dialog';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 import { createExpenseVoucher } from '@/app/accounts/vouchers/expense/actions';
 import { updateVoucher } from '../list/actions';
 import { NumericInput } from '@/components/ui/numeric-input';
@@ -61,7 +61,8 @@ export default function NewExpenseVoucherForm({ boxes, onVoucherAdded, selectedC
   
   const { toast } = useToast();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const { user: currentUser } = useAuth();
+  const { data: session } = useSession();
+  const currentUser = session?.user as CurrentUser | undefined;
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),

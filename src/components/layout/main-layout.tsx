@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plane, CircleUserRound, Menu, LogOut, Loader2, Network, Rocket } from "lucide-react";
+import { Plane, CircleUserRound, Menu, LogOut } from "lucide-react";
 import { MainNav } from "@/components/layout/main-nav";
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import Image from 'next/image';
@@ -25,73 +25,11 @@ import { cn } from "@/lib/utils";
 import { VoucherNavProvider } from "@/context/voucher-nav-context";
 import { usePathname, useRouter } from "next/navigation";
 import NotificationCenter from "./notification-center";
-import type { User, Client, AppSettings } from '@/lib/types';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useAuth } from "@/context/auth-context";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { logoutUser } from '@/app/auth/actions';
-import LandingPage from '@/components/landing-page';
-import { motion, AnimatePresence } from 'framer-motion';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
-import { getCurrentUserFromSession } from '@/app/auth/actions';
-
-
-const Preloader = () => {
-    const [stars, setStars] = React.useState<React.CSSProperties[]>([]);
-
-    React.useEffect(() => {
-        const generatedStars = [...Array(50)].map(() => ({
-            left: `${''}${Math.random() * 100}%`,
-            top: `${''}${Math.random() * 100}%`,
-            animation: `twinkle ${''}${Math.random() * 5 + 2}s linear infinite ${''}${Math.random() * 2}s`,
-        }));
-        setStars(generatedStars);
-    }, []);
-
-    return (
-        <motion.div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#23005a] overflow-hidden"
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.7 }}
-        >
-            {/* Starry background */}
-            <div className="absolute inset-0 z-0">
-                {stars.map((style, i) => (
-                    <div key={i} className="absolute h-0.5 w-0.5 bg-white rounded-full" style={style}></div>
-                ))}
-            </div>
-            <style jsx>{`
-                @keyframes twinkle {
-                    0%, 100% { opacity: 0; transform: scale(0.8); }
-                    50% { opacity: 1; transform: scale(1.2); }
-                }
-            `}</style>
-
-            <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ 
-                    scale: [0.5, 1.2, 1], 
-                    y: [0, -15, 0],
-                    opacity: 1
-                }}
-                exit={{ scale: 5, opacity: 0 }}
-                transition={{
-                    scale: { duration: 0.8, ease: "backOut" },
-                    y: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-                    opacity: { duration: 0.5 }
-                }}
-                className="z-10"
-            >
-                <Rocket className="h-20 w-20 text-white/90 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
-            </motion.div>
-        </motion.div>
-    );
-};
-
-
+import { useSession, signOut } from 'next-auth/react';
+import AuthWrapper from './auth-wrapper';
 
 const MobileNav = () => {
     return (
@@ -110,13 +48,8 @@ const MobileNav = () => {
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
-    const { user } = useAuth();
-    const router = useRouter();
-
-    const handleLogout = async () => {
-        await logoutUser();
-        window.location.href = '/auth/login';
-    }
+    const { data: session } = useSession();
+    const user = session?.user;
 
     return (
       <VoucherNavProvider>
@@ -176,7 +109,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     <DropdownMenuTrigger asChild>
                         <Button variant="secondary" size="icon" className="rounded-full">
                         <Avatar>
-                            <AvatarImage src={user?.avatarUrl} />
+                            <AvatarImage src={user?.image || undefined} />
                             <AvatarFallback>
                               <CircleUserRound />
                             </AvatarFallback>
@@ -189,7 +122,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                       <DropdownMenuItem asChild><Link href="/profile">الملف الشخصي</Link></DropdownMenuItem>
                       <DropdownMenuItem asChild><Link href="/support">الدعم</Link></DropdownMenuItem>
                       <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                            <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
                               <LogOut className="me-2 h-4 w-4"/>
                               تسجيل الخروج
                             </DropdownMenuItem>
@@ -206,40 +139,5 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, refreshUser } = useAuth();
-  const [isClient, setIsClient] = React.useState(false);
-  const pathname = usePathname();
-  const router = useRouter();
-
-  React.useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  // Development mode: always show the app layout
-  return <AppLayout>{children}</AppLayout>;
-
-  // --- Original Logic (commented out for development) ---
-  /*
-  const isAuthPage = pathname.startsWith('/auth');
-  const isPublicPage = pathname === '/';
-
-  if (!isClient || loading) {
-    return <Preloader />;
-  }
-
-  if (!user) {
-    if (isAuthPage || isPublicPage) {
-      return <>{children}</>;
-    }
-    router.replace('/auth/login');
-    return <Preloader />;
-  }
-
-  if (isAuthPage || isPublicPage) {
-    router.replace('/dashboard');
-    return <Preloader />;
-  }
-
-  return <AppLayout>{children}</AppLayout>;
-  */
+  return <AuthWrapper><AppLayout>{children}</AppLayout></AuthWrapper>;
 }

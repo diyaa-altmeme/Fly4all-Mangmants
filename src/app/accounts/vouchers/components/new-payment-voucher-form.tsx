@@ -18,7 +18,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DialogFooter } from '@/components/ui/dialog';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { createPaymentVoucher } from '@/app/accounts/vouchers/payment/actions';
 import { updateVoucher } from '../list/actions';
@@ -60,7 +60,8 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
 
 export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency, onVoucherUpdated, isEditing, initialData }: NewPaymentVoucherFormProps) {
   const { data: navData } = useVoucherNav();
-  const { user: currentUser } = useAuth();
+  const { data: session } = useSession();
+  const currentUser = session?.user as CurrentUser | undefined;
   const { toast } = useToast();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   

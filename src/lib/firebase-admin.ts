@@ -1,39 +1,31 @@
 
-
 'use server'
 
 import { App, cert, getApp, getApps, initializeApp, ServiceAccount } from 'firebase-admin/app';
 import { Auth, getAuth } from 'firebase-admin/auth';
 import { Firestore, getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { serviceAccount } from './firebase-service-account';
 
+// Holds the single initialized Firebase app instance.
 let firebaseAdminApp: App | null = null;
-
-function getServiceAccount(): ServiceAccount {
-    const serviceAccountStr = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
-    if (!serviceAccountStr) {
-        throw new Error("FIREBASE_SERVICE_ACCOUNT_BASE64 environment variable is not set. Please encode your service account JSON file to Base64 and set it.");
-    }
-    try {
-        const decodedString = Buffer.from(serviceAccountStr, 'base64').toString('utf8');
-        return JSON.parse(decodedString);
-    } catch (e) {
-        console.error("Failed to parse Firebase service account from environment variable.", e);
-        throw new Error("Could not parse FIREBASE_SERVICE_ACCOUNT_BASE64. Make sure it's a valid Base64 encoded JSON.");
-    }
-}
 
 export async function initializeAdmin(): Promise<App> {
     if (firebaseAdminApp) {
         return firebaseAdminApp;
     }
 
+    // If an app is already initialized, use it.
     if (getApps().length > 0) {
         firebaseAdminApp = getApp();
         return firebaseAdminApp;
     }
-
-    const serviceAccount = getServiceAccount();
+    
+    // Directly use the imported service account object
+    if (!serviceAccount || !serviceAccount.projectId || !serviceAccount.privateKey || !serviceAccount.clientEmail) {
+        console.error("Firebase Admin SDK Service Account object is not valid in firebase-service-account.ts.");
+        throw new Error("Default Firebase service account is not valid in firebase-service-account.ts.");
+    }
 
     try {
         const app = initializeApp({
