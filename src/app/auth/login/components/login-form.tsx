@@ -16,7 +16,6 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/context/auth-context";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { app } from "@/lib/firebase";
-import { loginWithEmail } from "../../actions";
 
 
 const formSchema = z.object({
@@ -47,16 +46,9 @@ export default function LoginForm() {
     setAuthLoading(true);
     try {
         const auth = getAuth(app);
-        const userCredential = await signInWithEmailAndPassword(auth, data.identifier, data.password);
-        
-        const idToken = await userCredential.user.getIdToken();
-        const result = await loginWithEmail(idToken);
-
-        if (!result.success) {
-             throw new Error(result.error || 'فشل في إنشاء الجلسة.');
-        }
-        // The onAuthStateChanged listener in AuthProvider will handle the redirect
-
+        // This will trigger the onIdTokenChanged listener in AuthProvider
+        await signInWithEmailAndPassword(auth, data.identifier, data.password);
+        // The listener will handle session creation and redirection.
     } catch(error: any) {
         let errorMessage = "فشل تسجيل الدخول.";
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
