@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -60,13 +61,16 @@ export async function getDashboardStats(): Promise<DashboardStats> {
         
         const activeSubscriptionsSnap = await db.collection('subscriptions').where('status', '==', 'Active').count().get();
 
-        return {
+        const result = {
             revenue: monthData.totalRevenue || 0,
             profit: monthData.totalProfit || 0,
             bookingsCount: monthData.bookingsCount || 0,
             activeSubscriptions: activeSubscriptionsSnap.data().count,
             currency: 'USD',
         };
+        
+        return JSON.parse(JSON.stringify(result));
+
     } catch (error) {
         console.error("Error getting dashboard stats:", String(error));
         return { revenue: 0, profit: 0, bookingsCount: 0, activeSubscriptions: 0, currency: 'USD' };
@@ -85,10 +89,12 @@ export async function getRecentBookings(): Promise<BookingEntry[]> {
             .get();
 
         if (snapshot.empty) return [];
-        return snapshot.docs.map(doc => {
+        const bookings = snapshot.docs.map(doc => {
             const processedData = processDoc(doc);
             return processedData.originalData as BookingEntry;
         });
+
+        return JSON.parse(JSON.stringify(bookings));
 
     } catch (error) {
         console.error("Error getting recent bookings:", String(error));
@@ -113,12 +119,13 @@ export async function getUpcomingInstallments(): Promise<SubscriptionInstallment
         
         if (snapshot.empty) return [];
         
-        // Filter for the next week in code to simplify the query and avoid complex indexes
         const allUnpaid = snapshot.docs.map(doc => processDoc(doc) as SubscriptionInstallment);
         
-        return allUnpaid
+        const upcoming = allUnpaid
             .filter(inst => isWithinInterval(parseISO(inst.dueDate), { start: today, end: nextWeek }))
             .slice(0, 7); // Limit to 7 after filtering
+
+        return JSON.parse(JSON.stringify(upcoming));
 
     } catch (error) {
         console.error("Error getting upcoming installments:", String(error));
@@ -158,10 +165,12 @@ export async function getRevenueChartData(): Promise<{ name: string; revenue: nu
                 chartData[monthKey].profit = data?.totalProfit || 0;
             }
         });
-
-        return Object.entries(chartData).map(([name, values]) => ({ name, ...values }));
+        
+        const result = Object.entries(chartData).map(([name, values]) => ({ name, ...values }));
+        return JSON.parse(JSON.stringify(result));
     } catch (error) {
         console.error("Error getting revenue chart data:", String(error));
-        return Object.keys(chartData).map(name => ({ name, revenue: 0, profit: 0 }));
+        const fallbackResult = Object.keys(chartData).map(name => ({ name, revenue: 0, profit: 0 }));
+        return JSON.parse(JSON.stringify(fallbackResult));
     }
 }
