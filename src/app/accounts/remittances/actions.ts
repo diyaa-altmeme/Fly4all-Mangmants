@@ -16,10 +16,23 @@ const safeToISOString = (dateValue: any): string | undefined => {
         return dateValue.toDate().toISOString();
     }
     if (typeof dateValue === 'string') {
-        return dateValue;
+        try {
+            // Check if it's already a valid ISO string
+            if (!isNaN(Date.parse(dateValue))) {
+                return dateValue;
+            }
+        } catch(e) {
+            // Ignore parse errors, will be handled by new Date()
+        }
     }
-    return new Date(dateValue).toISOString();
+    // Fallback for other types like numbers (timestamps) or parsable strings
+    const date = new Date(dateValue);
+    if (!isNaN(date.getTime())) {
+        return date.toISOString();
+    }
+    return undefined;
 };
+
 
 const processRemittanceData = (doc: FirebaseFirestore.DocumentSnapshot): Remittance => {
     const data = doc.data() as any;
