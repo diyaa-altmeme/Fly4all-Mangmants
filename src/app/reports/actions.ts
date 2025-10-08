@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import type { ReportInfo, AccountType, ReportTransaction, Currency, DebtsReportData, Client, Supplier, AppSettings, Box, StructuredDescription, BookingEntry, VisaBookingEntry, Subscription, JournalVoucher, JournalEntry, DebtsReportEntry, InvoiceReportItem, ClientTransactionSummary, TreeNode, Exchange } from '@/lib/types';
@@ -330,7 +331,7 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         balances[accountId] = { USD: 0, IQD: 0, lastTransaction: null };
       }
       
-      const value = type === 'debit' ? amount : -amount;
+      const value = type === 'credit' ? amount : -amount; // Corrected logic: credit increases what they owe us (debit for them), debit decreases
       balances[accountId][currency] += value;
   
       if (!balances[accountId].lastTransaction || new Date(date) > new Date(balances[accountId].lastTransaction!)) {
@@ -342,6 +343,8 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
     journalSnapshot.forEach(doc => {
       const data = doc.data();
       const date = (data.createdAt?.toDate?.() || new Date(data.createdAt)).toISOString();
+      // For a client, a debit to their account means they owe us more. A credit means they paid.
+      // So, if we are analyzing from the client's perspective: debit increases their debt, credit decreases.
       (data.debitEntries || []).forEach((entry: any) => processEntry(entry.accountId, entry.amount, data.currency, date, 'debit'));
       (data.creditEntries || []).forEach((entry: any) => processEntry(entry.accountId, entry.amount, data.currency, date, 'credit'));
     });
@@ -360,13 +363,9 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         const balanceUSD = entry.balanceUSD || 0;
         const balanceIQD = entry.balanceIQD || 0;
         
-        if (entry.accountType === 'client' || entry.accountType === 'both') {
-            if (balanceUSD > 0) acc.totalDebitUSD += balanceUSD; else acc.totalCreditUSD -= balanceUSD;
-            if (balanceIQD > 0) acc.totalDebitIQD += balanceIQD; else acc.totalCreditIQD -= balanceIQD;
-        } else { // Supplier
-            if (balanceUSD < 0) acc.totalDebitUSD -= balanceUSD; else acc.totalCreditUSD += balanceUSD;
-            if (balanceIQD < 0) acc.totalDebitIQD -= balanceIQD; else acc.totalCreditIQD += balanceIQD;
-        }
+        // Let's define debit as 'they owe us' and credit as 'we owe them'
+        if (balanceUSD > 0) acc.totalDebitUSD += balanceUSD; else acc.totalCreditUSD -= balanceUSD;
+        if (balanceIQD > 0) acc.totalDebitIQD += balanceIQD; else acc.totalCreditIQD -= balanceIQD;
         
         return acc;
     }, { totalDebitUSD: 0, totalCreditUSD: 0, totalDebitIQD: 0, totalCreditIQD: 0 });
@@ -375,8 +374,8 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
       entries,
       summary: {
         ...summary,
-        balanceUSD: summary.totalCreditUSD - summary.totalDebitUSD,
-        balanceIQD: summary.totalCreditIQD - summary.totalDebitIQD,
+        balanceUSD: summary.totalDebitUSD - summary.totalCreditUSD,
+        balanceIQD: summary.totalDebitIQD - summary.totalCreditIQD,
       },
     };
 }
@@ -440,14 +439,14 @@ export async function getClientTransactions(clientId: string): Promise<ClientTra
     
     transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    return {
+    return JSON.parse(JSON.stringify({
         totalSales,
         paidAmount,
         dueAmount,
         totalProfit,
         currency: 'USD',
         transactions
-    };
+    }));
 }
 
 
@@ -907,3 +906,4 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
     return rootNodes;
 });
+

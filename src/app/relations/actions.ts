@@ -137,12 +137,12 @@ export async function getClients(options: {
         const clients: Client[] = finalDocs.map(doc => {
             const data = doc.data();
             // IMPORTANT: Convert all potential date objects to serializable strings
-            const safeData = { ...data };
-            for (const key in safeData) {
-                if (safeData[key] && typeof safeData[key].toDate === 'function') {
-                    safeData[key] = safeData[key].toDate().toISOString();
+            const safeData = JSON.parse(JSON.stringify(data, (key, value) => {
+                 if (value && typeof value === 'object' && value.hasOwnProperty('seconds') && value.hasOwnProperty('nanoseconds')) {
+                    return new Date(value.seconds * 1000).toISOString();
                 }
-            }
+                return value;
+            }));
 
             return { 
                 ...safeData,
@@ -172,7 +172,6 @@ export async function getClientById(id: string): Promise<Client | null> {
         
         // Ensure all nested date objects are converted
         const safeData = JSON.parse(JSON.stringify(data, (key, value) => {
-            // A more robust way to handle Firestore Timestamps
             if (value && typeof value === 'object' && value.hasOwnProperty('seconds') && value.hasOwnProperty('nanoseconds')) {
                 return new Date(value.seconds * 1000).toISOString();
             }
@@ -208,8 +207,7 @@ export async function addClient(data: Partial<Omit<Client, 'id'>>): Promise<{ su
         };
 
         if (clientData.password && clientData.password.length >= 6) {
-            // Password hashing should happen here, but bcrypt is a client-side library in this setup.
-            // This is a potential security issue to be addressed.
+            // Password hashing should happen here, but bcrypt is not available server-side without extra dependencies
         } else {
              delete clientData.password;
         }
