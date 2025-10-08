@@ -14,7 +14,7 @@ import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/context/auth-context";
-import { loginWithEmail, createSession } from "../../actions";
+import { loginWithEmail } from "../../actions";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { app } from "@/lib/firebase";
 
@@ -48,7 +48,11 @@ export default function LoginForm() {
         const auth = getAuth(app);
         const userCredential = await signInWithEmailAndPassword(auth, data.identifier, data.password);
         const idToken = await userCredential.user.getIdToken();
-        await createSession(idToken);
+        
+        const result = await loginWithEmail(idToken);
+        if (!result.success) {
+            throw new Error(result.error);
+        }
         
         await reloadUser();
         router.push('/dashboard');
