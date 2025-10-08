@@ -28,7 +28,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { setAuthLoading, refreshUser } = useAuth();
+  const { setAuthLoading } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -44,8 +44,8 @@ export default function LoginForm() {
     setAuthLoading(true);
     try {
         await signInWithEmailAndPassword(auth, data.identifier, data.password);
-        await refreshUser();
-        router.push('/dashboard');
+        // The onAuthStateChanged listener in AuthContext/MainLayout will handle the redirect.
+        // No need to push router here.
     } catch(error: any) {
         console.error("Login error:", error);
         let errorMessage = "فشل تسجيل الدخول. يرجى التحقق من بياناتك.";

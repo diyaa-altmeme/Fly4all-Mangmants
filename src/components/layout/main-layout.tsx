@@ -113,6 +113,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const handleLogout = async () => {
         await logoutUser();
         router.push('/auth/login');
+        // Full page reload might be necessary if context is not clearing properly
         window.location.reload(); 
     }
 
@@ -218,28 +219,28 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        const isAuthPage = pathname.startsWith('/auth/login');
+        const isAuthPage = pathname.startsWith('/auth');
         const isPublicPage = pathname === '/';
+        const isSetupPage = pathname === '/setup-admin';
 
-        if (!user && !isAuthPage && !isPublicPage) {
+        if (!user && !isAuthPage && !isPublicPage && !isSetupPage) {
             router.push('/auth/login');
-        }
-        
-        if (user && (isAuthPage || isPublicPage)) {
+        } else if (user && (isAuthPage || isPublicPage || isSetupPage)) {
             router.push('/dashboard');
         }
 
     }, [user, authLoading, pathname, router, isClient]);
+
 
     if (authLoading || !isClient) {
         return <Preloader />;
     }
 
     if (!user) {
-        const isPublicPage = pathname === '/';
-        if (isPublicPage) return <LandingPage />;
-        if (pathname.startsWith('/auth/login')) return <>{children}</>;
-        
+        if (pathname.startsWith('/auth') || pathname === '/' || pathname === '/setup-admin') {
+            return <>{children}</>;
+        }
+        // This case should be handled by the redirect, but as a fallback:
         return <Preloader />;
     }
     
