@@ -6,6 +6,7 @@ import { setInitialAdmin } from '@/app/admin/actions';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 
+// UID for user "ضياء التميمي"
 const ADMIN_UID = "5V2a9sFmEjZosRARbpA8deWhdVJ3";
 
 export default function SetupAdminPage() {
@@ -24,7 +25,7 @@ export default function SetupAdminPage() {
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
         <h1 className="text-2xl font-bold text-center">إعداد حساب المسؤول الأول</h1>
         <p className="text-center text-gray-600">
-          انقر على الزر أدناه لتعيين حساب المستخدم بالمعرف الفريد (UID) التالي كمسؤول للنظام:
+          انقر على الزر أدناه لتعيين المستخدم "ضياء التميمي" كمسؤول للنظام باستخدام المعرف:
           <br />
           <code className="block p-2 mt-2 text-sm text-gray-800 bg-gray-100 rounded">{ADMIN_UID}</code>
         </p>
