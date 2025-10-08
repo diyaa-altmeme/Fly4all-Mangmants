@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -14,6 +13,7 @@ import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader,
 type DialogDimensions = { width: string; height: string; };
 type Settings = {
     standard_receipt?: DialogDimensions;
+    distributed_receipt?: DialogDimensions;
     payment_voucher?: DialogDimensions;
     expense_voucher?: DialogDimensions;
     journal_voucher?: DialogDimensions;
