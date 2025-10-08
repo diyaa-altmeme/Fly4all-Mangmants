@@ -20,42 +20,29 @@ export type Voucher = JournalVoucher & {
 const processVoucherData = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
     if (!data) return null;
-    // Ensure date fields are consistently strings
-    let date = new Date().toISOString();
-    if (data.date) {
-        if (typeof data.date.toDate === 'function') {
-            date = data.date.toDate().toISOString();
-        } else {
-            date = data.date;
-        }
-    } else if(data.createdAt) {
-         if (typeof data.createdAt.toDate === 'function') {
-            date = data.createdAt.toDate().toISOString();
-        } else {
-            date = data.createdAt;
+
+    const safeData = { ...data, id: doc.id };
+    for (const key in safeData) {
+        if (safeData[key] && typeof safeData[key].toDate === 'function') {
+            safeData[key] = safeData[key].toDate().toISOString();
+        } else if (safeData[key] && typeof safeData[key] === 'object' && safeData[key]._seconds) {
+            // Handle another possible timestamp format
+            safeData[key] = new Date(safeData[key]._seconds * 1000).toISOString();
         }
     }
     
-    let createdAt = date;
-    if (data.createdAt && typeof data.createdAt.toDate === 'function') {
-        createdAt = data.createdAt.toDate().toISOString();
-    } else if (data.createdAt) {
-        createdAt = data.createdAt;
-    }
-    
-    let updatedAt = date;
-    if (data.updatedAt && typeof data.updatedAt.toDate === 'function') {
-        updatedAt = data.updatedAt.toDate().toISOString();
-    } else if (data.updatedAt) {
-        updatedAt = data.updatedAt;
-    }
-
-
     // Deep check for nested dates, especially in originalData
-    if (data.originalData && data.originalData.date && typeof data.originalData.date.toDate === 'function') {
-        data.originalData.date = data.originalData.date.toDate().toISOString();
+    if (safeData.originalData && typeof safeData.originalData === 'object') {
+        for (const key in safeData.originalData) {
+            if (safeData.originalData[key] && typeof safeData.originalData[key].toDate === 'function') {
+                safeData.originalData[key] = safeData.originalData[key].toDate().toISOString();
+            } else if (safeData.originalData[key] && typeof safeData.originalData[key] === 'object' && safeData.originalData[key]._seconds) {
+                safeData.originalData[key] = new Date(safeData.originalData[key]._seconds * 1000).toISOString();
+            }
+        }
     }
-    return { ...data, id: doc.id, date, createdAt, updatedAt };
+
+    return safeData;
 };
 
 export const getVoucherById = async (id: string): Promise<any | null> => {
@@ -308,3 +295,5 @@ export async function deleteAllVouchers(): Promise<{ success: boolean; error?: s
         return { success: false, error: "فشل حذف جميع السندات." };
     }
 }
+
+    
