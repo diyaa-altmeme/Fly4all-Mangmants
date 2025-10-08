@@ -27,13 +27,13 @@ type FormValues = z.infer<typeof formSchema>;
 export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { setAuthLoading } = useAuth();
+  const { setAuthLoading, refreshUser } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      identifier: "",
-      password: "",
+      identifier: "admin@mudarib.com",
+      password: "123456",
     }
   });
 
