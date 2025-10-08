@@ -13,13 +13,12 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { loginUser, verifyOtpAndLogin } from "../../actions"
-import OtpLoginForm from "./otp-login-form";
+import { auth } from "@/lib/firebase"
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { useAuth } from "@/context/auth-context";
-import { useVoucherNav } from "@/context/voucher-nav-context";
 
 const formSchema = z.object({
-  identifier: z.string().min(1, { message: "الحقل مطلوب" }),
+  identifier: z.string().email({ message: "الرجاء إدخال بريد إلكتروني صحيح" }),
   password: z.string().min(1, { message: "كلمة المرور مطلوبة" }),
 });
 
@@ -30,9 +29,6 @@ export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
   const { refreshUser, setAuthLoading } = useAuth();
-  const { fetchData } = useVoucherNav();
-  const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
-  const [phoneForOtp, setPhoneForOtp] = useState<string>("");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -46,41 +42,19 @@ export default function LoginForm() {
 
   const onSubmit = async (data: FormValues) => {
     setAuthLoading(true);
-    const result = await loginUser(data.identifier, data.password, 'employee');
-    
-    if (result.success) {
-      if (result.otp_required && result.phone) {
-        setAuthLoading(false); // Stop preloader for OTP step
-        toast({ title: "التحقق مطلوب", description: "تم إرسال رمز التحقق إلى الواتساب الخاص بك." });
-        setPhoneForOtp(result.phone);
-        setStep('otp');
-      } else {
+    try {
+        await signInWithEmailAndPassword(auth, data.identifier, data.password);
         await refreshUser();
-        await fetchData(true); // Force refetch of nav data
         router.push('/dashboard');
-        // The preloader will be turned off by the MainLayout's loading state
-      }
-    } else {
-      setAuthLoading(false);
-      toast({ title: "خطأ في تسجيل الدخول", description: result.error, variant: 'destructive' });
+    } catch(error: any) {
+        console.error("Login error:", error);
+        let errorMessage = "فشل تسجيل الدخول. يرجى التحقق من بياناتك.";
+        if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+            errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
+        }
+        toast({ title: "خطأ في تسجيل الدخول", description: errorMessage, variant: 'destructive' });
+        setAuthLoading(false);
     }
-  }
-
-  const handleOtpSubmit = async (otp: string) => {
-    setAuthLoading(true);
-    const result = await verifyOtpAndLogin(phoneForOtp, otp, 'employee');
-    if (result.success) {
-      await refreshUser();
-      await fetchData(true);
-      router.push('/dashboard');
-    } else {
-      setAuthLoading(false);
-      toast({ title: "خطأ", description: result.error, variant: 'destructive' });
-    }
-  }
-
-  if (step === 'otp') {
-    return <OtpLoginForm phone={phoneForOtp} onVerify={handleOtpSubmit} onBack={() => setStep('credentials')} />
   }
 
   return (
@@ -91,11 +65,11 @@ export default function LoginForm() {
           name="identifier"
           render={({ field }) => (
             <FormItem className="grid gap-2 text-right">
-              <Label htmlFor="identifier">اسم المستخدم أو البريد الإلكتروني</Label>
+              <Label htmlFor="identifier">البريد الإلكتروني</Label>
               <FormControl>
                 <Input
                   id="identifier"
-                  placeholder="username or name@example.com"
+                  placeholder="name@example.com"
                   required
                   {...field}
                 />

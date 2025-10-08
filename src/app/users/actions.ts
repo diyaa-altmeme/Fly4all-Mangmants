@@ -181,11 +181,19 @@ export async function updateUserRole(id: string, data: Partial<Role>) {
 
 export async function listAllAuthUsers(): Promise<{ 
   success: boolean; 
-  users?: User[]; 
+  users?: any[]; 
   error?: string; 
 }> {
   try {
-    const users = await getUsers();
+    await initializeAdmin();
+    const auth = getAuth();
+    const userRecords = await auth.listUsers();
+    const users = userRecords.users.map(user => ({
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      creationTime: new Date(user.metadata.creationTime).toLocaleDateString(),
+    }));
     return { success: true, users };
   } catch (error: any) {
     console.error("Error listing all auth users:", error);

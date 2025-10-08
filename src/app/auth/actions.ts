@@ -7,6 +7,8 @@ import { cookies } from 'next/headers'
 import { PERMISSIONS } from "@/lib/permissions";
 import { createAuditLog } from "@/app/system/activity-log/actions";
 import bcrypt from 'bcrypt';
+import { getAuth } from 'firebase-admin/auth';
+import { initializeAdmin } from '@/lib/firebase-admin';
 
 
 export async function getCurrentUserFromSession(): Promise<(User & { uid: string, permissions: string[] }) | (Client & { uid: string }) | null> {
@@ -42,75 +44,6 @@ export async function getCurrentUserFromSession(): Promise<(User & { uid: string
     }
 }
 
-export async function loginUser(identifier: string, password: string, type: 'employee' | 'client'): Promise<{ success: boolean; error?: string; otp_required?: boolean, phone?: string }> {
-    const db = await getDb();
-    
-    const collectionName = type === 'employee' ? 'users' : 'clients';
-    
-    try {
-        // Try finding by email first, then username/loginIdentifier
-        let userQuery = await db.collection(collectionName).where('email', '==', identifier).limit(1).get();
-        if (userQuery.empty) {
-            const identifierField = type === 'employee' ? 'username' : 'loginIdentifier';
-            userQuery = await db.collection(collectionName).where(identifierField, '==', identifier).limit(1).get();
-        }
-         if (userQuery.empty && type === 'client') {
-            userQuery = await db.collection(collectionName).where('code', '==', identifier).limit(1).get();
-        }
-
-        if (userQuery.empty) {
-            return { success: false, error: 'المستخدم غير موجود.' };
-        }
-
-        const userDoc = userQuery.docs[0];
-        const userData = userDoc.data() as User | Client;
-
-        if (!userData.password) {
-            return { success: false, error: 'هذا الحساب لا يمتلك كلمة مرور. الرجاء التواصل مع الدعم.' };
-        }
-
-        const passwordMatch = await bcrypt.compare(password, userData.password);
-
-        if (!passwordMatch) {
-            return { success: false, error: 'كلمة المرور غير صحيحة.' };
-        }
-        
-        if (userData.status !== 'active') {
-             return { success: false, error: `حالة الحساب "${userData.status}". لا يمكن تسجيل الدخول.` };
-        }
-        
-        // OTP check
-        if (userData.otpLoginEnabled) {
-            // Here you would trigger the OTP flow
-            // For now, we'll just indicate it's required
-            return { success: true, otp_required: true, phone: userData.phone };
-        }
-
-        // Create session
-        const sessionPayload = { uid: userDoc.id, type };
-        const cookieStore = await cookies();
-        cookieStore.set('session', JSON.stringify(sessionPayload), {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            maxAge: 60 * 60 * 24 * 7, // 7 days
-            path: '/',
-            sameSite: 'lax',
-        });
-        
-         await createAuditLog({
-            userId: userDoc.id,
-            userName: userData.name,
-            action: 'LOGIN',
-            targetType: type === 'employee' ? 'USER' : 'CLIENT',
-            description: `تم تسجيل الدخول بنجاح.`,
-        });
-
-        return { success: true };
-    } catch (error: any) {
-        console.error("Login error:", error);
-        return { success: false, error: error.message };
-    }
-}
 
 export async function verifyOtpAndLogin(phone: string, otp: string, type: 'employee' | 'client'): Promise<{ success: boolean; error?: string }> {
      const db = await getDb();
