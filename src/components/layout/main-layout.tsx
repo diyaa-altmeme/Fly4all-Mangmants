@@ -160,14 +160,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     React.useEffect(() => {
         if (loading) return; // Wait until loading is complete
 
+        // If the user is not logged in and trying to access a protected route, redirect to login
         if (!user && isAppRoute) {
             router.replace('/auth/login');
         }
         
+        // If the user is logged in and trying to access a public route (like login), redirect to dashboard
         if (user && isPublicRoute) {
             router.replace('/dashboard');
         }
         
+        // Handle the root path
         if (pathname === '/') {
             if (user) {
                 router.replace('/dashboard');
@@ -178,7 +181,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
     }, [user, loading, pathname, router, isAppRoute, isPublicRoute]);
 
-    // Show a preloader only during the initial auth check on root path or when navigating between route types.
+    // Show a preloader only during the initial auth check or when navigating between route types.
     if (loading || (isAppRoute && !user) || (isPublicRoute && user) || pathname === '/') {
         return <Preloader />;
     }
