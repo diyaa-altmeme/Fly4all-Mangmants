@@ -1,4 +1,3 @@
-
 "use client";
 
 import React from 'react';
@@ -16,7 +15,7 @@ import { getColumns, TransactionCard } from './transactions-table-columns';
 import AddClientDialog from '@/app/clients/components/add-client-dialog';
 import { useAuth } from '@/context/auth-context';
 import { format, parseISO } from 'date-fns';
-import ChangeAvatarDialog from './change-avatar-dialog';
+import ChangeAvatarDialog from '../auth/change-avatar-dialog';
 
 
 const StatCard = ({ title, value, icon: Icon, colorClass, subValue }: { title: string, value: string, icon: React.ElementType, colorClass?: string, subValue?: string }) => (
