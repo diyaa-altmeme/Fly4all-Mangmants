@@ -67,24 +67,13 @@ export async function createSession(idToken: string) {
     });
 }
 
-export async function loginWithEmail(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+export async function loginWithEmail(idToken: string): Promise<{ success: boolean; error?: string }> {
     try {
-        // This is a temporary client-side call on the server to get an ID token.
-        // In a more secure setup, this would be handled differently.
-        const tempAuth = getAuth();
-        const userCredential = await signInWithEmailAndPassword(tempAuth, email, password);
-        const idToken = await userCredential.user.getIdToken();
-        
         await createSession(idToken);
-        
         return { success: true };
     } catch (error: any) {
-        let errorMessage = "فشل تسجيل الدخول.";
-        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-            errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
-        }
-        console.error("Login Error:", error.code, errorMessage);
-        return { success: false, error: errorMessage };
+        console.error("Session Creation Error:", error.code, error.message);
+        return { success: false, error: "فشل في إنشاء جلسة المستخدم." };
     }
 }
 
@@ -115,19 +104,6 @@ export async function verifyOtpAndLogin(phone: string, otp: string, type: 'emplo
          const userDoc = userQuery.docs[0];
          const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
          
-         // Create a custom token for session creation
-        const customToken = await auth.createCustomToken(userDoc.id);
-
-        // We need a way to sign in with this custom token on the server to get an ID token
-        // This part is tricky without a client-side SDK.
-        // For now, let's assume we can create the session cookie directly from a UID, which is not the case.
-        // The ideal flow is Custom Token -> Client -> signInWithCustomToken -> Get ID Token -> Server -> createSessionCookie.
-        // Let's modify to create a session cookie if possible, but this might need a flow rework.
-
-        // The admin SDK cannot create session cookies from UID directly without an ID token.
-        // We will create an ID token using a custom token approach which requires a client-side step.
-        // This server action should return the custom token, and the client should sign in.
-        
         // This simplified approach will not work. Let's revert to a more direct session creation if possible.
         // The original logic using `createSessionCookie(userDoc.id, ...)` was incorrect.
         // It requires an ID token, not a UID.
