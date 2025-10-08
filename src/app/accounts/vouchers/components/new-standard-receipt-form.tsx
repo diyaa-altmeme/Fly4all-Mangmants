@@ -23,7 +23,7 @@ import { createStandardReceipt } from '@/app/accounts/vouchers/standard/actions'
 import { updateVoucher } from '../list/actions';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 
 const formSchema = z.object({
   date: z.date({ required_error: "التاريخ مطلوب" }),
@@ -57,7 +57,8 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
 
 export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrency, isEditing, initialData, onVoucherUpdated }: NewStandardReceiptFormProps) {
   const { data: navData } = useVoucherNav();
-  const { user: currentUser } = useAuth();
+  const { data: session } = useSession();
+  const currentUser = session?.user as CurrentUser | undefined;
   const { toast } = useToast();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   

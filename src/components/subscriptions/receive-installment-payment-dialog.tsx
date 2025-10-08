@@ -18,7 +18,7 @@ import { Loader2, WalletCards, Save, User as UserIcon, Hash, CircleDollarSign, C
 import { paySubscriptionInstallment } from '@/app/subscriptions/actions';
 import { Label } from '@/components/ui/label';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';
@@ -62,7 +62,8 @@ export default function ReceiveInstallmentPaymentDialog({ installment, subscript
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const { data: navData, loaded } = useVoucherNav();
-    const { user: currentUser } = useAuth();
+    const { data: session } = useSession();
+    const currentUser = session?.user as User | undefined;
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
     const remainingAmountOnInstallment = useMemo(() => 
@@ -119,7 +120,7 @@ export default function ReceiveInstallmentPaymentDialog({ installment, subscript
     const newRemainingAmount = remainingAmountOnInstallment - amountInInstallmentCurrency;
     
     const handleSubmit = async (data: FormValues) => {
-        if (!currentUser || !('role' in currentUser) || !currentUser.boxId) {
+        if (!currentUser || !('boxId' in currentUser) || !currentUser.boxId) {
             toast({ title: 'خطأ', description: 'الصندوق غير محدد للمستخدم الحالي.', variant: 'destructive'});
             return;
         }

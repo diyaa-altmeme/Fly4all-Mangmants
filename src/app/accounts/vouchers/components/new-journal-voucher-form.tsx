@@ -16,7 +16,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DialogFooter } from '@/components/ui/dialog';
-import { useAuth } from '@/context/auth-context';
+import { useSession } from 'next-auth/react';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { createJournalVoucher } from '../journal/actions';
 import { updateVoucher } from '../list/actions';
@@ -59,7 +59,8 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
   
   const { toast } = useToast();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const { user: currentUser } = useAuth();
+  const { data: session } = useSession();
+  const currentUser = session?.user as CurrentUser | undefined;
   const { data: navData } = useVoucherNav();
   
   const accountOptions = React.useMemo(() => {
