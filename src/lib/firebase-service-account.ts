@@ -1,4 +1,5 @@
 
+
 // This file is a placeholder and is NOT used for Admin SDK initialization anymore.
 // The Admin SDK is now securely initialized from the FIREBASE_SERVICE_ACCOUNT_BASE64 environment variable.
 // See /src/lib/firebase-admin.ts for details.
