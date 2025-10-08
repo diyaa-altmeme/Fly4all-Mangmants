@@ -3,10 +3,10 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { getAuth, onIdTokenChanged, User as FirebaseUser } from 'firebase/auth';
-import { getDb } from '@/lib/firebase-admin';
 import type { User, Client } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/permissions';
 import { app } from '@/lib/firebase';
+import { getDb } from '@/lib/firebase-admin';
 
 type AuthUser = (User & { uid: string; permissions: string[] }) | (Client & { uid:string; permissions: never[] });
 
@@ -20,6 +20,21 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper function to process Firestore documents
+const processDoc = (docData: any): any => {
+    if (!docData) return null;
+
+    const safeData = JSON.parse(JSON.stringify(docData));
+
+    for (const key in safeData) {
+        if (safeData[key] && (safeData[key].hasOwnProperty('_seconds') || typeof safeData[key].toDate === 'function')) {
+            safeData[key] = new Date(safeData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
+        }
+    }
+    return safeData;
+};
+
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<AuthUser | null>(null);
     const [loading, setLoading] = useState(true);
@@ -32,9 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const userEmail = firebaseUser.email;
 
             if (!userEmail) {
-                // This can happen with phone auth, handle appropriately
                 console.warn("User does not have an email.");
-                // For now, let's assume we can't fetch details without email
                  throw new Error("User email is not available.");
             }
 
@@ -43,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             
             if (!querySnapshot.empty) {
                 const userDoc = querySnapshot.docs[0];
-                const userData = userDoc.data() as User;
+                const userData = processDoc(userDoc.data()) as User;
                 
                 if (userData.status !== 'active') throw new Error("User account is not active.");
 
@@ -58,14 +71,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 
                 setUser({ ...userData, uid: firebaseUser.uid, permissions });
             } else {
-                // Fallback to check clients collection if no user found
                 const clientsRef = db.collection('clients');
                 const clientQuerySnapshot = await clientsRef.where('email', '==', userEmail).limit(1).get();
                 if (!clientQuerySnapshot.empty) {
                     const clientDoc = clientQuerySnapshot.docs[0];
-                    const clientData = clientDoc.data() as Client;
+                    const clientData = processDoc(clientDoc.data()) as Client;
                     if (clientData.status !== 'active') throw new Error("Client account is not active.");
-                     // Clients don't have permissions in this model
                     setUser({ ...clientData, uid: firebaseUser.uid, permissions: [] });
                 } else {
                      throw new Error(`No user or client record found for email: ${userEmail}`);
@@ -73,11 +84,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
         } catch (error) {
             console.error("Error fetching user details:", error);
-            // Sign out the user if fetching details fails, to prevent an inconsistent state
             await auth.signOut();
             setUser(null);
         } finally {
-            // ALWAYS set loading to false
             setLoading(false);
         }
     }, [auth]);
@@ -86,13 +95,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
                 setLoading(true);
+                // Create session cookie on the server
                 await fetch('/api/auth/session', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ idToken: await firebaseUser.getIdToken() }),
                 });
+                // Fetch user details from Firestore
                 await fetchUserDetails(firebaseUser);
             } else {
+                // Clear session cookie on the server
                 await fetch('/api/auth/session', { method: 'POST', body: JSON.stringify({ idToken: null }) });
                 setUser(null);
                 setLoading(false);
@@ -105,7 +117,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const logout = async () => {
         setLoading(true);
         await auth.signOut();
-        // onIdTokenChanged will handle setting user to null, clearing session, and setting loading to false
     };
     
     const reloadUser = useCallback(async () => {
