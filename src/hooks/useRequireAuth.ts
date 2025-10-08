@@ -1,10 +1,10 @@
-
 "use client";
+
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 
-export function useRequireAuth() {
+export function useRequireAuth(redirectTo = "/auth/login") {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -15,9 +15,9 @@ export function useRequireAuth() {
     }
 
     if (!user) {
-      router.replace("/auth/login");
+      router.replace(redirectTo);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, redirectTo]);
 
   return { user, loading };
 }
