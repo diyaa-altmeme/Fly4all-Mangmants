@@ -1,8 +1,8 @@
 
+
 'use server';
 
 import { getAuth } from 'firebase-admin/auth';
-import { initializeAdmin } from '@/lib/firebase-admin';
 import type { User, HrData, Role } from '@/lib/types';
 import { getDb } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
@@ -11,7 +11,6 @@ import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 
 export async function getUsers({ includeHrData = false, all = false, from, to }: { includeHrData?: boolean, all?: boolean, from?: Date, to?: Date } = {}): Promise<HrData[]> {
-  await initializeAdmin();
   const db = await getDb();
   const auth = await getAuth();
   
@@ -82,9 +81,8 @@ export async function getUsers({ includeHrData = false, all = false, from, to }:
 
 
 export async function addUser(data: Omit<User, 'uid' | 'id'>) {
-    await initializeAdmin();
-    const auth = getAuth();
-    const db = getDb();
+    const auth = await getAuth();
+    const db = await getDb();
 
     const { email, password, name, phone, ...firestoreData } = data;
 
@@ -112,9 +110,8 @@ export async function addUser(data: Omit<User, 'uid' | 'id'>) {
 }
 
 export async function updateUser(uid: string, data: Partial<User>) {
-    await initializeAdmin();
-    const auth = getAuth();
-    const db = getDb();
+    const auth = await getAuth();
+    const db = await getDb();
     
     const { email, name, phone, password, status, ...firestoreData } = data;
     
@@ -140,9 +137,8 @@ export async function updateUser(uid: string, data: Partial<User>) {
 }
 
 export async function deleteUser(uid: string) {
-    await initializeAdmin();
-    const auth = getAuth();
-    const db = getDb();
+    const auth = await getAuth();
+    const db = await getDb();
 
     await auth.deleteUser(uid);
     await db.collection('users').doc(uid).delete();
@@ -154,15 +150,13 @@ export async function deleteUser(uid: string) {
 
 // ROLES
 export async function getRoles(): Promise<Role[]> {
-    await initializeAdmin();
-    const db = getDb();
+    const db = await getDb();
     const snapshot = await db.collection('roles').get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Role));
 }
 
 export async function addRole(data: Omit<Role, 'id'>) {
-    await initializeAdmin();
-    const db = getDb();
+    const db = await getDb();
     const roleId = data.name.toLowerCase().replace(/\s+/g, '_');
     await db.collection('roles').doc(roleId).set(data);
     revalidatePath('/users');
@@ -170,8 +164,7 @@ export async function addRole(data: Omit<Role, 'id'>) {
 }
 
 export async function updateUserRole(id: string, data: Partial<Role>) {
-     await initializeAdmin();
-    const db = getDb();
+    const db = await getDb();
     await db.collection('roles').doc(id).update(data);
      revalidatePath('/users');
     return { success: true };
@@ -184,8 +177,7 @@ export async function listAllAuthUsers(): Promise<{
   error?: string; 
 }> {
   try {
-    await initializeAdmin();
-    const auth = getAuth();
+    const auth = await getAuth();
     const userRecords = await auth.listUsers();
     const users = userRecords.users.map(user => ({
       uid: user.uid,

@@ -170,7 +170,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         return <Preloader />;
     }
     
-    const isPublic = publicRoutes.some(route => pathname.startsWith(route)) || pathname === '/';
+    const isPublic = publicRoutes.some(route => pathname.startsWith(route));
 
     if (!user && !isPublic) {
         return <Preloader />;
