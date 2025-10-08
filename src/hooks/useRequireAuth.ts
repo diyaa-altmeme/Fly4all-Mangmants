@@ -1,3 +1,4 @@
+// src/hooks/useRequireAuth.ts
 "use client";
 
 import { useEffect } from "react";
@@ -16,9 +17,11 @@ export default function useRequireAuth(redirectTo = "/auth/login") {
 
     // If there's no user, redirect to the login page.
     // Using `replace` prevents the login page from being added to the history stack.
-    if (!user) {
-      router.replace(redirectTo);
-    }
+    
+    // temporarily disabled to allow first user creation
+    // if (!user) {
+    //   router.replace(redirectTo);
+    // }
   }, [user, loading, router, redirectTo]);
 
   return { user, loading };
