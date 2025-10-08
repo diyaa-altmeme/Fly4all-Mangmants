@@ -1,4 +1,3 @@
-
 "use server";
 
 import type { User, Client, Role } from "@/lib/types";
@@ -7,23 +6,11 @@ import { cookies } from "next/headers";
 import { PERMISSIONS } from "@/lib/permissions";
 import { createAuditLog } from "@/app/system/activity-log/actions";
 import { DecodedIdToken } from "firebase-admin/auth";
-import { cleanUser } from "@/lib/cleanUser";
 
-function processDoc(docData: any): any {
+// This is a new, safe processing function.
+const processDoc = (docData: any): any => {
     if (!docData) return null;
-
-    // Deep copy to avoid mutating cache
     const safeData = JSON.parse(JSON.stringify(docData));
-
-    for (const key in safeData) {
-        if (safeData[key] && (safeData[key].hasOwnProperty('_seconds') || typeof safeData[key].toDate === 'function')) {
-            try {
-                 safeData[key] = new Date(safeData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
-            } catch(e) {
-                // Ignore invalid date formats
-            }
-        }
-    }
     return safeData;
 };
 
@@ -50,7 +37,6 @@ export async function createSession(idToken: string | null) {
     return { success: true };
   } catch (error: any) {
     console.error("Session Cookie Error:", error);
-    // Return a structured error response
     return { success: false, error: "Failed to create session cookie." };
   }
 }
@@ -63,28 +49,20 @@ export async function getCurrentUserFromSession(): Promise<any | null> {
         const decodedToken = await getAuthAdmin().verifySessionCookie(sessionCookie, true);
         const db = await getDb();
         
-        // Attempt to fetch user by UID first (the correct, new way)
         let userDoc = await db.collection('users').doc(decodedToken.uid).get();
 
-        // If not found by UID, try to find by email (for legacy users)
-        if (!userDoc.exists && decodedToken.email) {
-            const userQuery = await db.collection('users').where('email', '==', decodedToken.email).limit(1).get();
-            if (!userQuery.empty) {
-                userDoc = userQuery.docs[0];
-            }
-        }
-
         if (userDoc.exists) {
-            const firestoreData = processDoc(userDoc.data());
+            const firestoreData = userDoc.data();
             const combinedUser = {
-                ...firestoreData, // Firestore data takes precedence
+                ...firestoreData,
                 uid: decodedToken.uid,
                 email: decodedToken.email,
-                name: firestoreData.name || decodedToken.name, // Fallback to token name
+                name: decodedToken.name || firestoreData.name, 
             };
+            // Ensure the returned object is plain
             return JSON.parse(JSON.stringify(combinedUser));
         } else {
-            // User exists in Auth but not in Firestore. Return a basic user object.
+            // If user is authenticated but has no DB record, return a basic object.
              const basicUser = {
                 uid: decodedToken.uid,
                 email: decodedToken.email,
@@ -151,7 +129,7 @@ export async function verifyOtpAndLogin(
 }
 
 export async function logoutUser() {
-  cookies().delete("session");
+    cookies().delete("session");
 }
 
 export async function requestPublicAccount(

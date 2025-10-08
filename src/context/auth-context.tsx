@@ -26,13 +26,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const fetchAndSetUser = useCallback(async () => {
         try {
             const userDetails = await getCurrentUserFromSession();
-            if (userDetails) {
-                setUser(userDetails as AuthUser);
-            } else {
-                setUser(null);
-            }
+            // The result from Server Action is already a plain object.
+            setUser(userDetails as AuthUser | null);
         } catch (error) {
-            console.error("Error fetching and setting user:", error);
+            console.error("Error fetching user details:", error);
             setUser(null);
         } finally {
              setLoading(false);
@@ -41,35 +38,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     useEffect(() => {
         const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
-            if (firebaseUser) {
-                const idToken = await firebaseUser.getIdToken();
-                await fetch('/api/auth/session', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ idToken }),
-                });
-            } else {
-                await fetch('/api/auth/session', { method: 'POST', body: JSON.stringify({ idToken: null }) });
-            }
-            // After auth state changes (login/logout), always refetch the full user profile
+            const idToken = await firebaseUser?.getIdToken() || null;
+            
+            // This ensures the server-side cookie is always in sync with the client's auth state.
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken }),
+            });
+            
+            // After auth state changes (login/logout), always refetch the full user profile from our DB
             await fetchAndSetUser();
         });
 
+        // Cleanup subscription on unmount
         return () => unsubscribe();
     }, [auth, fetchAndSetUser]);
     
     const logout = async () => {
         setLoading(true);
         await auth.signOut();
-        // The onIdTokenChanged listener will handle setting user to null and clearing session
+        // The onIdTokenChanged listener will handle setting user to null and clearing the session cookie.
     };
     
     const reloadUser = useCallback(async () => {
         const currentUser = auth.currentUser;
         if (currentUser) {
-            await currentUser.getIdToken(true); // Force refresh
+            await currentUser.getIdToken(true); // Force refresh client-side token
         }
-        await fetchAndSetUser(); // Then refetch the full profile
+        await fetchAndSetUser(); // Then refetch the full profile from server
     }, [auth, fetchAndSetUser]);
 
     const value = { user, loading, setAuthLoading: setLoading, logout, reloadUser };

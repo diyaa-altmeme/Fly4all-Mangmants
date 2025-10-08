@@ -14,12 +14,12 @@ interface SafeUser {
 export function cleanUser(user: FirebaseUser | any): SafeUser | null {
   if (!user) return null;
 
-  return {
+  return JSON.parse(JSON.stringify({
     uid: user.uid ?? null,
     email: user.email ?? null,
     displayName: user.displayName ?? null,
     photoURL: user.photoURL ?? null,
     phoneNumber: user.phoneNumber ?? null,
     emailVerified: user.emailVerified ?? false,
-  };
+  }));
 }
