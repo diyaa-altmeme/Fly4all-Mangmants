@@ -27,58 +27,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const auth = getAuth(app);
 
     const fetchUserDetails = useCallback(async (firebaseUser: FirebaseUser) => {
-        const db = await getDb();
-        const idTokenResult = await firebaseUser.getIdTokenResult();
-        const userRole = idTokenResult.claims.role;
+        try {
+            const db = await getDb();
+            const idTokenResult = await firebaseUser.getIdTokenResult();
+            const userRole = idTokenResult.claims.role;
 
-        let userDoc, collection;
-        if (userRole) { // Employees have roles
-            collection = 'users';
-            userDoc = await db.collection(collection).doc(firebaseUser.uid).get();
-        } else { // Clients do not
-            collection = 'clients';
-            userDoc = await db.collection(collection).doc(firebaseUser.uid).get();
-        }
-
-        if (userDoc.exists) {
-            const userData = userDoc.data() as User | Client;
-            if(userData.status !== 'active') {
-                setUser(null);
-                return;
-            }
-
-            if (userRole) {
-                let permissions: string[] = [];
-                if (userRole === 'admin') {
-                    permissions = Object.keys(PERMISSIONS);
-                } else {
-                    const roleDoc = await db.collection('roles').doc(userRole).get();
-                    if (roleDoc.exists) {
-                        permissions = roleDoc.data()?.permissions || [];
-                    }
-                }
-                setUser({ ...userData, uid: firebaseUser.uid, permissions } as AuthUser);
+            let userDoc, collectionName;
+            if (userRole && typeof userRole === 'string') {
+                collectionName = 'users';
             } else {
-                setUser({ ...userData, uid: firebaseUser.uid } as AuthUser);
+                collectionName = 'clients';
             }
-        } else {
+            
+            userDoc = await db.collection(collectionName).doc(firebaseUser.uid).get();
+
+            if (userDoc.exists) {
+                const userData = userDoc.data() as User | Client;
+                if (userData.status !== 'active') {
+                    setUser(null);
+                    return;
+                }
+
+                if (userRole && 'role' in userData) {
+                    let permissions: string[] = [];
+                    if (userRole === 'admin') {
+                        permissions = Object.keys(PERMISSIONS);
+                    } else {
+                        const roleDoc = await db.collection('roles').doc(userRole).get();
+                        if (roleDoc.exists) {
+                            permissions = roleDoc.data()?.permissions || [];
+                        }
+                    }
+                    setUser({ ...userData, uid: firebaseUser.uid, permissions } as AuthUser);
+                } else {
+                    setUser({ ...userData, uid: firebaseUser.uid } as AuthUser);
+                }
+            } else {
+                setUser(null);
+            }
+        } catch (error) {
+            console.error("Error fetching user details:", error);
             setUser(null);
+        } finally {
+            setLoading(false);
         }
     }, []);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
-                try {
-                    await fetchUserDetails(firebaseUser);
-                } catch (error) {
-                    console.error("Error fetching user details:", error);
-                    setUser(null);
-                }
+                setLoading(true);
+                await fetchUserDetails(firebaseUser);
             } else {
                 setUser(null);
+                setLoading(false);
             }
-            setLoading(false);
         });
 
         return () => unsubscribe();
@@ -87,19 +90,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const logout = async () => {
         setLoading(true);
         await auth.signOut();
-        // The onAuthStateChanged listener will handle setting user to null
+        // onAuthStateChanged will handle setting user to null and loading to false
     };
-
+    
     const reloadUser = useCallback(async () => {
-        setLoading(true);
         const currentUser = auth.currentUser;
         if (currentUser) {
+            setLoading(true);
             await currentUser.getIdToken(true); // Force refresh
             await fetchUserDetails(currentUser);
-        } else {
-            setUser(null);
         }
-        setLoading(false);
     }, [auth, fetchUserDetails]);
 
     const value = { user, loading, setAuthLoading: setLoading, logout, reloadUser };

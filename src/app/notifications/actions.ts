@@ -8,6 +8,17 @@ import { revalidatePath } from 'next/cache';
 
 const NOTIFICATIONS_COLLECTION = 'notifications';
 
+const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): Notification => {
+    const data = doc.data() as any;
+    // Ensure all potential date fields are consistently strings
+    return {
+        ...data,
+        id: doc.id,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+    } as Notification;
+};
+
+
 export async function getNotificationsForUser(userId: string, options: { limit?: number; unreadOnly?: boolean } = {}): Promise<Notification[]> {
     const db = await getDb();
     if (!db) return [];
@@ -19,8 +30,7 @@ export async function getNotificationsForUser(userId: string, options: { limit?:
             query = query.where('isRead', '==', false);
         }
         
-        // Removed orderBy to avoid composite index requirement.
-        // query = query.orderBy('createdAt', 'desc');
+        query = query.orderBy('createdAt', 'desc');
 
         if (options.limit) {
             query = query.limit(options.limit);
@@ -30,12 +40,7 @@ export async function getNotificationsForUser(userId: string, options: { limit?:
 
         if (snapshot.empty) return [];
         
-        const notifications = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
-
-        // Sort in code
-        notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        
-        return notifications;
+        return snapshot.docs.map(processDoc);
 
     } catch (error) {
         console.error("Error getting notifications:", String(error));

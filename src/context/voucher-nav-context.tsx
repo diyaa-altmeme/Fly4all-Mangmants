@@ -7,6 +7,7 @@ import { getClients } from '@/app/relations/actions';
 import { getBoxes } from '@/app/boxes/actions';
 import { getUsers } from '@/app/users/actions';
 import { getSettings } from '@/app/settings/actions';
+import { useAuth } from './auth-context';
 
 type VoucherNavDataContext = {
     clients: Client[];
@@ -34,9 +35,10 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
     const [data, setData] = useState<VoucherNavDataContext | null>(null);
     const [loaded, setLoaded] = useState(false);
     const [isFetching, setIsFetching] = useState(false);
+    const { user } = useAuth(); // Depend on auth context
 
     const fetchData = useCallback(async (force = false) => {
-        if ((loaded && !force) || isFetching) return; 
+        if (!user || (loaded && !force) || isFetching) return; 
 
         setIsFetching(true);
         try {
@@ -65,13 +67,15 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
         } finally {
             setIsFetching(false);
         }
-    }, [loaded, isFetching]);
+    }, [user, loaded, isFetching]);
     
-    // Initial fetch
+    // Fetch data only when user is available
     useEffect(() => {
-        fetchData();
+        if (user) {
+            fetchData();
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [user]);
     
     const refreshData = useCallback(async () => {
         await fetchData(true); // Force a refetch
