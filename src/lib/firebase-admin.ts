@@ -10,7 +10,7 @@ import { serviceAccount } from './firebase-service-account';
 // Holds the single initialized Firebase app instance.
 let firebaseAdminApp: App | null = null;
 
-async function getFirebaseAdminApp(): Promise<App> {
+export async function initializeAdmin(): Promise<App> {
     if (firebaseAdminApp) {
         return firebaseAdminApp;
     }
@@ -41,16 +41,16 @@ async function getFirebaseAdminApp(): Promise<App> {
 }
 
 export async function getDb(): Promise<Firestore> {
-  const app = await getFirebaseAdminApp();
+  const app = await initializeAdmin();
   return getFirestore(app);
 }
 
 export async function getAuthAdmin(): Promise<Auth> {
-  const app = await getFirebaseAdminApp();
+  const app = await initializeAdmin();
   return getAuth(app);
 }
 
 export async function getStorageAdmin(): Promise<any> {
-  const app = await getFirebaseAdminApp();
+  const app = await initializeAdmin();
   return getStorage(app);
 }
