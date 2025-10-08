@@ -34,10 +34,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             if (!userEmail) {
                 setUser(null);
+                setLoading(false);
                 return;
             }
 
-            // Query by email to find the user in Firestore, which is more reliable
             const usersRef = db.collection('users');
             const querySnapshot = await usersRef.where('email', '==', userEmail).limit(1).get();
 
@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
                 if (userData.status !== 'active') {
                     setUser(null);
+                    setLoading(false);
                     return;
                 }
                 
@@ -64,7 +65,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setUser({ ...userData, uid: firebaseUser.uid, permissions } as AuthUser);
 
             } else {
-                 // Fallback to check clients collection if not found in users
                 const clientsRef = db.collection('clients');
                 const clientQuerySnapshot = await clientsRef.where('email', '==', userEmail).limit(1).get();
                 if(!clientQuerySnapshot.empty) {
@@ -72,6 +72,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     const clientData = clientDoc.data() as Client;
                      if (clientData.status !== 'active') {
                         setUser(null);
+                        setLoading(false);
                         return;
                     }
                     setUser({ ...clientData, uid: firebaseUser.uid } as AuthUser);
@@ -91,7 +92,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
-                setLoading(true);
                 await fetchUserDetails(firebaseUser);
             } else {
                 setUser(null);
@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         return () => unsubscribe();
     }, [auth, fetchUserDetails]);
-
+    
     const logout = async () => {
         setLoading(true);
         await auth.signOut();
@@ -133,4 +133,3 @@ export const useAuth = () => {
     }
     return context;
 };
-

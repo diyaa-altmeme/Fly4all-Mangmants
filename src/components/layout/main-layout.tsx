@@ -56,6 +56,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
     const handleLogout = async () => {
         await logout();
+        router.push('/auth/login');
     }
 
     return (

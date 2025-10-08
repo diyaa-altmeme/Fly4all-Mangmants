@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/context/auth-context";
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
 import { app } from "@/lib/firebase";
+import { loginWithEmail } from "../../actions";
 
 
 const formSchema = z.object({
@@ -49,20 +50,12 @@ export default function LoginForm() {
         const userCredential = await signInWithEmailAndPassword(auth, data.identifier, data.password);
         
         const idToken = await userCredential.user.getIdToken();
+        const result = await loginWithEmail(idToken);
 
-        const response = await fetch('/api/auth/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken })
-        });
-
-        if (response.ok) {
-            // The onAuthStateChanged listener in AuthProvider will handle the redirect
-            // So we don't need to do router.push('/dashboard') here.
-        } else {
-             const errorData = await response.json();
-             throw new Error(errorData.error || 'فشل في إنشاء الجلسة.');
+        if (!result.success) {
+             throw new Error(result.error || 'فشل في إنشاء الجلسة.');
         }
+        // The onAuthStateChanged listener in AuthProvider will handle the redirect
 
     } catch(error: any) {
         let errorMessage = "فشل تسجيل الدخول.";
