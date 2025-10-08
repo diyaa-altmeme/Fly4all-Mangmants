@@ -13,10 +13,12 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
-import { loginUser, verifyOtpAndLogin } from "../../actions"
+import { verifyOtpAndLogin } from "../../actions"
 import OtpLoginForm from "./otp-login-form";
 import { useAuth } from "@/context/auth-context";
 import { useVoucherNav } from "@/context/voucher-nav-context";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 const formSchema = z.object({
   identifier: z.string().min(1, { message: "الحقل مطلوب" }),
@@ -45,23 +47,19 @@ export default function ClientLoginForm() {
 
   const onSubmit = async (data: FormValues) => {
     setAuthLoading(true);
-    const result = await loginUser(data.identifier, data.password, 'client');
-    
-    if (result.success) {
-      if (result.otp_required && result.phone) {
-        setAuthLoading(false); // Stop preloader for OTP step
-        toast({ title: "التحقق مطلوب", description: "تم إرسال رمز التحقق إلى الواتساب الخاص بك." });
-        setPhoneForOtp(result.phone);
-        setStep('otp');
-      } else {
+    try {
+        await signInWithEmailAndPassword(auth, data.identifier, data.password);
         await refreshUser();
         await fetchData(true); // Force refetch of nav data
         router.push('/dashboard');
         // Preloader will be turned off by MainLayout's loading state
-      }
-    } else {
-      setAuthLoading(false);
-      toast({ title: "خطأ في تسجيل الدخول", description: result.error, variant: 'destructive' });
+    } catch(error: any) {
+        let errorMessage = "فشل تسجيل الدخول.";
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            errorMessage = "بيانات الدخول غير صحيحة.";
+        }
+        toast({ title: "خطأ في تسجيل الدخول", description: errorMessage, variant: 'destructive' });
+        setAuthLoading(false);
     }
   }
   
