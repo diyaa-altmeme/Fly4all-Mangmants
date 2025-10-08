@@ -1,10 +1,8 @@
-
 // This file is the single source of truth for the client-side Firebase configuration.
 // It is used by the application to connect to Firebase services from the browser.
 
 export const getFirebaseConfig = () => {
-    // These variables will be set by Firebase App Hosting during the build process
-    // based on the active configuration.
+    // These values are now hardcoded to ensure correctness.
     const firebaseConfig = {
       apiKey: "AIzaSyCtlF3onBhtwg0Hh3iOOEjygi9mj81wxrA",
       authDomain: "fly4all-78277122-3cbd0.firebaseapp.com",
@@ -15,7 +13,7 @@ export const getFirebaseConfig = () => {
     };
 
     if (!firebaseConfig.projectId) {
-        console.error("Firebase config environment variables are not set. Check your deployment settings.");
+        console.error("Firebase config is missing or invalid.");
         return null;
     }
 

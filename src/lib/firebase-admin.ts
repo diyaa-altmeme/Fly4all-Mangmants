@@ -24,7 +24,7 @@ export async function initializeAdmin(): Promise<App> {
     
     // Validate service account credentials from the imported object
     if (!serviceAccount || !serviceAccount.projectId || !serviceAccount.privateKey || !serviceAccount.clientEmail) {
-        console.error("Firebase Admin SDK Service Account is not set or is invalid in environment variables.");
+        console.error("Firebase Admin SDK Service Account is not set or is invalid in firebase-service-account.ts.");
         throw new Error("Default Firebase service account is not set or is invalid in firebase-service-account.ts.");
     }
 
