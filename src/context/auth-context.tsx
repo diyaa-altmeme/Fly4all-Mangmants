@@ -28,7 +28,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.error("Failed to fetch user session", error);
             setUser(null);
         } finally {
-            setTimeout(() => setLoading(false), 200); // Small delay to prevent flashing
+            // Give a small delay for transitions to feel smoother
+            setTimeout(() => setLoading(false), 250);
         }
     }, []);
 
