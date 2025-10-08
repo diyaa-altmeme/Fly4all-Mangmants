@@ -1,4 +1,3 @@
-
 // src/app/auth/login/page.tsx
 "use client";
 
@@ -30,7 +29,7 @@ export default function LoginPage() {
 
   // Only render the login form if there is no user and loading is complete
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-muted/40">
         <div className="w-full max-w-md">
             <LoginForm />
         </div>
