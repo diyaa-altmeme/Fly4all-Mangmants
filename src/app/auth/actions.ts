@@ -10,16 +10,22 @@ import { createAuditLog } from "@/app/system/activity-log/actions";
 export async function createSession(idToken: string) {
     try {
         const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-        const sessionCookie = await getAuthAdmin().createSessionCookie(idToken, { expiresIn });
+        const decodedToken = await getAuthAdmin().verifyIdToken(idToken);
+        
+        // Only create a session cookie if the token is valid.
+        if (decodedToken) {
+            const sessionCookie = await getAuthAdmin().createSessionCookie(idToken, { expiresIn });
 
-        cookies().set('session', sessionCookie, {
-            maxAge: expiresIn,
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            path: '/',
-            sameSite: 'lax',
-        });
-        return { success: true };
+            cookies().set('session', sessionCookie, {
+                maxAge: expiresIn,
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                path: '/',
+                sameSite: 'lax',
+            });
+            return { success: true };
+        }
+        return { success: false, error: "Invalid ID token." };
     } catch (error: any) {
         console.error("Session Cookie Error:", error);
         return { success: false, error: "Failed to create session cookie." };

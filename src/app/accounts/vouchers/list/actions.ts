@@ -21,23 +21,20 @@ const processVoucherData = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
     if (!data) return null;
 
-    const safeData = { ...data, id: doc.id };
+    // Create a deep copy to avoid mutating the original data
+    const safeData = JSON.parse(JSON.stringify({ ...data, id: doc.id }));
+
     for (const key in safeData) {
-        if (safeData[key] && typeof safeData[key].toDate === 'function') {
-            safeData[key] = safeData[key].toDate().toISOString();
-        } else if (safeData[key] && typeof safeData[key] === 'object' && safeData[key]._seconds) {
-            // Handle another possible timestamp format
-            safeData[key] = new Date(safeData[key]._seconds * 1000).toISOString();
+        if (safeData[key] && (safeData[key].hasOwnProperty('_seconds') || typeof safeData[key].toDate === 'function')) {
+            safeData[key] = new Date(safeData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
         }
     }
     
     // Deep check for nested dates, especially in originalData
     if (safeData.originalData && typeof safeData.originalData === 'object') {
         for (const key in safeData.originalData) {
-            if (safeData.originalData[key] && typeof safeData.originalData[key].toDate === 'function') {
-                safeData.originalData[key] = safeData.originalData[key].toDate().toISOString();
-            } else if (safeData.originalData[key] && typeof safeData.originalData[key] === 'object' && safeData.originalData[key]._seconds) {
-                safeData.originalData[key] = new Date(safeData.originalData[key]._seconds * 1000).toISOString();
+             if (safeData.originalData[key] && (safeData.originalData[key].hasOwnProperty('_seconds') || typeof safeData.originalData[key].toDate === 'function')) {
+                safeData.originalData[key] = new Date(safeData.originalData[key]._seconds * 1000 || safeData.originalData[key].toDate()).toISOString();
             }
         }
     }

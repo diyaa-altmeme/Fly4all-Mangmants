@@ -31,8 +31,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from '@/context/auth-context';
 import Preloader from './preloader';
 
-const protectedRoutes = ['/dashboard', '/settings', '/users', '/reports', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/hr', '/system', '/profile', '/profit-sharing', '/reconciliation', '/exchanges', '/segments', '/templates', '/campaigns', '/relations'];
+const protectedRoutes = ['/dashboard', '/settings', '/users', '/reports', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/hr', '/system', '/profile', '/profit-sharing', '/reconciliation', '/exchanges', '/segments', '/templates', '/campaigns', '/relations', '/suppliers', '/coming-soon', '/support', '/admin'];
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/auth/register'];
+const landingRoutes = ['/', '/landing'];
 
 const MobileNav = () => {
     return (
@@ -153,13 +154,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
     const isAppRoute = protectedRoutes.some(route => pathname.startsWith(route));
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-    const isRoot = pathname === '/';
+    const isLandingRoute = landingRoutes.includes(pathname);
 
     React.useEffect(() => {
         if (loading) return;
 
-        // If user is logged in, and tries to access a public route (like login) or the root, redirect to dashboard.
-        if (user && (isPublicRoute || isRoot)) {
+        // If user is logged in, and tries to access a public/landing route, redirect to dashboard.
+        if (user && (isPublicRoute || isLandingRoute)) {
             router.replace('/dashboard');
         }
 
@@ -167,10 +168,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         if (!user && isAppRoute) {
             router.replace('/auth/login');
         }
+        // If no user and on root, redirect to login
+        if(!user && pathname === '/') {
+            router.replace('/auth/login');
+        }
 
-    }, [user, loading, pathname, router, isAppRoute, isPublicRoute, isRoot]);
+    }, [user, loading, pathname, router, isAppRoute, isPublicRoute, isLandingRoute]);
 
-    if (loading || (isAppRoute && !user) || ((isPublicRoute || isRoot) && user)) {
+    if (loading || (isAppRoute && !user) || ((isPublicRoute || isLandingRoute) && user)) {
         return <Preloader />;
     }
 
