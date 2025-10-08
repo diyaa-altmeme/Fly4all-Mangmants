@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -34,6 +33,9 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { logoutUser } from '@/app/auth/actions';
 import LandingPage from '@/components/landing-page';
 import { motion, AnimatePresence } from 'framer-motion';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { getCurrentUserFromSession } from '@/app/auth/actions';
 
 
 const Preloader = () => {
@@ -205,46 +207,38 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-    const { user, loading: authLoading } = useAuth();
-    const [isClient, setIsClient] = React.useState(false);
-    const pathname = usePathname();
-    const router = useRouter();
+  const { user, loading, refreshUser } = useAuth();
+  const [isClient, setIsClient] = React.useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
 
-    React.useEffect(() => {
-        setIsClient(true);
-    }, []);
-    
-    // This effect now ONLY handles redirection, not loading state.
-    React.useEffect(() => {
-        if (!isClient || authLoading) {
-            return;
-        }
+  React.useEffect(() => {
+    setIsClient(true);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      await refreshUser();
+    });
+    return () => unsubscribe();
+  }, [refreshUser]);
 
-        const isAuthPage = pathname.startsWith('/auth');
-        const isPublicPage = pathname === '/';
+  const isAuthPage = pathname.startsWith('/auth');
+  const isPublicPage = pathname === '/';
 
-        if (!user && !isAuthPage && !isPublicPage) {
-            router.replace('/auth/login');
-        } else if (user && (isAuthPage || isPublicPage)) {
-            router.replace('/dashboard');
-        }
+  if (!isClient || loading) {
+    return <Preloader />;
+  }
 
-    }, [user, authLoading, pathname, router, isClient]);
-
-
-    if (authLoading || !isClient) {
-        return <Preloader />;
+  if (!user) {
+    if (isAuthPage || isPublicPage) {
+      return <>{children}</>;
     }
+    router.replace('/auth/login');
+    return <Preloader />;
+  }
 
-    if (!user) {
-        // If not authenticated, and on a public/auth page, show that page.
-        if (pathname.startsWith('/auth') || pathname === '/') {
-            return <>{children}</>;
-        }
-        // Otherwise, show the preloader while redirecting
-        return <Preloader />;
-    }
-    
-    // If user is authenticated, show the app layout
-    return <AppLayout>{children}</AppLayout>;
+  if (isAuthPage || isPublicPage) {
+    router.replace('/dashboard');
+    return <Preloader />;
+  }
+
+  return <AppLayout>{children}</AppLayout>;
 }
