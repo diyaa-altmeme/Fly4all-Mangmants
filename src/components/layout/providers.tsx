@@ -8,7 +8,7 @@ import TopLoader from "@/components/ui/top-loader";
 import { MainLayout } from "@/components/layout/main-layout";
 import type { AppSettings } from '@/lib/types';
 import { ThemeCustomizationProvider } from "@/context/theme-customization-context";
-import SessionProviderWrapper from './session-provider-wrapper';
+import { AuthProvider } from '@/context/auth-context';
 import { VoucherNavProvider } from '@/context/voucher-nav-context';
 
 export function Providers({ 
@@ -17,7 +17,7 @@ export function Providers({
   children: React.ReactNode,
 }) {
     return (
-      <SessionProviderWrapper>
+      <AuthProvider>
         <ThemeProvider
             attribute="class"
             defaultTheme="system"
@@ -36,6 +36,6 @@ export function Providers({
                 </ThemeCustomizationProvider>
               </VoucherNavProvider>
         </ThemeProvider>
-      </SessionProviderWrapper>
+      </AuthProvider>
     )
 }

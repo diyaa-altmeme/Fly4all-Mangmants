@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -49,7 +50,7 @@ export default function LoginPageClient({}: LoginPageClientProps) {
         </Tabs>
          <div className="mt-4 text-center text-sm">
             لا تملك حسابًا؟{" "}
-            <Link href="#" className="underline">
+            <Link href="/auth/register" className="underline">
                 اطلب حسابًا تجريبيًا
             </Link>
         </div>

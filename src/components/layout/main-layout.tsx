@@ -17,18 +17,19 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plane, CircleUserRound, Menu, LogOut } from "lucide-react";
+import { Plane, CircleUserRound, Menu, LogOut, Loader2 } from "lucide-react";
 import { MainNav } from "@/components/layout/main-nav";
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
-import { VoucherNavProvider } from "@/context/voucher-nav-context";
+import { VoucherNavProvider, useVoucherNav } from "@/context/voucher-nav-context";
 import { usePathname, useRouter } from "next/navigation";
 import NotificationCenter from "./notification-center";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useSession, signOut } from 'next-auth/react';
+import { useAuth } from '@/context/auth-context';
+import Preloader from './preloader';
 import AuthWrapper from './auth-wrapper';
 
 const MobileNav = () => {
@@ -48,8 +49,14 @@ const MobileNav = () => {
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
-    const { data: session } = useSession();
-    const user = session?.user;
+    const { user, logout } = useAuth();
+    const { loaded: navDataLoaded } = useVoucherNav();
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        await logout();
+        router.push('/auth/login');
+    }
 
     return (
       <VoucherNavProvider>
@@ -109,7 +116,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     <DropdownMenuTrigger asChild>
                         <Button variant="secondary" size="icon" className="rounded-full">
                         <Avatar>
-                            <AvatarImage src={user?.image || undefined} />
+                            <AvatarImage src={user?.avatarUrl || undefined} />
                             <AvatarFallback>
                               <CircleUserRound />
                             </AvatarFallback>
@@ -122,7 +129,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                       <DropdownMenuItem asChild><Link href="/profile">الملف الشخصي</Link></DropdownMenuItem>
                       <DropdownMenuItem asChild><Link href="/support">الدعم</Link></DropdownMenuItem>
                       <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => signOut()} className="text-destructive focus:text-destructive">
+                            <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
                               <LogOut className="me-2 h-4 w-4"/>
                               تسجيل الخروج
                             </DropdownMenuItem>
@@ -139,5 +146,23 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-  return <AuthWrapper><AppLayout>{children}</AppLayout></AuthWrapper>;
+    const { user, loading } = useAuth();
+    const pathname = usePathname();
+
+    const isAuthPage = pathname.startsWith('/auth');
+
+    if (loading) {
+        return <Preloader />;
+    }
+
+    if (isAuthPage) {
+        return <>{children}</>;
+    }
+
+    if (!user) {
+        // AuthWrapper will handle the redirect, but as a fallback, show loader
+        return <Preloader />;
+    }
+
+    return <AuthWrapper><AppLayout>{children}</AppLayout></AuthWrapper>;
 }

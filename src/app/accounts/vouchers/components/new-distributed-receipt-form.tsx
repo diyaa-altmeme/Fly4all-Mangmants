@@ -27,7 +27,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { useVoucherNav } from "@/context/voucher-nav-context";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/context/auth-context";
 
 
 const AmountInput = ({ currency, className, ...props }: { currency: Currency, className?: string } & React.ComponentProps<typeof NumericInput>) => (
@@ -58,8 +58,7 @@ export default function NewDistributedReceiptForm({
     onVoucherUpdated
 }: NewDistributedReceiptFormProps) {
   const { toast } = useToast();
-  const { data: session } = useSession();
-  const currentUser = session?.user as CurrentUser | undefined;
+  const { user: currentUser } = useAuth();
   const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
   const { data: navData, loaded: isDataLoaded } = useVoucherNav();
   
@@ -93,7 +92,7 @@ export default function NewDistributedReceiptForm({
   
   React.useEffect(() => {
     if (currentUser && 'role' in currentUser && !isEditing) {
-        form.setValue('userId', currentUser.id);
+        form.setValue('userId', currentUser.uid);
         if(currentUser.boxId) {
             form.setValue('boxId', currentUser.boxId);
         }
