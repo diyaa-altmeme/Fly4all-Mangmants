@@ -170,12 +170,15 @@ export async function getClientById(id: string): Promise<Client | null> {
         }
         const data = doc.data() as any;
         
-        const safeData = { ...data };
-        for (const key in safeData) {
-            if (safeData[key] && typeof safeData[key].toDate === 'function') {
-                safeData[key] = safeData[key].toDate().toISOString();
+        // Ensure all nested date objects are converted
+        const safeData = JSON.parse(JSON.stringify(data, (key, value) => {
+            // A more robust way to handle Firestore Timestamps
+            if (value && typeof value === 'object' && value.hasOwnProperty('seconds') && value.hasOwnProperty('nanoseconds')) {
+                return new Date(value.seconds * 1000).toISOString();
             }
-        }
+            return value;
+        }));
+
         return {
             id: doc.id,
             ...safeData,
@@ -311,16 +314,15 @@ export async function updateClient(id: string, data: Partial<Client>): Promise<{
         });
         
         const updatedDoc = await db.collection('clients').doc(id).get();
-        const updatedData = updatedDoc.data() as Client;
         
-        const safeData = { ...updatedData };
-        for (const key in safeData) {
-            if (safeData[key] && typeof safeData[key].toDate === 'function') {
-                safeData[key] = safeData[key].toDate().toISOString();
+        const updatedData = JSON.parse(JSON.stringify(updatedDoc.data(), (key, value) => {
+            if (value && typeof value === 'object' && value.hasOwnProperty('seconds') && value.hasOwnProperty('nanoseconds')) {
+                return new Date(value.seconds * 1000).toISOString();
             }
-        }
+            return value;
+        })) as Client;
         
-        const updatedClient = { id: updatedDoc.id, ...safeData } as Client;
+        const updatedClient = { id: updatedDoc.id, ...updatedData };
 
         revalidatePath('/clients');
         revalidatePath('/suppliers');
@@ -398,5 +400,3 @@ export async function deleteMultipleClients(ids: string[]): Promise<{ success: b
         return { success: false, error: e.message };
     }
 }
-
-    
