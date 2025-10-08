@@ -1,10 +1,8 @@
-
 "use server";
 
 import type { User, Client, Role } from "@/lib/types";
 import { getDb, getAuthAdmin } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
-import { PERMISSIONS } from "@/lib/permissions";
 import { createAuditLog } from "@/app/system/activity-log/actions";
 import { DecodedIdToken } from "firebase-admin/auth";
 
@@ -53,21 +51,33 @@ export async function getCurrentUserFromSession(): Promise<any | null> {
                 email: decodedToken.email,
                 name: decodedToken.name || firestoreData.name, 
             };
-            // Ensure the returned object is plain JSON
             return JSON.parse(JSON.stringify(combinedUser));
         } else {
-            // User is authenticated but has no DB record.
-            // Create a basic user object so the app doesn't crash.
-            // This user will have minimal/no permissions.
-            const basicUser = {
-                uid: decodedToken.uid,
-                email: decodedToken.email,
-                name: decodedToken.name || decodedToken.email,
-                role: 'viewer', // Assign a default, least-privileged role
-                permissions: [],
-            };
-             return JSON.parse(JSON.stringify(basicUser));
+            // Check if it's a client
+            const clientDoc = await db.collection('clients').doc(decodedToken.uid).get();
+            if (clientDoc.exists) {
+                const firestoreData = clientDoc.data();
+                 const combinedUser = {
+                    ...firestoreData,
+                    uid: decodedToken.uid,
+                    email: decodedToken.email,
+                    name: decodedToken.name || firestoreData.name, 
+                };
+                 return JSON.parse(JSON.stringify(combinedUser));
+            }
         }
+        
+        // If no record found in 'users' or 'clients', return a basic object
+        // This is crucial for new users created only in Auth
+        const basicUser = {
+            uid: decodedToken.uid,
+            email: decodedToken.email,
+            name: decodedToken.name || decodedToken.email,
+            role: 'viewer', // Assign a default, least-privileged role for employees
+            permissions: [],
+        };
+        return JSON.parse(JSON.stringify(basicUser));
+
     } catch (error) {
         console.error("Failed to verify session cookie or fetch user data:", error);
         // On any error, treat as not logged in.
@@ -75,55 +85,6 @@ export async function getCurrentUserFromSession(): Promise<any | null> {
     }
 }
 
-
-export async function verifyOtpAndLogin(
-  phone: string,
-  otp: string,
-  type: "employee" | "client"
-): Promise<{ success: boolean; error?: string; customToken?: string }> {
-  const db = await getDb();
-  const auth = await getAuthAdmin();
-  const otpRef = db.collection("otp_requests").doc(phone);
-
-  try {
-    const otpDoc = await otpRef.get();
-    if (!otpDoc.exists) {
-      return { success: false, error: "لم يتم طلب OTP لهذا الرقم." };
-    }
-
-    const otpData = otpDoc.data();
-    if (otpData?.otp !== otp || new Date() > otpData?.expiresAt.toDate()) {
-      return { success: false, error: "كود التحقق غير صالح أو منتهي الصلاحية." };
-    }
-
-    await otpRef.update({ verified: true });
-
-    const userQuery = await db
-      .collection(type === "employee" ? "users" : "clients")
-      .where("phone", "==", phone)
-      .limit(1)
-      .get();
-    if (userQuery.empty) {
-      return { success: false, error: "لم يتم العثور على مستخدم بهذا الرقم." };
-    }
-
-    const userDoc = userQuery.docs[0];
-    const customToken = await auth.createCustomToken(userDoc.id);
-
-    await createAuditLog({
-      userId: userDoc.id,
-      userName: userDoc.data().name,
-      action: "LOGIN",
-      targetType: type === "employee" ? "USER" : "CLIENT",
-      description: `تم تسجيل الدخول بنجاح عبر OTP.`,
-    });
-
-    return { success: true, customToken };
-  } catch (e: any) {
-    console.error("OTP verification error:", e);
-    return { success: false, error: e.message };
-  }
-}
 
 export async function logoutUser() {
     cookies().delete("session");

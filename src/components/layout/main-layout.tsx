@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -31,9 +30,12 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from '@/context/auth-context';
 import Preloader from './preloader';
 import { Skeleton } from "../ui/skeleton";
+import ClientViewLayout from "@/app/clients/[id]/components/client-view-layout";
+import type { User, Client } from "@/lib/types";
 
-const protectedRoutes = ['/dashboard', '/settings', '/users', '/reports', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/hr', '/system', '/profile', '/profit-sharing', '/reconciliation', '/exchanges', '/segments', '/templates', '/campaigns', '/relations', '/suppliers', '/coming-soon', '/support', '/admin'];
+const protectedRoutes = ['/dashboard', '/settings', '/users', '/reports', '/bookings', '/visas', '/subscriptions', '/accounts', '/hr', '/system', '/profile', '/profit-sharing', '/reconciliation', '/exchanges', '/segments', '/templates', '/campaigns', '/relations', '/suppliers', '/coming-soon', '/support', '/admin'];
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/auth/register'];
+const clientRoutes = ['/clients'];
 
 const MobileNav = () => {
     return (
@@ -154,23 +156,29 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const isAppRoute = protectedRoutes.some(route => pathname.startsWith(route));
+    const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+    const isClientRoute = clientRoutes.some(route => pathname.startsWith(route));
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
     React.useEffect(() => {
-        if (loading) return; // Wait until loading is complete
+        if (loading) return;
 
-        // If the user is not logged in and trying to access a protected route, redirect to login
-        if (!user && isAppRoute) {
-            router.replace('/auth/login');
+        if (!user) {
+            if (isProtectedRoute || isClientRoute) {
+                router.replace('/auth/login');
+            }
+        } else {
+             // User is logged in
+            if (isPublicRoute) {
+                router.replace('/dashboard');
+            } else if (isClientRoute && 'role' in user) { // Employee trying to access client route
+                router.replace('/dashboard');
+            } else if (isProtectedRoute && !('role' in user)) { // Client trying to access employee route
+                router.replace(`/clients/${user.uid}`);
+            }
         }
         
-        // If the user is logged in and trying to access a public route (like login), redirect to dashboard
-        if (user && isPublicRoute) {
-            router.replace('/dashboard');
-        }
-        
-        // Handle the root path
+        // Handle root path
         if (pathname === '/') {
             if (user) {
                 router.replace('/dashboard');
@@ -178,19 +186,25 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 router.replace('/auth/login');
             }
         }
+    }, [user, loading, pathname, router, isProtectedRoute, isClientRoute, isPublicRoute]);
 
-    }, [user, loading, pathname, router, isAppRoute, isPublicRoute]);
-
-    // Show a preloader only during the initial auth check or when navigating between route types.
-    if (loading || (isAppRoute && !user) || (isPublicRoute && user) || pathname === '/') {
+    if (loading) {
         return <Preloader />;
     }
-    
-    // If it's a protected route and the user is logged in, show the app layout.
-    if (isAppRoute) {
+
+    if (isProtectedRoute && user && 'role' in user) {
         return <AppLayout>{children}</AppLayout>;
     }
+
+    if (isClientRoute && user && !('role' in user)) {
+        return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
+    }
     
-    // For public routes when no user is logged in, just show the content.
-    return <>{children}</>;
+    // For public routes when no user is logged in
+    if (isPublicRoute && !user) {
+        return <>{children}</>;
+    }
+
+    // Fallback for cases where navigation hasn't completed
+    return <Preloader />;
 }
