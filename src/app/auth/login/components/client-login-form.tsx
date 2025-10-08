@@ -16,7 +16,6 @@ import { useToast } from "@/hooks/use-toast"
 import { verifyOtpAndLogin } from "../../actions"
 import OtpLoginForm from "./otp-login-form";
 import { useAuth } from "@/context/auth-context";
-import { useVoucherNav } from "@/context/voucher-nav-context";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -30,8 +29,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function ClientLoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { refreshUser, setAuthLoading } = useAuth();
-  const { fetchData } = useVoucherNav();
+  const { setAuthLoading } = useAuth();
   const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
   const [phoneForOtp, setPhoneForOtp] = useState<string>("");
 
@@ -49,10 +47,8 @@ export default function ClientLoginForm() {
     setAuthLoading(true);
     try {
         await signInWithEmailAndPassword(auth, data.identifier, data.password);
-        await refreshUser();
-        await fetchData(true); // Force refetch of nav data
         router.push('/dashboard');
-        // Preloader will be turned off by MainLayout's loading state
+        // Preloader will be turned off by MainLayout's loading state via onAuthStateChanged
     } catch(error: any) {
         let errorMessage = "فشل تسجيل الدخول.";
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -67,8 +63,6 @@ export default function ClientLoginForm() {
     setAuthLoading(true);
     const result = await verifyOtpAndLogin(phoneForOtp, otp, 'client');
     if (result.success) {
-      await refreshUser();
-      await fetchData(true); // Force refetch of nav data
       router.push('/dashboard');
     } else {
       setAuthLoading(false);

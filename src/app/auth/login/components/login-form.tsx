@@ -28,6 +28,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
+  const { setAuthLoading } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -40,9 +41,12 @@ export default function LoginForm() {
   const { isSubmitting } = form.formState;
 
   const onSubmit = async (data: FormValues) => {
+    setAuthLoading(true);
     try {
         await signInWithEmailAndPassword(auth, data.identifier, data.password);
-        // The onAuthStateChanged listener in AuthContext will handle loading state and redirects.
+        // The onAuthStateChanged listener in AuthContext will handle the user state.
+        // We just need to navigate.
+        router.push('/dashboard');
     } catch(error: any) {
         console.error("Login error:", error);
         let errorMessage = "فشل تسجيل الدخول. يرجى التحقق من بياناتك.";
@@ -50,6 +54,7 @@ export default function LoginForm() {
             errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
         }
         toast({ title: "خطأ في تسجيل الدخول", description: errorMessage, variant: 'destructive' });
+        setAuthLoading(false); // Make sure to turn off loading on error
     }
   }
 
