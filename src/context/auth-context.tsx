@@ -30,9 +30,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 if (sessionUser) {
                     setUser(sessionUser);
                 } else {
-                    // This case handles if a user exists in Auth but not Firestore.
-                    // It logs them out to prevent an inconsistent state.
-                    // A better approach might be to auto-create a Firestore user here.
                     toast({
                         title: "خطأ في مزامنة الحساب",
                         description: "لم يتم العثور على ملف تعريف المستخدم. يتم تسجيل الخروج.",
