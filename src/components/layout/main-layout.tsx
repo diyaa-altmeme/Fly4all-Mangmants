@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -29,6 +30,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from '@/context/auth-context';
 import Preloader from './preloader';
+import { Skeleton } from "../ui/skeleton";
 
 const protectedRoutes = ['/dashboard', '/settings', '/users', '/reports', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/hr', '/system', '/profile', '/profit-sharing', '/reconciliation', '/exchanges', '/segments', '/templates', '/campaigns', '/relations', '/suppliers', '/coming-soon', '/support', '/admin'];
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/auth/register'];
@@ -50,7 +52,7 @@ const MobileNav = () => {
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
-    const { user, logout } = useAuth();
+    const { user, logout, loading } = useAuth();
     const router = useRouter();
 
     const handleLogout = async () => {
@@ -111,7 +113,9 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
               <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4">
                   <NotificationCenter />
                   <ThemeToggle />
-                  {user ? (
+                  {loading ? (
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                  ) : user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="secondary" size="icon" className="rounded-full">
@@ -135,7 +139,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                             </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  ) : <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />}
+                  ) : <div className="h-10 w-10 rounded-full bg-muted" />}
               </div>
               </header>
           <main className="flex-1 p-2 sm:p-4 md:p-6 bg-muted/40">{children}</main>
@@ -154,19 +158,16 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
     React.useEffect(() => {
-        if (loading) return;
+        if (loading) return; // Wait until loading is complete
 
-        // If user is NOT logged in and trying to access a protected route, redirect to login
         if (!user && isAppRoute) {
             router.replace('/auth/login');
         }
         
-        // If user IS logged in and trying to access a public route, redirect to dashboard
         if (user && isPublicRoute) {
             router.replace('/dashboard');
         }
         
-        // Handle the root path: if not logged in, go to login, otherwise go to dashboard
         if (pathname === '/') {
             if (user) {
                 router.replace('/dashboard');
@@ -177,14 +178,16 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
     }, [user, loading, pathname, router, isAppRoute, isPublicRoute]);
 
+    // Show a preloader only during the initial auth check on root path or when navigating between route types.
     if (loading || (isAppRoute && !user) || (isPublicRoute && user) || pathname === '/') {
         return <Preloader />;
     }
     
+    // If it's a protected route and the user is logged in, show the app layout.
     if (isAppRoute) {
         return <AppLayout>{children}</AppLayout>;
     }
     
-    // For public routes when no user is logged in
+    // For public routes when no user is logged in, just show the content.
     return <>{children}</>;
 }
