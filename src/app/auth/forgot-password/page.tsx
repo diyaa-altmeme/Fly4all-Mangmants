@@ -2,16 +2,29 @@
 'use client';
 
 import { useState } from 'react';
-import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import { getFirebaseConfig } from '@/lib/firebase-client-config';
+import { getApps, initializeApp, getApp } from 'firebase/app';
+
+// Initialize Firebase client app if not already initialized
+const firebaseConfig = getFirebaseConfig();
+const app = getApps().length === 0 ? initializeApp(firebaseConfig!) : getApp();
+const auth = getAuth(app);
+
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +34,12 @@ export default function ForgotPasswordPage() {
 
     try {
       await sendPasswordResetEmail(auth, email);
-      setMessage('تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني. يرجى التحقق من صندوق الوارد الخاص بك.');
+      toast({
+        title: 'تم الإرسال بنجاح',
+        description: 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني. يرجى التحقق من صندوق الوارد.',
+        variant: 'default',
+      });
+      setMessage('تم إرسال رابط إعادة تعيين كلمة المرور. تحقق من بريدك الإلكتروني.');
     } catch (err: any) {
       setError('فشل إرسال البريد الإلكتروني. يرجى التأكد من صحة البريد المدخل وأنه مسجل بالنظام.');
     }
@@ -30,38 +48,45 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center">إعادة تعيين كلمة المرور</h1>
-        
-        {!message ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <p className="text-center text-gray-600">
-              أدخل بريدك الإلكتروني المسجل وسنرسل لك رابطًا لإعادة تعيين كلمة مرورك.
-            </p>
-            <input
-              type="email"
-              placeholder="البريد الإلكتروني"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="border p-3 rounded w-full"
-              required
-            />
-            <Button type="submit" disabled={isLoading} className="w-full">
-              {isLoading ? 'جاري الإرسال...' : 'إرسال رابط إعادة التعيين'}
-            </Button>
-            {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-          </form>
-        ) : (
-          <p className="text-green-600 text-center bg-green-50 p-4 rounded">{message}</p>
-        )}
+    <div className="flex flex-col items-center justify-center min-h-screen bg-muted/40 p-4">
+      <Card className="w-full max-w-md">
+         <CardHeader className="text-center">
+            <CardTitle className="text-2xl">إعادة تعيين كلمة المرور</CardTitle>
+             <CardDescription>
+                أدخل بريدك الإلكتروني المسجل وسنرسل لك رابطًا لإعادة تعيين كلمة مرورك.
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            {!message ? (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="email">البريد الإلكتروني</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="name@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                </div>
+                {error && <p className="text-sm font-medium text-destructive">{error}</p>}
+                <Button type="submit" disabled={isLoading} className="w-full">
+                  {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                  {isLoading ? 'جاري الإرسال...' : 'إرسال رابط إعادة التعيين'}
+                </Button>
+              </form>
+            ) : (
+              <p className="text-center text-green-600 bg-green-50 p-4 rounded-md">{message}</p>
+            )}
 
-        <div className="text-center">
-          <Link href="/auth/login" className="text-sm underline">
-            العودة إلى صفحة تسجيل الدخول
-          </Link>
-        </div>
-      </div>
+             <div className="mt-4 text-center text-sm">
+              <Link href="/auth/login" className="underline">
+                العودة إلى صفحة تسجيل الدخول
+              </Link>
+            </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
