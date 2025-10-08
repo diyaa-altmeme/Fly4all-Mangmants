@@ -134,6 +134,24 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-    // Directly render the AppLayout as authentication is currently bypassed.
+    const { user, loading } = useAuth();
+    const pathname = useRouter();
+
+    if (loading) {
+        return <Preloader />;
+    }
+
+    if (!user) {
+        // For pages like /login, /register, we don't want the main layout
+        // We let the page component handle its own layout
+        return <>{children}</>;
+    }
+
+    // Check if the authenticated user is a client (doesn't have a 'role' property)
+    if (!('role' in user)) {
+        return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
+    }
+    
+    // Authenticated employee/admin
     return <AppLayout>{children}</AppLayout>;
 }
