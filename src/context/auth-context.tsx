@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
@@ -36,16 +35,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
             if (!firebaseUser) {
                 setUser(null);
+                setLoading(false); // Make sure to set loading to false
                 return;
             }
 
             // If user is logged in, fetch full profile from our backend.
-            // This is where we get roles and permissions.
             const userDetails = await getCurrentUserFromSession();
             
             if (!userDetails) {
-                // This case can happen if auth exists but Firestore doc doesn't.
-                // We log them out to force a clean state.
                 await signOut(auth);
                 setUser(null);
                 toast({
@@ -56,13 +53,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 return;
             }
 
-            // The user object MUST be a plain object to be passed from server to client components.
             const safeUserDetails = JSON.parse(JSON.stringify(userDetails));
             setUser(safeUserDetails as AuthUser | null);
 
         } catch (error) {
             console.error("Auth State Error:", error);
-            await signOut(auth); // Force logout on any error
+            await signOut(auth);
             setUser(null);
             toast({
                 title: "حدث خطأ في المصادقة",

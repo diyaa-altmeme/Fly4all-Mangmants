@@ -134,33 +134,24 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
-    const pathname = usePathname();
-
-    const isClientRoute = clientRoutes.some(route => pathname.startsWith(route));
     
-    // The core change: Instead of complex redirection logic here,
-    // we simply decide WHICH layout to render based on the user type.
-    // The protection logic itself is now handled by pages/hooks.
-
+    // While the authentication state is being determined, show a preloader.
+    // This is a key part of fixing the redirect loop.
     if (loading) {
         return <Preloader />;
     }
 
-    // If a user is logged in
+    // Once loading is complete, decide which layout to show.
+    // The actual page protection is now handled by `useRequireAuth` hook in each page.
     if (user) {
-        // If it's a client user, render the client-specific layout
+        // If it's a client user (identified by not having a 'role' property)
         if (!('role' in user)) {
-            // If a client tries to access a non-client page, they will be redirected by that page's useRequireAuth or logic
             return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
         }
-        // If it's an employee/admin user, render the main app layout
-        if ('role' in user) {
-            return <AppLayout>{children}</AppLayout>;
-        }
+        // If it's an admin/employee user
+        return <AppLayout>{children}</AppLayout>;
     }
     
-    // If no user is logged in, render the children directly.
-    // This is for public pages like login, forgot-password, etc.
-    // The protection for other pages will handle redirection if needed.
+    // If there is no user, render children directly. This is for public pages like /auth/login.
     return <>{children}</>;
 }

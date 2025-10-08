@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { Suspense } from 'react';
@@ -34,7 +33,10 @@ function DashboardDataContainer() {
     if (loading || !data) {
         return (
             <div className="space-y-6">
-                <Skeleton className="h-48 w-full" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <Skeleton className="h-48 w-full col-span-1 md:col-span-2 lg:col-span-3" />
+                    <Skeleton className="h-48 w-full" />
+                </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <Skeleton className="h-96 w-full lg:col-span-2" />
                     <Skeleton className="h-96 w-full" />
