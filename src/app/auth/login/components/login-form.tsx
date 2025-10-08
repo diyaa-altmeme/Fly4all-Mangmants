@@ -50,9 +50,11 @@ export default function LoginForm() {
         await signInWithEmailAndPassword(auth, data.identifier, data.password);
         // The listener will handle session creation and redirection.
     } catch(error: any) {
-        let errorMessage = "فشل تسجيل الدخول.";
+        let errorMessage = "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.";
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
             errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = "صيغة البريد الإلكتروني غير صحيحة.";
         }
         toast({ title: "خطأ في تسجيل الدخول", description: errorMessage, variant: 'destructive' });
         setAuthLoading(false);
