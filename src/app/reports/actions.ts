@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import type { ReportInfo, AccountType, ReportTransaction, Currency, DebtsReportData, Client, Supplier, AppSettings, Box, StructuredDescription, BookingEntry, VisaBookingEntry, Subscription, JournalVoucher, JournalEntry, DebtsReportEntry, InvoiceReportItem, ClientTransactionSummary, TreeNode, Exchange } from '@/lib/types';
@@ -366,7 +365,7 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
             if (balanceIQD > 0) acc.totalDebitIQD += balanceIQD; else acc.totalCreditIQD -= balanceIQD;
         } else { // Supplier
             if (balanceUSD < 0) acc.totalDebitUSD -= balanceUSD; else acc.totalCreditUSD += balanceUSD;
-            if (balanceIQD < 0) acc.totalCreditIQD -= balanceIQD; else acc.totalDebitIQD += balanceIQD;
+            if (balanceIQD < 0) acc.totalDebitIQD -= balanceIQD; else acc.totalCreditIQD += balanceIQD;
         }
         
         return acc;

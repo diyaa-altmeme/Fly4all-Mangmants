@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getAuth } from 'firebase-admin/auth';
@@ -9,6 +8,18 @@ import { revalidatePath } from 'next/cache';
 import { getBoxes } from '../boxes/actions';
 import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 
+const processDoc = (docData: any): any => {
+    if (!docData) return null;
+
+    const safeData = JSON.parse(JSON.stringify(docData));
+
+    for (const key in safeData) {
+        if (safeData[key] && (safeData[key].hasOwnProperty('_seconds') || typeof safeData[key].toDate === 'function')) {
+            safeData[key] = new Date(safeData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
+        }
+    }
+    return safeData;
+};
 
 export async function getUsers({ includeHrData = false, all = false, from, to }: { includeHrData?: boolean, all?: boolean, from?: Date, to?: Date } = {}): Promise<HrData[]> {
   const db = await getDb();
@@ -16,7 +27,7 @@ export async function getUsers({ includeHrData = false, all = false, from, to }:
   
   const userRecords = await auth.listUsers();
   const firestoreUsersSnap = await db.collection('users').get();
-  const firestoreUsers = new Map(firestoreUsersSnap.docs.map(doc => [doc.id, doc.data()]));
+  const firestoreUsers = new Map(firestoreUsersSnap.docs.map(doc => [doc.id, processDoc(doc.data())]));
 
   const users: HrData[] = userRecords.users.map(user => {
     const firestoreData = firestoreUsers.get(user.uid) || {};
@@ -95,9 +106,9 @@ export async function addUser(data: Omit<User, 'uid' | 'id'>) {
     if (formattedPhone && !formattedPhone.startsWith('+')) {
         // Assuming Iraqi numbers if no country code is provided
         if (formattedPhone.startsWith('0')) {
-            formattedPhone = `+964${formattedPhone.substring(1)}`;
+            formattedPhone = `+964${phone.substring(1)}`;
         } else {
-            formattedPhone = `+964${formattedPhone}`;
+            formattedPhone = `+964${phone}`;
         }
     }
 
@@ -143,7 +154,7 @@ export async function updateUser(uid: string, data: Partial<User>) {
      
     revalidatePath('/users');
     const updatedUserDoc = await db.collection('users').doc(uid).get();
-    const updatedUserData = updatedUserDoc.data() as User;
+    const updatedUserData = processDoc(updatedUserDoc.data()) as User;
     return { success: true, updatedUser: { ...updatedUserData, uid } };
 }
 
