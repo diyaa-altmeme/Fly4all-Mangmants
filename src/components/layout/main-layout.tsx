@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -33,7 +32,6 @@ import Preloader from './preloader';
 
 const protectedRoutes = ['/dashboard', '/settings', '/users', '/reports', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/hr', '/system', '/profile', '/profit-sharing', '/reconciliation', '/exchanges', '/segments', '/templates', '/campaigns', '/relations', '/suppliers', '/coming-soon', '/support', '/admin'];
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/auth/register'];
-const landingRoutes = ['/', '/landing'];
 
 const MobileNav = () => {
     return (
@@ -154,35 +152,39 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
     const isAppRoute = protectedRoutes.some(route => pathname.startsWith(route));
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-    const isLandingRoute = landingRoutes.includes(pathname);
 
     React.useEffect(() => {
         if (loading) return;
 
-        // If user is logged in, and tries to access a public/landing route, redirect to dashboard.
-        if (user && (isPublicRoute || isLandingRoute)) {
-            router.replace('/dashboard');
-        }
-
-        // If user is not logged in and tries to access a protected route, redirect to login.
+        // If user is NOT logged in and trying to access a protected route, redirect to login
         if (!user && isAppRoute) {
             router.replace('/auth/login');
         }
-        // If no user and on root, redirect to login
-        if(!user && pathname === '/') {
-            router.replace('/auth/login');
+        
+        // If user IS logged in and trying to access a public route, redirect to dashboard
+        if (user && isPublicRoute) {
+            router.replace('/dashboard');
+        }
+        
+        // Handle the root path: if not logged in, go to login, otherwise go to dashboard
+        if (pathname === '/') {
+            if (user) {
+                router.replace('/dashboard');
+            } else {
+                router.replace('/auth/login');
+            }
         }
 
-    }, [user, loading, pathname, router, isAppRoute, isPublicRoute, isLandingRoute]);
+    }, [user, loading, pathname, router, isAppRoute, isPublicRoute]);
 
-    if (loading || (isAppRoute && !user) || ((isPublicRoute || isLandingRoute) && user)) {
+    if (loading || (isAppRoute && !user) || (isPublicRoute && user) || pathname === '/') {
         return <Preloader />;
     }
-
+    
     if (isAppRoute) {
         return <AppLayout>{children}</AppLayout>;
     }
     
-    // For public routes when no user is logged in, or the root when no user is logged in.
+    // For public routes when no user is logged in
     return <>{children}</>;
 }
