@@ -12,6 +12,39 @@ import { getAuth } from 'firebase-admin/auth';
 
 export async function getCurrentUserFromSession(): Promise<(User & { uid: string, permissions: string[] }) | (Client & { uid: string }) | null> {
     
+    // Hardcoded user for development purposes as requested.
+    // This bypasses the need for login.
+    const devUser: (User & { uid: string, permissions: string[] }) = {
+        uid: "5V2a9sFmEjZosRARbpA8deWhdVJ3",
+        name: "ضياء التميمي",
+        username: "diyaa",
+        email: "acc.alrwdaten@gmail.com",
+        phone: "07718601525",
+        role: "admin",
+        status: 'active',
+        department: 'قسم الحسابات',
+        position: 'محاسب',
+        boxId: '38xLfnrcAu9WpDUaIzti',
+        baseSalary: 0,
+        bonuses: 0,
+        deductions: 0,
+        ticketProfit: 0,
+        visaProfit: 0,
+        groupProfit: 0,
+        changeProfit: 0,
+        segmentProfit: 0,
+        permissions: ['*'], // Admin has all permissions
+        attendance: [],
+        avatarUrl: "",
+        notes: "",
+        otpLoginEnabled: false,
+        hrDataLastUpdated: "",
+        requestedAt: "2025-09-30T10:03:54.107Z",
+    };
+    return devUser;
+
+    /*
+    // Original Login Logic
     const sessionCookie = (await cookies()).get('session')?.value;
     if (!sessionCookie) return null;
     
@@ -46,6 +79,7 @@ export async function getCurrentUserFromSession(): Promise<(User & { uid: string
         // Important: Re-throw or return null to indicate failure
         return null;
     }
+    */
 }
 
 
@@ -76,7 +110,8 @@ export async function verifyOtpAndLogin(phone: string, otp: string, type: 'emplo
          const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
          const sessionCookie = await getAuth().createSessionCookie(userDoc.id, { expiresIn });
          
-         cookies().set('session', sessionCookie, {
+         const cookieStore = await cookies();
+         cookieStore.set('session', sessionCookie, {
             maxAge: expiresIn,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -102,7 +137,8 @@ export async function verifyOtpAndLogin(phone: string, otp: string, type: 'emplo
 
 
 export async function logoutUser() {
-    cookies().delete('session');
+    const cookieStore = await cookies();
+    cookieStore.delete('session');
 }
 
 export async function requestPublicAccount(data: Pick<User, 'name' | 'email' | 'phone'>) {
