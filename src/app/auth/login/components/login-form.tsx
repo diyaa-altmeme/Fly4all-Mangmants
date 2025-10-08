@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/context/auth-context";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { createSession } from "../../actions";
 
 const formSchema = z.object({
   identifier: z.string().email({ message: "الرجاء إدخال بريد إلكتروني صحيح" }),
@@ -43,7 +44,9 @@ export default function LoginForm() {
   const onSubmit = async (data: FormValues) => {
     setAuthLoading(true);
     try {
-        await signInWithEmailAndPassword(auth, data.identifier, data.password);
+        const userCredential = await signInWithEmailAndPassword(auth, data.identifier, data.password);
+        const idToken = await userCredential.user.getIdToken();
+        await createSession(idToken);
         // The onAuthStateChanged listener in AuthProvider will handle the redirect.
     } catch(error: any) {
         let errorMessage = "فشل تسجيل الدخول.";

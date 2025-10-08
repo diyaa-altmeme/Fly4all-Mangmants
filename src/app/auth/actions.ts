@@ -1,6 +1,5 @@
 
 
-
 'use server';
 
 import type { User, Client, Role } from "@/lib/types";
@@ -13,73 +12,62 @@ import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 
 export async function getCurrentUserFromSession(): Promise<(User & { uid: string, permissions: string[] }) | (Client & { uid: string }) | null> {
     
-    // Hardcoded user for development purposes as requested.
-    // This bypasses the need for login.
-    const devUser: (User & { uid: string, permissions: string[] }) = {
-        uid: "5V2a9sFmEjZosRARbpA8deWhdVJ3",
-        name: "ضياء التميمي",
-        username: "diyaa",
-        email: "acc.alrwdaten@gmail.com",
-        phone: "07718601525",
-        role: "admin",
-        status: 'active',
-        department: 'قسم الحسابات',
-        position: 'محاسب',
-        boxId: '38xLfnrcAu9WpDUaIzti',
-        baseSalary: 0,
-        bonuses: 0,
-        deductions: 0,
-        ticketProfit: 0,
-        visaProfit: 0,
-        groupProfit: 0,
-        changeProfit: 0,
-        segmentProfit: 0,
-        permissions: ['*'], // Admin has all permissions
-        attendance: [],
-        avatarUrl: "",
-        notes: "",
-        otpLoginEnabled: false,
-        hrDataLastUpdated: "",
-        requestedAt: "2025-09-30T10:03:54.107Z",
-    };
-    return devUser;
-
+    const sessionCookie = (await cookies()).get('session')?.value;
+    if (!sessionCookie) return null;
     
-    // Original Login Logic
-    // const sessionCookie = (await cookies()).get('session')?.value;
-    // if (!sessionCookie) return null;
-    
-    // try {
-    //     const decodedToken = await getAuthAdmin().verifySessionCookie(sessionCookie, true);
-    //     const db = await getDb();
+    try {
+        const decodedToken = await getAuthAdmin().verifySessionCookie(sessionCookie, true);
+        const db = await getDb();
         
-    //     const isEmployee = decodedToken.role; // Assuming only employees have roles
-    //     const collection = isEmployee ? 'users' : 'clients';
+        const isEmployee = decodedToken.role; // Assuming only employees have roles
         
-    //     const userDoc = await db.collection(collection).doc(decodedToken.uid).get();
-
-    //     if (!userDoc.exists) return null;
+        const collection = isEmployee ? 'users' : 'clients';
         
-    //     const userData = userDoc.data() as User | Client;
+        const userDoc = await db.collection(collection).doc(decodedToken.uid).get();
 
-    //     if (userData.status !== 'active') {
-    //         return null; // Don't allow login for non-active users
-    //     }
+        if (!userDoc.exists) return null;
+        
+        const userData = userDoc.data() as User | Client;
 
-    //     if (isEmployee) {
-    //         const userRole = (userData as User).role;
-    //         const roleDoc = await db.collection('roles').doc(userRole).get();
-    //         const permissions = roleDoc.exists ? roleDoc.data()?.permissions : [];
-    //         return { ...userData, uid: userDoc.id, permissions } as (User & { uid: string, permissions: string[] });
-    //     } else {
-    //          return { ...userData, uid: userDoc.id } as (Client & { uid: string });
-    //     }
-    // } catch (error) {
-    //     console.error("Error verifying session cookie:", error);
-    //     // Important: Re-throw or return null to indicate failure
-    //     return null;
-    // }
-    
+        if (userData.status !== 'active') {
+            return null; // Don't allow login for non-active users
+        }
+
+        if (isEmployee) {
+            const userRole = (userData as User).role;
+            let permissions: string[] = [];
+
+            if (userRole === 'admin') {
+                permissions = ['*']; // Admin gets all permissions
+            } else if (userRole) {
+                const roleDoc = await db.collection('roles').doc(userRole).get();
+                if (roleDoc.exists) {
+                    permissions = roleDoc.data()?.permissions || [];
+                }
+            }
+
+            return { ...userData, uid: userDoc.id, permissions } as (User & { uid: string, permissions: string[] });
+        } else {
+             return { ...userData, uid: userDoc.id } as (Client & { uid: string });
+        }
+    } catch (error) {
+        console.error("Error verifying session cookie:", error);
+        // Important: Re-throw or return null to indicate failure
+        return null;
+    }
+}
+
+export async function createSession(idToken: string) {
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    const sessionCookie = await getAuthAdmin().createSessionCookie(idToken, { expiresIn });
+
+    cookies().set('session', sessionCookie, {
+        maxAge: expiresIn,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        sameSite: 'lax',
+    });
 }
 
 
