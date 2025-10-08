@@ -30,40 +30,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
             const db = await getDb();
             const idTokenResult = await firebaseUser.getIdTokenResult();
-            const userRole = idTokenResult.claims.role;
+            const userEmail = firebaseUser.email;
 
-            let userDoc, collectionName;
-            if (userRole && typeof userRole === 'string') {
-                collectionName = 'users';
-            } else {
-                collectionName = 'clients';
+            if (!userEmail) {
+                setUser(null);
+                return;
             }
-            
-            userDoc = await db.collection(collectionName).doc(firebaseUser.uid).get();
 
-            if (userDoc.exists) {
-                const userData = userDoc.data() as User | Client;
+            // Query by email to find the user in Firestore, which is more reliable
+            const usersRef = db.collection('users');
+            const querySnapshot = await usersRef.where('email', '==', userEmail).limit(1).get();
+
+            if (!querySnapshot.empty) {
+                const userDoc = querySnapshot.docs[0];
+                const userData = userDoc.data() as User;
+
                 if (userData.status !== 'active') {
                     setUser(null);
                     return;
                 }
-
-                if (userRole && 'role' in userData) {
-                    let permissions: string[] = [];
-                    if (userRole === 'admin') {
-                        permissions = Object.keys(PERMISSIONS);
-                    } else {
-                        const roleDoc = await db.collection('roles').doc(userRole).get();
-                        if (roleDoc.exists) {
-                            permissions = roleDoc.data()?.permissions || [];
-                        }
+                
+                const userRole = idTokenResult.claims.role || userData.role;
+                let permissions: string[] = [];
+                if (userRole === 'admin') {
+                    permissions = Object.keys(PERMISSIONS);
+                } else if (userRole) {
+                    const roleDoc = await db.collection('roles').doc(userRole).get();
+                    if (roleDoc.exists) {
+                        permissions = roleDoc.data()?.permissions || [];
                     }
-                    setUser({ ...userData, uid: firebaseUser.uid, permissions } as AuthUser);
-                } else {
-                    setUser({ ...userData, uid: firebaseUser.uid } as AuthUser);
                 }
+                
+                setUser({ ...userData, uid: firebaseUser.uid, permissions } as AuthUser);
+
             } else {
-                setUser(null);
+                 // Fallback to check clients collection if not found in users
+                const clientsRef = db.collection('clients');
+                const clientQuerySnapshot = await clientsRef.where('email', '==', userEmail).limit(1).get();
+                if(!clientQuerySnapshot.empty) {
+                    const clientDoc = clientQuerySnapshot.docs[0];
+                    const clientData = clientDoc.data() as Client;
+                     if (clientData.status !== 'active') {
+                        setUser(null);
+                        return;
+                    }
+                    setUser({ ...clientData, uid: firebaseUser.uid } as AuthUser);
+                } else {
+                    setUser(null);
+                    console.warn(`No user or client found in Firestore for email: ${userEmail}`);
+                }
             }
         } catch (error) {
             console.error("Error fetching user details:", error);
@@ -118,3 +133,4 @@ export const useAuth = () => {
     }
     return context;
 };
+
