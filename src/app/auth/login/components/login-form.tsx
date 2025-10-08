@@ -112,7 +112,7 @@ export default function LoginForm() {
               <div className="flex items-center">
                 <Label htmlFor="password">كلمة المرور</Label>
                 <Link
-                  href="#"
+                  href="/auth/forgot-password"
                   className="mr-auto inline-block text-sm underline"
                 >
                   هل نسيت كلمة المرور؟
