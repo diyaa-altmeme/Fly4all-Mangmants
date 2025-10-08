@@ -4,8 +4,7 @@
 import Preloader from '@/components/layout/preloader';
 
 export default function Home() {
-    // The routing logic is handled by the MainLayout component.
-    // This page just shows a preloader until the auth state is resolved
-    // and the user is redirected.
+    // The routing logic is now entirely handled by the MainLayout component
+    // based on the authentication state. This page just acts as a loading placeholder.
     return <Preloader />;
 }

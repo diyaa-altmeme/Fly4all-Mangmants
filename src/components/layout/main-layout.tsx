@@ -151,29 +151,33 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
+    const isAppRoute = protectedRoutes.some(route => pathname.startsWith(route));
+    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+    const isRoot = pathname === '/';
+
     React.useEffect(() => {
         if (loading) return;
 
-        const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
-        const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-        
-        if (!user && isProtectedRoute) {
-            router.replace('/auth/login');
-        } else if (user && (isPublicRoute || pathname === '/')) {
+        // If user is logged in, and tries to access a public route (like login) or the root, redirect to dashboard.
+        if (user && (isPublicRoute || isRoot)) {
             router.replace('/dashboard');
         }
-    }, [user, loading, pathname, router]);
 
-    if (loading) {
+        // If user is not logged in and tries to access a protected route, redirect to login.
+        if (!user && isAppRoute) {
+            router.replace('/auth/login');
+        }
+
+    }, [user, loading, pathname, router, isAppRoute, isPublicRoute, isRoot]);
+
+    if (loading || (isAppRoute && !user) || ((isPublicRoute || isRoot) && user)) {
         return <Preloader />;
     }
 
-    const isAppRoute = protectedRoutes.some(route => pathname.startsWith(route));
-
-    if (user && isAppRoute) {
+    if (isAppRoute) {
         return <AppLayout>{children}</AppLayout>;
     }
     
-    // For public routes or initial load before redirect
+    // For public routes when no user is logged in, or the root when no user is logged in.
     return <>{children}</>;
 }

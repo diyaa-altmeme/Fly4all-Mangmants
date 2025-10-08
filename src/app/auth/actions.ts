@@ -8,25 +8,21 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { createAuditLog } from "@/app/system/activity-log/actions";
 
 export async function createSession(idToken: string) {
-    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await getAuthAdmin().createSessionCookie(idToken, { expiresIn });
-
-    cookies().set('session', sessionCookie, {
-        maxAge: expiresIn,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        sameSite: 'lax',
-    });
-}
-
-export async function loginWithEmail(idToken: string): Promise<{ success: boolean; error?: string }> {
     try {
-        await createSession(idToken);
+        const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+        const sessionCookie = await getAuthAdmin().createSessionCookie(idToken, { expiresIn });
+
+        cookies().set('session', sessionCookie, {
+            maxAge: expiresIn,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            path: '/',
+            sameSite: 'lax',
+        });
         return { success: true };
     } catch (error: any) {
-        console.error("Session Creation Error:", error.code, error.message);
-        return { success: false, error: "فشل في إنشاء جلسة المستخدم." };
+        console.error("Session Cookie Error:", error);
+        return { success: false, error: "Failed to create session cookie." };
     }
 }
 

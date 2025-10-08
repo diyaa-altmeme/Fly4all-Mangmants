@@ -2,12 +2,11 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { getAuth, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { getAuth, onIdTokenChanged, User as FirebaseUser } from 'firebase/auth';
 import { getDb } from '@/lib/firebase-admin';
-import type { User, Client, Role } from '@/lib/types';
+import type { User, Client } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/permissions';
 import { app } from '@/lib/firebase';
-import Preloader from '@/components/layout/preloader';
 
 type AuthUser = (User & { uid: string; permissions: string[] }) | (Client & { uid: string });
 
@@ -32,11 +31,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const idTokenResult = await firebaseUser.getIdTokenResult();
             const userEmail = firebaseUser.email;
 
-            if (!userEmail) {
-                setUser(null);
-                setLoading(false);
-                return;
-            }
+            if (!userEmail) throw new Error("User email is not available.");
 
             const usersRef = db.collection('users');
             const querySnapshot = await usersRef.where('email', '==', userEmail).limit(1).get();
@@ -45,11 +40,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const userDoc = querySnapshot.docs[0];
                 const userData = userDoc.data() as User;
 
-                if (userData.status !== 'active') {
-                    setUser(null);
-                    setLoading(false);
-                    return;
-                }
+                if (userData.status !== 'active') throw new Error("User account is not active.");
                 
                 const userRole = idTokenResult.claims.role || userData.role;
                 let permissions: string[] = [];
@@ -57,9 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                     permissions = Object.keys(PERMISSIONS);
                 } else if (userRole) {
                     const roleDoc = await db.collection('roles').doc(userRole).get();
-                    if (roleDoc.exists) {
-                        permissions = roleDoc.data()?.permissions || [];
-                    }
+                    if (roleDoc.exists) permissions = roleDoc.data()?.permissions || [];
                 }
                 
                 setUser({ ...userData, uid: firebaseUser.uid, permissions } as AuthUser);
@@ -70,28 +59,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 if(!clientQuerySnapshot.empty) {
                     const clientDoc = clientQuerySnapshot.docs[0];
                     const clientData = clientDoc.data() as Client;
-                     if (clientData.status !== 'active') {
-                        setUser(null);
-                        setLoading(false);
-                        return;
-                    }
+                    if (clientData.status !== 'active') throw new Error("Client account is not active.");
                     setUser({ ...clientData, uid: firebaseUser.uid } as AuthUser);
                 } else {
-                    setUser(null);
-                    console.warn(`No user or client found in Firestore for email: ${userEmail}`);
+                    throw new Error(`No user or client found for email: ${userEmail}`);
                 }
             }
         } catch (error) {
             console.error("Error fetching user details:", error);
-            setUser(null);
+            setUser(null); // Clear user state on error
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {
+                setLoading(true);
+                const idToken = await firebaseUser.getIdToken();
+                // Send token to server to create session cookie
+                await fetch('/api/auth/session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken }),
+                });
                 await fetchUserDetails(firebaseUser);
             } else {
                 setUser(null);
@@ -105,7 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const logout = async () => {
         setLoading(true);
         await auth.signOut();
-        // onAuthStateChanged will handle setting user to null and loading to false
+        // onIdTokenChanged will handle setting user to null and clearing server session
     };
     
     const reloadUser = useCallback(async () => {
