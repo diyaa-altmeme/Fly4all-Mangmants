@@ -50,36 +50,45 @@ async function migrateUsers() {
 
         try {
             // 1. Check if user already exists in Firebase Auth
+            let userRecord;
             try {
-                await auth.getUserByEmail(email);
-                console.log(`User with email ${email} already exists in Firebase Auth. Skipping creation, but will attempt to update Firestore record.`);
-                // In a more complex scenario, you might want to link this auth user to the firestore doc if it's not already.
-                // For now, we assume if it exists, it's already correctly set up or a duplicate we should ignore.
-                continue;
-
+                userRecord = await auth.getUserByEmail(email);
+                console.log(`User with email ${email} already exists in Firebase Auth. Skipping creation.`);
             } catch (error: any) {
-                if (error.code !== 'auth/user-not-found') {
-                    throw error; // Re-throw unexpected errors
+                if (error.code === 'auth/user-not-found') {
+                    // If user is not found, proceed to create them.
+                    const tempPassword = randomBytes(16).toString('hex');
+                    userRecord = await auth.createUser({
+                        email: email,
+                        emailVerified: true, // Assuming old users are verified
+                        password: tempPassword,
+                        displayName: oldUserData.name,
+                        disabled: oldUserData.status !== 'active',
+                    });
+                     console.log(`Successfully created new auth user for ${email} with UID: ${userRecord.uid}`);
+                } else {
+                    throw error; // Re-throw other unexpected auth errors
                 }
-                // If user is not found, proceed to create them.
+            }
+            
+            // 2. Check if a new document with the correct UID already exists
+            const newUserDocRef = db.collection('users').doc(userRecord.uid);
+            const newUserDoc = await newUserDocRef.get();
+
+            if (newUserDoc.exists) {
+                console.log(`User document already exists at users/${userRecord.uid}. Skipping document migration for ${email}.`);
+                // If the old doc is not the new one, delete it.
+                if (oldId !== userRecord.uid) {
+                    await db.collection('users').doc(oldId).delete();
+                    console.log(`Deleted old Firestore document: users/${oldId}`);
+                }
+                continue;
             }
 
-            // 2. Create user in Firebase Authentication
-            const tempPassword = randomBytes(16).toString('hex');
-            const userRecord = await auth.createUser({
-                email: email,
-                emailVerified: true, // Assuming old users are verified
-                password: tempPassword,
-                displayName: oldUserData.name,
-                disabled: oldUserData.status !== 'active',
-            });
-
-            console.log(`Successfully created new auth user for ${email} with UID: ${userRecord.uid}`);
 
             // 3. Create a new Firestore document with the new UID
             const { password, ...restOfData } = oldUserData; // Exclude old password
             
-            const newUserDocRef = db.collection('users').doc(userRecord.uid);
             await newUserDocRef.set({
                 ...restOfData,
                 // Ensure essential fields are consistent
@@ -90,7 +99,7 @@ async function migrateUsers() {
 
             console.log(`Created new Firestore document at users/${userRecord.uid}`);
             
-            // 4. (Optional but recommended) Delete the old document if the ID was not the email
+            // 4. Delete the old document if the ID was not the email
             if (oldId !== email && oldId !== userRecord.uid) {
                 await db.collection('users').doc(oldId).delete();
                 console.log(`Deleted old Firestore document: users/${oldId}`);
@@ -106,7 +115,7 @@ async function migrateUsers() {
 
     console.log("\n--- Migration Summary ---");
     console.log(`✅ Successfully migrated: ${successCount} users.`);
-    console.log(`❌ Failed to migrate: ${errorCount} users.`);
+    console.log(`❌ Failed to migrate or already migrated: ${errorCount} users.`);
     console.log("-------------------------\n");
     console.log("IMPORTANT: Migrated users must use the 'Forgot Password' flow to set a new password before they can log in.");
 }

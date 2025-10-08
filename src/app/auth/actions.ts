@@ -1,3 +1,4 @@
+
 "use server";
 
 import type { User, Client, Role } from "@/lib/types";
@@ -61,7 +62,17 @@ export async function getCurrentUserFromSession(): Promise<any | null> {
     try {
         const decodedToken = await getAuthAdmin().verifySessionCookie(sessionCookie, true);
         const db = await getDb();
-        const userDoc = await db.collection('users').doc(decodedToken.uid).get();
+        
+        // Attempt to fetch user by UID first (the correct, new way)
+        let userDoc = await db.collection('users').doc(decodedToken.uid).get();
+
+        // If not found by UID, try to find by email (for legacy users)
+        if (!userDoc.exists && decodedToken.email) {
+            const userQuery = await db.collection('users').where('email', '==', decodedToken.email).limit(1).get();
+            if (!userQuery.empty) {
+                userDoc = userQuery.docs[0];
+            }
+        }
 
         if (userDoc.exists) {
             const firestoreData = processDoc(userDoc.data());
