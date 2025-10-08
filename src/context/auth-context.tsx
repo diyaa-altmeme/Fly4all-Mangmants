@@ -4,6 +4,8 @@
 import type { User, Client } from '@/lib/types';
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { getCurrentUserFromSession } from '@/app/auth/actions';
+import { onAuthStateChanged, getAuth } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 type AuthContextType = {
     user: User | Client | null | undefined;
@@ -18,9 +20,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | Client | null | undefined>(undefined);
     const [loading, setLoading] = useState(true);
     
-    const fetchUser = useCallback(async () => {
-        // Don't set loading to true here to avoid flashing the preloader on every refresh.
-        // The MainLayout will handle the initial preloader.
+    const fetchUserSession = useCallback(async () => {
         try {
             const sessionUser = await getCurrentUserFromSession();
             setUser(sessionUser);
@@ -28,17 +28,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.error("Failed to fetch user session", error);
             setUser(null);
         } finally {
-            // A small delay to make the transition smoother if the fetch is very fast
-             setTimeout(() => setLoading(false), 250);
+            setTimeout(() => setLoading(false), 200); // Small delay to prevent flashing
         }
     }, []);
 
     useEffect(() => {
-        fetchUser();
-    }, [fetchUser]);
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            setLoading(true);
+            if (firebaseUser) {
+                // User is signed in, now fetch detailed user data from our backend
+                fetchUserSession();
+            } else {
+                // User is signed out
+                setUser(null);
+                setLoading(false);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [fetchUserSession]);
+
+    const refreshUser = useCallback(async () => {
+        setLoading(true);
+        await fetchUserSession();
+    }, [fetchUserSession]);
 
     return (
-        <AuthContext.Provider value={{ user, loading, setAuthLoading: setLoading, refreshUser: fetchUser }}>
+        <AuthContext.Provider value={{ user, loading, setAuthLoading: setLoading, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );
