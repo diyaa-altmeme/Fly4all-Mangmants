@@ -90,11 +90,22 @@ export async function addUser(data: Omit<User, 'uid' | 'id'>) {
         throw new Error("Password is required for new users.");
     }
     
+    // Ensure phone number is in E.164 format
+    let formattedPhone = phone;
+    if (formattedPhone && !formattedPhone.startsWith('+')) {
+        // Assuming Iraqi numbers if no country code is provided
+        if (formattedPhone.startsWith('0')) {
+            formattedPhone = `+964${formattedPhone.substring(1)}`;
+        } else {
+            formattedPhone = `+964${formattedPhone}`;
+        }
+    }
+
     const userRecord = await auth.createUser({
         email,
         password,
         displayName: name,
-        phoneNumber: phone,
+        phoneNumber: formattedPhone,
         disabled: data.status === 'blocked',
     });
 
@@ -102,7 +113,7 @@ export async function addUser(data: Omit<User, 'uid' | 'id'>) {
         ...firestoreData,
         name,
         email,
-        phone,
+        phone: formattedPhone,
     });
 
     revalidatePath('/users');
