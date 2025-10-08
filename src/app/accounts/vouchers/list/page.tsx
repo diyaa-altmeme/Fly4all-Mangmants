@@ -9,32 +9,12 @@ import { getClients } from '@/app/relations/actions';
 import { getUsers } from '@/app/users/actions';
 import { getBoxes } from '@/app/boxes/actions';
 import type { AppSettings, Box, Client, Supplier, User, Voucher } from '@/lib/types';
-import VouchersListContent from './vouchers-list-content';
-
+import VouchersListContent from './components/vouchers-list-content';
+import { revalidatePath } from 'next/cache';
 
 export default async function VouchersListPage() {
-    const [clientsRes, users, boxes, settings, error] = await Promise.all([
-        getClients({ all: true }),
-        getUsers(),
-        getBoxes(),
-        getSettings(),
-    ]).then(res => [...res, null]).catch(e => [null, null, null, null, e.message]);
-    
-    if (error || !clientsRes || !users || !boxes || !settings) {
-        return (
-            <Alert variant="destructive">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>حدث خطأ!</AlertTitle>
-                <AlertDescription>{error || "فشل تحميل البيانات."}</AlertDescription>
-            </Alert>
-        );
-    }
-    
-    const allRelations = clientsRes.clients;
-    const clients = allRelations.filter(r => r.relationType === 'client' || r.relationType === 'both');
-    const suppliers = allRelations.filter(r => r.relationType === 'supplier' || r.relationType === 'both');
-
-    const vouchers = await getAllVouchers(clients, suppliers, boxes, users, settings);
+    // Moved data fetching inside the component that needs it
+    // to avoid passing complex objects between server/client components.
 
     return (
         <div className="space-y-6">
@@ -44,14 +24,9 @@ export default async function VouchersListPage() {
                     عرض جميع السندات والحركات المالية في النظام مع إمكانية الفلترة والبحث.
                 </CardDescription>
             </CardHeader>
-            <VouchersListContent
-                initialVouchers={vouchers}
-                settings={settings}
-                clients={clients}
-                suppliers={suppliers}
-                users={users}
-                boxes={boxes}
-            />
+            <VouchersListContent />
         </div>
     );
 }
+
+    
