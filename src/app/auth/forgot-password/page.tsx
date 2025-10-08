@@ -10,13 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { getFirebaseConfig } from '@/lib/firebase-client-config';
-import { getApps, initializeApp, getApp } from 'firebase/app';
-
-// Initialize Firebase client app if not already initialized
-const firebaseConfig = getFirebaseConfig();
-const app = getApps().length === 0 ? initializeApp(firebaseConfig!) : getApp();
-const auth = getAuth(app);
+import { auth } from '@/lib/firebase';
 
 
 export default function ForgotPasswordPage() {
