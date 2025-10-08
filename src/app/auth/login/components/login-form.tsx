@@ -14,9 +14,10 @@ import { Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/context/auth-context";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { createSession } from "../../actions";
+import { loginWithEmail, createSession } from "../../actions";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import { app } from "@/lib/firebase";
+
 
 const formSchema = z.object({
   identifier: z.string().email({ message: "الرجاء إدخال بريد إلكتروني صحيح" }),
@@ -29,7 +30,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { setAuthLoading } = useAuth();
+  const { reloadUser, setAuthLoading } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -44,10 +45,14 @@ export default function LoginForm() {
   const onSubmit = async (data: FormValues) => {
     setAuthLoading(true);
     try {
+        const auth = getAuth(app);
         const userCredential = await signInWithEmailAndPassword(auth, data.identifier, data.password);
         const idToken = await userCredential.user.getIdToken();
         await createSession(idToken);
-        // The onAuthStateChanged listener in AuthProvider will handle the redirect.
+        
+        await reloadUser();
+        router.push('/dashboard');
+        
     } catch(error: any) {
         let errorMessage = "فشل تسجيل الدخول.";
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
