@@ -28,7 +28,7 @@ type FormValues = z.infer<typeof formSchema>;
 export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
-  const { setAuthLoading } = useAuth();
+  const { setAuthLoading, refreshUser } = useAuth();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -44,8 +44,7 @@ export default function LoginForm() {
     setAuthLoading(true);
     try {
         await signInWithEmailAndPassword(auth, data.identifier, data.password);
-        // The onAuthStateChanged listener in AuthContext will handle the user state.
-        // We just need to navigate.
+        await refreshUser();
         router.push('/dashboard');
     } catch(error: any) {
         console.error("Login error:", error);
