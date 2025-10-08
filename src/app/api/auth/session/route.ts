@@ -10,16 +10,17 @@ export async function POST(request: NextRequest) {
         const idToken = body.idToken;
 
         if (!idToken) {
-            return NextResponse.json({ error: 'ID token is required' }, { status: 400 });
+             // This can be used to clear the cookie
+            await createSession(''); // Pass empty string or handle null
+            return NextResponse.json({ success: true, message: "Session cleared" }, { status: 200 });
         }
         
-        // This is now the single point of entry for session creation
         await createSession(idToken);
         
         return NextResponse.json({ success: true }, { status: 200 });
 
     } catch (error: any) {
         console.error('Session API Error:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: error.message }, { status: 400 });
     }
 }

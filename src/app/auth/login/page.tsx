@@ -29,7 +29,7 @@ export default function SignInPage() {
                 <div 
                     className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale" 
                     style={{
-                        backgroundImage: `url('https://images.unsplash.com/photo-1526378722484-bd91ca387e72?q=80&w=2071&auto=format&fit=crop')`,
+                        backgroundImage: `url('https://images.unsplash.com/photo-1526378722484-bd91ca387e72?q=80&w=2070&auto=format&fit=crop')`,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                     }}

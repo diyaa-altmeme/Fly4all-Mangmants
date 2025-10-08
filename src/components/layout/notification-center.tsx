@@ -14,12 +14,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { getNotificationsForUser, markNotificationAsRead, markAllAsRead } from '@/app/notifications/actions';
-import { getCurrentUserFromSession } from '@/app/auth/actions';
 import type { Notification, NotificationType, User as CurrentUser, Client } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/auth-context';
 
 const notificationIcons: Record<NotificationType, React.ElementType> = {
     booking: Ticket,
@@ -33,19 +33,15 @@ const notificationIcons: Record<NotificationType, React.ElementType> = {
 };
 
 export default function NotificationCenter() {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [currentUser, setCurrentUser] = useState<CurrentUser | Client | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    getCurrentUserFromSession().then(setCurrentUser);
-  }, []);
-
-  useEffect(() => {
-    if (!currentUser) return;
+    if (!user) return;
 
     const fetchNotifications = async () => {
-      const fetchedNotifications = await getNotificationsForUser(currentUser.uid, { limit: 10 });
+      const fetchedNotifications = await getNotificationsForUser(user.uid, { limit: 10 });
       setNotifications(fetchedNotifications);
       setUnreadCount(fetchedNotifications.filter(n => !n.isRead).length);
     };
@@ -54,7 +50,7 @@ export default function NotificationCenter() {
     const interval = setInterval(fetchNotifications, 60000); // Poll every 60 seconds
 
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [user]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     await markNotificationAsRead(notificationId);
@@ -65,8 +61,8 @@ export default function NotificationCenter() {
   };
 
   const handleMarkAllAsRead = async () => {
-    if (!currentUser) return;
-    await markAllAsRead(currentUser.uid);
+    if (!user) return;
+    await markAllAsRead(user.uid);
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     setUnreadCount(0);
   };
