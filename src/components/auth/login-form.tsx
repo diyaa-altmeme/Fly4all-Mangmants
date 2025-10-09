@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, User as UserIcon, Briefcase, ShieldCheck, MapPin } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, User as UserIcon, Briefcase, ShieldCheck, MapPin, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useDebounce } from '@/hooks/use-debounce';
 import { getUserByEmail } from '@/app/users/actions';
@@ -17,28 +17,28 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
 
 const UserDetailsCard = ({ user }: { user: User }) => (
-    <Card className="mt-4 p-4 bg-muted/50 border-dashed text-center">
-        <div className="flex flex-col items-center gap-2">
+    <Card className="mt-4 p-4 bg-muted/50 border-dashed">
+        <div className="flex items-center gap-4">
             <Avatar className="h-20 w-20 border-2 border-primary">
                 <AvatarImage src={user.avatarUrl} alt={user.name} />
                 <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="text-center">
+            <div className="flex-grow">
                 <p className="font-bold text-lg">{user.name}</p>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
             </div>
         </div>
         <Separator className="my-3" />
-        <div className="grid grid-cols-3 gap-2 text-xs">
-             <div className="flex flex-col items-center gap-1 p-2 rounded-md">
+        <div className="grid grid-cols-3 gap-2 text-xs text-center">
+             <div className="flex flex-col items-center gap-1 p-1 rounded-md">
                 <ShieldCheck className="h-5 w-5 text-primary" />
                 <span className="font-semibold">{user.role}</span>
             </div>
-             <div className="flex flex-col items-center gap-1 p-2 rounded-md">
+             <div className="flex flex-col items-center gap-1 p-1 rounded-md">
                 <MapPin className="h-5 w-5 text-primary" />
                 <span className="font-semibold">{user.department || 'غير محدد'}</span>
             </div>
-             <div className="flex flex-col items-center gap-1 p-2 rounded-md">
+             <div className="flex flex-col items-center gap-1 p-1 rounded-md">
                 <Briefcase className="h-5 w-5 text-primary" />
                 <span className="font-semibold">{user.position || 'غير محدد'}</span>
             </div>
@@ -51,7 +51,8 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { signIn, loading } = useAuth();
+  const [isSuccess, setIsSuccess] = useState(false);
+  const { signIn, loading: authLoading } = useAuth();
   
   const [userDetails, setUserDetails] = useState<User | null>(null);
   const [isFetchingUser, setIsFetchingUser] = useState(false);
@@ -83,8 +84,12 @@ export function LoginForm() {
     
     if (!result.success) {
       setError(result.error || 'فشل تسجيل الدخول');
+    } else {
+        setIsSuccess(true);
     }
   };
+  
+  const isLoading = authLoading || isSuccess;
 
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg">
@@ -97,7 +102,7 @@ export function LoginForm() {
       
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
+          {error && !isSuccess && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>خطأ</AlertTitle>
@@ -116,7 +121,7 @@ export function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="pr-10"
-                disabled={loading}
+                disabled={isLoading}
                 required
               />
             </div>
@@ -136,7 +141,7 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pr-10 pl-10"
-                disabled={loading}
+                disabled={isLoading}
                 required
                 autoComplete="current-password"
               />
@@ -169,21 +174,26 @@ export function LoginForm() {
                 </Link>
               </div>
 
-          <Button 
-            type="submit" 
-            className="w-full" 
-            size="lg"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                جاري تسجيل الدخول...
-              </>
-            ) : (
-              'تسجيل الدخول'
-            )}
-          </Button>
+            <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={isLoading}
+                >
+                {authLoading ? (
+                    <>
+                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                    جاري التحقق...
+                    </>
+                ) : isSuccess ? (
+                    <>
+                    <CheckCircle className="ml-2 h-4 w-4" />
+                    تم التحقق بنجاح
+                    </>
+                ) : (
+                    'تسجيل الدخول'
+                )}
+            </Button>
         </form>
       </CardContent>
     </Card>
