@@ -117,26 +117,26 @@ export function LoginForm() {
           </div>
 
           {selectedUser && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
-                  <div className="flex items-center gap-2 text-sm">
-                      <Mail className="h-4 w-4 text-muted-foreground"/>
-                      <span className="font-semibold text-muted-foreground">البريد:</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-muted/30 rounded-lg border">
+                  <div className="flex items-center gap-2 text-sm justify-end">
                       <span className="font-mono">{selectedUser.email}</span>
+                      <span className="font-semibold text-muted-foreground">:البريد</span>
+                      <Mail className="h-4 w-4 text-muted-foreground"/>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                      <Shield className="h-4 w-4 text-muted-foreground"/>
-                      <span className="font-semibold text-muted-foreground">الدور:</span>
+                  <div className="flex items-center gap-2 text-sm justify-end">
                       <span className="font-bold">{selectedUser.role}</span>
+                      <span className="font-semibold text-muted-foreground">:الدور</span>
+                      <Shield className="h-4 w-4 text-muted-foreground"/>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                      <Building className="h-4 w-4 text-muted-foreground"/>
-                      <span className="font-semibold text-muted-foreground">القسم:</span>
+                  <div className="flex items-center gap-2 text-sm justify-end">
                       <span className="font-bold">{selectedUser.department || 'غير محدد'}</span>
+                      <span className="font-semibold text-muted-foreground">:القسم</span>
+                      <Building className="h-4 w-4 text-muted-foreground"/>
                   </div>
-                  <div className="flex items-center gap-2 text-sm">
-                      <Briefcase className="h-4 w-4 text-muted-foreground"/>
-                      <span className="font-semibold text-muted-foreground">المنصب:</span>
+                  <div className="flex items-center gap-2 text-sm justify-end">
                       <span className="font-bold">{selectedUser.position || 'غير محدد'}</span>
+                      <span className="font-semibold text-muted-foreground">:المنصب</span>
+                      <Briefcase className="h-4 w-4 text-muted-foreground"/>
                   </div>
               </div>
           )}
