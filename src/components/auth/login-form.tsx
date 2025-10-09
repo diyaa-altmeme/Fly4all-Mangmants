@@ -21,19 +21,24 @@ export function LoginForm() {
   const { signIn, loading } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     async function fetchUsers() {
       try {
         setLoadingUsers(true);
+        setLoadError('');
         const response = await fetch('/api/users');
         if (!response.ok) {
-          throw new Error('فشل في تحميل قائمة المستخدمين');
+          throw new Error('فشل في تحميل قائمة المستخدمين من الخادم.');
         }
-        const fetchedUsers = await response.json();
+        const fetchedUsers: User[] = await response.json();
+        if (fetchedUsers.length === 0) {
+            setLoadError('لم يتم العثور على مستخدمين. يرجى التأكد من إضافة مستخدمين في قاعدة البيانات.');
+        }
         setUsers(fetchedUsers);
-      } catch (error) {
-        setError('فشل في تحميل قائمة المستخدمين');
+      } catch (error: any) {
+        setLoadError(error.message || 'فشل في تحميل قائمة المستخدمين.');
       } finally {
         setLoadingUsers(false);
       }
@@ -85,6 +90,13 @@ export function LoginForm() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+           {loadError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>خطأ في تحميل المستخدمين</AlertTitle>
+              <AlertDescription>{loadError}</AlertDescription>
+            </Alert>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="user-select">اختر المستخدم</Label>
@@ -95,7 +107,7 @@ export function LoginForm() {
                 value={userId}
                 onValueChange={setUserId}
                 placeholder={loadingUsers ? "جاري تحميل المستخدمين..." : "اختر المستخدم..."}
-                disabled={loading || loadingUsers}
+                disabled={loading || loadingUsers || !!loadError}
               />
             </div>
           </div>
@@ -148,7 +160,7 @@ export function LoginForm() {
             type="submit" 
             className="w-full" 
             size="lg"
-            disabled={loading || !userId}
+            disabled={loading || !userId || !!loadError}
           >
             {loading ? (
               <>
