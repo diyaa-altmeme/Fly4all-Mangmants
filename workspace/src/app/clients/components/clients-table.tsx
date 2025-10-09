@@ -1,5 +1,4 @@
 
-
       
 "use client";
 
@@ -22,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import CredentialsDialog from '@/app/clients/components/credentials-dialog';
+import CredentialsDialog from './credentials-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 
@@ -81,7 +80,7 @@ const ActionsCell = ({ row, onDataChanged }: {
                     </DropdownMenuItem>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                             <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-600 justify-between w-full"><span>حذف</span><Trash2 className="h-4 w-4"/></DropdownMenuItem>
+                             <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-500 justify-between w-full"><span>حذف</span><Trash2 className="h-4 w-4"/></DropdownMenuItem>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
