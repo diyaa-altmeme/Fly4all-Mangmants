@@ -28,8 +28,12 @@ export async function createSession(idToken: string): Promise<any> {
         
         // Ensure user exists and is active before creating a session.
         const userVerification = await verifyUserByEmail(decodedIdToken.email || '');
-        if (!userVerification.exists || userVerification.status !== 'active') {
-            throw new Error(userVerification.error || "User is not active or does not exist.");
+        if (!userVerification.exists || userVerification.error) {
+          throw new Error(userVerification.error || "المستخدم غير موجود.");
+        }
+      
+        if (userVerification.status !== 'active') {
+          throw new Error("الحساب غير مفعل أو محظور.");
         }
 
         const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
@@ -63,27 +67,50 @@ const getUserData = async (uid: string): Promise<any | null> => {
         const userDocRef = doc(db, 'users', uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
-            const userData = userDoc.data() as User;
+            const userData = userDoc.data();
             let permissions: string[] = [];
+            const userRole = userData.role || 'viewer';
 
-            if (userData.role) {
-                if (userData.role === 'admin') {
-                    permissions = Object.keys(PERMISSIONS);
-                } else {
-                    const roleDocRef = doc(db, 'roles', userData.role);
-                    const roleDoc = await getDoc(roleDocRef);
-                    if (roleDoc.exists()) {
-                        permissions = (roleDoc.data() as Role).permissions || [];
-                    }
+            if (userRole === 'admin') {
+                permissions = Object.keys(PERMISSIONS);
+            } else {
+                const roleDocRef = doc(db, 'roles', userRole);
+                const roleDoc = await getDoc(roleDocRef);
+                if (roleDoc.exists()) {
+                    permissions = (roleDoc.data() as Role).permissions || [];
                 }
             }
-            return { ...userData, uid, permissions };
+            
+            // Return a plain object, safe for client components
+            return {
+                uid,
+                name: userData.name || null,
+                username: userData.username || null,
+                email: userData.email || null,
+                phone: userData.phone || null,
+                avatarUrl: userData.avatarUrl || null,
+                status: userData.status || 'pending',
+                role: userRole,
+                department: userData.department || null,
+                position: userData.position || null,
+                boxId: userData.boxId || null,
+                permissions,
+            };
         }
         
         const clientDocRef = doc(db, 'clients', uid);
         const clientDoc = await getDoc(clientDocRef);
         if (clientDoc.exists()) {
-            return { ...clientDoc.data(), id: uid, isClient: true, permissions: [] }; 
+            const clientData = clientDoc.data();
+            return { 
+                id: uid, 
+                isClient: true, 
+                permissions: [],
+                name: clientData.name || null,
+                email: clientData.email || null,
+                phone: clientData.phone || null,
+                avatarUrl: clientData.avatarUrl || null,
+             }; 
         }
 
         return null;

@@ -1,8 +1,11 @@
+
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { 
-  signOut as firebaseSignOut 
+  onAuthStateChanged,
+  signOut as firebaseSignOut,
+  User as FirebaseUser,
 } from "firebase/auth";
 import { auth } from "./firebase";
 import { PERMISSIONS, hasPermission as hasPermissionUtil } from "./permissions";
@@ -30,8 +33,10 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
 
   const verifySession = useCallback(async () => {
+    setLoading(true);
     try {
       const currentUser = await getCurrentUserFromSession();
       setUser(currentUser);
@@ -45,7 +50,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     verifySession();
-  }, [verifySession]);
+  }, [verifySession, pathname]); // Re-verify on path change to catch session expiry
 
   const signOut = async () => {
     setLoading(true);

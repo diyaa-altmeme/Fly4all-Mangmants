@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -49,12 +50,12 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
         return;
     }
     
+    onClientUpdated(undefined, id);
+
     const result = await deleteClient(id);
-    if (result.success) {
-         toast({ title: 'تم الحذف بنجاح' });
-         onClientUpdated(undefined, id);
-    } else {
+    if (!result.success) {
         toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
+        router.refresh();
     }
   };
 
@@ -137,7 +138,7 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
              <Link href={`/clients/${client.id}`} className="hover:underline flex items-center gap-2">
                 <Icon className="h-5 w-5" />
                 {client.name}
-                 {client.loginIdentifier && (
+                 {client.password && (
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>

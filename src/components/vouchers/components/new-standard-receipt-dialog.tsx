@@ -96,5 +96,3 @@ export default function NewStandardReceiptDialog({ onVoucherAdded, children }: N
     </Dialog>
   );
 }
-
-    
