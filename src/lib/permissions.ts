@@ -1,5 +1,7 @@
+
 import type { User, Client } from './types';
 
+// This is the source of truth for all permissions in the system.
 export const PERMISSIONS = {
     // Dashboard
     'dashboard:read': 'عرض لوحة التحكم',
@@ -175,7 +177,8 @@ export const hasPermission = (user: (User & { permissions?: string[] }) | (Clien
     if ('role' in user && user.role === 'admin') return true;
     
     if (user.permissions && Array.isArray(user.permissions)) {
-        if (user.permissions.includes('reports:read:all') && permission.startsWith('reports:')) {
+        // Grant all report permissions if 'reports:read:all' is present
+        if (permission.startsWith('reports:') && user.permissions.includes('reports:read:all')) {
             return true;
         }
         return user.permissions.includes(permission);

@@ -59,10 +59,10 @@ import {
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
-import NewDistributedReceiptDialog from "@/app/accounts/vouchers/components/new-distributed-receipt-dialog";
-import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-payment-voucher-dialog";
-import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
-import NewJournalVoucherDialog from "@/app/accounts/vouchers/components/new-journal-voucher-dialog";
+import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
+import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
+import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
+import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
 import AddClientDialog from "@/app/clients/components/add-client-dialog";
 import { DropdownMenuSeparator, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -153,8 +153,11 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
         return (
             <div className="flex flex-col gap-1">
                 {canCreate && createButtons.map(({ Dialog, label, icon: Icon }) => (
-                    <Dialog key={label} onVoucherAdded={onDataChanged}>
-                        <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>{label}</span><Icon className="h-4 w-4" /></button>
+                    <Dialog key={label}>
+                         <DialogTrigger asChild>
+                            <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>{label}</span><Icon className="h-4 w-4" /></button>
+                         </DialogTrigger>
+                         <Dialog onVoucherAdded={onDataChanged} />
                     </Dialog>
                 ))}
                 {(canCreate && visibleMenuItems.length > 0) && <DropdownMenuSeparator />}
