@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -89,3 +88,5 @@ export const getErrorLogs = async (): Promise<AuditLog[]> => {
         throw new Error("Failed to fetch error logs.");
     }
 };
+
+    

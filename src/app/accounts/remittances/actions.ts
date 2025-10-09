@@ -5,7 +5,7 @@ import { getDb } from '@/lib/firebase-admin';
 import type { Remittance, ReceiptVoucher, JournalVoucher } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { format, parseISO } from 'date-fns';
-import { getCurrentUserFromSession } from '@/app/auth/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { getSettings } from '@/app/settings/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '@/app/system/activity-log/actions';
@@ -247,3 +247,5 @@ export async function updateRemittance(id: string, data: Partial<Remittance>) {
         return { success: false, error: e.message };
     }
 }
+
+    

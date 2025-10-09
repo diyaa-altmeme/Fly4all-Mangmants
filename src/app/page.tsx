@@ -1,15 +1,24 @@
+
 "use client";
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Preloader from '@/components/layout/preloader';
 
-export default function Home() {
-    const router = useRouter();
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import Preloader from "@/components/layout/preloader";
 
-    useEffect(() => {
-        router.replace('/dashboard');
-    }, [router]);
-    
-    // Show a preloader while redirecting
-    return <Preloader />;
+export default function HomePage() {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (loading) return; 
+
+    if (user) {
+      router.replace("/dashboard");
+    } else {
+      router.replace("/auth/login");
+    }
+  }, [user, loading, router]);
+
+  return <Preloader />;
 }

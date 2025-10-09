@@ -23,7 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { updateUser } from '@/app/users/actions';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { parseISO } from 'date-fns';

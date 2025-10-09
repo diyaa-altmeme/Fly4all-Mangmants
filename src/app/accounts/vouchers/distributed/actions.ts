@@ -3,7 +3,7 @@
 
 import { getDb } from "@/lib/firebase-admin";
 import type { DistributedReceiptInput } from './schema';
-import { getCurrentUserFromSession } from "@/app/auth/actions";
+import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
 import type { AppSettings, JournalEntry, JournalVoucher } from "@/lib/types";
 import { getSettings } from "@/app/settings/actions";
@@ -218,3 +218,5 @@ export async function updateDistributedVoucher(voucherId: string, data: Distribu
         return { success: false, error: error.message };
     }
 }
+
+    

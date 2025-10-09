@@ -19,7 +19,7 @@ import { Autocomplete } from '@/components/ui/autocomplete';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { Form, FormControl, FormField, FormMessage, FormLabel, FormItem } from "@/components/ui/form";
 import {
   AlertDialog,

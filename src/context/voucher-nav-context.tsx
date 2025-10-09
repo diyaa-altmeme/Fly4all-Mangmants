@@ -7,7 +7,7 @@ import { getClients } from '@/app/relations/actions';
 import { getBoxes } from '@/app/boxes/actions';
 import { getUsers } from '@/app/users/actions';
 import { getSettings } from '@/app/settings/actions';
-import { useAuth } from './auth-context';
+import { useAuth } from '@/lib/auth-context';
 
 type VoucherNavDataContext = {
     clients: Client[];

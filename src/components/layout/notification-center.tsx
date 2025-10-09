@@ -18,7 +18,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 
 const notificationIcons: Record<NotificationType, React.ElementType> = {
     booking: Ticket,

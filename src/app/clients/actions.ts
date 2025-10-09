@@ -4,7 +4,7 @@
 import { getDb } from '@/lib/firebase-admin';
 import type { Client, RelationType, CompanyPaymentType } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '../auth/actions';
+import { getCurrentUserFromSession } from '@/app/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import bcrypt from 'bcrypt';
 import { getSettings } from '@/app/settings/actions';

@@ -1,0 +1,82 @@
+
+'use server';
+
+import { getAuth } from 'firebase-admin/auth';
+import { getDb } from '@/lib/firebase-admin';
+import { cookies } from 'next/headers';
+import { doc, getDoc } from 'firebase/firestore';
+import type { User, Client } from '@/lib/types';
+import { PERMISSIONS } from '@/lib/permissions';
+
+const SESSION_COOKIE_NAME = '__session';
+
+async function getSessionCookie() {
+    const cookieStore = cookies();
+    return cookieStore.get(SESSION_COOKIE_NAME);
+}
+
+export async function createSession(idToken: string) {
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
+    cookies().set(SESSION_COOKIE_NAME, sessionCookie, {
+        maxAge: expiresIn,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        sameSite: 'lax',
+    });
+}
+
+export async function clearSession() {
+    cookies().delete(SESSION_COOKIE_NAME);
+}
+
+const getUserData = async (uid: string): Promise<any | null> => {
+    const db = await getDb();
+    
+    const userDocRef = doc(db, 'users', uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const roleDoc = await doc(db, 'roles', userData.role).get();
+        const permissions = roleDoc.exists() ? roleDoc.data()?.permissions : [];
+        return { ...userData, uid, permissions };
+    }
+    
+    const clientDocRef = doc(db, 'clients', uid);
+    const clientDoc = await getDoc(clientDocRef);
+    if (clientDoc.exists()) {
+        // For clients, permissions can be defined directly or based on a type
+        return { ...clientDoc.data(), id: uid, isClient: true, permissions: [] }; 
+    }
+
+    return null;
+}
+
+export async function getCurrentUserFromSession(): Promise<(User & { permissions: (keyof typeof PERMISSIONS)[] }) | (Client & { isClient: true, permissions: (keyof typeof PERMISSIONS)[] }) | null> {
+    const sessionCookie = await getSessionCookie();
+    if (!sessionCookie?.value) {
+        return null;
+    }
+
+    try {
+        const decodedClaims = await getAuth().verifySessionCookie(sessionCookie.value, true);
+        const userData = await getUserData(decodedClaims.uid);
+        
+        if (!userData) {
+            console.warn(`User data not found in Firestore for UID: ${decodedClaims.uid}`);
+            return null;
+        }
+
+        return userData;
+
+    } catch (error: any) {
+        if (error.code === 'auth/session-cookie-expired') {
+            console.log('Session cookie expired, clearing...');
+            await clearSession();
+        } else {
+            console.error('Error verifying session cookie:', error);
+        }
+        return null;
+    }
+}
