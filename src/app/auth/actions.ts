@@ -1,0 +1,120 @@
+
+'use server';
+
+import { getAuth } from 'firebase-admin/auth';
+import { getDb } from '@/lib/firebase-admin';
+import { cookies } from 'next/headers';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import type { User, Client } from '@/lib/types';
+import { PERMISSIONS } from '@/lib/permissions';
+
+const SESSION_COOKIE_NAME = '__session';
+
+async function getSessionCookie() {
+    const cookieStore = cookies();
+    return cookieStore.get(SESSION_COOKIE_NAME);
+}
+
+export async function createSession(idToken: string) {
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
+    await cookies().set(SESSION_COOKIE_NAME, sessionCookie, {
+        maxAge: expiresIn,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        sameSite: 'lax',
+    });
+}
+
+export async function clearSession() {
+    cookies().delete(SESSION_COOKIE_NAME);
+}
+
+const getUserData = async (uid: string): Promise<any | null> => {
+    const db = await getDb();
+    
+    const userDocRef = doc(db, 'users', uid);
+    const userDoc = await getDoc(userDocRef);
+    if (userDoc.exists()) {
+        const userData = userDoc.data();
+        // Fetch permissions for the user's role
+        const roleDoc = userData.role ? await doc(db, 'roles', userData.role).get() : null;
+        const permissions = roleDoc && roleDoc.exists() ? roleDoc.data()?.permissions : [];
+        return { ...userData, uid, permissions };
+    }
+    
+    // Check if it's a client login
+    const clientDocRef = doc(db, 'clients', uid);
+    const clientDoc = await getDoc(clientDocRef);
+    if (clientDoc.exists()) {
+        // For clients, permissions can be defined directly or based on a type
+        return { ...clientDoc.data(), id: uid, isClient: true, permissions: [] }; 
+    }
+
+    return null;
+}
+
+export async function getCurrentUserFromSession(): Promise<(User & { permissions: (keyof typeof PERMISSIONS)[] }) | (Client & { isClient: true, permissions: (keyof typeof PERMISSIONS)[] }) | null> {
+    const sessionCookie = await getSessionCookie();
+    if (!sessionCookie?.value) {
+        return null;
+    }
+
+    try {
+        const decodedClaims = await getAuth().verifySessionCookie(sessionCookie.value, true);
+        const userData = await getUserData(decodedClaims.uid);
+        
+        if (!userData) {
+            console.warn(`User data not found in Firestore for UID: ${decodedClaims.uid}`);
+            return null;
+        }
+
+        return userData;
+
+    } catch (error: any) {
+        if (error.code === 'auth/session-cookie-expired') {
+            console.log('Session cookie expired, clearing...');
+            await clearSession();
+        } else {
+            console.error('Error verifying session cookie:', error);
+        }
+        return null;
+    }
+}
+
+
+export async function verifyUserByEmail(email: string): Promise<{ exists: boolean; type?: 'user' | 'client', error?: string, status?: string }> {
+    const db = await getDb();
+
+    try {
+        // Check 'users' collection
+        const usersQuery = query(collection(db, "users"), where("email", "==", email));
+        const usersSnapshot = await getDocs(usersQuery);
+
+        if (!usersSnapshot.empty) {
+            const userDoc = usersSnapshot.docs[0].data();
+            if (userDoc.status !== 'active') {
+                return { exists: true, type: 'user', status: 'inactive', error: "هذا الحساب غير نشط. يرجى مراجعة المسؤول." };
+            }
+            return { exists: true, type: 'user', status: 'active' };
+        }
+
+        // Check 'clients' collection using loginIdentifier
+        const clientsQuery = query(collection(db, "clients"), where("loginIdentifier", "==", email));
+        const clientsSnapshot = await getDocs(clientsQuery);
+        
+        if (!clientsSnapshot.empty) {
+             const clientDoc = clientsSnapshot.docs[0].data();
+             if (clientDoc.status !== 'active') {
+                return { exists: true, type: 'client', status: 'inactive', error: "هذا الحساب غير نشط. يرجى مراجعة المسؤول." };
+            }
+            return { exists: true, type: 'client', status: 'active' };
+        }
+
+        return { exists: false, error: "البريد الإلكتروني أو معرف الدخول غير مسجل." };
+    } catch (error: any) {
+        console.error("Error verifying user by email:", error);
+        return { exists: false, error: "حدث خطأ أثناء التحقق من المستخدم." };
+    }
+}
