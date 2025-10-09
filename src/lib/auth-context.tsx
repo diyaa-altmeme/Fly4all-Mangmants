@@ -58,10 +58,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await firebaseSignOut(auth);
       await clearSession();
       setUser(null);
-      // Let the main layout handle redirection
     } catch (error) {
       console.error("خطأ في تسجيل الخروج:", error);
-      // Even if signout fails, clear user from state
       setUser(null); 
     } finally {
        setLoading(false);
@@ -72,10 +70,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return hasPermissionUtil(user, permission);
   };
   
-  if (loading) {
-    return <Preloader />;
-  }
-
   return (
     <AuthContext.Provider value={{ user, loading, signOut, hasPermission }}>
       {children}

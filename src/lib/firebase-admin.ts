@@ -13,13 +13,11 @@ let firebaseInitializationError: Error | null = null;
 let appInitializationPromise: Promise<App> | null = null;
 
 function initializeFirebaseAdminApp(): Promise<App> {
-    // If an initialization promise already exists, return it to avoid re-initializing.
     if (appInitializationPromise) {
         return appInitializationPromise;
     }
     
     appInitializationPromise = new Promise(async (resolve, reject) => {
-        // If an app is already initialized, use it.
         if (getApps().length > 0) {
             firebaseAdminApp = getApp();
             resolve(firebaseAdminApp);
@@ -37,13 +35,13 @@ function initializeFirebaseAdminApp(): Promise<App> {
             console.log("Initializing new Firebase Admin SDK app...");
             const app = initializeApp({
                 credential: cert(serviceAccount),
-                storageBucket: `${serviceAccount.projectId}.appspot.com`,
+                storageBucket: `${''}${serviceAccount.projectId}.appspot.com`,
             });
             firebaseAdminApp = app;
             console.log("Firebase Admin SDK initialized successfully.");
             resolve(app);
         } catch (error: any) {
-            console.error(`Failed to initialize Firebase Admin SDK: ${error.message}`);
+            console.error(`Failed to initialize Firebase Admin SDK: ${''}${error.message}`);
             firebaseInitializationError = error;
             reject(error);
         }
@@ -59,7 +57,6 @@ async function getFirebaseAdminApp(): Promise<App> {
     if (firebaseInitializationError) {
         throw firebaseInitializationError;
     }
-    // This will either return the initialized app or throw an error.
     return initializeFirebaseAdminApp();
 }
 
