@@ -109,5 +109,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         return <>{children}</>;
     }
 
+    if (isPublicRoute) {
+        return <>{children}</>;
+    }
+
     return <AppLayout>{children}</AppLayout>;
 }
