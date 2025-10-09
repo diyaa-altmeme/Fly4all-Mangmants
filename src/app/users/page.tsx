@@ -68,12 +68,6 @@ function UsersPageContainer() {
 
 
 export default function UsersPage() {
-  const { user, loading } = useAuth();
-  
-  if (loading) {
-    return <Preloader />;
-  }
-
   return (
     <ProtectedPage permission="users:read">
         <div className="space-y-6">

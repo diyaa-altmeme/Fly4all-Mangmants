@@ -31,7 +31,7 @@ export default function LoginForm() {
       // Step 1: Verify user existence and status on the server
       const userVerification = await verifyUserByEmail(email);
 
-      if (!userVerification || !userVerification.exists) {
+      if (!userVerification || !userVerification.exists || userVerification.error) {
         throw new Error(userVerification.error || "المستخدم غير موجود.");
       }
       
@@ -48,10 +48,8 @@ export default function LoginForm() {
       
       toast({ description: "تم تسجيل الدخول بنجاح! جاري التوجيه..." });
       
-      // Full page reload to re-evaluate server components
-      // and for the new session cookie to be picked up by server-side logic.
-      router.push('/dashboard');
-      router.refresh();
+      // Full page reload to re-evaluate server components and auth context
+      window.location.href = '/dashboard';
 
     } catch (err: any) {
       console.error("Login error:", err);

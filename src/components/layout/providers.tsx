@@ -15,14 +15,14 @@ export function Providers({
   children: React.ReactNode,
 }) {
     return (
-      <AuthProvider>
-        <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-        >
-          <ThemeCustomizationProvider>
+      <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+      >
+        <ThemeCustomizationProvider>
+          <AuthProvider>
             <VoucherNavProvider>
                 <React.Suspense fallback={null}>
                     <TopLoader />
@@ -32,8 +32,8 @@ export function Providers({
                 </MainLayout>
                 <Toaster />
             </VoucherNavProvider>
-          </ThemeCustomizationProvider>
-        </ThemeProvider>
-      </AuthProvider>
+          </AuthProvider>
+        </ThemeCustomizationProvider>
+      </ThemeProvider>
     )
 }

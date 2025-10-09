@@ -39,7 +39,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
     const handleLogout = async () => {
         await signOut();
-        router.push('/auth/login');
+        window.location.href = '/auth/login'; // Full reload to clear state
     }
 
     return (
@@ -134,22 +134,23 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const publicRoutes = ['/auth/login', '/auth/forgot-password', '/register', '/setup-admin'];
-    
-    // AuthProvider now shows a preloader, so we don't need another one here.
-    // We just need to handle redirection logic.
-    React.useEffect(() => {
-      if (!loading && !user && !publicRoutes.includes(pathname)) {
+    const publicRoutes = ['/auth/login', '/auth/forgot-password', '/register', '/setup-admin', '/'];
+    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+
+    useEffect(() => {
+      if (!loading && !user && !isPublicRoute) {
         router.replace('/auth/login');
       }
-    }, [user, loading, router, pathname, publicRoutes]);
+    }, [user, loading, router, pathname, isPublicRoute]);
     
-    // If we're on a public route, just render the content without any layout.
-    if (publicRoutes.includes(pathname)) {
+    if (loading) {
+        return <Preloader />;
+    }
+
+    if (isPublicRoute) {
         return <>{children}</>;
     }
     
-    // If a user is logged in, decide which layout to show.
     if (user) {
         if ('isClient' in user && user.isClient) {
             return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
@@ -157,6 +158,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         return <AppLayout>{children}</AppLayout>;
     }
 
-    // If no user and not a public route, show preloader while redirecting.
+    // This state should not be reachable if redirection logic is correct,
+    // but Preloader is a safe fallback.
     return <Preloader />;
 }
