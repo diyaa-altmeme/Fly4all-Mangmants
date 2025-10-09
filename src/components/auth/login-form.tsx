@@ -17,34 +17,30 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
 
 const UserDetailsCard = ({ user }: { user: User }) => (
-    <Card className="mt-4 p-4 bg-muted/50 border-dashed">
-        <div className="flex items-center gap-4">
-             <Avatar className="h-16 w-16 border">
+    <Card className="mt-4 p-4 bg-muted/50 border-dashed text-center">
+        <div className="flex flex-col items-center gap-2">
+            <Avatar className="h-20 w-20 border-2 border-primary">
                 <AvatarImage src={user.avatarUrl} alt={user.name} />
-                <AvatarFallback className="text-xl">{user.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm w-full">
-                <div className="flex items-center gap-2 font-semibold justify-end col-span-2">
-                    <span>{user.name}</span>
-                    <UserIcon className="h-4 w-4 text-primary" />
-                </div>
-                 <Separator className="col-span-2"/>
-                 <div className="flex items-center gap-2 justify-end">
-                    <span>{user.email}</span>
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="flex items-center gap-2 justify-end">
-                    <span>{user.role}</span>
-                    <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-                </div>
-                 <div className="flex items-center gap-2 justify-end">
-                    <span>{user.department || 'غير محدد'}</span>
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div className="flex items-center gap-2 justify-end">
-                    <span>{user.position || 'غير محدد'}</span>
-                    <Briefcase className="h-4 w-4 text-muted-foreground" />
-                </div>
+            <div className="text-center">
+                <p className="font-bold text-lg">{user.name}</p>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
+            </div>
+        </div>
+        <Separator className="my-3" />
+        <div className="grid grid-cols-3 gap-2 text-xs">
+             <div className="flex flex-col items-center gap-1 p-2 rounded-md">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                <span className="font-semibold">{user.role}</span>
+            </div>
+             <div className="flex flex-col items-center gap-1 p-2 rounded-md">
+                <MapPin className="h-5 w-5 text-primary" />
+                <span className="font-semibold">{user.department || 'غير محدد'}</span>
+            </div>
+             <div className="flex flex-col items-center gap-1 p-2 rounded-md">
+                <Briefcase className="h-5 w-5 text-primary" />
+                <span className="font-semibold">{user.position || 'غير محدد'}</span>
             </div>
         </div>
     </Card>
