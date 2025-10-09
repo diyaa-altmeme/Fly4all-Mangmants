@@ -5,9 +5,10 @@ import * as React from 'react';
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import TopLoader from "@/components/ui/top-loader";
-import { MainLayout } from "@/components/layout/main-layout";
 import { ThemeCustomizationProvider } from "@/context/theme-customization-context";
 import { VoucherNavProvider } from '@/context/voucher-nav-context';
+import { AuthProvider } from '@/lib/auth-context';
+import { MainLayout } from './main-layout';
 
 export function Providers({ 
   children,
@@ -22,6 +23,7 @@ export function Providers({
           disableTransitionOnChange
       >
         <ThemeCustomizationProvider>
+          <AuthProvider>
             <VoucherNavProvider>
                 <React.Suspense fallback={null}>
                     <TopLoader />
@@ -31,6 +33,7 @@ export function Providers({
                 </MainLayout>
                 <Toaster />
             </VoucherNavProvider>
+          </AuthProvider>
         </ThemeCustomizationProvider>
       </ThemeProvider>
     )

@@ -19,7 +19,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import { NumericInput } from '@/components/ui/numeric-input';
 import { cn } from '@/lib/utils';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 
 const formSchema = z.object({
   companyName: z.string().min(1, "اسم الشركة مطلوب"),
