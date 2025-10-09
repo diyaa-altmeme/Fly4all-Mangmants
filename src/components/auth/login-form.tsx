@@ -58,20 +58,22 @@ export default function LoginForm() {
       // Use the message from our server-side check first, or fallback to firebase errors
       let friendlyMessage = err.message; 
       
-      switch (err.code) {
-          case "auth/invalid-credential":
-          case "auth/wrong-password":
-            friendlyMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
-            break;
-          case "auth/user-not-found":
-             friendlyMessage = "المستخدم غير موجود.";
-             break;
-          case "auth/too-many-requests":
-            friendlyMessage = "لقد حاولت تسجيل الدخول عدة مرات. يرجى المحاولة مرة أخرى لاحقًا.";
-            break;
-          case "auth/network-request-failed":
-            friendlyMessage = "حدث خطأ في الشبكة. يرجى التحقق من اتصالك بالإنترنت.";
-            break;
+      if (err.code) { // Firebase auth errors have a 'code' property
+        switch (err.code) {
+            case "auth/invalid-credential":
+            case "auth/wrong-password":
+              friendlyMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
+              break;
+            case "auth/user-not-found":
+              friendlyMessage = "المستخدم غير موجود.";
+              break;
+            case "auth/too-many-requests":
+              friendlyMessage = "لقد حاولت تسجيل الدخول عدة مرات. يرجى المحاولة مرة أخرى لاحقًا.";
+              break;
+            case "auth/network-request-failed":
+              friendlyMessage = "حدث خطأ في الشبكة. يرجى التحقق من اتصالك بالإنترنت.";
+              break;
+        }
       }
 
       setError(friendlyMessage);

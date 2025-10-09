@@ -1,3 +1,4 @@
+
 'use server'
 
 import { App, cert, getApp, getApps, initializeApp, ServiceAccount } from 'firebase-admin/app';
@@ -17,23 +18,25 @@ async function initializeFirebaseAdminApp(): Promise<App> {
         return firebaseAdminApp;
     }
     
-    // Directly use the imported service account object
     if (!serviceAccount || !serviceAccount.projectId || !serviceAccount.privateKey || !serviceAccount.clientEmail) {
         console.error("Firebase Admin SDK Service Account object is not valid.");
-        throw new Error("Default Firebase service account is not valid in firebase-service-account.ts.");
+        firebaseInitializationError = new Error("Default Firebase service account is not valid in firebase-service-account.ts.");
+        throw firebaseInitializationError;
     }
 
     try {
+        console.log("Initializing Firebase Admin SDK...");
         const app = initializeApp({
             credential: cert(serviceAccount),
             storageBucket: `${serviceAccount.projectId}.appspot.com`,
         });
         firebaseAdminApp = app;
+        console.log("Firebase Admin SDK initialized successfully.");
         return app;
     } catch (error: any) {
         console.error(`Failed to initialize Firebase Admin SDK: ${error.message}`);
         firebaseInitializationError = error;
-        throw new Error(`Firebase Admin SDK initialization failed: ${error.message}`);
+        throw error; // Re-throw the error to be caught by callers
     }
 }
 
@@ -47,14 +50,9 @@ async function getFirebaseAdminApp(): Promise<App> {
     return await initializeFirebaseAdminApp();
 }
 
-export async function getDb(): Promise<Firestore | null> {
-  try {
-    const app = await getFirebaseAdminApp();
-    return getFirestore(app);
-  } catch (error) {
-    console.error("Could not get Firestore instance due to initialization error.", error);
-    return null;
-  }
+export async function getDb(): Promise<Firestore> {
+  const app = await getFirebaseAdminApp();
+  return getFirestore(app);
 }
 
 export async function getAuthAdmin(): Promise<Auth> {
