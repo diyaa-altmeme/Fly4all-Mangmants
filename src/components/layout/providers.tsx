@@ -23,8 +23,8 @@ export function Providers({
           disableTransitionOnChange
       >
         <ThemeCustomizationProvider>
-            <VoucherNavProvider>
-              <AuthProvider>
+            <AuthProvider>
+              <VoucherNavProvider>
                 <React.Suspense fallback={null}>
                     <TopLoader />
                 </React.Suspense>
@@ -32,8 +32,8 @@ export function Providers({
                     {children}
                 </MainLayout>
                 <Toaster />
-              </AuthProvider>
-            </VoucherNavProvider>
+              </VoucherNavProvider>
+            </AuthProvider>
         </ThemeCustomizationProvider>
       </ThemeProvider>
     )

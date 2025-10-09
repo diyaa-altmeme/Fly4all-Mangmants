@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
@@ -20,8 +21,8 @@ export const getUserById = cache(async (uid: string): Promise<(User & { permissi
         if (userData.role) {
             const roles = await getRoles();
             if(userData.role === 'admin') {
-                const adminRole = roles.find(r => r.id === 'admin');
-                 permissions = adminRole?.permissions || [];
+                // Admin gets all permissions implicitly
+                permissions = roles.find(r => r.id === 'admin')?.permissions || [];
             } else {
                 const userRole = roles.find(r => r.id === userData.role);
                 if (userRole) {
@@ -75,28 +76,25 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
         const auth = await getAuthAdmin();
         const decodedClaims = await auth.verifySessionCookie(sessionCookie.value, true);
         
+        // After verifying the cookie, always fetch the full user data from the database
+        const fullUser = await getUserById(decodedClaims.uid);
+        if (fullUser) {
+            return fullUser;
+        }
+        
+        // Fallback for client login if it exists, though it's not fully implemented
         if (decodedClaims.isClient) {
              const client = await getClientById(decodedClaims.uid);
              if (client) return { ...client, isClient: true };
-        } else {
-             const userData: User = {
-                uid: decodedClaims.uid,
-                email: decodedClaims.email || '',
-                name: decodedClaims.name || '',
-                role: decodedClaims.role,
-                permissions: decodedClaims.permissions,
-                // These fields are not in the token but are part of the type
-                username: '',
-                phone: '',
-                status: 'active',
-             };
-             return userData;
         }
+        
+        // If user not found in DB, something is wrong, treat as logged out.
+        console.warn(`Session cookie for UID ${decodedClaims.uid} is valid, but user not found in Firestore.`);
+        cookieStore.delete('session');
         return null;
 
     } catch (error) {
-        console.error("Error verifying session cookie:", error);
-        // Clear the invalid cookie
+        console.error("Error verifying session cookie or fetching user data:", error);
         cookieStore.delete('session');
         return null;
     }
@@ -106,22 +104,10 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
 export async function createSessionCookie(idToken: string) {
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const auth = await getAuthAdmin();
-    const decodedToken = await auth.verifyIdToken(idToken);
     
-    // Get user data from firestore to add to claims
-    const user = await getUserById(decodedToken.uid);
-
-    let claims = {};
-    if (user) {
-        claims = {
-            name: user.name,
-            role: user.role,
-            permissions: user.permissions
-        };
-    }
-
+    // We don't need to set custom claims here anymore, as they are not used for server-side logic.
+    // The source of truth for roles/permissions is now Firestore, fetched via `getCurrentUserFromSession`.
     const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
-    await auth.setCustomUserClaims(decodedToken.uid, claims);
     
     const cookieStore = cookies();
     cookieStore.set('session', sessionCookie, {

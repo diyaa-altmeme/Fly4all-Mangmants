@@ -1,4 +1,5 @@
 
+
 import type { User, Client } from './types';
 
 // This is the source of truth for all permissions in the system.
