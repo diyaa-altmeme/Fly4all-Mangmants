@@ -93,24 +93,24 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
     const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
+    // Redirect logic is now part of the AuthProvider, but we keep a fallback here.
     React.useEffect(() => {
       if (!loading && !user && !isPublicRoute) {
         router.replace('/auth/login');
       }
     }, [user, loading, router, isPublicRoute, pathname]);
     
-    if (loading || (!user && !isPublicRoute)) {
-        return <Preloader />;
+    // AuthProvider now shows a global preloader, so we just render children here.
+    // The AuthProvider will prevent children from rendering until auth status is resolved.
+    if (isPublicRoute) {
+        return <>{children}</>;
     }
-
+    
     if (user && 'isClient' in user && user.isClient) {
         // This is a client, render client layout (which is handled by page for now)
         return <>{children}</>;
     }
 
-    if (isPublicRoute) {
-        return <>{children}</>;
-    }
-
+    // This is a regular employee/admin
     return <AppLayout>{children}</AppLayout>;
 }

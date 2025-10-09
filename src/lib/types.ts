@@ -163,7 +163,6 @@ export type Permission =
   | 'reports:read:all' | 'reports:account_statement' | 'reports:debts' | 'reports:profits' | 'reports:flight_analysis'
   | 'settings:read' | 'settings:update'
   | 'system:audit_log:read' | 'system:error_log:read' | 'system:data_audit:run'
-  | 'admin' // A wildcard for all permissions
   | 'public'; // A permission everyone has
 
 export type User = {
