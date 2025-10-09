@@ -15,7 +15,7 @@ import NewExpenseVoucherForm from '@/app/accounts/vouchers/components/new-expens
 import { cn } from '@/lib/utils';
 import { Settings2, Loader2 } from 'lucide-react';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
+import VoucherDialogSettings from './voucher-dialog-settings';
 
 
 interface NewExpenseVoucherDialogProps {
@@ -94,3 +94,5 @@ export default function NewExpenseVoucherDialog({ onVoucherAdded, children }: Ne
     </Dialog>
   );
 }
+
+    

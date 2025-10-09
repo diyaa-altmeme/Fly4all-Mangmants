@@ -150,3 +150,5 @@ export default function NewDistributedReceiptDialog({
     </Dialog>
   );
 }
+
+    
