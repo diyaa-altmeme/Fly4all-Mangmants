@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
@@ -91,7 +90,8 @@ export async function createSessionCookie(idToken: string) {
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const sessionCookie = await getAuthAdmin().createSessionCookie(idToken, { expiresIn });
     
-    cookies().set('session', sessionCookie, {
+    const cookieStore = await cookies();
+    cookieStore.set('session', sessionCookie, {
         maxAge: expiresIn,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -101,5 +101,6 @@ export async function createSessionCookie(idToken: string) {
 }
 
 export async function logoutUser() {
-    cookies().delete('session');
+    const cookieStore = await cookies();
+    cookieStore.delete('session');
 }
