@@ -1,4 +1,3 @@
-
 import type { User, Client } from './types';
 
 export const PERMISSIONS = {
@@ -76,6 +75,7 @@ export const PERMISSIONS = {
     'system:audit_log:read': 'عرض سجل النشاطات',
     'system:error_log:read': 'عرض سجل الأخطاء',
     'system:data_audit:run': 'تشغيل فحص البيانات',
+    'public': 'صلاحية عامة',
 };
 
 export const PERMISSION_MODULES = [
@@ -166,20 +166,15 @@ export const PERMISSION_MODULES = [
 export const hasPermission = (user: (User & { permissions?: string[] }) | (Client & { permissions?: string[] }) | null, permission: keyof typeof PERMISSIONS): boolean => {
     if (!user) return false;
     
-    // Public permission is always allowed
     if (permission === 'public') return true;
 
-    // Clients have a very restricted set of permissions, for now, we assume they have none of the main system permissions.
     if ('isClient' in user && user.isClient) {
         return false;
     }
     
-    // Admins have all permissions.
     if ('role' in user && user.role === 'admin') return true;
     
-    // For other roles, check if the permission exists in their permissions array.
     if (user.permissions && Array.isArray(user.permissions)) {
-        // Handle wildcard permissions
         if (user.permissions.includes('reports:read:all') && permission.startsWith('reports:')) {
             return true;
         }

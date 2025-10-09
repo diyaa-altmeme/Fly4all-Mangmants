@@ -5,7 +5,6 @@ import type { User, Client } from '@/lib/types';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { getRoles } from '@/app/users/actions';
-import { cleanUser } from '../cleanUser';
 
 export const getUserById = cache(async (uid: string): Promise<(User & { permissions?: string[] }) | null> => {
     const db = await getDb();
@@ -20,9 +19,14 @@ export const getUserById = cache(async (uid: string): Promise<(User & { permissi
         let permissions: string[] = [];
         if (userData.role) {
             const roles = await getRoles();
-            const userRole = roles.find(r => r.id === userData.role);
-            if (userRole) {
-                permissions = userRole.permissions;
+            if(userData.role === 'admin') {
+                const adminRole = roles.find(r => r.id === 'admin');
+                 permissions = adminRole?.permissions || [];
+            } else {
+                const userRole = roles.find(r => r.id === userData.role);
+                if (userRole) {
+                    permissions = userRole.permissions;
+                }
             }
         }
         
@@ -56,7 +60,7 @@ export const getClientById = cache(async (id: string): Promise<Client | null> =>
             ...safeData,
         } as Client;
     } catch (error) {
-        console.error(`Error getting client by ID ${id}:`, String(error));
+        console.error(`Error getting client by ID ${''}${id}:`, String(error));
         return null;
     }
 });
@@ -75,13 +79,25 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
              const client = await getClientById(decodedClaims.uid);
              if (client) return { ...client, isClient: true };
         } else {
-            const user = await getUserById(decodedClaims.uid);
-            if(user) return user;
+             const userData: User = {
+                uid: decodedClaims.uid,
+                email: decodedClaims.email || '',
+                name: decodedClaims.name || '',
+                role: decodedClaims.role,
+                permissions: decodedClaims.permissions,
+                // These fields are not in the token but are part of the type
+                username: '',
+                phone: '',
+                status: 'active',
+             };
+             return userData;
         }
         return null;
 
     } catch (error) {
         console.error("Error verifying session cookie:", error);
+        // Clear the invalid cookie
+        cookieStore.delete('session');
         return null;
     }
 });
@@ -90,9 +106,24 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
 export async function createSessionCookie(idToken: string) {
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
     const auth = await getAuthAdmin();
-    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
+    const decodedToken = await auth.verifyIdToken(idToken);
     
-    const cookieStore = await cookies();
+    // Get user data from firestore to add to claims
+    const user = await getUserById(decodedToken.uid);
+
+    let claims = {};
+    if (user) {
+        claims = {
+            name: user.name,
+            role: user.role,
+            permissions: user.permissions
+        };
+    }
+
+    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
+    await auth.setCustomUserClaims(decodedToken.uid, claims);
+    
+    const cookieStore = cookies();
     cookieStore.set('session', sessionCookie, {
         maxAge: expiresIn,
         httpOnly: true,
@@ -103,6 +134,6 @@ export async function createSessionCookie(idToken: string) {
 }
 
 export async function logoutUser() {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     cookieStore.delete('session');
 }
