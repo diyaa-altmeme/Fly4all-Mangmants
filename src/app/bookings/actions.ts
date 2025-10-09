@@ -761,5 +761,3 @@ export async function voidBooking(
 }
 
     
-
-    

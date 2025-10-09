@@ -12,7 +12,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
-import { createSession, verifyUserByEmail } from "@/lib/auth/actions";
+import { createSession } from "@/lib/auth/actions";
+import { useAuth } from "@/lib/auth-context";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -21,6 +22,7 @@ export default function LoginForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { user: authUser, loading: authLoading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,30 +30,21 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      const userVerification = await verifyUserByEmail(email);
-
-      if (!userVerification || !userVerification.exists || userVerification.error) {
-        throw new Error(userVerification.error || "المستخدم غير موجود.");
-      }
-      
-      if (userVerification.status !== 'active') {
-          throw new Error("هذا الحساب غير نشط. يرجى مراجعة المسؤول.");
-      }
-
+      // Step 1: Sign in with Firebase client SDK
       const userCred = await signInWithEmailAndPassword(auth, email, password);
-      
-      // Ensure the UID from Auth matches the UID found via email search, to prevent impersonation.
-      if (userCred.user.uid !== userVerification.uid) {
-          throw new Error("حدث تضارب في بيانات المستخدم. يرجى المحاولة مرة أخرى.");
-      }
-      
       const idToken = await userCred.user.getIdToken();
 
-      await createSession(idToken);
+      // Step 2: Call the server action to create a session cookie and get user data
+      const sessionResult = await createSession(idToken);
       
+      if (!sessionResult.success || !sessionResult.user) {
+        throw new Error(sessionResult.error || "فشل إنشاء الجلسة.");
+      }
+
       toast({ description: "تم تسجيل الدخول بنجاح! جاري التوجيه..." });
       
-      window.location.href = '/dashboard';
+      // Full page reload to ensure all contexts are updated correctly
+      window.location.href = '/';
 
     } catch (err: any) {
       console.error("Login error:", err);
@@ -72,6 +65,8 @@ export default function LoginForm() {
             case "auth/network-request-failed":
               friendlyMessage = "حدث خطأ في الشبكة. يرجى التحقق من اتصالك بالإنترنت.";
               break;
+            default:
+              friendlyMessage = "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى."
         }
       }
 

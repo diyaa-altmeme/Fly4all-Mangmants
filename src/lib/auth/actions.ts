@@ -20,16 +20,36 @@ async function getSessionCookie() {
     }
 }
 
-export async function createSession(idToken: string) {
+export async function createSession(idToken: string): Promise<any> {
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
-    cookies().set(SESSION_COOKIE_NAME, sessionCookie, {
-        maxAge: expiresIn,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        sameSite: 'lax',
-    });
+    
+    try {
+        const decodedIdToken = await getAuth().verifyIdToken(idToken);
+        
+        // Ensure user exists and is active before creating a session.
+        const userVerification = await verifyUserByEmail(decodedIdToken.email || '');
+        if (!userVerification.exists || userVerification.status !== 'active') {
+            throw new Error(userVerification.error || "User is not active or does not exist.");
+        }
+
+        const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
+        
+        cookies().set(SESSION_COOKIE_NAME, sessionCookie, {
+            maxAge: expiresIn,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            path: '/',
+            sameSite: 'lax',
+        });
+
+        // After setting the cookie, fetch the full user data to return to the client.
+        const userData = await getUserData(decodedIdToken.uid);
+        return { success: true, user: userData };
+
+    } catch (error: any) {
+        console.error("Error creating session:", error);
+        return { success: false, error: error.message };
+    }
 }
 
 export async function clearSession() {
@@ -122,7 +142,7 @@ export async function verifyUserByEmail(email: string): Promise<{ exists: boolea
              return { exists: true, type: 'client', uid: clientDoc.id, status: clientDoc.data().status || 'inactive' };
         }
 
-        return { exists: false };
+        return { exists: false, error: "المستخدم غير مسجل في قاعدة البيانات." };
     } catch (error: any) {
         console.error("Error verifying user by email:", error);
         return { exists: false, error: "حدث خطأ أثناء التحقق من المستخدم." };
