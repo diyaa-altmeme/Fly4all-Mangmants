@@ -22,7 +22,7 @@ import { createStandardReceipt } from '@/app/accounts/vouchers/standard/actions'
 import { updateVoucher } from '../list/actions';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 
 const formSchema = z.object({
   date: z.date({ required_error: "التاريخ مطلوب" }),

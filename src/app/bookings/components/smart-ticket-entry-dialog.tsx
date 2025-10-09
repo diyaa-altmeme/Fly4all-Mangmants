@@ -27,7 +27,7 @@ import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { buttonVariants } from '@/components/ui/button';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
@@ -373,8 +373,8 @@ export default function SmartTicketEntryDialog({ onMultipleBookingsAdded, childr
             ) : (
             <>
              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end px-4 py-3 border rounded-lg bg-muted/30">
-                <div className="space-y-1.5"><Label className="font-bold">المورد</Label><Autocomplete options={supplierOptions} placeholder="المورد الافتراضي..." value={unifiedData.supplierId} onValueChange={(v) => setUnifiedData(p => ({...p, supplierId: v}))} /></div>
-                <div className="space-y-1.5"><Label className="font-bold">العميل</Label><Autocomplete options={clientOptions} placeholder="العميل الافتراضي..." value={unifiedData.clientId} onValueChange={(v) => setUnifiedData(p => ({...p, clientId: v}))} /></div>
+                <div className="space-y-1.5"><Label className="font-bold">المورد</Label><Autocomplete searchAction="suppliers" placeholder="المورد الافتراضي..." value={unifiedData.supplierId} onValueChange={(v) => setUnifiedData(p => ({...p, supplierId: v}))} /></div>
+                <div className="space-y-1.5"><Label className="font-bold">العميل</Label><Autocomplete searchAction="clients" placeholder="العميل الافتراضي..." value={unifiedData.clientId} onValueChange={(v) => setUnifiedData(p => ({...p, clientId: v}))} /></div>
                  <div className="space-y-1.5"><Label className="font-bold">العملة</Label><Select value={unifiedData.currency} onValueChange={(v) => setUnifiedData(p => ({...p, currency: v as Currency}))}><SelectTrigger className="font-bold"><SelectValue /></SelectTrigger><SelectContent><SelectItem className="font-bold" value="USD">USD</SelectItem><SelectItem className="font-bold" value="IQD">IQD</SelectItem></SelectContent></Select></div>
                 <div className="flex items-center gap-2">
                     <Button className="w-full font-bold bg-[#5b21b6] hover:bg-[#5b21b6]/90" onClick={handleApplyUnifiedData}>تطبيق على الكل</Button>
@@ -487,8 +487,8 @@ export default function SmartTicketEntryDialog({ onMultipleBookingsAdded, childr
                                 </CardContent>
                                  <CardFooter className="p-3 bg-muted/30 border-t">
                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                                        <Autocomplete options={supplierOptions} placeholder="المورد..." value={ticket.financialData.supplierId} onValueChange={(v) => handleFinancialDataChange(ticket.id, 'supplierId', v)} />
-                                        <Autocomplete options={clientOptions} placeholder="العميل..." value={ticket.financialData.clientId} onValueChange={(v) => handleFinancialDataChange(ticket.id, 'clientId', v)} />
+                                        <Autocomplete searchAction="suppliers" placeholder="المورد..." value={ticket.financialData.supplierId} onValueChange={(v) => handleFinancialDataChange(ticket.id, 'supplierId', v)} />
+                                        <Autocomplete searchAction="clients" placeholder="العميل..." value={ticket.financialData.clientId} onValueChange={(v) => handleFinancialDataChange(ticket.id, 'clientId', v)} />
                                         <Select value={ticket.financialData.currency} onValueChange={(v) => handleFinancialDataChange(ticket.id, 'currency', v)}>
                                             <SelectTrigger className="h-9 text-xs px-2 font-bold"><SelectValue /></SelectTrigger>
                                             <SelectContent>
@@ -527,3 +527,5 @@ export default function SmartTicketEntryDialog({ onMultipleBookingsAdded, childr
     </Dialog>
   );
 }
+
+    

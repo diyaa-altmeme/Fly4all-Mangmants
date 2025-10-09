@@ -219,7 +219,7 @@ export default function ReceiveInstallmentPaymentDialog({ installment, subscript
                                     )}/>
                                     <div className="space-y-1.5">
                                         <Label>المبلغ المعادل</Label>
-                                        <Input value={`${amountInInstallmentCurrency.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} ${installment.currency}`} readOnly disabled className="font-mono"/>
+                                        <Input value={`${amountInInstallmentCurrency.toLocaleString()} ${installment.currency}`} readOnly disabled />
                                     </div>
                                 </div>
                             )}
@@ -243,3 +243,5 @@ export default function ReceiveInstallmentPaymentDialog({ installment, subscript
         </Dialog>
     );
 }
+
+    

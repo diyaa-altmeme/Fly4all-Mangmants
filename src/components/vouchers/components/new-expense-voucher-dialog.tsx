@@ -29,7 +29,7 @@ export default function NewExpenseVoucherDialog({ onVoucherAdded, children }: Ne
   const [dialogDimensions, setDialogDimensions] = useState({ width: '896px', height: '80vh' });
 
   const defaultCurrency = navData?.settings.currencySettings?.defaultCurrency || 'IQD';
-  const [currency, setCurrency] = useState<Currency>(defaultCurrency);
+  const [currency, setCurrency] = useState<Currency>(defaultCurrency as Currency);
 
    useEffect(() => {
     if (open && !isDataLoaded) {
@@ -39,7 +39,7 @@ export default function NewExpenseVoucherDialog({ onVoucherAdded, children }: Ne
 
    useEffect(() => {
     if(navData?.settings.currencySettings?.defaultCurrency) {
-        setCurrency(navData.settings.currencySettings.defaultCurrency);
+        setCurrency(navData.settings.currencySettings.defaultCurrency as Currency);
     }
   }, [navData]);
 
