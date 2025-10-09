@@ -8,13 +8,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, Users } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, Users, Shield } from 'lucide-react';
 import Link from 'next/link';
 import type { User } from '@/lib/types';
 import { Autocomplete } from '../ui/autocomplete';
 
 export function LoginForm() {
   const [userId, setUserId] = useState('');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -50,16 +51,19 @@ export function LoginForm() {
     users.map(user => ({
       value: user.uid,
       label: user.name,
-      email: user.email,
     })), 
   [users]);
+
+  useEffect(() => {
+    const user = users.find(u => u.uid === userId);
+    setSelectedUser(user || null);
+  }, [userId, users]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    const selectedUser = users.find(u => u.uid === userId);
-
     if (!selectedUser || !password) {
       setError('يرجى اختيار المستخدم وإدخال كلمة المرور');
       return;
@@ -111,6 +115,25 @@ export function LoginForm() {
               />
             </div>
           </div>
+
+          {selectedUser && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
+                  <div className="space-y-1">
+                      <Label htmlFor="email" className="text-xs">البريد الإلكتروني</Label>
+                      <div className="relative">
+                          <Mail className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input id="email" value={selectedUser.email} readOnly disabled className="pr-10 h-9 bg-background/50" />
+                      </div>
+                  </div>
+                  <div className="space-y-1">
+                      <Label htmlFor="role" className="text-xs">الدور</Label>
+                       <div className="relative">
+                          <Shield className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+                          <Input id="role" value={selectedUser.role} readOnly disabled className="pr-10 h-9 bg-background/50" />
+                      </div>
+                  </div>
+              </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="password">كلمة المرور</Label>
