@@ -17,7 +17,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DialogFooter } from '@/components/ui/dialog';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { createExpenseVoucher } from '@/app/accounts/vouchers/expense/actions';
 import { updateVoucher } from '../list/actions';
 import { NumericInput } from '@/components/ui/numeric-input';
@@ -203,5 +203,3 @@ export default function NewExpenseVoucherForm({ boxes, onVoucherAdded, selectedC
     </form>
   );
 }
-
-    

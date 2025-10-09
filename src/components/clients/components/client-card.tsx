@@ -251,3 +251,5 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
     </Card>
   );
 }
+
+    

@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -26,15 +25,21 @@ interface NewPaymentVoucherDialogProps {
 
 export default function NewPaymentVoucherDialog({ onVoucherAdded, children }: NewPaymentVoucherDialogProps) {
   const [open, setOpen] = useState(false);
-  const { data: navData, loaded: isDataLoaded } = useVoucherNav();
+  const { data: navData, loaded: isDataLoaded, fetchData } = useVoucherNav();
   const [dialogDimensions, setDialogDimensions] = useState({ width: '896px', height: '80vh' });
 
   const defaultCurrency = navData?.settings.currencySettings?.defaultCurrency || 'IQD';
-  const [currency, setCurrency] = useState<Currency>(defaultCurrency);
+  const [currency, setCurrency] = useState<Currency>(defaultCurrency as Currency);
+
+   useEffect(() => {
+    if (open && !isDataLoaded) {
+      fetchData();
+    }
+  }, [open, isDataLoaded, fetchData]);
 
    useEffect(() => {
     if(navData?.settings.currencySettings?.defaultCurrency) {
-        setCurrency(navData.settings.currencySettings.defaultCurrency);
+        setCurrency(navData.settings.currencySettings.defaultCurrency as Currency);
     }
   }, [navData]);
 

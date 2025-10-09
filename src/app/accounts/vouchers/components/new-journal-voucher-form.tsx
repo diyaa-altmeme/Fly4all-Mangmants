@@ -16,7 +16,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DialogFooter } from '@/components/ui/dialog';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { createJournalVoucher } from '../journal/actions';
 import { updateVoucher } from '../list/actions';
@@ -180,7 +180,7 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
                      <div key={field.id} className="grid grid-cols-[1fr,auto,auto,auto] gap-2 items-center border p-2 rounded-lg">
                         <Controller name={`entries.${index}.accountId`} control={control} render={({ field }) => (
                            <Autocomplete
-                                options={accountOptions}
+                                searchAction="all"
                                 value={field.value}
                                 onValueChange={field.onChange}
                                 placeholder="ابحث عن حساب..."
