@@ -68,7 +68,8 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
     if (!sessionCookie) return null;
 
     try {
-        const decodedClaims = await getAuthAdmin().verifySessionCookie(sessionCookie.value, true);
+        const auth = await getAuthAdmin();
+        const decodedClaims = await auth.verifySessionCookie(sessionCookie.value, true);
         
         if (decodedClaims.isClient) {
              const client = await getClientById(decodedClaims.uid);
@@ -88,7 +89,8 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
 
 export async function createSessionCookie(idToken: string) {
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await getAuthAdmin().createSessionCookie(idToken, { expiresIn });
+    const auth = await getAuthAdmin();
+    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
     
     const cookieStore = await cookies();
     cookieStore.set('session', sessionCookie, {
