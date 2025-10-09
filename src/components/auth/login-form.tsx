@@ -117,28 +117,28 @@ export function LoginForm() {
           </div>
 
           {selectedUser && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-muted/30 rounded-lg border">
-                  <div className="flex items-center gap-2 text-sm justify-end">
-                      <span className="font-mono">{selectedUser.email}</span>
-                      <span className="font-semibold text-muted-foreground">:البريد</span>
-                      <Mail className="h-4 w-4 text-muted-foreground"/>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm justify-end">
-                      <span className="font-bold">{selectedUser.role}</span>
-                      <span className="font-semibold text-muted-foreground">:الدور</span>
-                      <Shield className="h-4 w-4 text-muted-foreground"/>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm justify-end">
-                      <span className="font-bold">{selectedUser.department || 'غير محدد'}</span>
-                      <span className="font-semibold text-muted-foreground">:القسم</span>
-                      <Building className="h-4 w-4 text-muted-foreground"/>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm justify-end">
-                      <span className="font-bold">{selectedUser.position || 'غير محدد'}</span>
-                      <span className="font-semibold text-muted-foreground">:المنصب</span>
-                      <Briefcase className="h-4 w-4 text-muted-foreground"/>
-                  </div>
-              </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 bg-muted/30 rounded-lg border text-sm">
+                <div className="flex items-center justify-end gap-2">
+                    <span className="font-mono truncate" dir="ltr">{selectedUser.email}</span>
+                    <span className="font-semibold text-muted-foreground">:البريد</span>
+                    <Mail className="h-4 w-4 text-muted-foreground"/>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <span className="font-bold">{selectedUser.role}</span>
+                    <span className="font-semibold text-muted-foreground">:الدور</span>
+                    <Shield className="h-4 w-4 text-muted-foreground"/>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <span className="font-bold">{selectedUser.department || 'غير محدد'}</span>
+                    <span className="font-semibold text-muted-foreground">:القسم</span>
+                    <Building className="h-4 w-4 text-muted-foreground"/>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <span className="font-bold">{selectedUser.position || 'غير محدد'}</span>
+                    <span className="font-semibold text-muted-foreground">:المنصب</span>
+                    <Briefcase className="h-4 w-4 text-muted-foreground"/>
+                </div>
+            </div>
           )}
 
           <div className="space-y-2">
