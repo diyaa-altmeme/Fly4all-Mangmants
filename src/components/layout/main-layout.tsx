@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -26,7 +27,7 @@ import { useRouter, usePathname } from "next/navigation";
 import NotificationCenter from "./notification-center";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from '@/lib/auth-context';
 import Preloader from './preloader';
 import type { User, Client } from "@/lib/types";
