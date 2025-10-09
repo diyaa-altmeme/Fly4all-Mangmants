@@ -1,10 +1,9 @@
-
 'use server';
 
 import { getAuth } from 'firebase-admin/auth';
 import { getDb } from '@/lib/firebase-admin';
 import { cookies } from 'next/headers';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import type { User, Client } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/permissions';
 
@@ -38,11 +37,13 @@ const getUserData = async (uid: string): Promise<any | null> => {
     const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
         const userData = userDoc.data();
-        const roleDoc = await doc(db, 'roles', userData.role).get();
-        const permissions = roleDoc.exists() ? roleDoc.data()?.permissions : [];
+        // Fetch permissions for the user's role
+        const roleDoc = userData.role ? await doc(db, 'roles', userData.role).get() : null;
+        const permissions = roleDoc && roleDoc.exists() ? roleDoc.data()?.permissions : [];
         return { ...userData, uid, permissions };
     }
     
+    // Check if it's a client login
     const clientDocRef = doc(db, 'clients', uid);
     const clientDoc = await getDoc(clientDocRef);
     if (clientDoc.exists()) {
@@ -78,5 +79,41 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
             console.error('Error verifying session cookie:', error);
         }
         return null;
+    }
+}
+
+
+export async function verifyUserByEmail(email: string): Promise<{ exists: boolean; type?: 'user' | 'client', error?: string, status?: string }> {
+    const db = await getDb();
+
+    try {
+        // Check 'users' collection
+        const usersQuery = query(collection(db, "users"), where("email", "==", email));
+        const usersSnapshot = await getDocs(usersQuery);
+
+        if (!usersSnapshot.empty) {
+            const userDoc = usersSnapshot.docs[0].data();
+            if (userDoc.status !== 'active') {
+                return { exists: true, type: 'user', status: 'inactive', error: "هذا الحساب غير نشط. يرجى مراجعة المسؤول." };
+            }
+            return { exists: true, type: 'user', status: 'active' };
+        }
+
+        // Check 'clients' collection using loginIdentifier
+        const clientsQuery = query(collection(db, "clients"), where("loginIdentifier", "==", email));
+        const clientsSnapshot = await getDocs(clientsQuery);
+        
+        if (!clientsSnapshot.empty) {
+             const clientDoc = clientsSnapshot.docs[0].data();
+             if (clientDoc.status !== 'active') {
+                return { exists: true, type: 'client', status: 'inactive', error: "هذا الحساب غير نشط. يرجى مراجعة المسؤول." };
+            }
+            return { exists: true, type: 'client', status: 'active' };
+        }
+
+        return { exists: false, error: "البريد الإلكتروني أو معرف الدخول غير مسجل." };
+    } catch (error: any) {
+        console.error("Error verifying user by email:", error);
+        return { exists: false, error: "حدث خطأ أثناء التحقق من المستخدم." };
     }
 }
