@@ -11,8 +11,13 @@ import { PERMISSIONS } from '@/lib/permissions';
 const SESSION_COOKIE_NAME = '__session';
 
 async function getSessionCookie() {
-    const cookieStore = cookies();
-    return cookieStore.get(SESSION_COOKIE_NAME);
+    try {
+        const cookieStore = cookies();
+        return cookieStore.get(SESSION_COOKIE_NAME);
+    } catch (error) {
+        console.log('Error reading cookies, probably running in a non-request context.');
+        return null;
+    }
 }
 
 export async function createSession(idToken: string) {
@@ -90,11 +95,10 @@ export async function verifyUserByEmail(email: string): Promise<{ exists: boolea
 
         if (!usersSnapshot.empty) {
             const userDoc = usersSnapshot.docs[0].data();
-            return { 
-                exists: true, 
-                type: 'user', 
-                status: userDoc.status || 'pending'
-            };
+            if (userDoc.status !== 'active') {
+                return { exists: true, type: 'user', status: 'inactive', error: "هذا الحساب غير نشط. يرجى مراجعة المسؤول." };
+            }
+            return { exists: true, type: 'user', status: 'active' };
         }
 
         const clientsQuery = query(collection(db, "clients"), where("loginIdentifier", "==", email));
@@ -102,11 +106,10 @@ export async function verifyUserByEmail(email: string): Promise<{ exists: boolea
         
         if (!clientsSnapshot.empty) {
              const clientDoc = clientsSnapshot.docs[0].data();
-             return {
-                 exists: true,
-                 type: 'client',
-                 status: clientDoc.status || 'pending'
-             }
+             if (clientDoc.status !== 'active') {
+                return { exists: true, type: 'client', status: 'inactive', error: "هذا الحساب غير نشط. يرجى مراجعة المسؤول." };
+            }
+            return { exists: true, type: 'client', status: 'active' };
         }
 
         return { exists: false, error: "البريد الإلكتروني أو معرف الدخول غير مسجل." };
