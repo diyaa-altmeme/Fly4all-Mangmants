@@ -150,12 +150,11 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
 
 
 export async function verifyUserByEmail(email: string): Promise<{ exists: boolean; type?: 'user' | 'client', uid?: string, error?: string, status?: string }> {
+    const db = await getDb();
+    if (!db) {
+        return { exists: false, error: "Database connection failed." };
+    }
     try {
-        const db = await getDb();
-        if (!db) {
-            return { exists: false, error: "Database connection failed." };
-        }
-
         const usersQuery = query(collection(db, "users"), where("email", "==", email));
         const usersSnapshot = await getDocs(usersQuery);
 
