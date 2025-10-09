@@ -22,6 +22,30 @@ const processDoc = (docData: any): any => {
     return safeData;
 };
 
+export async function getUserByEmail(email: string): Promise<User | null> {
+    const db = await getDb();
+    if (!db) return null;
+
+    try {
+        const usersRef = db.collection('users');
+        const snapshot = await usersRef.where('email', '==', email).limit(1).get();
+
+        if (snapshot.empty) {
+            return null;
+        }
+
+        const userDoc = snapshot.docs[0];
+        const userData = processDoc(userDoc.data()) as User;
+        
+        return { ...userData, uid: userDoc.id };
+
+    } catch (error) {
+        console.error("Error getting user by email:", error);
+        return null;
+    }
+}
+
+
 export async function getUsers({ includeHrData = false, all = false, from, to }: { includeHrData?: boolean, all?: boolean, from?: Date, to?: Date } = {}): Promise<HrData[]> {
     try {
         const db = await getDb();

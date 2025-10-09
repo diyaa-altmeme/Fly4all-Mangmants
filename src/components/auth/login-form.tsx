@@ -8,8 +8,47 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, User as UserIcon, Briefcase, ShieldCheck, MapPin } from 'lucide-react';
 import Link from 'next/link';
+import { useDebounce } from '@/hooks/use-debounce';
+import { getUserByEmail } from '@/app/users/actions';
+import type { User } from '@/lib/types';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Separator } from '../ui/separator';
+
+const UserDetailsCard = ({ user }: { user: User }) => (
+    <Card className="mt-4 p-4 bg-muted/50 border-dashed">
+        <div className="flex items-center gap-4">
+             <Avatar className="h-16 w-16 border">
+                <AvatarImage src={user.avatarUrl} alt={user.name} />
+                <AvatarFallback className="text-xl">{user.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm w-full">
+                <div className="flex items-center gap-2 font-semibold justify-end col-span-2">
+                    <span>{user.name}</span>
+                    <UserIcon className="h-4 w-4 text-primary" />
+                </div>
+                 <Separator className="col-span-2"/>
+                 <div className="flex items-center gap-2 justify-end">
+                    <span>{user.email}</span>
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                    <span>{user.role}</span>
+                    <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                </div>
+                 <div className="flex items-center gap-2 justify-end">
+                    <span>{user.department || 'غير محدد'}</span>
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                    <span>{user.position || 'غير محدد'}</span>
+                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                </div>
+            </div>
+        </div>
+    </Card>
+);
 
 export function LoginForm() {
   const [email, setEmail] = useState('');
@@ -17,6 +56,23 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { signIn, loading } = useAuth();
+  
+  const [userDetails, setUserDetails] = useState<User | null>(null);
+  const [isFetchingUser, setIsFetchingUser] = useState(false);
+  const debouncedEmail = useDebounce(email, 500);
+
+  useEffect(() => {
+    if (debouncedEmail) {
+      setIsFetchingUser(true);
+      getUserByEmail(debouncedEmail).then(details => {
+        setUserDetails(details);
+        setIsFetchingUser(false);
+      });
+    } else {
+      setUserDetails(null);
+    }
+  }, [debouncedEmail]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +125,9 @@ export function LoginForm() {
               />
             </div>
           </div>
+          
+           {isFetchingUser && <div className="flex justify-center p-2"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground"/></div>}
+           {userDetails && <UserDetailsCard user={userDetails} />}
 
           <div className="space-y-2">
             <Label htmlFor="password">كلمة المرور</Label>
