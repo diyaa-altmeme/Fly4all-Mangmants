@@ -23,72 +23,78 @@ const processDoc = (docData: any): any => {
 };
 
 export async function getUsers({ includeHrData = false, all = false, from, to }: { includeHrData?: boolean, all?: boolean, from?: Date, to?: Date } = {}): Promise<HrData[]> {
-  const db = await getDb();
-  const auth = await getAuth();
-  
-  const userRecords = await auth.listUsers();
-  const firestoreUsersSnap = await db.collection('users').get();
-  const firestoreUsers = new Map(firestoreUsersSnap.docs.map(doc => [doc.id, processDoc(doc.data())]));
+    const db = await getDb();
+    const auth = await getAuth();
+    
+    try {
+        const [userRecords, firestoreUsersSnap] = await Promise.all([
+            auth.listUsers(),
+            db.collection('users').get()
+        ]);
 
-  const users: HrData[] = userRecords.users.map(user => {
-    const firestoreData = firestoreUsers.get(user.uid) || {};
-    return {
-      uid: user.uid,
-      name: user.displayName || firestoreData.name || 'No Name',
-      username: firestoreData.username || '',
-      email: user.email || firestoreData.email || '',
-      phone: user.phoneNumber || firestoreData.phone || '',
-      avatarUrl: user.photoURL || firestoreData.avatarUrl,
-      status: firestoreData.status || (user.disabled ? 'blocked' : 'pending'),
-      role: firestoreData.role || 'viewer',
-      department: firestoreData.department,
-      position: firestoreData.position,
-      boxId: firestoreData.boxId,
-      baseSalary: firestoreData.baseSalary || 0,
-      bonuses: firestoreData.bonuses || 0,
-      deductions: firestoreData.deductions || 0,
-      notes: firestoreData.notes,
-      attendance: firestoreData.attendance || [],
-      ticketProfit: firestoreData.ticketProfit,
-      visaProfit: firestoreData.visaProfit,
-      groupProfit: firestoreData.groupProfit,
-      changeProfit: firestoreData.changeProfit,
-      segmentProfit: firestoreData.segmentProfit,
-      calculatedTotalProfit: 0, // Will be calculated below
-      calculatedNetSalary: 0, // Will be calculated below
-    };
-  });
-  
-  if (includeHrData) {
-      const fromDate = from ? startOfDay(from) : undefined;
-      const toDate = to ? endOfDay(to) : undefined;
+        const firestoreUsers = new Map(firestoreUsersSnap.docs.map(doc => [doc.id, processDoc(doc.data())]));
 
-      const journalSnap = await db.collection('journal-vouchers').get();
-      const userProfits: Record<string, number> = {};
+        const users: HrData[] = userRecords.users.map(user => {
+            const firestoreData = firestoreUsers.get(user.uid) || {};
+            return {
+                uid: user.uid,
+                name: user.displayName || firestoreData.name || 'No Name',
+                username: firestoreData.username || '',
+                email: user.email || firestoreData.email || '',
+                phone: user.phoneNumber || firestoreData.phone || '',
+                avatarUrl: user.photoURL || firestoreData.avatarUrl,
+                status: firestoreData.status || (user.disabled ? 'blocked' : 'pending'),
+                role: firestoreData.role || 'viewer',
+                department: firestoreData.department,
+                position: firestoreData.position,
+                boxId: firestoreData.boxId,
+                baseSalary: firestoreData.baseSalary || 0,
+                bonuses: firestoreData.bonuses || 0,
+                deductions: firestoreData.deductions || 0,
+                notes: firestoreData.notes,
+                attendance: firestoreData.attendance || [],
+                ticketProfit: firestoreData.ticketProfit,
+                visaProfit: firestoreData.visaProfit,
+                groupProfit: firestoreData.groupProfit,
+                changeProfit: firestoreData.changeProfit,
+                segmentProfit: firestoreData.segmentProfit,
+                calculatedTotalProfit: 0,
+                calculatedNetSalary: 0,
+            };
+        });
 
-      journalSnap.forEach(doc => {
-          const voucher = doc.data();
-          const officerName = voucher.officer;
-          const entryDate = parseISO(voucher.date);
+        if (includeHrData) {
+            const fromDate = from ? startOfDay(from) : undefined;
+            const toDate = to ? endOfDay(to) : undefined;
 
-          if (officerName && (!fromDate || !toDate || (entryDate >= fromDate && entryDate <= toDate))) {
-              if (!userProfits[officerName]) {
-                  userProfits[officerName] = 0;
-              }
-              const sale = voucher.originalData?.salePrice || (voucher.originalData?.passengers || []).reduce((acc: number, p: any) => acc + (p.salePrice || 0), 0);
-              const cost = voucher.originalData?.purchasePrice || (voucher.originalData?.passengers || []).reduce((acc: number, p: any) => acc + (p.purchasePrice || 0), 0);
-              userProfits[officerName] += (sale - cost);
-          }
-      });
+            const journalSnap = await db.collection('journal-vouchers').get();
+            const userProfits: Record<string, number> = {};
 
-      users.forEach(user => {
-          user.calculatedTotalProfit = userProfits[user.name] || 0;
-          user.calculatedNetSalary = (user.baseSalary || 0) + (user.bonuses || 0) - (user.deductions || 0) + user.calculatedTotalProfit;
-      });
-  }
+            journalSnap.forEach(doc => {
+                const voucher = doc.data();
+                const officerName = voucher.officer;
+                const entryDate = parseISO(voucher.date);
 
+                if (officerName && (!fromDate || !toDate || (entryDate >= fromDate && entryDate <= toDate))) {
+                    if (!userProfits[officerName]) {
+                        userProfits[officerName] = 0;
+                    }
+                    const sale = voucher.originalData?.salePrice || (voucher.originalData?.passengers || []).reduce((acc: number, p: any) => acc + (p.salePrice || 0), 0);
+                    const cost = voucher.originalData?.purchasePrice || (voucher.originalData?.passengers || []).reduce((acc: number, p: any) => acc + (p.purchasePrice || 0), 0);
+                    userProfits[officerName] += (sale - cost);
+                }
+            });
 
-  return users;
+            users.forEach(user => {
+                user.calculatedTotalProfit = userProfits[user.name] || 0;
+                user.calculatedNetSalary = (user.baseSalary || 0) + (user.bonuses || 0) - (user.deductions || 0) + user.calculatedTotalProfit;
+            });
+        }
+        return users;
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        return []; // Return empty array on error
+    }
 }
 
 

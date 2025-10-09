@@ -50,6 +50,7 @@ function initializeFirebaseAdminApp(): Promise<App> {
     return appInitializationPromise;
 }
 
+
 async function getFirebaseAdminApp(): Promise<App> {
     if (firebaseAdminApp) {
         return firebaseAdminApp;
