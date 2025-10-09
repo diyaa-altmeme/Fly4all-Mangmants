@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -9,7 +8,7 @@ import { addMonths, format, parseISO } from 'date-fns';
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import { getSettings } from '@/app/settings/actions';
 import { createNotification } from '../notifications/actions';
-import { getCurrentUserFromSession } from '../auth/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 
@@ -676,5 +675,7 @@ export async function revalidateSubscriptionsPath() {
 }
 
 
+
+    
 
     

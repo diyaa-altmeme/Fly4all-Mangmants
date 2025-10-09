@@ -21,7 +21,7 @@ import { Autocomplete } from '@/components/ui/autocomplete';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import {
   AlertDialog,
@@ -84,7 +84,7 @@ export default function InlineNewBookingForm({ onBookingAdded, onCancel }: Inlin
   const airportOptions = React.useMemo(() => 
     AIRPORTS.map(airport => ({
         value: airport.code,
-        label: `${airport.arabicName} (${airport.code})`,
+        label: `${''}${airport.arabicName} (${''}${airport.code})`,
         arabicName: airport.arabicName,
         city: airport.city,
         country: airport.country,
@@ -320,6 +320,8 @@ export default function InlineNewBookingForm({ onBookingAdded, onCancel }: Inlin
     </div>
   );
 }
+
+    
 
     
 

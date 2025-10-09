@@ -15,7 +15,7 @@ import NewStandardReceiptForm from '@/app/accounts/vouchers/components/new-stand
 import { cn } from '@/lib/utils';
 import { Settings2, Loader2 } from 'lucide-react';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import VoucherDialogSettings from './voucher-dialog-settings';
+import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
 
 interface NewStandardReceiptDialogProps {
   onVoucherAdded: (voucher: any) => void;
@@ -96,3 +96,5 @@ export default function NewStandardReceiptDialog({ onVoucherAdded, children }: N
     </Dialog>
   );
 }
+
+    
