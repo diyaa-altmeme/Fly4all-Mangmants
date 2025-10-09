@@ -9,7 +9,7 @@ import RolesContent from './roles/roles-content';
 import ClientPermissionsPage from '@/app/settings/client-permissions/page';
 import type { User, Box, Role, HrData } from '@/lib/types';
 import { Users, UserCog, ShieldCheck } from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context'; // Corrected Path
 import { hasPermission } from '@/lib/permissions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';

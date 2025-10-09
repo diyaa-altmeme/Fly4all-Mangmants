@@ -1,10 +1,48 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ✅ Simple rule: Allow access only to authenticated users.
+
+    // --- الدالة المساعدة للتحقق من الصلاحية ---
+    function hasPermission(permission) {
+      // 1. احصل على بيانات المستخدم من مجموعة 'users'.
+      // 2. تحقق مما إذا كانت قائمة صلاحيات المستخدم تحتوي على الصلاحية المطلوبة.
+      // ملاحظة: المدير (admin) لديه جميع الصلاحيات ضمنيًا.
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' 
+             || permission in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions;
+    }
+
+    // --- مجموعة المستخدمين (Users Collection) ---
+    match /users/{userId} {
+      // يمكن للمستخدم قراءة بياناته الخاصة دائمًا.
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // يمكن للمدير فقط إنشاء أو تعديل المستخدمين.
+      allow create, update: if hasPermission('users:update') || hasPermission('users:create');
+      // لا يمكن حذف المستخدمين من طرف العميل.
+      allow delete: if false;
+    }
+
+    // --- مجموعة الأدوار (Roles Collection) ---
+    match /roles/{roleId} {
+        // يمكن لمن لديه صلاحية إدارة المستخدمين قراءة الأدوار.
+        allow read: if hasPermission('users:permissions');
+        // يمكن لمن لديه صلاحية إدارة الصلاحيات إنشاء/تعديل/حذف الأدوار.
+        allow write: if hasPermission('users:permissions');
+    }
+    
+    // --- المجموعات الأخرى ---
+    // أضف هنا قواعد للمجموعات الأخرى مثل الفواتير، العملاء، إلخ.
+    // مثال لمجموعة الفواتير (invoices)
+    // match /invoices/{invoiceId} {
+    //   allow read: if hasPermission('invoices:read');
+    //   allow create: if hasPermission('invoices:create');
+    //   allow update: if hasPermission('invoices:update');
+    //   allow delete: if hasPermission('invoices:delete');
+    // }
+
+    // قاعدة افتراضية: رفض الوصول إلى أي شيء آخر
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

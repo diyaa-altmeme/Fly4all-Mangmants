@@ -1,36 +1,38 @@
 
+import { AuthProvider } from "@/lib/auth-context";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/toaster";
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { Tajawal } from 'next/font/google'
-import { Providers } from "@/components/layout/providers";
 
-const tajawal = Tajawal({
-  subsets: ['latin', 'arabic'],
-  weight: ['400', '500', '700', '800', '900'],
-  variable: '--font-tajawal',
-})
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Mudarib Accounting",
-  description: "نظام محاسبي متكامل لشركات السفر والسياحة",
+  title: "نظام الإدارة",
+  description: "لوحة تحكم متكاملة لإدارة النظام",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
-
+}) {
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning={true} className={tajawal.variable}>
-        <head>
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css" />
-        </head>
-        <body className={`font-sans antialiased bg-background overflow-x-hidden`}>
-            <Providers>
+    <html lang="ar" dir="rtl">
+      <body className={inter.className}>
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+        >
+            <AuthProvider>
                 {children}
-            </Providers>
-        </body>
+            </AuthProvider>
+            <Toaster />
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

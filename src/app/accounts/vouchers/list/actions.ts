@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { getSettings } from '@/app/settings/actions';
 import { parseISO } from 'date-fns';
 import { createAuditLog } from '@/app/system/activity-log/actions';
-import { getCurrentUserFromSession } from '@/app/auth/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
 export type Voucher = JournalVoucher & {
     voucherTypeLabel: string;
@@ -141,7 +141,7 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
         // Add a secondary, stable sort key (the ID) to prevent hydration mismatches.
         return allVouchers.sort((a, b) => {
             const dateA = a.createdAt ? parseISO(a.createdAt).getTime() : parseISO(a.date).getTime();
-            const dateB = b.createdAt ? parseISO(b.createdAt).getTime() : parseISO(b.date).getTime();
+            const dateB = b.createdAt ? parseISO(b.createdAt).getTime() : parseISO(a.date).getTime();
             if (dateB !== dateA) {
                 return dateB - dateA;
             }

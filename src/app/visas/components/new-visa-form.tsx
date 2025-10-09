@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { DialogFooter } from '@/components/ui/dialog';
 import { NumericInput } from '@/components/ui/numeric-input';
 

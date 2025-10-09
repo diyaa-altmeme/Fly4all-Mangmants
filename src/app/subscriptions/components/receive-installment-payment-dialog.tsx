@@ -18,7 +18,7 @@ import { Loader2, WalletCards, Save, User as UserIcon, Hash, CircleDollarSign, C
 import { paySubscriptionInstallment } from '@/app/subscriptions/actions';
 import { Label } from '@/components/ui/label';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, Controller } from 'react-hook-form';

@@ -26,7 +26,7 @@ import { useRouter } from 'next/navigation';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';

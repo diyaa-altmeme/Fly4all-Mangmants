@@ -1,11 +1,10 @@
 
-      
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import type { BookingEntry, JournalEntry, TicketOperation, TicketOperationType, Passenger, Currency, JournalVoucher } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '../auth/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { format, parseISO } from 'date-fns';
 import { cache } from 'react';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -760,4 +759,5 @@ export async function voidBooking(
         return { success: false, error: error.message || "Failed to void booking." };
     }
 }
+
     

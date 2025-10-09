@@ -27,20 +27,20 @@ import { useRouter } from "next/navigation";
 import NotificationCenter from "./notification-center";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { useAuth } from '@/context/auth-context';
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useAuth } from '@/lib/auth-context';
 import Preloader from './preloader';
-import { Skeleton } from "../ui/skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import ClientViewLayout from "@/app/clients/[id]/components/client-view-layout";
 import type { User, Client } from "@/lib/types";
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
-    const { user, logout, loading } = useAuth();
+    const { user, signOut, loading } = useAuth();
     const router = useRouter();
 
     const handleLogout = async () => {
-        await logout();
+        await signOut();
         router.push('/auth/login');
     }
 
@@ -135,20 +135,26 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
-    const pathname = useRouter();
+    const router = useRouter();
+    const pathname = React.usePathname();
 
     if (loading) {
         return <Preloader />;
     }
-
-    if (!user) {
-        // For pages like /login, /register, we don't want the main layout
-        // We let the page component handle its own layout
+    
+    // For public routes like login, just render children without layout
+    const publicRoutes = ['/auth/login', '/auth/forgot-password', '/register'];
+    if (publicRoutes.includes(pathname)) {
         return <>{children}</>;
+    }
+    
+    if (!user) {
+        router.replace('/auth/login');
+        return <Preloader />;
     }
 
     // Check if the authenticated user is a client (doesn't have a 'role' property)
-    if (!('role' in user)) {
+    if ('isClient' in user && user.isClient) {
         return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
     }
     

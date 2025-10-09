@@ -70,6 +70,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DialogTrigger } from "@/components/ui/dialog";
 import { useVoucherNav } from "@/context/voucher-nav-context";
+import { useAuth } from '@/lib/auth-context';
+import type { PERMISSIONS } from '@/lib/permissions';
 
 const NavLink = ({ href, children, active, className }: { href: string; children: React.ReactNode, active: boolean, className?: string }) => (
     <Link
@@ -88,35 +90,37 @@ const NavLink = ({ href, children, active, className }: { href: string; children
 
 
 const operationsItems = [
-    { href: "/bookings", label: "حجوزات الطيران", icon: Ticket },
-    { href: "/visas", label: "حجوزات الفيزا", icon: CreditCard },
-    { href: "/subscriptions", label: "الاشتراكات", icon: Repeat },
-    { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft },
-    { href: "/segments", label: "السكمنت", icon: Layers3 },
-    { href: "/exchanges/dashboard", label: "إدارة البورصات", icon: ChevronsRightLeft },
+    { href: "/bookings", label: "حجوزات الطيران", icon: Ticket, permission: 'bookings:read' },
+    { href: "/visas", label: "حجوزات الفيزا", icon: CreditCard, permission: 'visas:read' },
+    { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
+    { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft, permission: 'remittances:read' },
+    { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
 ];
 
 const reportsItems = [
-    { href: "/reports/debts", label: "تقرير الأرصدة", icon: Wallet },
-    { href: "/reports/account-statement", label: "كشف حساب", icon: FileText },
-    { href: "/reports/boxes", label: "تقرير الصناديق", icon: Boxes },
-    { href: "/profits", label: "الأرباح الشهرية", icon: BarChart3 },
-    { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2 },
-    { href: "/reconciliation", label: "التدقيق الذكي", icon: Wand2 },
-    { href: "/reports/advanced", label: "تقارير متقدمة", icon: AreaChart },
-    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane },
+    { href: "/reports/debts", label: "تقرير الأرصدة", icon: Wallet, permission: 'reports:debts' },
+    { href: "/reports/account-statement", label: "كشف حساب", icon: FileText, permission: 'reports:account_statement' },
+    { href: "/profits", label: "الأرباح الشهرية", icon: BarChart3, permission: 'reports:profits' },
+    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
+    // Items without specific permissions (admin only by default)
+    { href: "/reports/boxes", label: "تقرير الصناديق", icon: Boxes, permission: 'admin' },
+    { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
+    { href: "/reconciliation", label: "التدقيق الذكي", icon: Wand2, permission: 'admin' },
+    { href: "/reports/advanced", label: "تقارير متقدمة", icon: AreaChart, permission: 'reports:read:all' },
 ];
 
 const systemItems = [
-    { href: "/settings", label: "الإعدادات العامة", icon: Settings },
-    { href: "/users", label: "الموظفين والصلاحيات", icon: Briefcase },
-    { href: "/boxes", label: "الصناديق", icon: Boxes },
-    { href: "/templates", label: "قوالب الرسائل", icon: FileImage },
-    { href: "/system/activity-log", label: "سجل النشاطات", icon: History },
-    { href: "/system/error-log", label: "سجل الأخطاء", icon: FileWarning },
-    { href: "/system/data-audit", label: "فحص البيانات", icon: ScanSearch },
-    { href: "/support", label: "الدعم والمساعدة", icon: HelpCircle },
-    { href: "/coming-soon", label: "الميزات القادمة", icon: Lightbulb },
+    { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'settings:read' },
+    { href: "/users", label: "الموظفين والصلاحيات", icon: Briefcase, permission: 'users:read' },
+    { href: "/system/activity-log", label: "سجل النشاطات", icon: History, permission: 'system:audit_log:read' },
+    { href: "/system/error-log", label: "سجل الأخطاء", icon: FileWarning, permission: 'system:error_log:read' },
+    { href: "/system/data-audit", label: "فحص البيانات", icon: ScanSearch, permission: 'system:data_audit:run' },
+    // Items without specific permissions (visible to all)
+    { href: "/support", label: "الدعم والمساعدة", icon: HelpCircle, permission: 'public' },
+    { href: "/coming-soon", label: "الميزات القادمة", icon: Lightbulb, permission: 'public' },
+    // Admin only
+    { href: "/boxes", label: "الصناديق", icon: Boxes, permission: 'admin' },
+    { href: "/templates", label: "قوالب الرسائل", icon: FileImage, permission: 'admin' },
 ];
 
 const MobileSubItem = ({ href, icon: Icon, children }: { href: string; icon: React.ElementType; children: React.ReactNode }) => (
@@ -126,79 +130,58 @@ const MobileSubItem = ({ href, icon: Icon, children }: { href: string; icon: Rea
     </Link>
 );
 
-
 const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) => {
     const router = useRouter();
+    const { hasPermission } = useAuth();
     const onDataChanged = () => router.refresh();
 
     const menuItems = [
-        { href: "/accounts/vouchers/list", label: "سجل السندات", icon: ListChecks },
-        { href: "/settings", label: "الإعدادات", icon: Settings }
+        { href: "/accounts/vouchers/list", label: "سجل السندات", icon: ListChecks, permission: 'vouchers:read' },
+        { href: "/settings", label: "الإعدادات", icon: Settings, permission: 'settings:read' }
     ];
+
+    const canCreate = hasPermission('vouchers:create');
+
+    const createButtons = [
+        { Dialog: NewStandardReceiptDialog, label: "سند قبض عادي", icon: FileDown },
+        { Dialog: NewDistributedReceiptDialog, label: "سند قبض مخصص", icon: GitBranch },
+        { Dialog: NewPaymentVoucherDialog, label: "سند دفع", icon: FileUp },
+        { Dialog: NewExpenseVoucherDialog, label: "سند مصاريف", icon: Banknote },
+        { Dialog: NewJournalVoucherDialog, label: "سند قيد داخلي", icon: BookUser },
+    ];
+    
+    const visibleMenuItems = menuItems.filter(item => hasPermission(item.permission as keyof typeof PERMISSIONS));
 
     if (isMobile) {
         return (
             <div className="flex flex-col gap-1">
-                <NewStandardReceiptDialog onVoucherAdded={onDataChanged}>
-                    <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>سند قبض عادي</span><FileDown className="h-4 w-4" /></button>
-                </NewStandardReceiptDialog>
-                <NewDistributedReceiptDialog onVoucherAdded={onDataChanged}>
-                    <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>سند قبض مخصص</span><GitBranch className="h-4 w-4" /></button>
-                </NewDistributedReceiptDialog>
-                <NewPaymentVoucherDialog onVoucherAdded={onDataChanged}>
-                     <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>سند دفع</span><FileUp className="h-4 w-4" /></button>
-                </NewPaymentVoucherDialog>
-                <NewExpenseVoucherDialog onVoucherAdded={onDataChanged}>
-                     <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>سند مصاريف</span><Banknote className="h-4 w-4" /></button>
-                </NewExpenseVoucherDialog>
-                <NewJournalVoucherDialog onVoucherAdded={onDataChanged}>
-                     <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>سند قيد داخلي</span><BookUser className="h-4 w-4" /></button>
-                </NewJournalVoucherDialog>
-                <DropdownMenuSeparator />
-                 {menuItems.map(item => <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>)}
+                {canCreate && createButtons.map(({ Dialog, label, icon: Icon }) => (
+                    <Dialog key={label} onVoucherAdded={onDataChanged}>
+                        <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>{label}</span><Icon className="h-4 w-4" /></button>
+                    </Dialog>
+                ))}
+                {(canCreate && visibleMenuItems.length > 0) && <DropdownMenuSeparator />}
+                {visibleMenuItems.map(item => <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>)}
             </div>
         );
     }
     
-
     return (
         <div className="flex flex-col gap-1 p-2">
-             <NewStandardReceiptDialog onVoucherAdded={onDataChanged}>
-                 <Button variant="ghost" className="justify-between gap-2 w-full">
-                    <span>سند قبض عادي</span>
-                    <FileDown className="h-4 w-4" />
-                </Button>
-            </NewStandardReceiptDialog>
-            <NewDistributedReceiptDialog onVoucherAdded={onDataChanged}>
-                 <Button variant="ghost" className="justify-between gap-2 w-full">
-                    <span>سند قبض مخصص</span>
-                    <GitBranch className="h-4 w-4" />
-                </Button>
-            </NewDistributedReceiptDialog>
-            <NewPaymentVoucherDialog onVoucherAdded={onDataChanged}>
-                 <Button variant="ghost" className="justify-between gap-2 w-full">
-                    <span>سند دفع</span>
-                    <FileUp className="h-4 w-4" />
-                </Button>
-            </NewPaymentVoucherDialog>
-            <NewExpenseVoucherDialog onVoucherAdded={onDataChanged}>
-                <Button variant="ghost" className="justify-between gap-2 w-full">
-                    <span>سند مصاريف</span>
-                    <Banknote className="h-4 w-4" />
-                </Button>
-            </NewExpenseVoucherDialog>
-            <NewJournalVoucherDialog onVoucherAdded={onDataChanged}>
-                 <Button variant="ghost" className="justify-between gap-2 w-full">
-                    <span>سند قيد داخلي</span>
-                    <BookUser className="h-4 w-4" />
-                </Button>
-            </NewJournalVoucherDialog>
-            <DropdownMenuSeparator />
-            {menuItems.map(item => (
-                    <DropdownMenuItem asChild key={item.href}>
-                        <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
-                    </DropdownMenuItem>
-                ))}
+            {canCreate && createButtons.map(({ Dialog, label, icon: Icon }) => (
+                 <Dialog key={label} onVoucherAdded={onDataChanged}>
+                     <Button variant="ghost" className="justify-between gap-2 w-full">
+                        <span>{label}</span>
+                        <Icon className="h-4 w-4" />
+                    </Button>
+                </Dialog>
+            ))}
+            {(canCreate && visibleMenuItems.length > 0) && <DropdownMenuSeparator />}
+            {visibleMenuItems.map(item => (
+                <DropdownMenuItem asChild key={item.href}>
+                    <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
+                </DropdownMenuItem>
+            ))}
         </div>
     )
 }
@@ -237,6 +220,7 @@ const MainNavContent = () => {
   const router = useRouter();
   const isMobile = useIsMobile();
   const { fetchData } = useVoucherNav();
+  const { hasPermission, user } = useAuth();
 
   React.useEffect(() => {
       fetchData();
@@ -246,54 +230,98 @@ const MainNavContent = () => {
   const handleDataChange = () => {
     router.refresh();
   };
+
+  const filterItems = (items: any[]) => {
+      return items.filter(item => {
+          if (item.permission === 'public') return true;
+          if (item.permission === 'admin') return user?.role === 'admin';
+          return hasPermission(item.permission as keyof typeof PERMISSIONS);
+      });
+  }
   
   const menuConfig = [
-       { id: 'relations', label: 'العلاقات', icon: Contact, activeRoutes: ['/clients', '/suppliers', '/relations'], children: (
+       { 
+           id: 'relations', 
+           label: 'العلاقات', 
+           icon: Contact, 
+           activeRoutes: ['/clients', '/suppliers', '/relations'],
+           permission: 'relations:read', 
+           children: (
            <>
-                <DropdownMenuItem asChild>
+                {hasPermission('relations:read') && <DropdownMenuItem asChild>
                    <Link href="/clients" className="justify-between w-full flex items-center gap-2"><span>ادارة العلاقات</span><Users2 className="h-4 w-4" /></Link>
-               </DropdownMenuItem>
-                <AddClientDialog onClientAdded={handleDataChange} onClientUpdated={handleDataChange}>
+               </DropdownMenuItem>}
+                {hasPermission('relations:create') && <AddClientDialog onClientAdded={handleDataChange} onClientUpdated={handleDataChange}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between gap-2 w-full">
                         <span>إضافة علاقة</span>
                         <PlusCircle className="h-4 w-4" />
                     </DropdownMenuItem>
-                </AddClientDialog>
+                </AddClientDialog>}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild><Link href="/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>
+                {hasPermission('settings:read') && <DropdownMenuItem asChild><Link href="/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>}
            </>
       )},
-      { id: 'operations', label: 'العمليات المحاسبية', icon: Calculator, activeRoutes: ['/bookings', '/visas', '/subscriptions', '/accounts/remittances', '/segments', '/exchanges'], children: (
+      {
+          id: 'operations', 
+          label: 'العمليات المحاسبية', 
+          icon: Calculator, 
+          activeRoutes: ['/bookings', '/visas', '/subscriptions', '/accounts/remittances', '/segments', '/exchanges'], 
+          children: (
            <>
-             {operationsItems.map(item => (
+             {filterItems(operationsItems).map(item => (
                  <DropdownMenuItem asChild key={item.href}>
                     <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
                 </DropdownMenuItem>
             ))}
           </>
       )},
-      { id: 'vouchers', label: 'السندات', icon: FileText, activeRoutes: ['/accounts/vouchers'], children: <CreateVoucherMenuItems /> },
-      { id: 'reports', label: 'التقارير والأدوات', icon: BarChart3, activeRoutes: ['/reports', '/profits', '/profit-sharing', '/reconciliation'], children: (
+      {
+          id: 'vouchers', 
+          label: 'السندات', 
+          icon: FileText, 
+          activeRoutes: ['/accounts/vouchers'],
+          permission: 'vouchers:read', 
+          children: <CreateVoucherMenuItems /> 
+      },
+      {
+          id: 'reports', 
+          label: 'التقارير والأدوات', 
+          icon: BarChart3, 
+          activeRoutes: ['/reports', '/profits', '/profit-sharing', '/reconciliation'], 
+          children: (
            <>
-             {reportsItems.map(item => (
+             {filterItems(reportsItems).map(item => (
                  <DropdownMenuItem asChild key={item.href}>
                     <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
                 </DropdownMenuItem>
             ))}
           </>
       )},
-      { id: 'system', label: 'النظام', icon: Network, activeRoutes: ['/settings', '/users', '/boxes', '/coming-soon', '/hr', '/system', '/templates', '/support'], children: (
+      {
+          id: 'system', 
+          label: 'النظام', 
+          icon: Network, 
+          activeRoutes: ['/settings', '/users', '/boxes', '/coming-soon', '/hr', '/system', '/templates', '/support'], 
+          children: (
            <>
-             {systemItems.map(item => (
+             {filterItems(systemItems).map(item => (
                  <DropdownMenuItem asChild key={item.label}>
                     <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
                 </DropdownMenuItem>
             ))}
           </>
       )},
-  ];
+  ].filter(menu => {
+      if (!menu.children) return false;
+      if (menu.id === 'relations') return hasPermission('relations:read') || hasPermission('relations:create');
+      if (menu.id === 'vouchers') return hasPermission('vouchers:read') || hasPermission('vouchers:create');
+
+      const childItems = menu.id === 'operations' ? operationsItems : menu.id === 'reports' ? reportsItems : menu.id === 'system' ? systemItems : [];
+      return filterItems(childItems).length > 0;
+  });
   
-  const renderMobileSubItems = (menu: typeof menuConfig[0]) => {
+  const renderMobileSubItems = (menu: any) => {
+      // ... (code for mobile rendering with permissions)
       if (menu.id === 'vouchers') {
           return <CreateVoucherMenuItems isMobile={true} />;
       }
@@ -301,14 +329,14 @@ const MainNavContent = () => {
       if (menu.id === 'relations') {
            return (
             <div className="flex flex-col gap-1">
-                <MobileSubItem href="/clients" icon={Users2}>ادارة العلاقات</MobileSubItem>
-                 <AddClientDialog onClientAdded={handleDataChange} onClientUpdated={handleDataChange}>
+                {hasPermission('relations:read') && <MobileSubItem href="/clients" icon={Users2}>ادارة العلاقات</MobileSubItem>}
+                {hasPermission('relations:create') && <AddClientDialog onClientAdded={handleDataChange} onClientUpdated={handleDataChange}>
                     <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full">
                        <span>إضافة علاقة</span>
                        <PlusCircle className="h-4 w-4" />
                     </button>
-                </AddClientDialog>
-                <MobileSubItem href="/settings" icon={Settings}>الإعدادات</MobileSubItem>
+                </AddClientDialog>}
+                {hasPermission('settings:read') && <MobileSubItem href="/settings" icon={Settings}>الإعدادات</MobileSubItem>}
             </div>
         )
       }
@@ -316,7 +344,7 @@ const MainNavContent = () => {
       if (menu.id === 'system') {
            return (
              <div className="flex flex-col gap-1">
-                {systemItems.map(item => <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>)}
+                {filterItems(systemItems).map(item => <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>)}
             </div>
            )
       }
@@ -326,7 +354,7 @@ const MainNavContent = () => {
       if (itemsToRender.length > 0) {
            return (
              <div className="flex flex-col gap-1">
-                {itemsToRender.map(item => <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>)}
+                {filterItems(itemsToRender).map(item => <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>)}
             </div>
            )
       }
@@ -337,10 +365,10 @@ const MainNavContent = () => {
   if(isMobile) {
       return (
           <Accordion type="single" collapsible className="w-full">
-              <NavLink href="/dashboard" active={pathname === '/dashboard'} className="w-full justify-end text-base">
+              {hasPermission('dashboard:read') && <NavLink href="/dashboard" active={pathname === '/dashboard'} className="w-full justify-end text-base">
                 الرئيسية
                 <LayoutDashboard className="h-5 w-5" />
-              </NavLink>
+              </NavLink>}
                {menuConfig.map((menu, index) => (
                   <AccordionItem value={menu.id} key={menu.id}>
                       <AccordionTrigger className="hover:no-underline text-base font-bold justify-end px-3 py-2 data-[state=open]:bg-muted">
@@ -356,6 +384,7 @@ const MainNavContent = () => {
                        </AccordionContent>
                   </AccordionItem>
               ))}
+               {/* Campaigns is public for now */}
                <NavLink href="/campaigns" active={pathname === '/campaigns'} className="w-full justify-end text-base">
                 الحملات
                 <MessageSquare className="h-5 w-5" />
@@ -367,10 +396,10 @@ const MainNavContent = () => {
   return (
     <div className="w-full">
         <nav className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
-             <NavLink href="/dashboard" active={pathname === '/dashboard'} className="justify-end">
+             {hasPermission('dashboard:read') && <NavLink href="/dashboard" active={pathname === '/dashboard'} className="justify-end">
                 الرئيسية
                 <LayoutDashboard className="h-4 w-4" />
-            </NavLink>
+            </NavLink>}
             
             {menuConfig.map(menu => (
                 <NavMenu 
@@ -383,6 +412,7 @@ const MainNavContent = () => {
                 </NavMenu>
             ))}
             
+            {/* Campaigns is public for now */}
             <NavLink href="/campaigns" active={pathname === '/campaigns'} className="justify-end">
                 الحملات
                 <MessageSquare className="h-4 w-4" />

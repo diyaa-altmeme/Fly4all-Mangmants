@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import TopLoader from "@/components/ui/top-loader";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ThemeCustomizationProvider } from "@/context/theme-customization-context";
-import { AuthProvider } from '@/context/auth-context';
+import { AuthProvider } from '@/lib/auth-context';
 import { VoucherNavProvider } from '@/context/voucher-nav-context';
 
 export function Providers({ 

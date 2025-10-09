@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -56,6 +55,12 @@ export async function createNotification(notificationData: Omit<Notification, 'i
     if (!db) return { success: false, error: "Database not available." };
 
     try {
+        // Don't send notifications to a user about their own actions
+        // This is a basic check. More complex logic might be needed.
+        if ('createdBy' in notificationData && notificationData.userId === (notificationData as any).createdBy) {
+            return { success: true }; // Silently succeed
+        }
+        
         await db.collection(NOTIFICATIONS_COLLECTION).add({
             ...notificationData,
             createdAt: new Date().toISOString(),
@@ -110,3 +115,5 @@ export async function markAllAsRead(userId: string): Promise<{ success: boolean;
         return { success: false, error: "Failed to update notifications." };
     }
 }
+
+    

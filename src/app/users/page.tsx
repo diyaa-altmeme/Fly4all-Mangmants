@@ -9,9 +9,7 @@ import UsersPageContent from './components/users-page-content';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
-import { useAuth } from '@/context/auth-context';
-import { hasPermission } from '@/lib/permissions';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import ProtectedPage from '@/components/auth/protected-page'; // استيراد المكون الجديد
 
 function UsersPageContainer() {
     const [users, setUsers] = useState<HrData[]>([]);
@@ -68,25 +66,16 @@ function UsersPageContainer() {
 
 
 export default function UsersPage() {
-    const { user } = useAuth();
-    
-    if (user && !hasPermission(user as User, 'users:read')) {
-        return (
-            <Alert variant="destructive">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>وصول مرفوض!</AlertTitle>
-                <AlertDescription>ليس لديك الصلاحية اللازمة للوصول لهذه الصفحة.</AlertDescription>
-            </Alert>
-        );
-    }
-
     return (
-        <div className="space-y-6">
-            <div className="px-0 sm:px-6">
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة المستخدمين والصلاحيات</h1>
-                <p className="text-muted-foreground">إدارة حسابات الموظفين، تحديد أدوارهم، والتحكم في صلاحيات الوصول للنظام.</p>
+        // استخدام المكون لحماية الصفحة بأكملها
+        <ProtectedPage permission="users:read">
+            <div className="space-y-6">
+                <div className="px-0 sm:px-6">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة المستخدمين والصلاحيات</h1>
+                    <p className="text-muted-foreground">إدارة حسابات الموظفين، تحديد أدوارهم، والتحكم في صلاحيات الوصول للنظام.</p>
+                </div>
+                <UsersPageContainer />
             </div>
-            <UsersPageContainer />
-        </div>
+        </ProtectedPage>
     );
 }

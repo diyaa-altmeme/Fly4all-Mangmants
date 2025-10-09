@@ -1,11 +1,10 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import type { Client, RelationType, CompanyPaymentType } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '../auth/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { format, parseISO } from 'date-fns';
 import { getSettings } from '@/app/settings/actions';
 import { getBookings } from '../bookings/actions';
@@ -398,3 +397,5 @@ export async function deleteMultipleClients(ids: string[]): Promise<{ success: b
         return { success: false, error: e.message };
     }
 }
+
+    

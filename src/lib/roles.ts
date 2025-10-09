@@ -1,42 +1,61 @@
+import { PERMISSIONS } from "./permissions";
 
-import { getDb } from "@/lib/firebase-admin";
+export type Role = {
+  id: string;
+  name: string;
+  permissions: (keyof typeof PERMISSIONS)[];
+};
 
-/**
- * Ensures that the essential roles, like 'admin', exist in the database.
- */
-export async function ensureRolesExist() {
-    const db = await getDb();
-    const rolesRef = db.collection('roles');
+// قائمة بجميع الصلاحيات المتاحة
+const allPermissions = Object.keys(PERMISSIONS) as (keyof typeof PERMISSIONS)[];
 
-    // Define the admin role
-    const adminRole = {
-        name: 'Administrator',
-        // Using a wildcard to signify all permissions. 
-        // The application logic should be adapted to handle this.
-        permissions: ['*'], 
-        description: 'Full access to all system features.',
-        isDefault: false,
-    };
+// قائمة بصلاحيات القراءة فقط
+const readOnlyPermissions = allPermissions.filter(p => p.endsWith(':read') || p.endsWith(':read:all'));
 
-    // Create the admin role only if it doesn't exist
-    const adminDoc = await rolesRef.doc('admin').get();
-    if (!adminDoc.exists) {
-        await rolesRef.doc('admin').set(adminRole);
-        console.log("'admin' role created successfully.");
-    }
-    
-    // You can add other default roles here in the future
-    // For example, a 'viewer' role
-    const viewerRole = {
-        name: 'Viewer',
-        permissions: ['read:data'],
-        description: 'Read-only access to most data.',
-        isDefault: true,
-    };
-
-    const viewerDoc = await rolesRef.doc('viewer').get();
-    if (!viewerDoc.exists) {
-        await rolesRef.doc('viewer').set(viewerRole);
-        console.log("'viewer' role created successfully.");
-    }
-}
+export const ROLES: Role[] = [
+  {
+    id: "admin",
+    name: "مدير النظام",
+    permissions: allPermissions,
+  },
+  {
+    id: "viewer",
+    name: "مشاهد فقط",
+    permissions: [
+      'dashboard:read',
+      'bookings:read',
+      'visas:read',
+      'subscriptions:read',
+      'vouchers:read',
+      'remittances:read',
+      'segments:read',
+      'relations:read',
+      'users:read',
+      'hr:read',
+      'reports:read:all',
+      'settings:read',
+      'system:audit_log:read',
+      'system:error_log:read',
+    ],
+  },
+  {
+      id: 'accountant',
+      name: 'محاسب',
+      permissions: [
+        // Inherits viewer permissions
+        ...readOnlyPermissions,
+        // Core accounting
+        'bookings:create', 'bookings:update', 'bookings:operations',
+        'visas:create', 'visas:update',
+        'subscriptions:create', 'subscriptions:update', 'subscriptions:payments',
+        'vouchers:create', 'vouchers:update',
+        'remittances:create', 'remittances:audit', 'remittances:receive',
+        'segments:create', 'segments:update',
+        // Client management
+        'relations:create', 'relations:update',
+        // Reports
+        'reports:account_statement',
+        'reports:debts',
+      ]
+  }
+];

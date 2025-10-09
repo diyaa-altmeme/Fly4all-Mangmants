@@ -8,7 +8,7 @@ import StatsCards from './stats-cards';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import OverviewChart from './overview-chart';
 import QuickAccess from './quick-access';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, CircleUserRound, Settings, LayoutDashboard, Ticket, Repeat } from 'lucide-react';

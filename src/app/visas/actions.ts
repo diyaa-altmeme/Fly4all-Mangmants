@@ -4,7 +4,7 @@
 import { getDb } from '@/lib/firebase-admin';
 import type { VisaBookingEntry, JournalEntry, VisaPassenger } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '../auth/actions';
+import { getCurrentUserFromSession } from '@/app/auth/actions';
 import { format, parseISO } from 'date-fns';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getSettings } from '@/app/settings/actions';
