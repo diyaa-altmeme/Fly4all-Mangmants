@@ -2,47 +2,21 @@
 "use client";
 
 import * as React from "react";
-import { useEffect } from "react";
 import Link from "next/link";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Plane, CircleUserRound, Menu, LogOut } from "lucide-react";
+import { Plane, Menu } from "lucide-react";
 import { MainNav } from "@/components/layout/main-nav";
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { VoucherNavProvider } from "@/context/voucher-nav-context";
-import { useRouter, usePathname } from "next/navigation";
 import NotificationCenter from "./notification-center";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useAuth } from '@/lib/auth-context';
-import Preloader from './preloader';
-import type { User, Client } from "@/lib/types";
-import ClientViewLayout from "@/app/clients/[id]/components/client-view-layout";
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
-    const { user, signOut } = useAuth();
-    const router = useRouter();
-
-    const handleLogout = async () => {
-        await signOut();
-        window.location.href = '/auth/login'; // Full reload to clear state
-    }
 
     return (
       <VoucherNavProvider>
@@ -83,7 +57,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                           height={32}
                           className="size-8"
                       />
-                      ) : ( <Plane className="h-6 w-6 text-primary"/>)}
+                      ) : ( <Plane className="h-6 w-6 text-primary" />)}
                       <h1 className="text-xl hidden sm:block">{themeSettings?.general?.appName || "Mudarib"}</h1>
                   </Link>
               </div>
@@ -97,31 +71,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
               <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4">
                   <NotificationCenter />
                   <ThemeToggle />
-                  {user ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="secondary" size="icon" className="rounded-full">
-                        <Avatar>
-                            <AvatarImage src={user?.avatarUrl || undefined} />
-                            <AvatarFallback>
-                              <CircleUserRound />
-                            </AvatarFallback>
-                        </Avatar>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>{user?.name || 'زائر'}</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild><Link href="/profile">الملف الشخصي</Link></DropdownMenuItem>
-                      <DropdownMenuItem asChild><Link href="/support">الدعم</Link></DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-                              <LogOut className="me-2 h-4 w-4"/>
-                              تسجيل الخروج
-                            </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  ) : null}
               </div>
               </header>
           <main className="flex-1 p-2 sm:p-4 md:p-6 bg-muted/40">{children}</main>
@@ -132,33 +81,5 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
-    const { user, loading } = useAuth();
-    const router = useRouter();
-    const pathname = usePathname();
-
-    const publicRoutes = ['/auth/login', '/auth/forgot-password', '/register', '/setup-admin', '/'];
-    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-
-    useEffect(() => {
-      if (!loading && !user && !isPublicRoute) {
-        router.replace('/auth/login');
-      }
-    }, [user, loading, router, pathname, isPublicRoute]);
-    
-    if (loading) {
-        return <Preloader />;
-    }
-
-    if (isPublicRoute) {
-        return <>{children}</>;
-    }
-    
-    if (user) {
-        if ('isClient' in user && user.isClient) {
-            return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
-        }
-        return <AppLayout>{children}</AppLayout>;
-    }
-
-    return <Preloader />;
+    return <AppLayout>{children}</AppLayout>;
 }

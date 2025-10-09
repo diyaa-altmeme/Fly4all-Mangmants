@@ -188,5 +188,4 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
     </form>
   );
 }
-
     
