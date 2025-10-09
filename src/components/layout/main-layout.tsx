@@ -160,7 +160,5 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         return <AppLayout>{children}</AppLayout>;
     }
 
-    // This state should not be reachable if redirection logic is correct,
-    // but Preloader is a safe fallback.
     return <Preloader />;
 }
