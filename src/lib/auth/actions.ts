@@ -22,6 +22,10 @@ async function getSessionCookie() {
 
 const getUserData = async (uid: string): Promise<any | null> => {
     const db = await getDb();
+    if (!db) {
+        return { exists: false, error: "Database connection failed." };
+    }
+
     const userDocRef = doc(db, 'users', uid);
     const userDoc = await getDoc(userDocRef);
 
@@ -148,6 +152,9 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
 export async function verifyUserByEmail(email: string): Promise<{ exists: boolean; type?: 'user' | 'client', uid?: string, error?: string, status?: string }> {
     try {
         const db = await getDb();
+        if (!db) {
+            return { exists: false, error: "Database connection failed." };
+        }
 
         const usersQuery = query(collection(db, "users"), where("email", "==", email));
         const usersSnapshot = await getDocs(usersQuery);
