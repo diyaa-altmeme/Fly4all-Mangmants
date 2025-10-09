@@ -320,5 +320,4 @@ export default function InlineNewBookingForm({ onBookingAdded, onCancel }: Inlin
     </div>
   );
 }
-
     

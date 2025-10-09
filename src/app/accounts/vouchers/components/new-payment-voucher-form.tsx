@@ -213,5 +213,4 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
     </form>
   );
 }
-
     

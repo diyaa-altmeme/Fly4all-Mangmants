@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 

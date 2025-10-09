@@ -237,5 +237,4 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
     </form>
   );
 }
-
     
