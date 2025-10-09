@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -12,6 +10,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import ProtectedPage from '@/components/auth/protected-page';
 import { DateRange } from 'react-day-picker';
+import { useAuth } from '@/lib/auth-context';
+import Preloader from '@/components/layout/preloader';
 
 function UsersPageContainer() {
     const [users, setUsers] = useState<HrData[]>([]);
@@ -68,16 +68,21 @@ function UsersPageContainer() {
 
 
 export default function UsersPage() {
-    return (
-        // استخدام المكون لحماية الصفحة بأكملها
-        <ProtectedPage permission="users:read">
-            <div className="space-y-6">
-                <div className="px-0 sm:px-6">
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة المستخدمين والصلاحيات</h1>
-                    <p className="text-muted-foreground">إدارة حسابات الموظفين، تحديد أدوارهم، والتحكم في صلاحيات الوصول للنظام.</p>
-                </div>
-                <UsersPageContainer />
+  const { user, loading } = useAuth();
+  
+  if (loading) {
+    return <Preloader />;
+  }
+
+  return (
+    <ProtectedPage permission="users:read">
+        <div className="space-y-6">
+            <div className="px-0 sm:px-6">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة المستخدمين والصلاحيات</h1>
+                <p className="text-muted-foreground">إدارة حسابات الموظفين، تحديد أدوارهم، والتحكم في صلاحيات الوصول للنظام.</p>
             </div>
-        </ProtectedPage>
-    );
+            <UsersPageContainer />
+        </div>
+    </ProtectedPage>
+  );
 }

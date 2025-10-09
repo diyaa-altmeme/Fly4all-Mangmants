@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -36,7 +35,7 @@ import type { User, Client } from "@/lib/types";
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
-    const { user, signOut, loading } = useAuth();
+    const { user, signOut } = useAuth();
     const router = useRouter();
 
     const handleLogout = async () => {
@@ -97,9 +96,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
               <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4">
                   <NotificationCenter />
                   <ThemeToggle />
-                  {loading ? (
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                  ) : user ? (
+                  {user ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="secondary" size="icon" className="rounded-full">
@@ -123,7 +120,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                             </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  ) : <div className="h-10 w-10 rounded-full bg-muted" />}
+                  ) : <Skeleton className="h-10 w-10 rounded-full" />}
               </div>
               </header>
           <main className="flex-1 p-2 sm:p-4 md:p-6 bg-muted/40">{children}</main>
@@ -142,14 +139,16 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         return <Preloader />;
     }
     
-    // For public routes like login, just render children without layout
-    const publicRoutes = ['/auth/login', '/auth/forgot-password', '/register'];
+    const publicRoutes = ['/auth/login', '/auth/forgot-password', '/register', '/setup-admin'];
     if (publicRoutes.includes(pathname)) {
         return <>{children}</>;
     }
     
     if (!user) {
-        router.replace('/auth/login');
+        // Use useEffect to avoid triggering navigation during render
+        React.useEffect(() => {
+            router.replace('/auth/login');
+        }, [router]);
         return <Preloader />;
     }
 

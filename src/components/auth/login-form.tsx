@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -13,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Link from "next/link";
+import { createSession } from "@/lib/auth/actions";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -35,20 +35,16 @@ export default function LoginForm() {
       console.log("✅ Sign-in successful, got idToken.");
 
       console.log("🔹 Creating session...");
-      const response = await fetch('/api/auth/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create session.');
-      }
+      await createSession(idToken);
       
       console.log("✅ Session created successfully.");
       toast({ description: "تم تسجيل الدخول بنجاح! جاري التوجيه..." });
-      router.refresh(); // This will trigger the logic in MainLayout
       
+      // We need to trigger a full page reload to re-evaluate server components
+      // and for the new session cookie to be picked up by server-side `useAuth`.
+      router.push('/dashboard');
+      router.refresh();
+
     } catch (err: any) {
       console.error("❌ Login error:", err);
       let friendlyMessage = "";
