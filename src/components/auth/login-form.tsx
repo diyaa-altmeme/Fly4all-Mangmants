@@ -8,68 +8,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, Users, Shield, Briefcase, Building } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
-import type { User } from '@/lib/types';
-import { Autocomplete } from '../ui/autocomplete';
 
 export function LoginForm() {
-  const [userId, setUserId] = useState('');
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { signIn, loading } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
-  const [loadError, setLoadError] = useState('');
-
-  useEffect(() => {
-    async function fetchUsers() {
-      try {
-        setLoadingUsers(true);
-        setLoadError('');
-        const response = await fetch('/api/users');
-        if (!response.ok) {
-          throw new Error('فشل في تحميل قائمة المستخدمين من الخادم.');
-        }
-        const fetchedUsers: User[] = await response.json();
-        if (fetchedUsers.length === 0) {
-            setLoadError('لم يتم العثور على مستخدمين. يرجى التأكد من إضافة مستخدمين في قاعدة البيانات.');
-        }
-        setUsers(fetchedUsers);
-      } catch (error: any) {
-        setLoadError(error.message || 'فشل في تحميل قائمة المستخدمين.');
-      } finally {
-        setLoadingUsers(false);
-      }
-    }
-    fetchUsers();
-  }, []);
-
-  const userOptions = React.useMemo(() => 
-    users.map(user => ({
-      value: user.uid,
-      label: user.name,
-    })), 
-  [users]);
-
-  useEffect(() => {
-    const user = users.find(u => u.uid === userId);
-    setSelectedUser(user || null);
-  }, [userId, users]);
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    if (!selectedUser || !password) {
-      setError('يرجى اختيار المستخدم وإدخال كلمة المرور');
+    if (!email || !password) {
+      setError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
       return;
     }
 
-    const result = await signIn(selectedUser.email, password);
+    const result = await signIn(email, password);
     
     if (!result.success) {
       setError(result.error || 'فشل تسجيل الدخول');
@@ -81,7 +39,7 @@ export function LoginForm() {
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-3xl font-bold">تسجيل الدخول</CardTitle>
         <CardDescription>
-          اختر حسابك وأدخل كلمة المرور للوصول إلى نظام Mudarib Accounting
+          أدخل بريدك الإلكتروني وكلمة المرور للوصول إلى نظام Mudarib Accounting
         </CardDescription>
       </CardHeader>
       
@@ -94,52 +52,23 @@ export function LoginForm() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-           {loadError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>خطأ في تحميل المستخدمين</AlertTitle>
-              <AlertDescription>{loadError}</AlertDescription>
-            </Alert>
-          )}
-
+          
           <div className="space-y-2">
-            <Label htmlFor="user-select">اختر المستخدم</Label>
+            <Label htmlFor="email">البريد الإلكتروني</Label>
             <div className="relative">
-              <Users className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Autocomplete
-                options={userOptions}
-                value={userId}
-                onValueChange={setUserId}
-                placeholder={loadingUsers ? "جاري تحميل المستخدمين..." : "اختر المستخدم..."}
-                disabled={loading || loadingUsers || !!loadError}
+              <Mail className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="email"
+                type="email"
+                placeholder="example@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="pr-10"
+                disabled={loading}
+                required
               />
             </div>
           </div>
-
-          {selectedUser && (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-2 p-3 bg-muted/30 rounded-lg border text-sm">
-                <div className="flex items-center justify-end gap-2">
-                    <span className="font-mono truncate" dir="ltr">{selectedUser.email}</span>
-                    <span className="font-semibold text-muted-foreground">:البريد</span>
-                    <Mail className="h-4 w-4 text-muted-foreground"/>
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                    <span className="font-bold">{selectedUser.role}</span>
-                    <span className="font-semibold text-muted-foreground">:الدور</span>
-                    <Shield className="h-4 w-4 text-muted-foreground"/>
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                    <span className="font-bold">{selectedUser.department || 'غير محدد'}</span>
-                    <span className="font-semibold text-muted-foreground">:القسم</span>
-                    <Building className="h-4 w-4 text-muted-foreground"/>
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                    <span className="font-bold">{selectedUser.position || 'غير محدد'}</span>
-                    <span className="font-semibold text-muted-foreground">:المنصب</span>
-                    <Briefcase className="h-4 w-4 text-muted-foreground"/>
-                </div>
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="password">كلمة المرور</Label>
@@ -189,7 +118,7 @@ export function LoginForm() {
             type="submit" 
             className="w-full" 
             size="lg"
-            disabled={loading || !userId || !!loadError}
+            disabled={loading}
           >
             {loading ? (
               <>

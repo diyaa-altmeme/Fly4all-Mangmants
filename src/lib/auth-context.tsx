@@ -13,7 +13,7 @@ import type { User, Client, Permission } from '@/lib/types';
 import { createSessionCookie, getCurrentUserFromSession, logoutUser } from '@/lib/auth/actions';
 import { useRouter } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/permissions';
-import { PERMISSIONS } from './permissions';
+import { PERMISSIONS } from './auth/permissions';
 import Preloader from '@/components/layout/preloader';
 
 interface AuthContextType {
@@ -32,29 +32,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const checkSession = async () => {
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
         try {
-            const sessionUser = await getCurrentUserFromSession();
-            setUser(sessionUser);
+            if (firebaseUser) {
+                const idToken = await firebaseUser.getIdToken();
+                // Create session cookie on token change to keep session alive.
+                await createSessionCookie(idToken); 
+                const sessionUser = await getCurrentUserFromSession();
+                setUser(sessionUser);
+            } else {
+                // User signed out or session expired on client.
+                // Server-side middleware will handle redirects for protected routes.
+                setUser(null);
+            }
         } catch (error) {
-            console.error("Failed to check session on initial load", error);
+            console.error("Auth state change error:", error);
             setUser(null);
         } finally {
             setLoading(false);
         }
-    };
-    
-    checkSession();
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
+      setLoading(true);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await userCredential.user.getIdToken();
-      await createSessionCookie(idToken);
-      const sessionUser = await getCurrentUserFromSession();
-      setUser(sessionUser);
-      router.push('/dashboard');
+      // The onIdTokenChanged listener will handle session creation and state update.
       return { success: true };
     } catch (error: any) {
       console.error('Sign-in error:', error);
@@ -64,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (error.code === 'auth/user-disabled') {
         errorMessage = 'هذا الحساب معطل.';
       }
+      setLoading(false);
       return { success: false, error: errorMessage };
     }
   };
@@ -71,14 +78,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     setLoading(true);
     await firebaseSignOut(auth);
-    await logoutUser();
+    await logoutUser(); // Clears server-side cookie
     setUser(null);
     setLoading(false);
     router.push('/auth/login');
   };
 
   const hasPermission = (permission: keyof typeof PERMISSIONS): boolean => {
-    if (!user || 'isClient' in user) return false;
+    if (!user || ('isClient' in user && user.isClient)) return false;
     return checkUserPermission(user, permission);
   }
   
