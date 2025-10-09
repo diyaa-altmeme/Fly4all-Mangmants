@@ -23,6 +23,7 @@ import UserFormDialog from "@/app/users/components/user-form-dialog";
 import { getBoxes } from "../boxes/actions";
 import { getRoles } from "../users/actions";
 import { useAuth } from "@/lib/auth-context";
+import UserPermissions from "./components/user-permissions";
 
 
 const StatCard = ({ icon: Icon, label, value, currency, colorClass }: { icon: React.ElementType, label: string, value: string | number, currency?: string, colorClass: string }) => (
@@ -125,7 +126,6 @@ export default function UserProfilePage() {
   }
   
   if (!userInfo) {
-      // This state should ideally not be reached due to the redirect
       return <div>لم يتم العثور على بيانات المستخدم.</div>;
   }
   
@@ -152,60 +152,14 @@ export default function UserProfilePage() {
             <div className="lg:col-span-2 space-y-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle>سجل الحضور والرواتب</CardTitle>
-                        <CardDescription>ملخص الحضور والغياب والبيانات المالية المتعلقة بالراتب.</CardDescription>
+                        <CardTitle>الصلاحيات الممنوحة</CardTitle>
+                        <CardDescription>قائمة بالصلاحيات التي يمكنك الوصول إليها في النظام بناءً على دورك.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>الشهر</TableHead>
-                                        <TableHead><Calendar className="h-4 w-4 inline-block me-1"/> أيام الدوام الفعلية</TableHead>
-                                        <TableHead><Frown className="h-4 w-4 inline-block me-1"/> الغيابات</TableHead>
-                                        <TableHead><Coffee className="h-4 w-4 inline-block me-1"/> الإجازات</TableHead>
-                                        <TableHead><Clock className="h-4 w-4 inline-block me-1"/> ساعات إضافية</TableHead>
-                                        <TableHead><DollarSign className="h-4 w-4 inline-block me-1"/> الخصومات</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {attendanceData.map(log => (
-                                        <TableRow key={log.month}>
-                                            <TableCell className="font-semibold">{log.month}</TableCell>
-                                            <TableCell>{log.actualWorkDays} / {log.officialWorkDays}</TableCell>
-                                            <TableCell className={log.absences > 0 ? 'text-destructive font-bold' : ''}>{log.absences}</TableCell>
-                                            <TableCell>{log.vacations}</TableCell>
-                                            <TableCell className={log.overtimeHours > 0 ? 'text-green-600 font-bold' : ''}>{log.overtimeHours}</TableCell>
-                                            <TableCell className={log.deductions > 0 ? 'text-destructive font-bold' : ''}>{log.deductions}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                         <Card className="mt-4 bg-muted/30">
-                            <CardHeader><CardTitle className="text-base">ملخص الراتب</CardTitle></CardHeader>
-                            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                                <div className="p-2">
-                                    <p className="text-sm text-muted-foreground">الراتب الأساسي</p>
-                                    <p className="font-bold text-lg">{salaryData.baseSalary} $</p>
-                                </div>
-                                <div className="p-2">
-                                    <p className="text-sm text-muted-foreground">المكافآت والحوافز</p>
-                                    <p className="font-bold text-lg text-green-600">{salaryData.bonuses} $</p>
-                                </div>
-                                <div className="p-2">
-                                    <p className="text-sm text-muted-foreground">إجمالي الخصومات</p>
-                                    <p className="font-bold text-lg text-destructive">{salaryData.deductions} $</p>
-                                </div>
-                                <div className="p-2 bg-primary/10 rounded-lg">
-                                    <p className="text-sm font-semibold text-primary">الراتب المستحق</p>
-                                    <p className="font-bold text-xl text-primary">{salaryData.baseSalary - salaryData.deductions + salaryData.bonuses} $</p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <UserPermissions user={userInfo} />
                     </CardContent>
                 </Card>
-                <Card>
+                 <Card>
                     <CardHeader>
                         <CardTitle>النشاط العام</CardTitle>
                         <CardDescription>عدد العمليات التي قمت بها خلال الأشهر الماضية.</CardDescription>
@@ -265,5 +219,3 @@ export default function UserProfilePage() {
     </div>
   );
 }
-
-    
