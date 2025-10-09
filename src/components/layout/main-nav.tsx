@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from "react";
@@ -59,7 +58,7 @@ import {
     ScanSearch,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
+import NewStandardReceiptDialog from "@/components/vouchers/components/new-standard-receipt-dialog";
 import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
 import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
 import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
@@ -164,6 +163,7 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
         );
     }
     
+
     return (
         <div className="flex flex-col gap-1 p-2">
             {canCreate && createButtons.map(({ Dialog, label, icon: Icon }) => (

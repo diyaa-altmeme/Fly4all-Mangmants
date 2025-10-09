@@ -13,7 +13,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { createSession } from "@/lib/auth/actions";
-import { useAuth } from "@/lib/auth-context";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -22,7 +21,6 @@ export default function LoginForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const { user: authUser, loading: authLoading } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,11 +28,9 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      // Step 1: Sign in with Firebase client SDK
       const userCred = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await userCred.user.getIdToken();
 
-      // Step 2: Call the server action to create a session cookie and get user data
       const sessionResult = await createSession(idToken);
       
       if (!sessionResult.success || !sessionResult.user) {
@@ -43,12 +39,11 @@ export default function LoginForm() {
 
       toast({ description: "تم تسجيل الدخول بنجاح! جاري التوجيه..." });
       
-      // Full page reload to ensure all contexts are updated correctly
       window.location.href = '/';
 
     } catch (err: any) {
       console.error("Login error:", err);
-      let friendlyMessage = err.message; 
+      let friendlyMessage = "حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى."; 
       
       if (err.code) {
         switch (err.code) {
@@ -65,9 +60,9 @@ export default function LoginForm() {
             case "auth/network-request-failed":
               friendlyMessage = "حدث خطأ في الشبكة. يرجى التحقق من اتصالك بالإنترنت.";
               break;
-            default:
-              friendlyMessage = "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى."
         }
+      } else if (err.message) {
+          friendlyMessage = err.message;
       }
 
       setError(friendlyMessage);

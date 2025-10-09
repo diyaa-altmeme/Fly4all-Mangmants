@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -13,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DataTable } from '@/app/users/components/users-table';
 import { getColumns, TransactionCard } from './transactions-table-columns';
 import AddClientDialog from '@/app/clients/components/add-client-dialog';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { format, parseISO } from 'date-fns';
 import ChangeAvatarDialog from '../auth/change-avatar-dialog';
 
