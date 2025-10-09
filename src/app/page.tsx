@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Preloader from "@/components/layout/preloader";
 
 export default function HomePage() {
@@ -10,13 +10,18 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Let the MainLayout handle redirection. This page is just a loading entrypoint.
+    // AuthProvider shows a preloader, so we just handle the redirection logic here.
     if (loading) {
       return; 
     }
 
     if (user) {
-      router.replace("/dashboard");
+      // If the user is a client, redirect them to their specific client page.
+      if ('isClient' in user && user.isClient) {
+          router.replace(`/clients/${user.id}`);
+      } else {
+          router.replace("/dashboard");
+      }
     } else {
       router.replace("/auth/login");
     }

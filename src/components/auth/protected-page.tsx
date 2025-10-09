@@ -3,9 +3,8 @@
 import React from 'react';
 import { useAuth } from '@/lib/auth-context';
 import type { PERMISSIONS } from '@/lib/permissions';
-import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
-import Preloader from '../layout/preloader';
 
 interface ProtectedPageProps {
   permission: keyof typeof PERMISSIONS;
@@ -22,11 +21,9 @@ const AccessDenied = () => (
 );
 
 const ProtectedPage: React.FC<ProtectedPageProps> = ({ permission, children }) => {
-  const { hasPermission, loading, user } = useAuth();
+  const { hasPermission, loading } = useAuth();
 
-  if (loading || !user) {
-    // AuthProvider is responsible for the main Preloader.
-    // If for some reason this component renders while loading, show a skeleton.
+  if (loading) {
     return (
         <div className="space-y-4">
             <Skeleton className="h-10 w-1/4" />
