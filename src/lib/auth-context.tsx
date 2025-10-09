@@ -9,6 +9,7 @@ import { PERMISSIONS } from "./permissions";
 import type { User, Client } from '@/lib/types';
 import Preloader from "@/components/layout/preloader";
 import { getCurrentUserFromSession, clearSession } from "./auth/actions";
+import { useRouter, usePathname } from "next/navigation";
 
 type AppUser = (User & { permissions: (keyof typeof PERMISSIONS)[] }) | (Client & { isClient: true, permissions: (keyof typeof PERMISSIONS)[] });
 
@@ -29,9 +30,11 @@ const AuthContext = createContext<AuthContextType>({
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
 
   const verifySession = useCallback(async () => {
-    setLoading(true);
+    // No need to set loading true here, it's true by default and on signOut
     try {
       const currentUser = await getCurrentUserFromSession();
       setUser(currentUser);
@@ -48,26 +51,49 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [verifySession]);
 
   const signOut = async () => {
+    setLoading(true);
     try {
-      await firebaseSignOut(auth); // Sign out from client-side Firebase Auth
-      await clearSession();       // Clear the server-side session cookie
+      await firebaseSignOut(auth);
+      await clearSession();
       setUser(null);
+      router.push('/auth/login');
     } catch (error) {
       console.error("خطأ في تسجيل الخروج:", error);
+    } finally {
+        // We might not set loading to false here, as the redirect will trigger a re-render
     }
   };
 
   const hasPermission = (permission: keyof typeof PERMISSIONS): boolean => {
     if (!user) return false;
-    // Admins have all permissions implicitly
+    
+    // Check if the user is a client (and not an employee/admin)
+    if ('isClient' in user && user.isClient) {
+        // Clients might have他们的 own specific set of permissions in the future
+        // For now, let's assume they have very limited access.
+        // A public permission allows anyone, including clients.
+        if (permission === 'public') return true;
+        return user.permissions?.includes(permission) || false;
+    }
+    
+    // Admins have all permissions
     if ('role' in user && user.role === 'admin') return true;
-    // For other users, check their permissions array
-    return user.permissions?.includes(permission) || false;
+    
+    // For other roles, check if the permission exists in their permissions array
+    if (user.permissions && Array.isArray(user.permissions)) {
+        // If a user has a broad permission, they get all sub-permissions
+        if (user.permissions.includes('reports:read:all') && permission.startsWith('reports:')) {
+            return true;
+        }
+        return user.permissions.includes(permission);
+    }
+    
+    return false;
   };
 
   return (
     <AuthContext.Provider value={{ user, loading, signOut, hasPermission }}>
-      {loading ? <Preloader /> : children}
+      {children}
     </AuthContext.Provider>
   );
 };
