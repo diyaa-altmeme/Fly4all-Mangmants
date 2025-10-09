@@ -1,29 +1,56 @@
+
 'use server';
 
-import { getAuth } from 'firebase-admin/auth';
+import { getAuthAdmin } from '@/lib/firebase-admin';
 import { getDb } from '@/lib/firebase-admin';
 import { cookies } from 'next/headers';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import type { User, Client } from '@/lib/types';
+import type { User, Client, Role } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/permissions';
 
 const SESSION_COOKIE_NAME = '__session';
 
 async function getSessionCookie() {
-    const cookieStore = cookies();
-    return cookieStore.get(SESSION_COOKIE_NAME);
+    try {
+        const cookieStore = cookies();
+        return cookieStore.get(SESSION_COOKIE_NAME);
+    } catch (error) {
+        console.log('Error reading cookies, probably running in a non-request context.');
+        return null;
+    }
 }
 
-export async function createSession(idToken: string) {
+export async function createSession(idToken: string): Promise<any> {
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await getAuth().createSessionCookie(idToken, { expiresIn });
-    await cookies().set(SESSION_COOKIE_NAME, sessionCookie, {
-        maxAge: expiresIn,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        sameSite: 'lax',
-    });
+    
+    try {
+        const auth = await getAuthAdmin();
+        const decodedIdToken = await auth.verifyIdToken(idToken);
+        
+        // Ensure user exists and is active before creating a session.
+        const userVerification = await verifyUserByEmail(decodedIdToken.email || '');
+        if (!userVerification.exists || userVerification.status !== 'active') {
+            throw new Error(userVerification.error || "User is not active or does not exist.");
+        }
+
+        const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
+        
+        cookies().set(SESSION_COOKIE_NAME, sessionCookie, {
+            maxAge: expiresIn,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            path: '/',
+            sameSite: 'lax',
+        });
+
+        // After setting the cookie, fetch the full user data to return to the client.
+        const userData = await getUserData(decodedIdToken.uid);
+        return { success: true, user: userData };
+
+    } catch (error: any) {
+        console.error("Error creating session:", error);
+        return { success: false, error: error.message };
+    }
 }
 
 export async function clearSession() {
@@ -31,27 +58,40 @@ export async function clearSession() {
 }
 
 const getUserData = async (uid: string): Promise<any | null> => {
-    const db = await getDb();
-    
-    const userDocRef = doc(db, 'users', uid);
-    const userDoc = await getDoc(userDocRef);
-    if (userDoc.exists()) {
-        const userData = userDoc.data();
-        // Fetch permissions for the user's role
-        const roleDoc = userData.role ? await doc(db, 'roles', userData.role).get() : null;
-        const permissions = roleDoc && roleDoc.exists() ? roleDoc.data()?.permissions : [];
-        return { ...userData, uid, permissions };
-    }
-    
-    // Check if it's a client login
-    const clientDocRef = doc(db, 'clients', uid);
-    const clientDoc = await getDoc(clientDocRef);
-    if (clientDoc.exists()) {
-        // For clients, permissions can be defined directly or based on a type
-        return { ...clientDoc.data(), id: uid, isClient: true, permissions: [] }; 
-    }
+    try {
+        const db = await getDb();
+        
+        const userDocRef = doc(db, 'users', uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+            const userData = userDoc.data() as User;
+            let permissions: string[] = [];
 
-    return null;
+            if (userData.role) {
+                if (userData.role === 'admin') {
+                    permissions = Object.keys(PERMISSIONS);
+                } else {
+                    const roleDocRef = doc(db, 'roles', userData.role);
+                    const roleDoc = await getDoc(roleDocRef);
+                    if (roleDoc.exists()) {
+                        permissions = (roleDoc.data() as Role).permissions || [];
+                    }
+                }
+            }
+            return { ...userData, uid, permissions };
+        }
+        
+        const clientDocRef = doc(db, 'clients', uid);
+        const clientDoc = await getDoc(clientDocRef);
+        if (clientDoc.exists()) {
+            return { ...clientDoc.data(), id: uid, isClient: true, permissions: [] }; 
+        }
+
+        return null;
+    } catch (error) {
+        console.error("Error fetching user data from Firestore:", error);
+        return null;
+    }
 }
 
 export async function getCurrentUserFromSession(): Promise<(User & { permissions: (keyof typeof PERMISSIONS)[] }) | (Client & { isClient: true, permissions: (keyof typeof PERMISSIONS)[] }) | null> {
@@ -61,7 +101,8 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
     }
 
     try {
-        const decodedClaims = await getAuth().verifySessionCookie(sessionCookie.value, true);
+        const auth = await getAuthAdmin();
+        const decodedClaims = await auth.verifySessionCookie(sessionCookie.value, true);
         const userData = await getUserData(decodedClaims.uid);
         
         if (!userData) {
@@ -83,35 +124,27 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
 }
 
 
-export async function verifyUserByEmail(email: string): Promise<{ exists: boolean; type?: 'user' | 'client', error?: string, status?: string }> {
-    const db = await getDb();
-
+export async function verifyUserByEmail(email: string): Promise<{ exists: boolean; type?: 'user' | 'client', uid?: string, error?: string, status?: string }> {
     try {
-        // Check 'users' collection
+        const db = await getDb();
+
         const usersQuery = query(collection(db, "users"), where("email", "==", email));
         const usersSnapshot = await getDocs(usersQuery);
 
         if (!usersSnapshot.empty) {
-            const userDoc = usersSnapshot.docs[0].data();
-            if (userDoc.status !== 'active') {
-                return { exists: true, type: 'user', status: 'inactive', error: "هذا الحساب غير نشط. يرجى مراجعة المسؤول." };
-            }
-            return { exists: true, type: 'user', status: 'active' };
+            const userDoc = usersSnapshot.docs[0];
+            return { exists: true, type: 'user', uid: userDoc.id, status: userDoc.data().status || 'pending' };
         }
 
-        // Check 'clients' collection using loginIdentifier
         const clientsQuery = query(collection(db, "clients"), where("loginIdentifier", "==", email));
         const clientsSnapshot = await getDocs(clientsQuery);
         
         if (!clientsSnapshot.empty) {
-             const clientDoc = clientsSnapshot.docs[0].data();
-             if (clientDoc.status !== 'active') {
-                return { exists: true, type: 'client', status: 'inactive', error: "هذا الحساب غير نشط. يرجى مراجعة المسؤول." };
-            }
-            return { exists: true, type: 'client', status: 'active' };
+             const clientDoc = clientsSnapshot.docs[0];
+             return { exists: true, type: 'client', uid: clientDoc.id, status: clientDoc.data().status || 'inactive' };
         }
 
-        return { exists: false, error: "البريد الإلكتروني أو معرف الدخول غير مسجل." };
+        return { exists: false, error: "المستخدم غير مسجل في قاعدة البيانات." };
     } catch (error: any) {
         console.error("Error verifying user by email:", error);
         return { exists: false, error: "حدث خطأ أثناء التحقق من المستخدم." };
