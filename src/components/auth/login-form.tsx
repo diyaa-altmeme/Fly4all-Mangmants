@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -12,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Link from "next/link";
-import { createSession } from "@/lib/auth/actions";
+import { createSession, verifyUserByEmail } from "@/lib/auth/actions";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -28,12 +29,27 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      console.log("🔹 Attempting sign-in...");
+      // Step 1: Verify user existence and status on the server
+      console.log("🔹 Verifying user existence...");
+      const userVerification = await verifyUserByEmail(email);
+
+      if (!userVerification.exists) {
+        throw new Error(userVerification.error || "المستخدم غير موجود.");
+      }
       
+      if (userVerification.status !== 'active') {
+          throw new Error(userVerification.error || "الحساب غير نشط.");
+      }
+      
+      console.log(`✅ User exists and is active. Type: ${userVerification.type}`);
+
+      // Step 2: If user exists and is active, proceed with password authentication
+      console.log("🔹 Attempting sign-in with password...");
       const userCred = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await userCred.user.getIdToken();
       console.log("✅ Sign-in successful, got idToken.");
 
+      // Step 3: Create server-side session
       console.log("🔹 Creating session...");
       await createSession(idToken);
       
@@ -47,24 +63,28 @@ export default function LoginForm() {
 
     } catch (err: any) {
       console.error("❌ Login error:", err);
-      let friendlyMessage = "";
-      switch (err.code) {
-        case "auth/invalid-email":
-          friendlyMessage = "البريد الإلكتروني الذي أدخلته غير صالح.";
-          break;
-        case "auth/user-not-found":
-        case "auth/invalid-credential":
-        case "auth/wrong-password":
-          friendlyMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
-          break;
-        case "auth/too-many-requests":
-          friendlyMessage = "لقد حاولت تسجيل الدخول عدة مرات. يرجى المحاولة مرة أخرى لاحقًا.";
-          break;
-        case "auth/network-request-failed":
-          friendlyMessage = "حدث خطأ في الشبكة. يرجى التحقق من اتصالك بالإنترنت.";
-          break;
-        default:
-          friendlyMessage = "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.";
+      let friendlyMessage = err.message; // Use the message from our server-side check first
+
+      // Fallback to Firebase error codes if our check passed but Firebase failed
+      if (!friendlyMessage) {
+        switch (err.code) {
+            case "auth/invalid-email":
+            friendlyMessage = "البريد الإلكتروني الذي أدخلته غير صالح.";
+            break;
+            case "auth/user-not-found":
+            case "auth/invalid-credential":
+            case "auth/wrong-password":
+            friendlyMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
+            break;
+            case "auth/too-many-requests":
+            friendlyMessage = "لقد حاولت تسجيل الدخول عدة مرات. يرجى المحاولة مرة أخرى لاحقًا.";
+            break;
+            case "auth/network-request-failed":
+            friendlyMessage = "حدث خطأ في الشبكة. يرجى التحقق من اتصالك بالإنترنت.";
+            break;
+            default:
+            friendlyMessage = "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.";
+        }
       }
       setError(friendlyMessage);
     } finally {
@@ -84,10 +104,10 @@ export default function LoginForm() {
         <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Label htmlFor="email">البريد الإلكتروني أو معرف الدخول</Label>
                 <Input
                 id="email"
-                type="email"
+                type="text"
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
