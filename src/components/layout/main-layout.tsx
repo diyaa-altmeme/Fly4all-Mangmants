@@ -14,7 +14,7 @@ import NotificationCenter from "./notification-center";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import Preloader from './preloader';
 import { usePathname, useRouter } from 'next/navigation';
 import type { User, Client } from "@/lib/types";
