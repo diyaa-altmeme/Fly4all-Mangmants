@@ -24,11 +24,12 @@ import { searchClients } from "@/app/relations/actions"
 import { useVoucherNav } from "@/context/voucher-nav-context"
 import { Input } from "./input"
 import { Badge } from "./badge"
-import type { RelationType, CompanyPaymentType, Airport } from "@/lib/types"
+import type { RelationType, CompanyPaymentType, Airport, User } from "@/lib/types"
 
 type AutocompleteOption = {
     value: string;
     label: string;
+    email?: string;
     relationType?: RelationType;
     paymentType?: CompanyPaymentType;
     // For airport options
@@ -93,34 +94,36 @@ export function Autocomplete({ searchAction, options: staticOptions, value, onVa
   const { data: navData, loaded: navDataLoaded } = useVoucherNav();
   
   const baseOptions = React.useMemo(() => {
-    if (!navDataLoaded) return [];
+    if (!navDataLoaded && !staticOptions) return [];
 
-    let options: AutocompleteOption[] = [];
+    let options: AutocompleteOption[] = staticOptions || [];
     
     const createLabel = (c: any) => {
         return `${c.name}${c.code ? ` (${c.code})` : ''}`;
     };
 
-    switch(searchAction) {
-        case 'clients':
-            options = (navData.clients || []).filter(c => c.relationType === 'client' || c.relationType === 'both').map(c => ({ value: c.id, label: createLabel(c), relationType: c.relationType, paymentType: c.paymentType }));
-            break;
-        case 'suppliers':
-             options = (navData.suppliers || []).filter(c => c.relationType === 'supplier' || c.relationType === 'both').map(s => ({ value: s.id, label: createLabel(s), relationType: s.relationType, paymentType: s.paymentType }));
-            break;
-        case 'users':
-            options = (navData.users || []).map(u => ({ value: u.uid, label: u.name }));
-            break;
-        case 'boxes':
-            options = (navData.boxes || []).map(b => ({ value: b.id, label: b.name }));
-            break;
-        case 'all':
-        default:
-             options = [
-                ...(navData.clients || []).map(c => ({ value: c.id, label: createLabel(c), relationType: c.relationType, paymentType: c.paymentType })),
-                ...(navData.suppliers || []).map(s => ({ value: s.id, label: createLabel(s), relationType: s.relationType, paymentType: s.paymentType })),
-                ...(navData.boxes || []).map(b => ({ value: b.id, label: `صندوق: ${b.name}` })),
-            ]
+    if (navDataLoaded) {
+        switch(searchAction) {
+            case 'clients':
+                options = (navData.clients || []).filter(c => c.relationType === 'client' || c.relationType === 'both').map(c => ({ value: c.id, label: createLabel(c), relationType: c.relationType, paymentType: c.paymentType }));
+                break;
+            case 'suppliers':
+                 options = (navData.suppliers || []).filter(c => c.relationType === 'supplier' || c.relationType === 'both').map(s => ({ value: s.id, label: createLabel(s), relationType: s.relationType, paymentType: s.paymentType }));
+                break;
+            case 'users':
+                options = (navData.users || []).map(u => ({ value: u.uid, label: u.name, email: u.email }));
+                break;
+            case 'boxes':
+                options = (navData.boxes || []).map(b => ({ value: b.id, label: b.name }));
+                break;
+            case 'all':
+            default:
+                 options = [
+                    ...(navData.clients || []).map(c => ({ value: c.id, label: createLabel(c), relationType: c.relationType, paymentType: c.paymentType })),
+                    ...(navData.suppliers || []).map(s => ({ value: s.id, label: createLabel(s), relationType: s.relationType, paymentType: s.paymentType })),
+                    ...(navData.boxes || []).map(b => ({ value: b.id, label: `صندوق: ${b.name}` })),
+                ]
+        }
     }
     
     if (staticOptions) {
@@ -132,8 +135,9 @@ export function Autocomplete({ searchAction, options: staticOptions, value, onVa
 
 
   const selectedOption = React.useMemo(() => {
-    return baseOptions.find((option) => option?.value === value)
-  }, [baseOptions, value]);
+    const allOptions = staticOptions || baseOptions;
+    return allOptions.find((option) => option?.value === value)
+  }, [baseOptions, staticOptions, value]);
 
   const handleSelect = (currentValue: string) => {
     const selected = optionsToDisplay.find(opt => opt.value.toLowerCase() === currentValue.toLowerCase());
@@ -145,18 +149,20 @@ export function Autocomplete({ searchAction, options: staticOptions, value, onVa
   const optionsToDisplay = React.useMemo(() => {
     if (!inputValue) {
         setPage(0);
-        return baseOptions;
+        return staticOptions || baseOptions;
     }
     const lowercasedInput = inputValue.toLowerCase();
-    const filtered = baseOptions.filter(option => 
+    const allOptions = staticOptions || baseOptions;
+    const filtered = allOptions.filter(option => 
       option.label.toLowerCase().includes(lowercasedInput) ||
       (option.arabicName && option.arabicName.toLowerCase().includes(lowercasedInput)) ||
-      (option.city && option.city.toLowerCase().includes(lowercasedInput))
+      (option.city && option.city.toLowerCase().includes(lowercasedInput)) ||
+      (option.email && option.email.toLowerCase().includes(lowercasedInput))
     );
     setPage(0);
     return filtered;
 
-  }, [baseOptions, inputValue]);
+  }, [baseOptions, staticOptions, inputValue]);
   
   const paginatedOptions = React.useMemo(() => {
       const start = page * itemsPerPage;
@@ -262,5 +268,3 @@ export function Autocomplete({ searchAction, options: staticOptions, value, onVa
     </Popover>
   )
 }
-
-  
