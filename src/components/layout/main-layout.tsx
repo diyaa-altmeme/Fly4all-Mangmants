@@ -14,6 +14,13 @@ import NotificationCenter from "./notification-center";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useAuth } from '@/context/auth-context';
+import Preloader from './preloader';
+import { usePathname, useRouter } from 'next/navigation';
+import type { User, Client } from "@/lib/types";
+
+const publicRoutes = ['/auth/login', '/auth/forgot-password'];
+
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
@@ -81,5 +88,26 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+    const pathname = usePathname();
+
+    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+
+    React.useEffect(() => {
+      if (!loading && !user && !isPublicRoute) {
+        router.replace('/auth/login');
+      }
+    }, [user, loading, router, isPublicRoute, pathname]);
+    
+    if (loading || (!user && !isPublicRoute)) {
+        return <Preloader />;
+    }
+
+    if (user && !('role' in user)) {
+        // This is a client, render client layout (which is handled by page for now)
+        return <>{children}</>;
+    }
+
     return <AppLayout>{children}</AppLayout>;
 }
