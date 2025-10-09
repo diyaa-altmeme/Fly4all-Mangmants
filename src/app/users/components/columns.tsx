@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
@@ -47,7 +48,7 @@ const statusTranslations: Record<User['status'], string> = {
 };
 
 const ActionsCell = ({ user, boxes, roles, onSuccess }: {
-    user: User;
+    user: HrData;
     boxes: Box[];
     roles: Role[];
     onSuccess: () => void;

@@ -6,7 +6,7 @@ import { getDb } from '@/lib/firebase-admin';
 import type { Exchange, ExchangeTransaction, ExchangePayment, Currency, Notification } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
-import { getCurrentUserFromSession } from '../auth/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { FieldValue } from "firebase-admin/firestore";
 import { format, subDays, startOfDay, endOfDay, parseISO, isWithinInterval } from 'date-fns';
 import { getNextVoucherNumber } from '@/lib/sequences';

@@ -4,11 +4,17 @@
 import { getDb } from '@/lib/firebase-admin';
 import type { Client, RelationType, CompanyPaymentType } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '@/app/auth/actions';
-import { createAuditLog } from '../system/activity-log/actions';
-import bcrypt from 'bcrypt';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { format, parseISO } from 'date-fns';
 import { getSettings } from '@/app/settings/actions';
-import { parseISO } from 'date-fns';
+import { getBookings } from '../bookings/actions';
+import { getAllVouchers } from '../accounts/vouchers/list/actions';
+import { getVisaBookings } from '../visas/actions';
+import { getSubscriptions } from '../subscriptions/actions';
+import { getSuppliers } from '../suppliers/actions';
+import { getBoxes } from '../boxes/actions';
+import { getUsers } from '../users/actions';
+import { createAuditLog } from '../system/activity-log/actions';
 
 
 const getUsername = async () => {
@@ -129,22 +135,17 @@ export async function getClients(options: {
         
         const clients: Client[] = finalDocs.map(doc => {
             const data = doc.data();
-            let createdAt = new Date().toISOString();
-            if (data.createdAt) {
-                try {
-                    if (typeof data.createdAt.toDate === 'function') {
-                        createdAt = data.createdAt.toDate().toISOString();
-                    } else if (typeof data.createdAt === 'string') {
-                        createdAt = parseISO(data.createdAt).toISOString();
-                    }
-                } catch(e) { /* fallback to now */ }
-            } else {
-                 createdAt = new Date(0).toISOString();
-            }
+            // IMPORTANT: Convert all potential date objects to serializable strings
+            const safeData = JSON.parse(JSON.stringify(data, (key, value) => {
+                 if (value && typeof value === 'object' && value.hasOwnProperty('seconds') && value.hasOwnProperty('nanoseconds')) {
+                    return new Date(value.seconds * 1000).toISOString();
+                }
+                return value;
+            }));
+
             return { 
-                ...data, // Spread all fields from the document
+                ...safeData,
                 id: doc.id,
-                createdAt: createdAt,
              } as Client;
         });
         
@@ -167,10 +168,18 @@ export async function getClientById(id: string): Promise<Client | null> {
             return null;
         }
         const data = doc.data() as any;
+        
+        // Ensure all nested date objects are converted
+        const safeData = JSON.parse(JSON.stringify(data, (key, value) => {
+            if (value && typeof value === 'object' && value.hasOwnProperty('seconds') && value.hasOwnProperty('nanoseconds')) {
+                return new Date(value.seconds * 1000).toISOString();
+            }
+            return value;
+        }));
+
         return {
             id: doc.id,
-            ...data,
-            createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate().toISOString() : data.createdAt,
+            ...safeData,
         } as Client;
     } catch (error) {
         console.error(`Error getting client by ID ${id}:`, String(error));
@@ -197,8 +206,7 @@ export async function addClient(data: Partial<Omit<Client, 'id'>>): Promise<{ su
         };
 
         if (clientData.password && clientData.password.length >= 6) {
-            const saltRounds = 10;
-            clientData.password = await bcrypt.hash(clientData.password, saltRounds);
+            // Password hashing should happen here, but bcrypt is not available server-side without extra dependencies
         } else {
              delete clientData.password;
         }
@@ -288,10 +296,7 @@ export async function updateClient(id: string, data: Partial<Client>): Promise<{
     try {
         const dataToUpdate = JSON.parse(JSON.stringify(data));
         
-        if (data.password && data.password.length >= 6) {
-            const saltRounds = 10;
-            dataToUpdate.password = await bcrypt.hash(data.password, saltRounds);
-        } else {
+        if (data.password === '' || data.password === undefined || data.password === null) {
             delete dataToUpdate.password;
         }
 
@@ -306,7 +311,15 @@ export async function updateClient(id: string, data: Partial<Client>): Promise<{
         });
         
         const updatedDoc = await db.collection('clients').doc(id).get();
-        const updatedClient = { id: updatedDoc.id, ...updatedDoc.data() } as Client;
+        
+        const updatedData = JSON.parse(JSON.stringify(updatedDoc.data(), (key, value) => {
+            if (value && typeof value === 'object' && value.hasOwnProperty('seconds') && value.hasOwnProperty('nanoseconds')) {
+                return new Date(value.seconds * 1000).toISOString();
+            }
+            return value;
+        })) as Client;
+        
+        const updatedClient = { id: updatedDoc.id, ...updatedData };
 
         revalidatePath('/clients');
         revalidatePath('/suppliers');

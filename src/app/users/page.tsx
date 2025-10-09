@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -9,7 +10,8 @@ import UsersPageContent from './components/users-page-content';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
-import ProtectedPage from '@/components/auth/protected-page'; // استيراد المكون الجديد
+import ProtectedPage from '@/components/auth/protected-page';
+import { DateRange } from 'react-day-picker';
 
 function UsersPageContainer() {
     const [users, setUsers] = useState<HrData[]>([]);
@@ -18,11 +20,11 @@ function UsersPageContainer() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (dateRange?: DateRange) => {
         setLoading(true);
         try {
             const [usersData, boxesData, rolesData] = await Promise.all([
-                getUsers({ includeHrData: true, all: true }),
+                getUsers({ includeHrData: true, all: true, from: dateRange?.from, to: dateRange?.to }),
                 getBoxes(),
                 getRoles(),
             ]);
