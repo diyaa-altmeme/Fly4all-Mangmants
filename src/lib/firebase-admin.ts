@@ -1,5 +1,3 @@
-
-
 'use server'
 
 import { App, cert, getApp, getApps, initializeApp, ServiceAccount } from 'firebase-admin/app';
@@ -10,12 +8,9 @@ import { serviceAccount } from './firebase-service-account';
 
 // Holds the single initialized Firebase app instance.
 let firebaseAdminApp: App | null = null;
+let firebaseInitializationError: Error | null = null;
 
-async function getFirebaseAdminApp(): Promise<App> {
-    if (firebaseAdminApp) {
-        return firebaseAdminApp;
-    }
-
+async function initializeFirebaseAdminApp(): Promise<App> {
     // If an app is already initialized, use it.
     if (getApps().length > 0) {
         firebaseAdminApp = getApp();
@@ -37,13 +32,29 @@ async function getFirebaseAdminApp(): Promise<App> {
         return app;
     } catch (error: any) {
         console.error(`Failed to initialize Firebase Admin SDK: ${error.message}`);
+        firebaseInitializationError = error;
         throw new Error(`Firebase Admin SDK initialization failed: ${error.message}`);
     }
 }
 
-export async function getDb(): Promise<Firestore> {
-  const app = await getFirebaseAdminApp();
-  return getFirestore(app);
+async function getFirebaseAdminApp(): Promise<App> {
+    if (firebaseAdminApp) {
+        return firebaseAdminApp;
+    }
+    if (firebaseInitializationError) {
+        throw firebaseInitializationError;
+    }
+    return await initializeFirebaseAdminApp();
+}
+
+export async function getDb(): Promise<Firestore | null> {
+  try {
+    const app = await getFirebaseAdminApp();
+    return getFirestore(app);
+  } catch (error) {
+    console.error("Could not get Firestore instance due to initialization error.", error);
+    return null;
+  }
 }
 
 export async function getAuthAdmin(): Promise<Auth> {

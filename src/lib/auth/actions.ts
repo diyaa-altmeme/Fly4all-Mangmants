@@ -32,22 +32,21 @@ export async function clearSession() {
 
 const getUserData = async (uid: string): Promise<any | null> => {
     const db = await getDb();
+    if (!db) return null;
     
     const userDocRef = doc(db, 'users', uid);
     const userDoc = await getDoc(userDocRef);
     if (userDoc.exists()) {
         const userData = userDoc.data();
-        // Fetch permissions for the user's role
-        const roleDoc = userData.role ? await doc(db, 'roles', userData.role).get() : null;
-        const permissions = roleDoc && roleDoc.exists() ? roleDoc.data()?.permissions : [];
+        const roleDocRef = userData.role ? doc(db, 'roles', userData.role) : null;
+        const roleDoc = roleDocRef ? await getDoc(roleDocRef) : null;
+        const permissions = roleDoc?.exists() ? roleDoc.data()?.permissions : [];
         return { ...userData, uid, permissions };
     }
     
-    // Check if it's a client login
     const clientDocRef = doc(db, 'clients', uid);
     const clientDoc = await getDoc(clientDocRef);
     if (clientDoc.exists()) {
-        // For clients, permissions can be defined directly or based on a type
         return { ...clientDoc.data(), id: uid, isClient: true, permissions: [] }; 
     }
 
@@ -85,30 +84,33 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
 
 export async function verifyUserByEmail(email: string): Promise<{ exists: boolean; type?: 'user' | 'client', error?: string, status?: string }> {
     const db = await getDb();
+    if (!db) {
+        return { exists: false, error: 'فشل الاتصال بقاعدة البيانات.' };
+    }
 
     try {
-        // Check 'users' collection
         const usersQuery = query(collection(db, "users"), where("email", "==", email));
         const usersSnapshot = await getDocs(usersQuery);
 
         if (!usersSnapshot.empty) {
             const userDoc = usersSnapshot.docs[0].data();
-            if (userDoc.status !== 'active') {
-                return { exists: true, type: 'user', status: 'inactive', error: "هذا الحساب غير نشط. يرجى مراجعة المسؤول." };
-            }
-            return { exists: true, type: 'user', status: 'active' };
+            return { 
+                exists: true, 
+                type: 'user', 
+                status: userDoc.status || 'pending'
+            };
         }
 
-        // Check 'clients' collection using loginIdentifier
         const clientsQuery = query(collection(db, "clients"), where("loginIdentifier", "==", email));
         const clientsSnapshot = await getDocs(clientsQuery);
         
         if (!clientsSnapshot.empty) {
              const clientDoc = clientsSnapshot.docs[0].data();
-             if (clientDoc.status !== 'active') {
-                return { exists: true, type: 'client', status: 'inactive', error: "هذا الحساب غير نشط. يرجى مراجعة المسؤول." };
-            }
-            return { exists: true, type: 'client', status: 'active' };
+             return {
+                 exists: true,
+                 type: 'client',
+                 status: clientDoc.status || 'pending'
+             }
         }
 
         return { exists: false, error: "البريد الإلكتروني أو معرف الدخول غير مسجل." };

@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Link from "next/link";
 import { createSession, verifyUserByEmail } from "@/lib/auth/actions";
 
@@ -30,62 +29,51 @@ export default function LoginForm() {
 
     try {
       // Step 1: Verify user existence and status on the server
-      console.log("🔹 Verifying user existence...");
       const userVerification = await verifyUserByEmail(email);
 
-      if (!userVerification.exists) {
+      if (!userVerification.exists || userVerification.error) {
         throw new Error(userVerification.error || "المستخدم غير موجود.");
       }
       
       if (userVerification.status !== 'active') {
-          throw new Error(userVerification.error || "الحساب غير نشط.");
+          throw new Error("هذا الحساب غير نشط. يرجى مراجعة المسؤول.");
       }
-      
-      console.log(`✅ User exists and is active. Type: ${userVerification.type}`);
 
       // Step 2: If user exists and is active, proceed with password authentication
-      console.log("🔹 Attempting sign-in with password...");
       const userCred = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await userCred.user.getIdToken();
-      console.log("✅ Sign-in successful, got idToken.");
 
       // Step 3: Create server-side session
-      console.log("🔹 Creating session...");
       await createSession(idToken);
       
-      console.log("✅ Session created successfully.");
       toast({ description: "تم تسجيل الدخول بنجاح! جاري التوجيه..." });
       
       // We need to trigger a full page reload to re-evaluate server components
-      // and for the new session cookie to be picked up by server-side `useAuth`.
+      // and for the new session cookie to be picked up by server-side logic.
       router.push('/dashboard');
       router.refresh();
 
     } catch (err: any) {
-      console.error("❌ Login error:", err);
-      let friendlyMessage = err.message; // Use the message from our server-side check first
-
-      // Fallback to Firebase error codes if our check passed but Firebase failed
-      if (!friendlyMessage) {
-        switch (err.code) {
-            case "auth/invalid-email":
-            friendlyMessage = "البريد الإلكتروني الذي أدخلته غير صالح.";
-            break;
-            case "auth/user-not-found":
-            case "auth/invalid-credential":
-            case "auth/wrong-password":
+      console.error("Login error:", err);
+      // Use the message from our server-side check first, or fallback to firebase errors
+      let friendlyMessage = err.message; 
+      
+      switch (err.code) {
+          case "auth/invalid-credential":
+          case "auth/wrong-password":
             friendlyMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
             break;
-            case "auth/too-many-requests":
+          case "auth/user-not-found":
+             friendlyMessage = "المستخدم غير موجود.";
+             break;
+          case "auth/too-many-requests":
             friendlyMessage = "لقد حاولت تسجيل الدخول عدة مرات. يرجى المحاولة مرة أخرى لاحقًا.";
             break;
-            case "auth/network-request-failed":
+          case "auth/network-request-failed":
             friendlyMessage = "حدث خطأ في الشبكة. يرجى التحقق من اتصالك بالإنترنت.";
             break;
-            default:
-            friendlyMessage = "فشل تسجيل الدخول. يرجى المحاولة مرة أخرى.";
-        }
       }
+
       setError(friendlyMessage);
     } finally {
       setLoading(false);
