@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -202,3 +203,5 @@ export default function ClientsContent({ initialRelations, totalRelations, relat
         </Card>
     );
 }
+
+    
