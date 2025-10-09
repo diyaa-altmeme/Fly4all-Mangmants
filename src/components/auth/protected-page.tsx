@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context';
 import type { PERMISSIONS } from '@/lib/permissions';
 import { AlertTriangle, ShieldAlert } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
+import Preloader from '../layout/preloader';
 
 interface ProtectedPageProps {
   permission: keyof typeof PERMISSIONS;
@@ -23,17 +24,12 @@ const AccessDenied = () => (
 const ProtectedPage: React.FC<ProtectedPageProps> = ({ permission, children }) => {
   const { hasPermission, loading, user } = useAuth();
 
-  if (loading) {
-    // عرض هيكل عظمي أثناء تحميل بيانات المستخدم
-    return (
-      <div className="space-y-4 p-4">
-        <Skeleton className="h-10 w-1/4" />
-        <Skeleton className="h-80 w-full" />
-      </div>
-    );
+  if (loading || !user) {
+    // Show a preloader or skeleton while auth state is being determined.
+    return <Preloader />;
   }
 
-  if (!user || !hasPermission(permission)) {
+  if (!hasPermission(permission)) {
     return <AccessDenied />;
   }
 
