@@ -25,8 +25,14 @@ const ProtectedPage: React.FC<ProtectedPageProps> = ({ permission, children }) =
   const { hasPermission, loading, user } = useAuth();
 
   if (loading || !user) {
-    // Show a preloader or skeleton while auth state is being determined.
-    return <Preloader />;
+    // AuthProvider is responsible for the main Preloader.
+    // If for some reason this component renders while loading, show a skeleton.
+    return (
+        <div className="space-y-4">
+            <Skeleton className="h-10 w-1/4" />
+            <Skeleton className="h-64 w-full" />
+        </div>
+    );
   }
 
   if (!hasPermission(permission)) {

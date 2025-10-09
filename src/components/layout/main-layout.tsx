@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -17,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plane, CircleUserRound, Menu, LogOut, Loader2 } from "lucide-react";
+import { Plane, CircleUserRound, Menu, LogOut } from "lucide-react";
 import { MainNav } from "@/components/layout/main-nav";
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import Image from 'next/image';
@@ -30,9 +29,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAuth } from '@/lib/auth-context';
 import Preloader from './preloader';
-import { Skeleton } from "@/components/ui/skeleton";
-import ClientViewLayout from "@/app/clients/[id]/components/client-view-layout";
 import type { User, Client } from "@/lib/types";
+import ClientViewLayout from "@/app/clients/[id]/components/client-view-layout";
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
@@ -121,7 +119,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                             </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  ) : <Skeleton className="h-10 w-10 rounded-full" />}
+                  ) : null}
               </div>
               </header>
           <main className="flex-1 p-2 sm:p-4 md:p-6 bg-muted/40">{children}</main>
@@ -138,29 +136,27 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
     const publicRoutes = ['/auth/login', '/auth/forgot-password', '/register', '/setup-admin'];
     
-    // While the AuthProvider is loading, show a full-page preloader.
-    if (loading) {
-        return <Preloader />;
-    }
-
-    // If we are on a public route, just render the content.
+    // AuthProvider now shows a preloader, so we don't need another one here.
+    // We just need to handle redirection logic.
+    React.useEffect(() => {
+      if (!loading && !user && !publicRoutes.includes(pathname)) {
+        router.replace('/auth/login');
+      }
+    }, [user, loading, router, pathname, publicRoutes]);
+    
+    // If we're on a public route, just render the content without any layout.
     if (publicRoutes.includes(pathname)) {
         return <>{children}</>;
     }
     
-    // If we're on a protected route and not loading, but there's no user, redirect.
-    if (!user) {
-        React.useEffect(() => {
-            router.replace('/auth/login');
-        }, [router]);
-        return <Preloader />; // Show preloader while redirecting
+    // If a user is logged in, decide which layout to show.
+    if (user) {
+        if ('isClient' in user && user.isClient) {
+            return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
+        }
+        return <AppLayout>{children}</AppLayout>;
     }
 
-    // User is authenticated, determine which layout to render.
-    if ('isClient' in user && user.isClient) {
-        return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
-    }
-    
-    // Authenticated employee/admin uses the main AppLayout
-    return <AppLayout>{children}</AppLayout>;
+    // If no user and not a public route, show preloader while redirecting.
+    return <Preloader />;
 }

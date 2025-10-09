@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
@@ -11,7 +10,10 @@ export default function HomePage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (loading) return; 
+    // Let the MainLayout handle redirection. This page is just a loading entrypoint.
+    if (loading) {
+      return; 
+    }
 
     if (user) {
       router.replace("/dashboard");
