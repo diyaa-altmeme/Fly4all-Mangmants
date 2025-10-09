@@ -37,25 +37,30 @@ export async function clearSession() {
 }
 
 const getUserData = async (uid: string): Promise<any | null> => {
-    const db = await getDb();
-    
-    const userDocRef = doc(db, 'users', uid);
-    const userDoc = await getDoc(userDocRef);
-    if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const roleDocRef = userData.role ? doc(db, 'roles', userData.role) : null;
-        const roleDoc = roleDocRef ? await getDoc(roleDocRef) : null;
-        const permissions = roleDoc?.exists() ? roleDoc.data()?.permissions : [];
-        return { ...userData, uid, permissions };
-    }
-    
-    const clientDocRef = doc(db, 'clients', uid);
-    const clientDoc = await getDoc(clientDocRef);
-    if (clientDoc.exists()) {
-        return { ...clientDoc.data(), id: uid, isClient: true, permissions: [] }; 
-    }
+    try {
+        const db = await getDb();
+        
+        const userDocRef = doc(db, 'users', uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const roleDocRef = userData.role ? doc(db, 'roles', userData.role) : null;
+            const roleDoc = roleDocRef ? await getDoc(roleDocRef) : null;
+            const permissions = roleDoc?.exists() ? roleDoc.data()?.permissions : [];
+            return { ...userData, uid, permissions };
+        }
+        
+        const clientDocRef = doc(db, 'clients', uid);
+        const clientDoc = await getDoc(clientDocRef);
+        if (clientDoc.exists()) {
+            return { ...clientDoc.data(), id: uid, isClient: true, permissions: [] }; 
+        }
 
-    return null;
+        return null;
+    } catch (error) {
+        console.error("Error fetching user data from Firestore:", error);
+        return null;
+    }
 }
 
 export async function getCurrentUserFromSession(): Promise<(User & { permissions: (keyof typeof PERMISSIONS)[] }) | (Client & { isClient: true, permissions: (keyof typeof PERMISSIONS)[] }) | null> {

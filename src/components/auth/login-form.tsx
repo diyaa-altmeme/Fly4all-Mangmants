@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ export default function LoginForm() {
       // Step 1: Verify user existence and status on the server
       const userVerification = await verifyUserByEmail(email);
 
-      if (!userVerification.exists || userVerification.error) {
+      if (!userVerification || !userVerification.exists) {
         throw new Error(userVerification.error || "المستخدم غير موجود.");
       }
       
@@ -48,7 +48,7 @@ export default function LoginForm() {
       
       toast({ description: "تم تسجيل الدخول بنجاح! جاري التوجيه..." });
       
-      // We need to trigger a full page reload to re-evaluate server components
+      // Full page reload to re-evaluate server components
       // and for the new session cookie to be picked up by server-side logic.
       router.push('/dashboard');
       router.refresh();
