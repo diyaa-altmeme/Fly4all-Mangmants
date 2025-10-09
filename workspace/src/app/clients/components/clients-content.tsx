@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -8,7 +7,7 @@ import AddClientDialog from '@/app/clients/components/add-client-dialog';
 import ClientsTable from './clients-table';
 import { Button } from '@/components/ui/button';
 import { LayoutGrid, List, Download, X, Trash2, Loader2, Filter, Settings, PlusCircle, Check } from 'lucide-react';
-import ClientCard from './client-card';
+import ClientCard from '@/components/clients/components/client-card';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
