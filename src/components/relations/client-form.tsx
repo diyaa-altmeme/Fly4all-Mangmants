@@ -267,7 +267,7 @@ export default function ClientForm({
 
     const form = useForm<z.infer<typeof dynamicSchema>>({
         resolver: zodResolver(dynamicSchema),
-        values: isEditing ? initialData : { type: 'individual' } as any,
+        values: isEditing ? initialData : { type: 'individual', status: 'active' } as any,
     });
     
     useEffect(() => {
@@ -364,15 +364,17 @@ export default function ClientForm({
             title: `جاري ${isEditing ? 'تحديث' : 'إضافة'} الحساب...`,
             description: "سيتم إغلاق النافذة.",
         });
-        onSuccess(values as Client);
-
+        
         try {
+            let result;
             if (isEditing && initialData) {
-                const result = await updateClient(initialData.id, values);
+                result = await updateClient(initialData.id, values);
                 if (!result.success) throw new Error(result.error);
+                if (result.updatedClient) onSuccess(result.updatedClient);
             } else {
-                const result = await addClient(values);
+                result = await addClient(values);
                 if (!result.success) throw new Error(result.error);
+                if (result.client) onSuccess(result.client);
             }
 
             actionToast.update({
@@ -426,7 +428,7 @@ export default function ClientForm({
                      {isEditingLayout && section.deletable && (
                         <Button type="button" variant="outline" size="sm" onClick={() => handleAddField(sectionIndex)}>
                             <PlusCircle className="me-2 h-4 w-4"/>
-                            إضافة حقل جديد
+                            إضافة حقل جديد لهذا القسم
                         </Button>
                     )}
                 </CardContent>
