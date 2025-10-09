@@ -4,7 +4,7 @@
 import { getDb } from "@/lib/firebase-admin";
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
-import { getNextVoucherNumber from "@/lib/sequences";
+import { getNextVoucherNumber } from "@/lib/sequences";
 import { FieldValue } from "firebase-admin/firestore";
 import { createAuditLog } from "@/app/system/activity-log/actions";
 
