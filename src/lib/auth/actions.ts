@@ -28,8 +28,8 @@ export async function createSession(idToken: string): Promise<any> {
         
         // Ensure user exists and is active before creating a session.
         const userVerification = await verifyUserByEmail(decodedIdToken.email || '');
-        if (!userVerification.exists || userVerification.error) {
-          throw new Error(userVerification.error || "المستخدم غير موجود.");
+        if (!userVerification.exists) {
+          throw new Error(userVerification.error || "المستخدم غير موجود أو بيانات الدخول غير صحيحة.");
         }
       
         if (userVerification.status !== 'active') {
