@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -25,9 +24,10 @@ export function LoginForm() {
   useEffect(() => {
     async function fetchUsers() {
       try {
+        setLoadingUsers(true);
         const response = await fetch('/api/users');
         if (!response.ok) {
-          throw new Error('Failed to fetch users');
+          throw new Error('فشل في تحميل قائمة المستخدمين');
         }
         const fetchedUsers = await response.json();
         setUsers(fetchedUsers);
@@ -44,6 +44,7 @@ export function LoginForm() {
     users.map(user => ({
       value: user.uid,
       label: user.name,
+      email: user.email,
     })), 
   [users]);
 
