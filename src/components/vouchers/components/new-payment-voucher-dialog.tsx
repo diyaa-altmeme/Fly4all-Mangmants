@@ -15,7 +15,7 @@ import NewPaymentVoucherForm from '@/app/accounts/vouchers/components/new-paymen
 import { cn } from '@/lib/utils';
 import { Settings2, Loader2 } from 'lucide-react';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
+import VoucherDialogSettings from './voucher-dialog-settings';
 
 
 interface NewPaymentVoucherDialogProps {
@@ -39,7 +39,7 @@ export default function NewPaymentVoucherDialog({ onVoucherAdded, children }: Ne
 
    useEffect(() => {
     if(navData?.settings.currencySettings?.defaultCurrency) {
-        setCurrency(navData.settings.currencySettings.defaultCurrency);
+        setCurrency(navData.settings.currencySettings.defaultCurrency as Currency);
     }
   }, [navData]);
 

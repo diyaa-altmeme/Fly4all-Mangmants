@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Settings2, Loader2 } from 'lucide-react';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
+import VoucherDialogSettings from './voucher-dialog-settings';
 
 
 interface NewJournalVoucherDialogProps {
@@ -30,7 +30,7 @@ export default function NewJournalVoucherDialog({ onVoucherAdded, children }: Ne
   const [dialogDimensions, setDialogDimensions] = useState({ width: '896px', height: '80vh' });
   
   const defaultCurrency = navData?.settings.currencySettings?.defaultCurrency || 'IQD';
-  const [currency, setCurrency] = useState<Currency>(defaultCurrency);
+  const [currency, setCurrency] = useState<Currency>(defaultCurrency as Currency);
 
   useEffect(() => {
     if (open && !isDataLoaded) {
@@ -40,7 +40,7 @@ export default function NewJournalVoucherDialog({ onVoucherAdded, children }: Ne
 
    useEffect(() => {
     if(navData?.settings.currencySettings?.defaultCurrency) {
-        setCurrency(navData.settings.currencySettings.defaultCurrency);
+        setCurrency(navData.settings.currencySettings.defaultCurrency as Currency);
     }
   }, [navData]);
 
@@ -98,3 +98,5 @@ export default function NewJournalVoucherDialog({ onVoucherAdded, children }: Ne
     </Dialog>
   );
 }
+
+    

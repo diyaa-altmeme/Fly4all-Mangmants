@@ -58,11 +58,11 @@ import {
     ScanSearch,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
-import NewStandardReceiptDialog from "@/components/vouchers/components/new-standard-receipt-dialog";
-import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
-import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
-import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
-import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
+import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
+import NewDistributedReceiptDialog from "@/app/accounts/vouchers/components/new-distributed-receipt-dialog";
+import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-payment-voucher-dialog";
+import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
+import NewJournalVoucherDialog from "@/app/accounts/vouchers/components/new-journal-voucher-dialog";
 import AddClientDialog from "@/app/clients/components/add-client-dialog";
 import { DropdownMenuSeparator, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -167,11 +167,15 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
     return (
         <div className="flex flex-col gap-1 p-2">
             {canCreate && createButtons.map(({ Dialog, label, icon: Icon }) => (
-                 <Dialog key={label} onVoucherAdded={onDataChanged}>
-                     <Button variant="ghost" className="justify-between gap-2 w-full">
-                        <span>{label}</span>
-                        <Icon className="h-4 w-4" />
-                    </Button>
+                 <Dialog key={label}>
+                    <DialogTrigger asChild>
+                         <Button variant="ghost" className="justify-between gap-2 w-full">
+                            <span>{label}</span>
+                            <Icon className="h-4 w-4" />
+                        </Button>
+                    </DialogTrigger>
+                    {/* The content is now inside the dialog component itself */}
+                    <Dialog onVoucherAdded={onDataChanged} />
                 </Dialog>
             ))}
             {(canCreate && visibleMenuItems.length > 0) && <DropdownMenuSeparator />}

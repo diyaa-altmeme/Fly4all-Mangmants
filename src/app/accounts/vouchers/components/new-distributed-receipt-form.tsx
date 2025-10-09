@@ -27,7 +27,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { useVoucherNav } from "@/context/voucher-nav-context";
-import { useAuth } from "@/context/auth-context";
+import { useAuth } from "@/lib/auth-context";
 
 
 const AmountInput = ({ currency, className, ...props }: { currency: Currency, className?: string } & React.ComponentProps<typeof NumericInput>) => (
@@ -234,8 +234,3 @@ export default function NewDistributedReceiptForm({
     </Form>
   );
 }
-
-    
-
-    
-
