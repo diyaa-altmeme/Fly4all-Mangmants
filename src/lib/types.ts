@@ -145,6 +145,27 @@ export type AttendanceLog = {
 };
 
 
+// ============== AUTH TYPES ==============
+export type UserRole = 'admin' | 'editor' | 'viewer' | 'accountant';
+
+// This should align with the keys in PERMISSIONS object in `src/lib/permissions.ts`
+export type Permission = 
+  | 'dashboard:read'
+  | 'bookings:read' | 'bookings:create' | 'bookings:update' | 'bookings:delete' | 'bookings:operations'
+  | 'visas:read' | 'visas:create' | 'visas:update' | 'visas:delete'
+  | 'subscriptions:read' | 'subscriptions:create' | 'subscriptions:update' | 'subscriptions:delete' | 'subscriptions:payments'
+  | 'vouchers:read' | 'vouchers:create' | 'vouchers:update' | 'vouchers:delete'
+  | 'remittances:read' | 'remittances:create' | 'remittances:audit' | 'remittances:receive'
+  | 'segments:read' | 'segments:create' | 'segments:update' | 'segments:delete'
+  | 'relations:read' | 'relations:create' | 'relations:update' | 'relations:delete' | 'relations:credentials'
+  | 'users:read' | 'users:create' | 'users:update' | 'users:delete' | 'users:permissions'
+  | 'hr:read' | 'hr:update'
+  | 'reports:read:all' | 'reports:account_statement' | 'reports:debts' | 'reports:profits' | 'reports:flight_analysis'
+  | 'settings:read' | 'settings:update'
+  | 'system:audit_log:read' | 'system:error_log:read' | 'system:data_audit:run'
+  | 'admin' // A wildcard for all permissions
+  | 'public'; // A permission everyone has
+
 export type User = {
     uid: string;
     name: string;
@@ -154,9 +175,9 @@ export type User = {
     password?: string;
     avatarUrl?: string;
     status: 'pending' | 'active' | 'rejected' | 'blocked';
-    requestedAt: string; // ISO String
+    requestedAt?: string; // ISO String
     lastLogin?: string; // ISO String
-    role: string; // This will now be Role ID
+    role: string; // This will be Role ID
     department?: string;
     position?: string;
     boxId?: string;
@@ -176,12 +197,14 @@ export type User = {
     permissions?: string[];
     preferences?: {
       dialogSettings?: {
-        bookingDialog?: {
-          step1: { width: string, height: string },
-          step2: { width: string, height: string },
-        }
+        [key: string]: { width: string, height: string }
       }
     }
+};
+
+export type HrData = User & {
+    calculatedTotalProfit: number;
+    calculatedNetSalary: number;
 };
 
 export type Role = {
@@ -190,6 +213,8 @@ export type Role = {
     description: string;
     permissions: string[];
 };
+// ======================================
+
 
 export type Mastercard = {
     id: string;
@@ -346,8 +371,8 @@ export type SegmentEntry = {
   partnerShare: number;
 
   // The settings used for this calculation
-  clientSettingsUsed: SegmentSettings;
-  partnerSettingsUsed: PartnerShareSetting;
+  clientSettingsUsed?: SegmentSettings;
+  partnerSettingsUsed?: PartnerShareSetting;
 };
 
 export type RemittanceDistributionColumn = {
@@ -457,6 +482,7 @@ export type VoucherSettings = {
   standard?: VoucherTypeSettings;
   expenseAccounts?: { id: string; name: string }[];
   subscriptionSettings?: SubscriptionSettings;
+  listSettings?: VoucherListSettings;
 };
 
 export type InvoiceSequenceSettings = {
@@ -1239,4 +1265,13 @@ export type FirebaseConfig = {
     isActive: boolean;
 };
 
-    
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  user?: User;
+  error?: string;
+}
