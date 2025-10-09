@@ -7,9 +7,12 @@ import { format, isValid } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
 const AnalogClock = () => {
-    const [time, setTime] = useState(new Date());
+    const [time, setTime] = useState<Date | null>(null);
 
     useEffect(() => {
+        // Set the initial time on the client to avoid hydration mismatch
+        setTime(new Date());
+
         const timerId = setInterval(() => {
             setTime(new Date());
         }, 1000);
@@ -18,6 +21,17 @@ const AnalogClock = () => {
             clearInterval(timerId);
         };
     }, []);
+
+    if (!time) {
+        // Render a placeholder or null on the server and initial client render
+        return (
+             <div className="w-full h-full min-h-[160px] flex flex-col items-center justify-center p-4 bg-card rounded-xl border">
+                <div className="relative w-40 h-40 border-4 border-primary rounded-full flex items-center justify-center shadow-lg bg-gradient-radial from-background to-primary/10">
+                     {/* Placeholder content or a loader */}
+                </div>
+             </div>
+        );
+    }
 
     const hours = time.getHours();
     const minutes = time.getMinutes();
@@ -82,5 +96,3 @@ const AnalogClock = () => {
 };
 
 export default AnalogClock;
-
-    
