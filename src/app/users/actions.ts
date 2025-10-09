@@ -23,10 +23,10 @@ const processDoc = (docData: any): any => {
 };
 
 export async function getUsers({ includeHrData = false, all = false, from, to }: { includeHrData?: boolean, all?: boolean, from?: Date, to?: Date } = {}): Promise<HrData[]> {
-    const db = await getDb();
-    const auth = await getAuth();
-    
     try {
+        const db = await getDb();
+        const auth = getAuth();
+        
         const [userRecords, firestoreUsersSnap] = await Promise.all([
             auth.listUsers(),
             db.collection('users').get()
