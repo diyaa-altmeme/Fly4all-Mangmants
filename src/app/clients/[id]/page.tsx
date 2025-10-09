@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from 'react';
@@ -9,7 +8,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Terminal, Loader2 } from 'lucide-react';
 import ClientProfileContent from './components/profile-content';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import type { Client, ClientTransactionSummary } from '@/lib/types';
 
 
