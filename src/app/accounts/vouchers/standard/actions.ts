@@ -1,13 +1,13 @@
 
 'use server';
 
-import { getDb from "@/lib/firebase-admin";
+import { getDb } from "@/lib/firebase-admin";
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
-import { revalidatePath from "next/cache";
-import { getNextVoucherNumber from "@/lib/sequences";
-import { createNotification from "@/app/notifications/actions";
-import { FieldValue from "firebase-admin/firestore";
-import { createAuditLog from "@/app/system/activity-log/actions";
+import { revalidatePath } from "next/cache";
+import { getNextVoucherNumber } from "@/lib/sequences";
+import { createNotification } from "@/app/notifications/actions";
+import { FieldValue } from "firebase-admin/firestore";
+import { createAuditLog } from "@/app/system/activity-log/actions";
 
 interface StandardReceiptData {
     date: string;
@@ -99,5 +99,3 @@ export async function createStandardReceipt(data: StandardReceiptData) {
         return { success: false, error: error.message };
     }
 }
-
-    
