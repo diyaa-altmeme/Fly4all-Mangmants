@@ -1,157 +1,89 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- الدوال المساعدة للتحقق من الصلاحيات ---
-
-    // دالة للتحقق مما إذا كان المستخدم مسجل دخوله
-    function isSignedIn() {
+    function isAuthenticated() {
       return request.auth != null;
     }
 
-    // دالة للتحقق من ملكية المستند
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // دالة لجلب بيانات المستخدم مع تخزين مؤقت لكل طلب
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    // دالة للتحقق من صلاحية معينة للمستخدم الحالي
     function hasPermission(permission) {
       let userData = getUserData();
-      return userData.role == 'admin' || (permission in userData.permissions);
+      return userData.role == 'admin' || permission in userData.permissions;
     }
 
-    // --- قواعد المجموعات ---
-
-    // مجموعة المستخدمين (Users)
+    // --- Users Collection ---
+    // Allow unauthenticated read access to list users on the login page.
+    // Write access is still protected.
     match /users/{userId} {
-      // يمكن للمستخدم قراءة بياناته الخاصة، أو من يملك صلاحية عرض المستخدمين
-      allow read: if isSignedIn() && (isOwner(userId) || hasPermission('users:read'));
-      
-      // يمكن لمن يملك صلاحية تعديل المستخدمين تحديث بياناتهم (مثل تعديل الملف الشخصي)
-      // يمكن للمستخدم تحديث بياناته الخاصة فقط
-      allow update: if hasPermission('users:update') || isOwner(userId);
-      
-      // صلاحية إنشاء المستخدمين مخصصة للمدراء فقط
+      allow read: if true; 
       allow create: if hasPermission('users:create');
-
-      // لا يُسمح بحذف المستخدمين من جهة العميل
-      allow delete: if false;
+      allow update: if hasPermission('users:update');
+      allow delete: if false; // Deletion should be handled server-side for safety
     }
 
-    // مجموعة الأدوار والصلاحيات (Roles)
+    // --- Roles Collection ---
     match /roles/{roleId} {
       allow read, write: if hasPermission('users:permissions');
     }
 
-    // مجموعة السجلات المالية الموحدة (Journal Vouchers)
-    // تشمل الحجوزات، الفيزا، الاشتراكات، وكل السندات
+    // --- Journal Vouchers (Central Ledger) ---
     match /journal-vouchers/{voucherId} {
-      allow read: if hasPermission('vouchers:read') 
-                   || hasPermission('bookings:read') 
-                   || hasPermission('visas:read') 
-                   || hasPermission('subscriptions:read');
-                   
-      allow create: if hasPermission('vouchers:create') 
-                     || hasPermission('bookings:create') 
-                     || hasPermission('visas:create') 
-                     || hasPermission('subscriptions:create');
-                     
-      allow update: if hasPermission('vouchers:update')
-                     || hasPermission('bookings:update') 
-                     || hasPermission('visas:update') 
-                     || hasPermission('subscriptions:update');
-                     
-      allow delete: if hasPermission('vouchers:delete')
-                     || hasPermission('bookings:delete') 
-                     || hasPermission('visas:delete') 
-                     || hasPermission('subscriptions:delete');
+      allow read: if hasPermission('vouchers:read');
+      allow create: if hasPermission('vouchers:create');
+      allow update: if hasPermission('vouchers:update');
+      allow delete: if hasPermission('vouchers:delete');
     }
 
-    // مجموعات البيانات القديمة (للتوافقية، يجب حذفها لاحقاً)
-    match /bookings/{bookingId} { allow read, write: if hasPermission('bookings:read'); }
-    match /visaBookings/{visaId} { allow read, write: if hasPermission('visas:read'); }
-    match /subscriptions/{subId} { allow read, write: if hasPermission('subscriptions:read'); }
-    match /subscription_installments/{installmentId} { allow read, write: if hasPermission('subscriptions:payments'); }
-    match /payments/{paymentId} { allow read, write: if hasPermission('subscriptions:payments'); }
-    
-    // الحوالات (Remittances)
+    // --- Subscriptions and Installments ---
+    match /subscriptions/{subId} {
+      allow read: if hasPermission('subscriptions:read');
+      allow create: if hasPermission('subscriptions:create');
+      allow update: if hasPermission('subscriptions:update');
+      allow delete: if hasPermission('subscriptions:delete');
+    }
+    match /subscription_installments/{installmentId} {
+      allow read, write: if hasPermission('subscriptions:payments');
+    }
+    match /payments/{paymentId} {
+       allow read, create, update, delete: if hasPermission('subscriptions:payments');
+    }
+
+    // --- Remittances ---
     match /remittances/{remittanceId} {
       allow read: if hasPermission('remittances:read');
       allow create: if hasPermission('remittances:create');
       allow update: if hasPermission('remittances:audit') || hasPermission('remittances:receive');
-      allow delete: if false; // الحوالات لا تحذف من الواجهة
+      allow delete: if false;
     }
 
-    // العلاقات (العملاء والموردين)
-    match /clients/{clientId} {
-      allow read: if isSignedIn(); // أي مستخدم مسجل يمكنه قراءة بيانات العملاء للبحث والاختيار
+    // --- Relations (Clients/Suppliers) ---
+    match /clients/{relationId} {
+      allow read: if isAuthenticated(); // All authenticated users can see clients/suppliers
       allow create: if hasPermission('relations:create');
-      allow update: if hasPermission('relations:update') || isOwner(clientId); // يسمح للعميل بتحديث بياناته
+      allow update: if hasPermission('relations:update');
       allow delete: if hasPermission('relations:delete');
     }
-
-    // إعدادات النظام
-    match /settings/{docId} {
-      allow read: if hasPermission('settings:read');
+    
+    // --- Settings, Sequences, and Logs ---
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
       allow write: if hasPermission('settings:update');
     }
-    
-    // إعدادات تسلسل الفواتير
     match /sequences/{seqId} {
-        allow read, write: if hasPermission('settings:update');
+        allow read, write: if isAuthenticated(); // Allow server-side functions to update sequences
     }
-
-    // سجلات النظام
     match /audit_logs/{logId} {
-      allow read: if hasPermission('system:audit_log:read');
-      allow write: if hasPermission('system:data_audit:run');
+        allow read: if hasPermission('system:audit_log:read');
+        allow create: if isAuthenticated(); // Allow server actions to create logs
     }
     
-    // قوالب الرسائل
-    match /message_templates/{templateId} {
-        allow read: if isSignedIn();
-        allow write: if hasPermission('admin'); // أو صلاحية مخصصة
-    }
-
-    // إشعارات المستخدمين
-    match /notifications/{notificationId} {
-      // كل مستخدم يمكنه قراءة وتحديث (كتحديد مقروء) إشعاراته فقط
-      allow read, update: if isSignedIn() && resource.data.userId == request.auth.uid;
-      // لا يمكن للمستخدمين إنشاء أو حذف إشعارات مباشرة
-      allow create, delete: if false;
-    }
-    
-    // الصناديق
-    match /boxes/{boxId} {
-        allow read: if isSignedIn();
-        allow write: if hasPermission('admin');
-    }
-    
-    // البورصات (Exchanges)
-    match /exchanges/{exchangeId} {
-        allow read: if isSignedIn();
-        allow write: if hasPermission('admin');
-    }
-    match /exchange_transaction_batches/{batchId} { allow read, write: if isSignedIn(); }
-    match /exchange_payment_batches/{batchId} { allow read, write: if isSignedIn(); }
-    match /transactions/{txId} { allow read, write: if isSignedIn(); }
-    
-    // السكمنت
-    match /segments/{segmentId} {
-        allow read: if hasPermission('segments:read');
-        allow write: if hasPermission('segments:create') || hasPermission('segments:update');
-        allow delete: if hasPermission('segments:delete');
-    }
-
-    // القاعدة الافتراضية: رفض كل شيء لم يتم تحديده صراحةً
-    match /{document=**} {
+    // --- Fallback rule to deny all other access ---
+    match /{path=**} {
       allow read, write: if false;
     }
   }
