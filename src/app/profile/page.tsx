@@ -22,7 +22,7 @@ import { useRouter } from 'next/navigation';
 import UserFormDialog from "@/app/users/components/user-form-dialog";
 import { getBoxes } from "../boxes/actions";
 import { getRoles } from "../users/actions";
-import { useAuth } from "@/context/auth-context";
+import { useAuth } from "@/lib/auth-context";
 
 
 const StatCard = ({ icon: Icon, label, value, currency, colorClass }: { icon: React.ElementType, label: string, value: string | number, currency?: string, colorClass: string }) => (
@@ -265,3 +265,5 @@ export default function UserProfilePage() {
     </div>
   );
 }
+
+    

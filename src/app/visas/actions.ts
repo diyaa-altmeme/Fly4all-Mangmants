@@ -1,10 +1,11 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import type { VisaBookingEntry, JournalEntry, VisaPassenger } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '@/app/auth/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { format, parseISO } from 'date-fns';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getSettings } from '@/app/settings/actions';
@@ -337,7 +338,7 @@ export async function permanentDeleteVisaBooking(bookingId: string): Promise<{ s
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
      const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+    if (!user) return { success: false, error: "Unauthorized" };
 
     const batch = db.batch();
 
