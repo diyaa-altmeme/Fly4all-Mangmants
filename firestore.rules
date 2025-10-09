@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -5,43 +6,124 @@ service cloud.firestore {
 
     // --- الدالة المساعدة للتحقق من الصلاحية ---
     function hasPermission(permission) {
-      // 1. احصل على بيانات المستخدم من مجموعة 'users'.
-      // 2. تحقق مما إذا كانت قائمة صلاحيات المستخدم تحتوي على الصلاحية المطلوبة.
-      // ملاحظة: المدير (admin) لديه جميع الصلاحيات ضمنيًا.
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' 
-             || permission in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissions;
+      // تحميل بيانات المستخدم مرة واحدة فقط (تحسين الأداء)
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return user.role == 'admin' || permission in user.permissions;
     }
 
     // --- مجموعة المستخدمين (Users Collection) ---
     match /users/{userId} {
-      // يمكن للمستخدم قراءة بياناته الخاصة دائمًا.
-      allow read: if request.auth != null && request.auth.uid == userId;
-      // يمكن للمدير فقط إنشاء أو تعديل المستخدمين.
-      allow create, update: if hasPermission('users:update') || hasPermission('users:create');
-      // لا يمكن حذف المستخدمين من طرف العميل.
+      // يمكن للمستخدم قراءة بياناته الخاصة أو من لديه صلاحية users:read
+      allow read: if request.auth != null && (request.auth.uid == userId || hasPermission('users:read'));
+      
+      // يمكن لمن لديه صلاحية إنشاء/تعديل المستخدمين القيام بذلك
+      allow create: if hasPermission('users:create');
+      allow update: if hasPermission('users:update');
+      
+      // لا يمكن حذف المستخدمين نهائيًا من طرف العميل
       allow delete: if false;
     }
 
     // --- مجموعة الأدوار (Roles Collection) ---
     match /roles/{roleId} {
-        // يمكن لمن لديه صلاحية إدارة المستخدمين قراءة الأدوار.
-        allow read: if hasPermission('users:permissions');
-        // يمكن لمن لديه صلاحية إدارة الصلاحيات إنشاء/تعديل/حذف الأدوار.
-        allow write: if hasPermission('users:permissions');
+      allow read: if hasPermission('users:permissions');
+      allow create, update, delete: if hasPermission('users:permissions');
+    }
+
+    // --- الحجوزات (Bookings) - الآن جزء من journal-vouchers ---
+    // The specific booking logic is now handled by the generic voucher rule below
+    // and the voucherType check within server-side logic.
+    
+    // --- طلبات الفيزا (Visas) ---
+    match /visaBookings/{visaId} {
+      allow read: if hasPermission('visas:read');
+      allow create: if hasPermission('visas:create');
+      allow update: if hasPermission('visas:update');
+      allow delete: if hasPermission('visas:delete');
+    }
+
+    // --- الاشتراكات (Subscriptions) ---
+    match /subscriptions/{subId} {
+      allow read: if hasPermission('subscriptions:read');
+      allow create: if hasPermission('subscriptions:create');
+      allow update: if hasPermission('subscriptions:update');
+      allow delete: if hasPermission('subscriptions:delete');
+    }
+    match /subscription_installments/{paymentId} {
+      allow read, create, update, delete: if hasPermission('subscriptions:payments');
     }
     
-    // --- المجموعات الأخرى ---
-    // أضف هنا قواعد للمجموعات الأخرى مثل الفواتير، العملاء، إلخ.
-    // مثال لمجموعة الفواتير (invoices)
-    // match /invoices/{invoiceId} {
-    //   allow read: if hasPermission('invoices:read');
-    //   allow create: if hasPermission('invoices:create');
-    //   allow update: if hasPermission('invoices:update');
-    //   allow delete: if hasPermission('invoices:delete');
-    // }
+    // --- السندات والقيود الموحدة (Journal Vouchers) ---
+    match /journal-vouchers/{voucherId} {
+      allow read: if hasPermission('vouchers:read');
+      allow create: if hasPermission('vouchers:create');
+      allow update: if hasPermission('vouchers:update');
+      allow delete: if hasPermission('vouchers:delete');
+    }
 
-    // قاعدة افتراضية: رفض الوصول إلى أي شيء آخر
-    match /{document=**} {
+    // --- الحوالات (Remittances) ---
+    match /remittances/{remittanceId} {
+      allow read: if hasPermission('remittances:read');
+      allow create: if hasPermission('remittances:create');
+      allow update: if hasPermission('remittances:audit') || hasPermission('remittances:receive');
+      allow delete: if false; // Deletion should be handled server-side if needed
+    }
+
+    // --- العلاقات (Clients/Suppliers) ---
+    match /clients/{relationId} {
+      allow read: if hasPermission('relations:read');
+      allow create: if hasPermission('relations:create');
+      allow update: if hasPermission('relations:update');
+      allow delete: if hasPermission('relations:delete');
+    }
+
+    // --- التقارير (Reports) - These are usually generated server-side, so client rules might not be necessary ---
+    // But if there's a collection for saved reports:
+    match /reports/{reportId} {
+      allow read: if hasPermission('reports:read:all');
+    }
+
+    // --- الإعدادات العامة (Settings) ---
+    match /settings/{settingId} {
+      allow read: if hasPermission('settings:read');
+      allow update: if hasPermission('settings:update');
+    }
+
+    // --- سجلات النظام (System Logs / Audits) ---
+    match /audit_logs/{logId} {
+      allow read: if hasPermission('system:audit_log:read') || hasPermission('system:error_log:read');
+      allow create: if request.auth != null; // Allow any authenticated user to create a log entry
+    }
+
+    // --- رموز التحقق (Verification Codes) ---
+    match /otp_requests/{userId} {
+      allow read, create, update, delete: if request.auth.uid == userId;
+    }
+    
+    // --- Collections for sequences and other system data ---
+    match /sequences/{seqId} {
+      allow read, write: if request.auth != null; // Allow any authenticated user for now
+    }
+    
+    match /boxes/{boxId} {
+        allow read, write: if hasPermission('admin');
+    }
+    
+     match /ticket_operations/{opId} {
+        allow read, write: if hasPermission('bookings:operations');
+    }
+    
+    match /message_templates/{templateId} {
+        allow read, write: if hasPermission('admin');
+    }
+    
+    match /whatsapp_accounts/{accId} {
+        allow read, write: if hasPermission('admin');
+    }
+
+    // --- Fallback rule (Default Deny) ---
+    // This is a catch-all to ensure any path not explicitly matched is secured.
+    match /{path=**} {
       allow read, write: if false;
     }
   }
