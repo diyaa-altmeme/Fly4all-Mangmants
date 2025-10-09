@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -9,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, Users } from 'lucide-react';
 import Link from 'next/link';
-import { getUsers } from '@/app/users/actions';
 import type { User } from '@/lib/types';
 import { Autocomplete } from '../ui/autocomplete';
 
@@ -25,7 +25,11 @@ export function LoginForm() {
   useEffect(() => {
     async function fetchUsers() {
       try {
-        const fetchedUsers = await getUsers({ all: true });
+        const response = await fetch('/api/users');
+        if (!response.ok) {
+          throw new Error('Failed to fetch users');
+        }
+        const fetchedUsers = await response.json();
         setUsers(fetchedUsers);
       } catch (error) {
         setError('فشل في تحميل قائمة المستخدمين');
