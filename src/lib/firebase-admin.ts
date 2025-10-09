@@ -7,66 +7,73 @@ import { Firestore, getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { serviceAccount } from './firebase-service-account';
 
-// This holds the memoized promises for Firebase services.
-// We use promises to handle the async nature of initialization
-// and to ensure we don't try to re-initialize while an initialization is already in progress.
-let appPromise: Promise<App> | null = null;
+// Holds the single initialized Firebase app instance.
+let firebaseAdminApp: App | null = null;
 let firebaseInitializationError: Error | null = null;
+let appInitializationPromise: Promise<App> | null = null;
 
 function initializeFirebaseAdminApp(): Promise<App> {
-    if (appPromise) {
-        return appPromise;
+    // If an initialization promise already exists, return it to avoid re-initializing.
+    if (appInitializationPromise) {
+        return appInitializationPromise;
     }
     
-    if (firebaseInitializationError) {
-        return Promise.reject(firebaseInitializationError);
-    }
-
-    appPromise = new Promise((resolve, reject) => {
-        if (getApps().length) {
-            const existingApp = getApp();
-            resolve(existingApp);
+    appInitializationPromise = new Promise(async (resolve, reject) => {
+        // If an app is already initialized, use it.
+        if (getApps().length > 0) {
+            firebaseAdminApp = getApp();
+            resolve(firebaseAdminApp);
             return;
         }
         
         if (!serviceAccount || !serviceAccount.projectId || !serviceAccount.privateKey || !serviceAccount.clientEmail) {
             console.error("Firebase Admin SDK Service Account object is not valid.");
-            const err = new Error("Default Firebase service account is not valid in firebase-service-account.ts.");
-            firebaseInitializationError = err;
-            reject(err);
+            firebaseInitializationError = new Error("Default Firebase service account is not valid in firebase-service-account.ts.");
+            reject(firebaseInitializationError);
             return;
         }
 
         try {
             console.log("Initializing new Firebase Admin SDK app...");
-            const newApp = initializeApp({
+            const app = initializeApp({
                 credential: cert(serviceAccount),
                 storageBucket: `${serviceAccount.projectId}.appspot.com`,
             });
+            firebaseAdminApp = app;
             console.log("Firebase Admin SDK initialized successfully.");
-            resolve(newApp);
+            resolve(app);
         } catch (error: any) {
             console.error(`Failed to initialize Firebase Admin SDK: ${error.message}`);
             firebaseInitializationError = error;
             reject(error);
         }
     });
-
-    return appPromise;
+    
+    return appInitializationPromise;
 }
 
+async function getFirebaseAdminApp(): Promise<App> {
+    if (firebaseAdminApp) {
+        return firebaseAdminApp;
+    }
+    if (firebaseInitializationError) {
+        throw firebaseInitializationError;
+    }
+    // This will either return the initialized app or throw an error.
+    return initializeFirebaseAdminApp();
+}
 
 export async function getDb(): Promise<Firestore> {
-  const app = await initializeFirebaseAdminApp();
+  const app = await getFirebaseAdminApp();
   return getFirestore(app);
 }
 
 export async function getAuthAdmin(): Promise<Auth> {
-  const app = await initializeFirebaseAdminApp();
+  const app = await getFirebaseAdminApp();
   return getAuth(app);
 }
 
 export async function getStorageAdmin(): Promise<any> {
-  const app = await initializeFirebaseAdminApp();
+  const app = await getFirebaseAdminApp();
   return getStorage(app);
 }
