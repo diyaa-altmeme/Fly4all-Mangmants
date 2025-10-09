@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAuth } from 'firebase-admin/auth';
@@ -32,7 +33,6 @@ export async function clearSession() {
 
 const getUserData = async (uid: string): Promise<any | null> => {
     const db = await getDb();
-    if (!db) return null;
     
     const userDocRef = doc(db, 'users', uid);
     const userDoc = await getDoc(userDocRef);
@@ -83,12 +83,8 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
 
 
 export async function verifyUserByEmail(email: string): Promise<{ exists: boolean; type?: 'user' | 'client', error?: string, status?: string }> {
-    const db = await getDb();
-    if (!db) {
-        return { exists: false, error: 'فشل الاتصال بقاعدة البيانات.' };
-    }
-
     try {
+        const db = await getDb();
         const usersQuery = query(collection(db, "users"), where("email", "==", email));
         const usersSnapshot = await getDocs(usersQuery);
 
