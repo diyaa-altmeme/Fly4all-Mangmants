@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, Users, Shield } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, Users, Shield, Briefcase, Building } from 'lucide-react';
 import Link from 'next/link';
 import type { User } from '@/lib/types';
 import { Autocomplete } from '../ui/autocomplete';
@@ -118,19 +118,25 @@ export function LoginForm() {
 
           {selectedUser && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-muted/50 rounded-lg border">
-                  <div className="space-y-1">
-                      <Label htmlFor="email" className="text-xs">البريد الإلكتروني</Label>
-                      <div className="relative">
-                          <Mail className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="email" value={selectedUser.email} readOnly disabled className="pr-10 h-9 bg-background/50" />
-                      </div>
+                  <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 text-muted-foreground"/>
+                      <span className="font-semibold text-muted-foreground">البريد:</span>
+                      <span className="font-mono">{selectedUser.email}</span>
                   </div>
-                  <div className="space-y-1">
-                      <Label htmlFor="role" className="text-xs">الدور</Label>
-                       <div className="relative">
-                          <Shield className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="role" value={selectedUser.role} readOnly disabled className="pr-10 h-9 bg-background/50" />
-                      </div>
+                  <div className="flex items-center gap-2 text-sm">
+                      <Shield className="h-4 w-4 text-muted-foreground"/>
+                      <span className="font-semibold text-muted-foreground">الدور:</span>
+                      <span className="font-bold">{selectedUser.role}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                      <Building className="h-4 w-4 text-muted-foreground"/>
+                      <span className="font-semibold text-muted-foreground">القسم:</span>
+                      <span className="font-bold">{selectedUser.department || 'غير محدد'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                      <Briefcase className="h-4 w-4 text-muted-foreground"/>
+                      <span className="font-semibold text-muted-foreground">المنصب:</span>
+                      <span className="font-bold">{selectedUser.position || 'غير محدد'}</span>
                   </div>
               </div>
           )}
