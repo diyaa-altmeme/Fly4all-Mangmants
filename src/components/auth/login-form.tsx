@@ -1,33 +1,60 @@
-
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, Users } from 'lucide-react';
 import Link from 'next/link';
+import { getUsers } from '@/app/users/actions';
+import type { User } from '@/lib/types';
+import { Autocomplete } from '../ui/autocomplete';
 
 export function LoginForm() {
-  const [email, setEmail] = useState('');
+  const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const { signIn, loading } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const fetchedUsers = await getUsers({ all: true });
+        setUsers(fetchedUsers);
+      } catch (error) {
+        setError('فشل في تحميل قائمة المستخدمين');
+      } finally {
+        setLoadingUsers(false);
+      }
+    }
+    fetchUsers();
+  }, []);
+
+  const userOptions = React.useMemo(() => 
+    users.map(user => ({
+      value: user.uid,
+      label: user.name,
+    })), 
+  [users]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    const selectedUser = users.find(u => u.uid === userId);
 
-    if (!email || !password) {
-      setError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
+    if (!selectedUser || !password) {
+      setError('يرجى اختيار المستخدم وإدخال كلمة المرور');
       return;
     }
 
-    const result = await signIn(email, password);
+    const result = await signIn(selectedUser.email, password);
     
     if (!result.success) {
       setError(result.error || 'فشل تسجيل الدخول');
@@ -39,7 +66,7 @@ export function LoginForm() {
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-3xl font-bold">تسجيل الدخول</CardTitle>
         <CardDescription>
-          أدخل بياناتك للوصول إلى نظام Mudarib Accounting
+          اختر حسابك وأدخل كلمة المرور للوصول إلى نظام Mudarib Accounting
         </CardDescription>
       </CardHeader>
       
@@ -54,19 +81,15 @@ export function LoginForm() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="email">البريد الإلكتروني</Label>
+            <Label htmlFor="user-select">اختر المستخدم</Label>
             <div className="relative">
-              <Mail className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                placeholder="example@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pr-10"
-                disabled={loading}
-                required
-                autoComplete="email"
+              <Users className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Autocomplete
+                options={userOptions}
+                value={userId}
+                onValueChange={setUserId}
+                placeholder={loadingUsers ? "جاري تحميل المستخدمين..." : "اختر المستخدم..."}
+                disabled={loading || loadingUsers}
               />
             </div>
           </div>
@@ -119,7 +142,7 @@ export function LoginForm() {
             type="submit" 
             className="w-full" 
             size="lg"
-            disabled={loading}
+            disabled={loading || !userId}
           >
             {loading ? (
               <>
