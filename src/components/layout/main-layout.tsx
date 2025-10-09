@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -22,7 +23,7 @@ import { useThemeCustomization } from "@/context/theme-customization-context";
 import Image from 'next/image';
 import { cn } from "@/lib/utils";
 import { VoucherNavProvider } from "@/context/voucher-nav-context";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import NotificationCenter from "./notification-center";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -133,30 +134,33 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
     const router = useRouter();
-    const pathname = React.usePathname();
+    const pathname = usePathname();
 
+    const publicRoutes = ['/auth/login', '/auth/forgot-password', '/register', '/setup-admin'];
+    
+    // While the AuthProvider is loading, show a full-page preloader.
     if (loading) {
         return <Preloader />;
     }
-    
-    const publicRoutes = ['/auth/login', '/auth/forgot-password', '/register', '/setup-admin'];
+
+    // If we are on a public route, just render the content.
     if (publicRoutes.includes(pathname)) {
         return <>{children}</>;
     }
     
+    // If we're on a protected route and not loading, but there's no user, redirect.
     if (!user) {
-        // Use useEffect to avoid triggering navigation during render
         React.useEffect(() => {
             router.replace('/auth/login');
         }, [router]);
-        return <Preloader />;
+        return <Preloader />; // Show preloader while redirecting
     }
 
-    // Check if the authenticated user is a client (doesn't have a 'role' property)
+    // User is authenticated, determine which layout to render.
     if ('isClient' in user && user.isClient) {
         return <ClientViewLayout client={user as Client}>{children}</ClientViewLayout>;
     }
     
-    // Authenticated employee/admin
+    // Authenticated employee/admin uses the main AppLayout
     return <AppLayout>{children}</AppLayout>;
 }
