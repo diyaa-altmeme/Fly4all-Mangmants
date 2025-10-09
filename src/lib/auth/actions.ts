@@ -102,25 +102,24 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
 }
 
 
-export async function verifyUserByEmail(email: string): Promise<{ exists: boolean; type?: 'user' | 'client', error?: string, status?: string }> {
+export async function verifyUserByEmail(email: string): Promise<{ exists: boolean; type?: 'user' | 'client', uid?: string, error?: string, status?: string }> {
     try {
         const db = await getDb();
-        // Check 'users' collection
+
         const usersQuery = query(collection(db, "users"), where("email", "==", email));
         const usersSnapshot = await getDocs(usersQuery);
 
         if (!usersSnapshot.empty) {
-            const userDoc = usersSnapshot.docs[0].data();
-            return { exists: true, type: 'user', status: userDoc.status || 'pending' };
+            const userDoc = usersSnapshot.docs[0];
+            return { exists: true, type: 'user', uid: userDoc.id, status: userDoc.data().status || 'pending' };
         }
 
-        // Check 'clients' collection using loginIdentifier
         const clientsQuery = query(collection(db, "clients"), where("loginIdentifier", "==", email));
         const clientsSnapshot = await getDocs(clientsQuery);
         
         if (!clientsSnapshot.empty) {
-             const clientDoc = clientsSnapshot.docs[0].data();
-             return { exists: true, type: 'client', status: clientDoc.status || 'inactive' };
+             const clientDoc = clientsSnapshot.docs[0];
+             return { exists: true, type: 'client', uid: clientDoc.id, status: clientDoc.data().status || 'inactive' };
         }
 
         return { exists: false };

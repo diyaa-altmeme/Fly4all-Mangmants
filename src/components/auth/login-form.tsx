@@ -28,7 +28,6 @@ export default function LoginForm() {
     setLoading(true);
 
     try {
-      // Step 1: Verify user existence and status on the server
       const userVerification = await verifyUserByEmail(email);
 
       if (!userVerification || !userVerification.exists || userVerification.error) {
@@ -39,24 +38,26 @@ export default function LoginForm() {
           throw new Error("هذا الحساب غير نشط. يرجى مراجعة المسؤول.");
       }
 
-      // Step 2: If user exists and is active, proceed with password authentication
       const userCred = await signInWithEmailAndPassword(auth, email, password);
+      
+      // Ensure the UID from Auth matches the UID found via email search, to prevent impersonation.
+      if (userCred.user.uid !== userVerification.uid) {
+          throw new Error("حدث تضارب في بيانات المستخدم. يرجى المحاولة مرة أخرى.");
+      }
+      
       const idToken = await userCred.user.getIdToken();
 
-      // Step 3: Create server-side session
       await createSession(idToken);
       
       toast({ description: "تم تسجيل الدخول بنجاح! جاري التوجيه..." });
       
-      // Full page reload to re-evaluate server components and auth context
       window.location.href = '/dashboard';
 
     } catch (err: any) {
       console.error("Login error:", err);
-      // Use the message from our server-side check first, or fallback to firebase errors
       let friendlyMessage = err.message; 
       
-      if (err.code) { // Firebase auth errors have a 'code' property
+      if (err.code) {
         switch (err.code) {
             case "auth/invalid-credential":
             case "auth/wrong-password":
