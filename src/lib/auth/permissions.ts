@@ -1,5 +1,4 @@
-import type { User, Permission } from '@/lib/types';
-import { ROLES_PERMISSIONS } from './roles';
+import type { User, Client } from '../types';
 
 // This is the source of truth for all permissions in the system.
 export const PERMISSIONS = {
@@ -80,12 +79,108 @@ export const PERMISSIONS = {
 };
 
 
-// Function to check if a user has a specific permission
-export function hasPermission(user: User | null, requiredPermission: keyof typeof PERMISSIONS): boolean {
-  if (!user) return false;
-  // Admins have all permissions
-  if (user.role === 'admin') return true;
+export const PERMISSION_MODULES = [
+    {
+        id: 'dashboard', name: 'لوحة التحكم',
+        permissions: [{ id: 'dashboard:read', name: 'عرض' }]
+    },
+    {
+        id: 'bookings', name: 'حجوزات الطيران',
+        permissions: [
+            { id: 'bookings:read', name: 'عرض' }, { id: 'bookings:create', name: 'إنشاء' },
+            { id: 'bookings:update', name: 'تعديل' }, { id: 'bookings:delete', name: 'حذف' },
+            { id: 'bookings:operations', name: 'عمليات' },
+        ]
+    },
+     {
+        id: 'visas', name: 'طلبات الفيزا',
+        permissions: [
+            { id: 'visas:read', name: 'عرض' }, { id: 'visas:create', name: 'إنشاء' },
+            { id: 'visas:update', name: 'تعديل' }, { id: 'visas:delete', name: 'حذف' },
+        ]
+    },
+    {
+        id: 'subscriptions', name: 'الاشتراكات',
+        permissions: [
+            { id: 'subscriptions:read', name: 'عرض' }, { id: 'subscriptions:create', name: 'إنشاء' },
+            { id: 'subscriptions:update', name: 'تعديل' }, { id: 'subscriptions:delete', name: 'حذف' },
+            { id: 'subscriptions:payments', name: 'دفع الأقساط' },
+        ]
+    },
+    {
+        id: 'vouchers', name: 'السندات والقيود',
+        permissions: [
+            { id: 'vouchers:read', name: 'عرض' }, { id: 'vouchers:create', name: 'إنشاء' },
+            { id: 'vouchers:update', name: 'تعديل' }, { id: 'vouchers:delete', name: 'حذف' },
+        ]
+    },
+    {
+        id: 'remittances', name: 'الحوالات',
+        permissions: [
+            { id: 'remittances:read', name: 'عرض' }, { id: 'remittances:create', name: 'إنشاء' },
+            { id: 'remittances:audit', name: 'تدقيق' }, { id: 'remittances:receive', name: 'استلام' },
+        ]
+    },
+    {
+        id: 'relations', name: 'العلاقات (العملاء والموردين)',
+        permissions: [
+            { id: 'relations:read', name: 'عرض' }, { id: 'relations:create', name: 'إنشاء' },
+            { id: 'relations:update', name: 'تعديل' }, { id: 'relations:delete', name: 'حذف' },
+            { id: 'relations:credentials', name: 'إدارة الدخول' },
+        ]
+    },
+    {
+        id: 'users', name: 'المستخدمون والأدوار',
+        permissions: [
+            { id: 'users:read', name: 'عرض' }, { id: 'users:create', name: 'إنشاء' },
+            { id: 'users:update', name: 'تعديل' }, { id: 'users:delete', name: 'حذف' },
+            { id: 'users:permissions', name: 'إدارة الصلاحيات' },
+        ]
+    },
+    {
+        id: 'reports', name: 'التقارير',
+        permissions: [
+            { id: 'reports:read:all', name: 'عرض الكل' },
+            { id: 'reports:account_statement', name: 'كشف حساب' },
+            { id: 'reports:debts', name: 'الأرصدة' },
+            { id: 'reports:profits', name: 'الأرباح' },
+            { id: 'reports:flight_analysis', name: 'تحليل الرحلات' },
+        ]
+    },
+    {
+        id: 'settings', name: 'الإعدادات العامة',
+        permissions: [
+            { id: 'settings:read', name: 'عرض' },
+            { id: 'settings:update', name: 'تعديل' },
+        ]
+    },
+     {
+        id: 'system', name: 'أدوات النظام',
+        permissions: [
+            { id: 'system:audit_log:read', name: 'سجل النشاطات' },
+            { id: 'system:error_log:read', name: 'سجل الأخطاء' },
+            { id: 'system:data_audit:run', name: 'تشغيل فحص البيانات' },
+        ]
+    }
+];
 
-  const userPermissions = user.permissions || [];
-  return userPermissions.includes(requiredPermission);
+export const hasPermission = (user: (User & { permissions?: string[] }) | (Client & { permissions?: string[] }) | null, permission: keyof typeof PERMISSIONS): boolean => {
+    if (!user) return false;
+    
+    if (permission === 'public') return true;
+
+    if ('isClient' in user && user.isClient) {
+        return false;
+    }
+    
+    if ('role' in user && user.role === 'admin') return true;
+    
+    if (user.permissions && Array.isArray(user.permissions)) {
+        if (user.permissions.includes('reports:read:all') && permission.startsWith('reports:')) {
+            return true;
+        }
+        return user.permissions.includes(permission);
+    }
+    
+    return false;
 }
