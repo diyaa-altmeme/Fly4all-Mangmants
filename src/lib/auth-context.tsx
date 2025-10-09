@@ -11,7 +11,7 @@ import {
 import { auth } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
 import { createSessionCookie, getCurrentUserFromSession, logoutUser } from '@/lib/auth/actions';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/permissions';
 import { PERMISSIONS } from './auth/permissions';
 import Preloader from '@/components/layout/preloader';
@@ -26,24 +26,32 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
+
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
         try {
             if (firebaseUser) {
                 const idToken = await firebaseUser.getIdToken();
-                // Create session cookie on token change to keep session alive.
                 await createSessionCookie(idToken); 
                 const sessionUser = await getCurrentUserFromSession();
                 setUser(sessionUser);
+                 if (isPublicRoute) {
+                    router.replace('/dashboard');
+                }
             } else {
-                // User signed out or session expired on client.
-                // Server-side middleware will handle redirects for protected routes.
                 setUser(null);
+                 if (!isPublicRoute) {
+                    router.replace('/auth/login');
+                }
             }
         } catch (error) {
             console.error("Auth state change error:", error);
@@ -54,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [isPublicRoute, router]);
 
   const signIn = async (email: string, password: string) => {
     try {
