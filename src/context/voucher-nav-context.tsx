@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import type { Client, Supplier, Box, User, AppSettings } from '@/lib/types';
@@ -35,10 +36,10 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
     const [data, setData] = useState<VoucherNavDataContext | null>(null);
     const [loaded, setLoaded] = useState(false);
     const [isFetching, setIsFetching] = useState(false);
-    const { user } = useAuth(); // Depend on auth context
+    const { user, loading: authLoading } = useAuth(); // Depend on auth context
 
     const fetchData = useCallback(async (force = false) => {
-        if (!user || (loaded && !force) || isFetching) return; 
+        if (isFetching || (loaded && !force)) return;
 
         setIsFetching(true);
         try {
@@ -64,18 +65,18 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
             setLoaded(true);
         } catch (error) {
             console.error("Failed to load initial voucher navigation data:", error);
+            // Optionally set an error state here
         } finally {
             setIsFetching(false);
         }
-    }, [user, loaded, isFetching]);
+    }, [isFetching, loaded]);
     
-    // Fetch data only when user is available
+    // Fetch data only when user is available and not a client
     useEffect(() => {
-        if (user) {
+        if (!authLoading && user && !('isClient' in user && user.isClient)) {
             fetchData();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user]);
+    }, [user, authLoading, fetchData]);
     
     const refreshData = useCallback(async () => {
         await fetchData(true); // Force a refetch

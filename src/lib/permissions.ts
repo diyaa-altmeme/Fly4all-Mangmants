@@ -1,4 +1,5 @@
 
+
 import type { User, Client } from './types';
 
 export const PERMISSIONS = {
@@ -155,7 +156,14 @@ export const PERMISSION_MODULES = [
 export const hasPermission = (user: (User & { permissions?: string[] }) | (Client & { permissions?: string[] }) | null, permission: keyof typeof PERMISSIONS): boolean => {
     if (!user) return false;
     
-    // Admins have all permissions
+    // Check if the user is a client
+    if ('isClient' in user && user.isClient) {
+        // Clients have a limited, hardcoded set of permissions or none
+        // For now, let's assume they have no permissions by default.
+        return false;
+    }
+    
+    // Check if the user is an admin
     if ('role' in user && user.role === 'admin') return true;
     
     // For other roles, check if the permission exists in their permissions array

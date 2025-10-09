@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -102,7 +103,6 @@ const reportsItems = [
     { href: "/reports/account-statement", label: "كشف حساب", icon: FileText, permission: 'reports:account_statement' },
     { href: "/profits", label: "الأرباح الشهرية", icon: BarChart3, permission: 'reports:profits' },
     { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
-    // Items without specific permissions (admin only by default)
     { href: "/reports/boxes", label: "تقرير الصناديق", icon: Boxes, permission: 'admin' },
     { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
     { href: "/reconciliation", label: "التدقيق الذكي", icon: Wand2, permission: 'admin' },
@@ -115,10 +115,8 @@ const systemItems = [
     { href: "/system/activity-log", label: "سجل النشاطات", icon: History, permission: 'system:audit_log:read' },
     { href: "/system/error-log", label: "سجل الأخطاء", icon: FileWarning, permission: 'system:error_log:read' },
     { href: "/system/data-audit", label: "فحص البيانات", icon: ScanSearch, permission: 'system:data_audit:run' },
-    // Items without specific permissions (visible to all)
     { href: "/support", label: "الدعم والمساعدة", icon: HelpCircle, permission: 'public' },
     { href: "/coming-soon", label: "الميزات القادمة", icon: Lightbulb, permission: 'public' },
-    // Admin only
     { href: "/boxes", label: "الصناديق", icon: Boxes, permission: 'admin' },
     { href: "/templates", label: "قوالب الرسائل", icon: FileImage, permission: 'admin' },
 ];
@@ -230,11 +228,11 @@ const MainNavContent = () => {
   const handleDataChange = () => {
     router.refresh();
   };
-
+  
   const filterItems = (items: any[]) => {
       return items.filter(item => {
           if (item.permission === 'public') return true;
-          if (item.permission === 'admin') return user?.role === 'admin';
+          if (item.permission === 'admin') return user && 'role' in user && user.role === 'admin';
           return hasPermission(item.permission as keyof typeof PERMISSIONS);
       });
   }
