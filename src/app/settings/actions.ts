@@ -4,7 +4,7 @@
 import { getDb, getStorageAdmin } from '@/lib/firebase-admin';
 import type { ExchangeRateLog, AppSettings, HealthCheckResult, DatabaseStatusSettings, InvoiceSequenceSettings, VoucherSettings, ThemeCustomizationSettings, TreeNode, AccountType, Client, ImportFieldSettings, ImportLogicSettings, CustomRelationField, RelationSection, LandingPageSettings, CurrencySettings } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '@/app/auth/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { COUNTRIES_DATA } from '@/lib/countries-data';
 import { parseISO } from 'date-fns';

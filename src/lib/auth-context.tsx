@@ -7,9 +7,9 @@ import {
   onAuthStateChanged, 
   signOut as firebaseSignOut 
 } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "./firebase";
-import { ROLES, PERMISSIONS } from "./roles";
+import { PERMISSIONS } from "./roles";
 import type { User, Client } from '@/lib/types';
 import Preloader from "@/components/layout/preloader";
 
@@ -30,13 +30,11 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 const syncUser = async (firebaseUser: FirebaseUser): Promise<AppUser | null> => {
-  const db = getDb();
-  
   const userDocRef = doc(db, "users", firebaseUser.uid);
   const userDoc = await getDoc(userDocRef);
   if (userDoc.exists()) {
       const userData = userDoc.data() as User;
-      const roleDoc = await doc(db, 'roles', userData.role || 'viewer').get();
+      const roleDoc = await getDoc(doc(db, 'roles', userData.role || 'viewer'));
       const permissions = roleDoc.exists() ? roleDoc.data()?.permissions : [];
       return { ...firebaseUser, ...userData, permissions, isClient: false };
   }

@@ -61,7 +61,8 @@ export default function UsersContent({ initialUsers, boxes, roles, onDataChange 
       roles: roles,
       onSuccess: handleSuccess
     });
-  }, [boxes, roles, handleSuccess]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boxes, roles]);
   
   return (
     <Card>

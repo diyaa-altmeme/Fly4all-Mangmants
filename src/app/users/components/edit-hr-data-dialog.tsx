@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState } from 'react';
@@ -22,6 +23,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Textarea } from '@/components/ui/textarea';
 import { updateUser } from '../actions';
 import { NumericInput } from '@/components/ui/numeric-input';
+import type { HrData } from '@/lib/types';
 
 const formSchema = z.object({
   baseSalary: z.coerce.number().min(0, "الراتب يجب أن يكون رقمًا موجبًا.").default(0),
@@ -38,7 +40,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface EditHrDataDialogProps {
-  user: User;
+  user: HrData;
   children: React.ReactNode;
   onSuccess: () => void;
 }
@@ -125,7 +127,8 @@ export default function EditHrDataDialog({ user, children, onSuccess }: EditHrDa
                 </div>
                  <DialogFooter>
                      <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? <Loader2 className="me-2 h-4 w-4 animate-spin" /> : <Save className="me-2 h-4 w-4" />}
+                        {isSubmitting && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                        <Save className="me-2 h-4 w-4" />
                         حفظ التعديلات
                     </Button>
                 </DialogFooter>
