@@ -3,52 +3,36 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  const session = request.cookies.get('session');
+  const session = request.cookies.get('session')?.value;
   const { pathname } = request.nextUrl;
 
-  // المسارات العامة التي لا تحتاج مصادقة
-  const publicPaths = ['/auth/login', '/auth/forgot-password'];
-  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
+  const publicPaths = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
+  const isPublicPath = publicPaths.some(path => pathname === path);
 
-  // إذا كان المسار عام، اسمح بالدخول
   if (isPublicPath) {
-    // إذا كان مسجل دخول ويحاول الوصول لصفحة تسجيل الدخول، وجهه للوحة التحكم
     if (pathname.startsWith('/auth/login') && session) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      // If there's a session, we'll let the client-side AuthProvider handle the redirect to dashboard
+      // to avoid middleware-hydration mismatches. The client will see the login page for a split second.
     }
     return NextResponse.next();
   }
 
-  // إذا لم يكن لديه جلسة، وجهه لصفحة تسجيل الدخول
   if (!session) {
     const loginUrl = new URL('/auth/login', request.url);
-    if (pathname !== '/') {
-      loginUrl.searchParams.set('redirect', pathname);
-    }
+    loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // ToDo: Add role/permission based checks here in the future if needed
-  // For example:
-  // if (pathname.startsWith('/admin') && decodedToken.role !== 'admin') {
-  //   return NextResponse.redirect(new URL('/unauthorized', request.url));
-  // }
-
-  // اسمح بالمرور
+  // Verification of the cookie is now implicitly handled by server actions and pages
+  // that use `getCurrentUserFromSession`. If the cookie is invalid, they will return null,
+  // and the client-side AuthProvider will redirect to login. This prevents middleware
+  // from needing to import the admin SDK, which can cause bundling issues.
+  
   return NextResponse.next();
 }
 
-// حدد المسارات التي يجب تطبيق Middleware عليها
 export const config = {
   matcher: [
-    /*
-     * مطابقة جميع المسارات عدا:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)',
   ],
 };
