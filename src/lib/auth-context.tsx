@@ -4,7 +4,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { getAuth, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import type { User, Client } from '@/lib/types';
-import { getClientById, getUserById } from '@/app/auth/actions';
+import { getClientById, getUserById } from '@/lib/auth/actions';
 import Preloader from '@/components/layout/preloader';
 import { app } from '@/lib/firebase';
 import { hasPermission as checkPermission, PERMISSIONS } from '@/lib/permissions';
