@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             const settings = await getSettings();
             if (settings.developerSettings?.devModeEnabled) {
-                console.warn("Developer Mode is active. Bypassing login.");
+                console.warn("Developer Mode is active. Bypassing login and cookie logic.");
                 const devUser = await getUserById(ADMIN_UID);
                 if (devUser) {
                     setUser(devUser);
@@ -114,7 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeAuth();
-  }, [isPublicRoute, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
