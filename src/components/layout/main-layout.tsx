@@ -19,7 +19,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type { User, Client } from "@/lib/types";
 import { UserNav } from "./user-nav";
 
-const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
+const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
 
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -91,19 +91,27 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+    const isPublicPath = publicRoutes.some(route => pathname.startsWith(route));
 
-    // Redirect logic is now part of the AuthProvider, but we keep a fallback here.
-    React.useEffect(() => {
-      if (!loading && !user && !isPublicRoute) {
-        router.replace('/auth/login');
-      }
-    }, [user, loading, router, isPublicRoute, pathname]);
+    // In development, we always show the AppLayout to make navigation easier.
+    if (process.env.NODE_ENV === 'development') {
+        return <AppLayout>{children}</AppLayout>;
+    }
     
-    // AuthProvider now shows a global preloader, so we just render children here.
-    // The AuthProvider will prevent children from rendering until auth status is resolved.
-    if (isPublicRoute) {
+    if (isPublicPath) {
         return <>{children}</>;
+    }
+    
+    if (loading) {
+        return <Preloader />;
+    }
+
+    if (!user) {
+        // This should ideally be caught by the AuthProvider, but as a fallback:
+        if (typeof window !== 'undefined') {
+            router.replace('/auth/login');
+        }
+        return <Preloader />;
     }
     
     if (user && 'isClient' in user && user.isClient) {
