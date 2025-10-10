@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import type { Exchange, ExchangeDashboardData, UnifiedLedgerEntry } from '../../actions';
+import type { Exchange, ExchangeDashboardData, UnifiedLedgerEntry } from '@/app/exchanges/actions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, GitCompareArrows, ArrowUp, ArrowDown, PlusCircle, RefreshCw, Loader2, Share2, MoreHorizontal } from 'lucide-react';
@@ -112,7 +112,7 @@ export const ExchangeCard = ({ exchange, exchanges, onRefresh }: { exchange: Exc
                             <PlusCircle className="me-2 h-4 w-4" /> معاملة
                         </Button>
                      </AddTransactionsDialog>
-                      <AddPaymentsDialog exchangeId={exchange.id} exchanges={exchanges} onSuccess={onRefresh}>
+                      <AddPaymentsDialog exchangeId={exchange.id} exchanges={exchanges} onSuccess={() => onRefresh()}>
                          <Button className="w-full" variant="secondary" size="sm">
                             <PlusCircle className="me-2 h-4 w-4" /> تسديد
                         </Button>
