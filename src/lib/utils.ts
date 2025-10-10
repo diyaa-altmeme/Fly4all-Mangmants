@@ -68,31 +68,23 @@ export const normalizeRecord = (
     const excelHeaders = Object.keys(record).map(h => h.toLowerCase().trim());
 
     relationFields.forEach(field => {
-        const mappedHeader = columnMapping[field.id];
-        
         let value: any = undefined;
-        let foundHeader: string | undefined;
-
-        if (mappedHeader && excelHeaders.includes(mappedHeader.toLowerCase().trim())) {
-            foundHeader = Object.keys(record).find(h => h.toLowerCase().trim() === mappedHeader.toLowerCase().trim());
-        } else {
-            const fieldSettings = importFieldsSettings?.[field.id];
-            const aliases = fieldSettings?.aliases || [field.label];
-            const allPossibleNames = Array.from(new Set(
-                [field.id, field.label, ...aliases].map(s => s.toLowerCase().trim())
-            ));
-
-            for (const alias of allPossibleNames) {
-                foundHeader = excelHeaders.find(h => h === alias);
-                if (foundHeader) break;
-            }
-        }
         
-        if (foundHeader) {
-            value = record[foundHeader];
+        // Combine all possible names for a field
+        const fieldSettings = importFieldsSettings?.[field.id];
+        const aliases = (field.aliases || fieldSettings?.aliases || [field.label]).map(a => a.toLowerCase().trim());
+        const allPossibleNames = Array.from(new Set(
+            [field.id, field.label, ...aliases].map(s => s.toLowerCase().trim())
+        ));
+        
+        // Find header in Excel file that matches one of the possible names
+        const foundHeaderKey = Object.keys(record).find(header => allPossibleNames.includes(header.toLowerCase().trim()));
+
+        if (foundHeaderKey) {
+            value = record[foundHeaderKey];
         }
 
-        if (value === undefined) {
+        if (value === undefined || value === null || String(value).trim() === '') {
             normalized[field.id] = field.defaultValue !== undefined ? field.defaultValue : (field.dataType === 'number' ? 0 : '');
         } else if (field.dataType === 'number') {
             normalized[field.id] = parseFloat(String(value).trim().replace(/,/g, '')) || 0;

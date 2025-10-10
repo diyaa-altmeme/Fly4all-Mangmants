@@ -48,6 +48,15 @@ export default function AuditLogContent({ initialLogs }: AuditLogContentProps) {
         <DataTable
             columns={columns}
             data={initialLogs}
+            searchTerm={debouncedSearchTerm}
+            toolbarContent={
+                <Input
+                    placeholder="بحث في السجلات..."
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    className="h-8 w-[150px] lg:w-[250px]"
+                />
+            }
         />
     );
 }

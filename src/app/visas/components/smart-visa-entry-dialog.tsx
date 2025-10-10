@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Client, Supplier, Box, VisaBookingEntry, Currency, User as CurrentUser, VisaPassenger } from '@/lib/types';
-import { Loader2, UploadCloud, Trash2, Save, Plane, Calendar, Users, Fingerprint, Ticket, BadgeCent, Banknote, FileText, ChevronDown, Sheet, Settings, MoreVertical, Route, Building, Briefcase, Calculator, PlusCircle, Wand2, FileSpreadsheet, ArrowLeft, Settings2, RotateCcw, Hash, User, ArrowUp, ArrowDown, UserSquare, Baby, UserRound, Wallet, X, CreditCard } from 'lucide-react';
+import { Loader2, UploadCloud, Trash2, Save, Plane, Calendar, Users, Fingerprint, Ticket, BadgeCent, Banknote, FileText, ChevronDown, Sheet, Settings, MoreHorizontal, Route, Building, Briefcase, Calculator, PlusCircle, Wand2, FileSpreadsheet, ArrowLeft, Settings2, RotateCcw, Hash, User, ArrowUp, ArrowDown, UserSquare, Baby, UserRound, Wallet, X, CreditCard } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
 import { addMultipleVisaBookings } from '@/app/visas/actions';
 import { extractVisaData, type ExtractVisaDataOutput } from '@/ai/flows/extract-visa-data';
@@ -126,7 +126,7 @@ export default function SmartVisaEntryDialog({ onMultipleBookingsAdded, children
                     ...prev,
                     {
                         ...result,
-                        id: `visa-${Date.now()}-${Math.random()}`,
+                        id: `visa-${''}${Date.now()}-${Math.random()}`,
                         financialData: { 
                             supplierId: unifiedData.supplierId || '', 
                             clientId: unifiedData.clientId || '', 
@@ -231,7 +231,7 @@ export default function SmartVisaEntryDialog({ onMultipleBookingsAdded, children
     setIsSaving(true);
     setOpen(false); // Close dialog immediately
     
-    const bookingsToSave: Omit<VisaBookingEntry, 'id' | 'invoiceNumber' | 'enteredBy' | 'enteredAt' | 'isEntered' | 'isAudited'>[] = processedVisas.map(visa => ({
+    const bookingsToSave: Omit<VisaBookingEntry, 'id' | 'invoiceNumber' | 'enteredBy' | 'enteredAt' | 'isEntered' | 'isAudited' | 'isDeleted'>[] = processedVisas.map(visa => ({
         submissionDate: new Date().toISOString(),
         supplierId: visa.financialData.supplierId,
         clientId: visa.financialData.clientId,
@@ -262,7 +262,7 @@ export default function SmartVisaEntryDialog({ onMultipleBookingsAdded, children
   const getNumericValue = (value: string) => parseInt(value.replace(/px|vw|vh/g, ''), 10) || 0;
 
   const supplierOptions = (navData?.suppliers || []).map(s => ({ value: s.id, label: s.name }));
-  const clientOptions = (navData?.clients || []).map(c => ({ value: s.id, label: c.name }));
+  const clientOptions = (navData?.clients || []).map(c => ({ value: c.id, label: c.name }));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -430,9 +430,9 @@ export default function SmartVisaEntryDialog({ onMultipleBookingsAdded, children
                                 </CardContent>
                                  <CardFooter className="p-3 bg-muted/30 border-t">
                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                                        <Autocomplete searchAction="suppliers" placeholder="المورد..." value={visa.financialData.supplierId} onValueChange={(v) => handleFinancialDataChange(visa.id, 'supplierId', v)} />
-                                        <Autocomplete searchAction="clients" placeholder="العميل..." value={visa.financialData.clientId} onValueChange={(v) => handleFinancialDataChange(visa.id, 'clientId', v)} />
-                                        <Select value={visa.financialData.currency} onValueChange={(v) => handleFinancialDataChange(visa.id, 'currency', v)}>
+                                        <Autocomplete searchAction="suppliers" placeholder="المورد..." value={visa.financialData.supplierId} onValueChange={(v) => handleVisaDataChange(visa.id, 'supplierId', v)} />
+                                        <Autocomplete searchAction="clients" placeholder="العميل..." value={visa.financialData.clientId} onValueChange={(v) => handleVisaDataChange(visa.id, 'clientId', v)} />
+                                        <Select value={visa.financialData.currency} onValueChange={(v) => handleVisaDataChange(visa.id, 'currency', v)}>
                                             <SelectTrigger className="h-9 text-xs px-2 font-bold"><SelectValue /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="USD" className="font-bold">USD</SelectItem>
