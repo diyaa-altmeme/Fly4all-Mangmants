@@ -31,7 +31,6 @@ function DevLoginComponent() {
         }
 
         // Redirect to the dashboard after successful login
-        router.push('/dashboard');
         // Force a full refresh to ensure all server components re-render with the new session
         window.location.href = '/dashboard';
 
