@@ -85,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error(result.error);
       }
       
-      // Force a reload to ensure the new session cookie is picked up by the server
+      // This is the critical fix. A full page reload ensures the new session cookie is sent to the server for the next page load.
       window.location.href = '/dashboard';
       
       return { success: true };
