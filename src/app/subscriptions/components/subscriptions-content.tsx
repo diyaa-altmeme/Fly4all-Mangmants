@@ -11,7 +11,7 @@ import AddSubscriptionDialog from '@/app/subscriptions/components/add-subscripti
 import { produce } from 'immer';
 import { getSubscriptions, getSubscriptionInstallmentsForAll } from '../actions';
 import { useToast } from '@/hooks/use-toast';
-import SubscriptionsSettingsDialog from '@/components/settings/subscriptions-settings-dialog';
+import SubscriptionsSettingsDialog from './subscriptions-settings-dialog';
 
 interface SubscriptionsContentProps {
     initialSubscriptions: Subscription[];
