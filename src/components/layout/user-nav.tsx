@@ -14,11 +14,10 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth-context";
-import { CircleUserRound, LogOut } from "lucide-react";
+import { LogOut, User, Settings, CircleUserRound, Mail, Phone, Calendar, Shield } from "lucide-react";
 import Link from 'next/link';
 
 export function UserNav() {
@@ -36,32 +35,45 @@ export function UserNav() {
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal text-right">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
-            </p>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
+      <DropdownMenuContent className="w-80 p-0" align="end" forceMount>
+        <div className="p-4 bg-primary/90 text-primary-foreground rounded-t-md">
+            <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 border-2 border-primary-foreground/50">
+                    <AvatarImage src={user.avatarUrl} alt={user.name} />
+                    <AvatarFallback className="text-2xl bg-primary-foreground text-primary"><CircleUserRound /></AvatarFallback>
+                </Avatar>
+                <div className="space-y-1">
+                    <p className="text-lg font-bold">{user.name}</p>
+                    <p className="text-xs font-medium text-primary-foreground/80 flex items-center gap-2">
+                      <Mail className="h-4 w-4"/> {user.email}
+                    </p>
+                    {'role' in user && (
+                      <p className="text-xs font-semibold text-primary-foreground/80 flex items-center gap-2">
+                        <Shield className="h-4 w-4"/> {user.role}
+                      </p>
+                    )}
+                </div>
+            </div>
+        </div>
+        <DropdownMenuSeparator className="my-0"/>
+        <DropdownMenuGroup className="p-2">
           <DropdownMenuItem asChild>
-            <Link href="/profile" className="justify-end">
+            <Link href="/profile" className="justify-end gap-2">
               <span>الملف الشخصي</span>
+              <User className="h-4 w-4" />
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/settings" className="justify-end">
+            <Link href="/settings" className="justify-end gap-2">
               <span>الإعدادات</span>
+              <Settings className="h-4 w-4" />
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={signOut} className="text-red-500 focus:text-red-500 justify-end">
+        <DropdownMenuItem onClick={signOut} className="text-red-500 focus:text-red-500 justify-end gap-2 m-2">
           <span>تسجيل الخروج</span>
-          <LogOut className="mr-2 h-4 w-4" />
+          <LogOut className="h-4 w-4" />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
