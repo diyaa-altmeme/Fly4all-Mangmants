@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDebounce } from '@/hooks/use-debounce';
-import { getAllVouchers } from '../actions';
+import { getAllVouchers } from './actions';
 import { getClients } from '@/app/relations/actions';
 import { getUsers } from '@/app/users/actions';
 import { getBoxes } from '@/app/boxes/actions';

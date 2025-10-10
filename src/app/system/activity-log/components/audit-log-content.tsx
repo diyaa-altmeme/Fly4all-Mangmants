@@ -48,27 +48,6 @@ export default function AuditLogContent({ initialLogs }: AuditLogContentProps) {
         <DataTable
             columns={columns}
             data={initialLogs}
-            searchTerm={debouncedSearchTerm}
-            toolbarContent={
-                 <>
-                    <Input
-                        placeholder="بحث بالوصف, المستخدم..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="h-8 w-[150px] lg:w-[250px]"
-                    />
-                    <DataTableFacetedFilter
-                        columnTitle="نوع العملية"
-                        title="العملية"
-                        options={actionOptions}
-                    />
-                    <DataTableFacetedFilter
-                        columnTitle="القسم"
-                        title="القسم"
-                        options={targetTypeOptions}
-                    />
-                </>
-            }
         />
     );
 }

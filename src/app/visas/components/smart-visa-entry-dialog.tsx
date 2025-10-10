@@ -26,7 +26,7 @@ import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { buttonVariants } from '@/components/ui/button';
-import { useAuth } from '@/context/auth-context';
+import { useAuth } from '@/lib/auth-context';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 
@@ -262,7 +262,7 @@ export default function SmartVisaEntryDialog({ onMultipleBookingsAdded, children
   const getNumericValue = (value: string) => parseInt(value.replace(/px|vw|vh/g, ''), 10) || 0;
 
   const supplierOptions = (navData?.suppliers || []).map(s => ({ value: s.id, label: s.name }));
-  const clientOptions = (navData?.clients || []).map(c => ({ value: c.id, label: c.name }));
+  const clientOptions = (navData?.clients || []).map(c => ({ value: s.id, label: c.name }));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
