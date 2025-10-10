@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getExchangesDashboardData, type ExchangeDashboardData } from '../../actions';
+import { getExchangesDashboardData, type ExchangeDashboardData } from '../actions';
 import { ExchangeCard } from './exchange-card';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Loader2 } from 'lucide-react';

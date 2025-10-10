@@ -1,96 +1,127 @@
 
 "use client";
 
-import React from 'react';
-import type { Exchange } from '@/lib/types';
+import React, { useState } from 'react';
+import type { Exchange, ExchangeDashboardData, UnifiedLedgerEntry } from '../../actions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Edit, Trash2, AreaChart, GitCompareArrows } from 'lucide-react';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { ArrowLeft, GitCompareArrows, ArrowUp, ArrowDown, PlusCircle, RefreshCw, Loader2, Share2, MoreHorizontal } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
-import AddExchangeDialog from './add-exchange-dialog';
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import { buttonVariants } from '@/components/ui/button';
+import { format, parseISO } from 'date-fns';
+import { Separator } from '@/components/ui/separator';
+import AddTransactionsDialog from './add-transactions-dialog';
+import AddPaymentsDialog from './add-payments-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
-// import { deleteExchange } from '../actions';
+import ShareBalanceDialog from './ShareBalanceDialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-const formatCurrency = (amount: number, currency: 'USD' | 'IQD') => {
-  return `${amount.toLocaleString()} ${currency}`;
-}
+const formatCurrency = (amount: number, withSign = false) => {
+    if (typeof amount !== 'number' || isNaN(amount)) return '$0.00';
+    const sign = amount < 0 ? "-" : (withSign ? "+" : "");
+    const formattedAmount = Math.abs(amount).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+    return `${sign}$${formattedAmount}`;
+};
 
-export default function ExchangeCard({ exchange }: { exchange: Exchange }) {
+
+export const ExchangeCard = ({ exchange, exchanges, onRefresh }: { exchange: ExchangeDashboardData, exchanges: Exchange[], onRefresh: () => void }) => {
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
     const { toast } = useToast();
-    const router = useRouter();
 
-    const handleDelete = async () => {
-        // const result = await deleteExchange(exchange.id);
-        // if (result.success) {
-        //     toast({ title: 'تم حذف البورصة بنجاح' });
-        //     router.refresh();
-        // } else {
-        //     toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
-        // }
-    };
-
+    const handleRefresh = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setIsRefreshing(true);
+        try {
+            await onRefresh();
+            toast({ title: `تم تحديث بيانات ${exchange.name}`});
+        } catch (error) {
+            toast({ title: 'فشل التحديث', variant: 'destructive'});
+        } finally {
+            setIsRefreshing(false);
+        }
+    }
     return (
-        <Card className="flex flex-col h-full overflow-hidden shadow-md hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-start justify-between p-4 bg-muted/50">
+        <Card className="flex flex-col shadow-md overflow-hidden rounded-xl">
+             <CardHeader 
+                className="p-4 flex flex-row items-center justify-between gap-4 text-primary-foreground border-b"
+                style={{ backgroundColor: 'hsl(var(--primary))' }}
+             >
+                 <Badge variant={exchange.balance < 0 ? "destructive" : "default"} className={cn("text-lg font-mono", exchange.balance < 0 ? "bg-red-500" : "bg-green-600 hover:bg-green-700")}>
+                    {formatCurrency(exchange.balance)}
+                </Badge>
                 <div className="flex items-center gap-3">
-                    <GitCompareArrows className="h-8 w-8 text-primary" />
-                    <div>
-                        <CardTitle className="text-lg">{exchange.name}</CardTitle>
-                        <CardDescription>بورصة</CardDescription>
+                    <div className="text-right">
+                        <CardTitle className="text-lg font-bold">{exchange.name}</CardTitle>
+                         <CardDescription className="text-xs font-semibold text-primary-foreground/80">الرصيد الحالي</CardDescription>
+                    </div>
+                     <div className="p-3 bg-primary-foreground/20 rounded-full border-2 border-primary-foreground/30 shadow-sm">
+                       <GitCompareArrows className="h-6 w-6" />
                     </div>
                 </div>
-                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                           <MoreVertical className="h-4 w-4" />
-                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <AddExchangeDialog isEditing exchange={exchange} onSuccess={() => router.refresh()}>
-                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                <Edit className="me-2 h-4 w-4" /> تعديل
-                            </DropdownMenuItem>
-                        </AddExchangeDialog>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                 <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-600">
-                                    <Trash2 className="me-2 h-4 w-4"/>حذف
-                                 </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف البورصة بشكل دائم.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({variant: 'destructive'}))}>نعم، احذف</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                    </DropdownMenuContent>
-                 </DropdownMenu>
             </CardHeader>
-            <CardContent className="p-4 flex-grow grid grid-cols-1 gap-4">
-                 <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <p className="text-sm text-blue-600 font-semibold">حد التنبيه</p>
-                    <p className="font-mono font-bold text-lg">{formatCurrency(exchange.thresholdAlertUSD, 'USD')}</p>
-                </div>
+            <CardContent className="flex-grow space-y-1 p-4">
+                {exchange.lastTransactions.length === 0 ? (
+                    <div className="text-center h-24 flex items-center justify-center text-muted-foreground">
+                        لا توجد حركات حديثة.
+                    </div>
+                ) : exchange.lastTransactions.map((tx, index) => {
+                    const isDebit = tx.entryType === 'transaction' || tx.totalAmount! < 0;
+                    const amount = tx.totalAmount || 0;
+
+                    return (
+                        <React.Fragment key={tx.id}>
+                            <div className="flex items-center gap-4 py-3">
+                                <div className={cn("flex-shrink-0 size-8 rounded-full flex items-center justify-center", isDebit ? "bg-red-100" : "bg-green-100")}>
+                                    {isDebit ? <ArrowDown className="h-5 w-5 text-red-500" /> : <ArrowUp className="h-5 w-5 text-green-500" />}
+                                </div>
+                                <div className="flex-grow text-right space-y-1 overflow-hidden">
+                                    <p className="text-sm font-semibold truncate" title={tx.description}>{tx.description}</p>
+                                    <p className="text-xs text-muted-foreground font-mono">{format(parseISO(tx.date), 'MMM d, yyyy')}</p>
+                                </div>
+                                <div className={cn("font-mono font-bold text-sm text-nowrap", isDebit ? 'text-red-600' : 'text-green-600')}>
+                                    {formatCurrency(amount, true)}
+                                </div>
+                            </div>
+                            {index < exchange.lastTransactions.length - 1 && <Separator />}
+                        </React.Fragment>
+                    )
+                })}
             </CardContent>
-            <CardFooter className="p-2 border-t">
-                 <Button asChild variant="secondary" className="w-full">
-                    <Link href={`/exchanges/report?exchangeId=${exchange.id}`}>
-                        <AreaChart className="me-2 h-4 w-4" /> عرض كشف الحساب
-                    </Link>
-                </Button>
+            <CardFooter className="p-2 border-t bg-muted/50 flex flex-col gap-2">
+                 <div className="grid grid-cols-2 gap-2 w-full">
+                     <Button asChild className="w-full" variant="ghost">
+                        <Link href={`/exchanges/report?exchangeId=${exchange.id}`}>
+                            عرض الكشف الكامل <ArrowLeft className="ms-2 h-4 w-4" />
+                        </Link>
+                    </Button>
+                    <ShareBalanceDialog exchangeName={exchange.name} balance={exchange.balance}>
+                         <Button className="w-full" variant="ghost">
+                            <Share2 className="me-2 h-4 w-4" /> مشاركة الرصيد
+                        </Button>
+                    </ShareBalanceDialog>
+                </div>
+                <div className="grid grid-cols-3 gap-2 w-full">
+                     <AddTransactionsDialog exchangeId={exchange.id} exchanges={exchanges} onSuccess={onRefresh}>
+                        <Button className="w-full" variant="secondary" size="sm">
+                            <PlusCircle className="me-2 h-4 w-4" /> معاملة
+                        </Button>
+                     </AddTransactionsDialog>
+                      <AddPaymentsDialog exchangeId={exchange.id} exchanges={exchanges} onSuccess={onRefresh}>
+                         <Button className="w-full" variant="secondary" size="sm">
+                            <PlusCircle className="me-2 h-4 w-4" /> تسديد
+                        </Button>
+                     </AddPaymentsDialog>
+                    <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+                        {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4"/>}
+                    </Button>
+                </div>
             </CardFooter>
         </Card>
     );
-}
+};
