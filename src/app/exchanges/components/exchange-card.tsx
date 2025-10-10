@@ -28,6 +28,15 @@ const formatCurrency = (amount: number, withSign = false) => {
     return `${sign}$${formattedAmount}`;
 };
 
+const formatCurrencyForCard = (amount: number) => {
+    const isNegative = amount < 0;
+    const formatted = Math.abs(amount).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return `${''}${formatted}${isNegative ? '-' : '+'}`;
+};
+
 
 export const ExchangeCard = ({ exchange, exchanges, onRefresh }: { exchange: ExchangeDashboardData, exchanges: Exchange[], onRefresh: () => void }) => {
     const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -46,26 +55,43 @@ export const ExchangeCard = ({ exchange, exchanges, onRefresh }: { exchange: Exc
             setIsRefreshing(false);
         }
     }
+    
+    const balanceIsDebt = exchange.balance < 0;
+
     return (
-        <Card className="flex flex-col shadow-md overflow-hidden rounded-xl">
+        <Card className="flex flex-col shadow-md overflow-hidden rounded-xl bg-card">
              <CardHeader 
-                className="p-4 flex flex-row items-center justify-between gap-4 text-primary-foreground border-b"
+                className="relative p-4 flex flex-col items-stretch gap-4 text-primary-foreground rounded-t-xl border-b-4 border-black/10"
                 style={{ backgroundColor: 'hsl(var(--primary))' }}
              >
-                 <Badge variant={exchange.balance < 0 ? "destructive" : "default"} className={cn("text-lg font-mono", exchange.balance < 0 ? "bg-red-500" : "bg-green-600 hover:bg-green-700")}>
-                    {formatCurrency(exchange.balance)}
-                </Badge>
-                <div className="flex items-center gap-3">
+                <div className="flex justify-between items-center">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 hover:bg-background/20 text-white" onClick={handleRefresh} disabled={isRefreshing}>
+                        {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4"/>}
+                    </Button>
                     <div className="text-right">
                         <CardTitle className="text-lg font-bold">{exchange.name}</CardTitle>
-                         <CardDescription className="text-xs font-semibold text-primary-foreground/80">الرصيد الحالي</CardDescription>
+                        <CardDescription className="text-xs font-semibold text-primary-foreground/80">بورصة السوق</CardDescription>
                     </div>
-                     <div className="p-3 bg-primary-foreground/20 rounded-full border-2 border-primary-foreground/30 shadow-sm">
-                       <GitCompareArrows className="h-6 w-6" />
+                     <div className="p-2 bg-primary-foreground/20 rounded-full border-2 border-primary-foreground/30 shadow-sm">
+                       <GitCompareArrows className="h-5 w-5" />
                     </div>
                 </div>
+                 <div className="p-4 rounded-xl bg-black/20 backdrop-blur-sm border border-white/20 text-center">
+                    <p className="text-xs font-bold text-white/80">الرصيد الحالي</p>
+                    <div className="flex items-center justify-center gap-2">
+                        <p className="text-3xl font-mono font-bold tracking-wider">{formatCurrencyForCard(exchange.balance)}</p>
+                        <Badge variant="destructive" className={cn(balanceIsDebt ? "bg-red-500/80" : "bg-green-500/80")}>{balanceIsDebt ? "دين" : "لنا"}</Badge>
+                    </div>
+                 </div>
             </CardHeader>
-            <CardContent className="flex-grow space-y-1 p-4">
+            <CardContent className="flex-grow space-y-1 p-2">
+                 <div className="px-2 py-1 flex justify-between items-center text-xs font-semibold text-muted-foreground">
+                    <span>آخر الحركات</span>
+                    <div className="flex items-center gap-3 font-mono">
+                        <span className="flex items-center gap-1 text-green-600">$0.00 <ArrowUp className="h-3 w-3"/></span>
+                        <span className="flex items-center gap-1 text-red-600">$0.00 <ArrowDown className="h-3 w-3"/></span>
+                    </div>
+                </div>
                 {exchange.lastTransactions.length === 0 ? (
                     <div className="text-center h-24 flex items-center justify-center text-muted-foreground">
                         لا توجد حركات حديثة.
@@ -76,51 +102,46 @@ export const ExchangeCard = ({ exchange, exchanges, onRefresh }: { exchange: Exc
 
                     return (
                         <React.Fragment key={tx.id}>
-                            <div className="flex items-center gap-4 py-3">
-                                <div className={cn("flex-shrink-0 size-8 rounded-full flex items-center justify-center", isDebit ? "bg-red-100" : "bg-green-100")}>
+                            <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted">
+                                 <div className={cn("flex-shrink-0 size-8 rounded-full flex items-center justify-center", isDebit ? "bg-red-100" : "bg-green-100")}>
                                     {isDebit ? <ArrowDown className="h-5 w-5 text-red-500" /> : <ArrowUp className="h-5 w-5 text-green-500" />}
                                 </div>
-                                <div className="flex-grow text-right space-y-1 overflow-hidden">
+                                <div className="flex-grow text-right space-y-0.5 overflow-hidden">
                                     <p className="text-sm font-semibold truncate" title={tx.description}>{tx.description}</p>
-                                    <p className="text-xs text-muted-foreground font-mono">{format(parseISO(tx.date), 'MMM d, yyyy')}</p>
+                                    <div className="flex items-center justify-end gap-3 text-xs text-muted-foreground">
+                                        <Badge variant="outline">{tx.entryType === 'transaction' ? 'معاملة' : 'تسديد'}</Badge>
+                                        <span>{format(parseISO(tx.date), 'MMM d, yyyy')}</span>
+                                    </div>
                                 </div>
                                 <div className={cn("font-mono font-bold text-sm text-nowrap", isDebit ? 'text-red-600' : 'text-green-600')}>
                                     {formatCurrency(amount, true)}
                                 </div>
                             </div>
-                            {index < exchange.lastTransactions.length - 1 && <Separator />}
                         </React.Fragment>
                     )
                 })}
             </CardContent>
-            <CardFooter className="p-2 border-t bg-muted/50 flex flex-col gap-2">
-                 <div className="grid grid-cols-2 gap-2 w-full">
-                     <Button asChild className="w-full" variant="ghost">
-                        <Link href={`/exchanges/report?exchangeId=${exchange.id}`}>
-                            عرض الكشف الكامل <ArrowLeft className="ms-2 h-4 w-4" />
-                        </Link>
+            <CardFooter className="p-2 border-t bg-muted/20 grid grid-cols-2 gap-2">
+                <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
+                    <Link href={`/exchanges/report?exchangeId=${exchange.id}`}>
+                        عرض الكشف الكامل <ArrowLeft className="ms-2 h-4 w-4" />
+                    </Link>
+                </Button>
+                <ShareBalanceDialog exchangeName={exchange.name} balance={exchange.balance}>
+                    <Button className="w-full" variant="outline">
+                        <Share2 className="me-2 h-4 w-4" /> مشاركة الرصيد
                     </Button>
-                    <ShareBalanceDialog exchangeName={exchange.name} balance={exchange.balance}>
-                         <Button className="w-full" variant="ghost">
-                            <Share2 className="me-2 h-4 w-4" /> مشاركة الرصيد
-                        </Button>
-                    </ShareBalanceDialog>
-                </div>
-                <div className="grid grid-cols-3 gap-2 w-full">
-                     <AddTransactionsDialog exchangeId={exchange.id} exchanges={exchanges} onSuccess={onRefresh}>
-                        <Button className="w-full" variant="secondary" size="sm">
-                            <PlusCircle className="me-2 h-4 w-4" /> معاملة
-                        </Button>
-                     </AddTransactionsDialog>
-                      <AddPaymentsDialog exchangeId={exchange.id} exchanges={exchanges} onSuccess={() => onRefresh()}>
-                         <Button className="w-full" variant="secondary" size="sm">
-                            <PlusCircle className="me-2 h-4 w-4" /> تسديد
-                        </Button>
-                     </AddPaymentsDialog>
-                    <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
-                        {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4"/>}
+                </ShareBalanceDialog>
+                <AddTransactionsDialog exchangeId={exchange.id} exchanges={exchanges} onSuccess={onRefresh}>
+                    <Button className="w-full" variant="outline">
+                        <PlusCircle className="me-2 h-4 w-4" /> معاملة جديدة
                     </Button>
-                </div>
+                </AddTransactionsDialog>
+                <AddPaymentsDialog exchangeId={exchange.id} exchanges={exchanges} onSuccess={() => onRefresh()}>
+                    <Button className="w-full" variant="outline">
+                        <PlusCircle className="me-2 h-4 w-4" /> تسديد جديد
+                    </Button>
+                </AddPaymentsDialog>
             </CardFooter>
         </Card>
     );
