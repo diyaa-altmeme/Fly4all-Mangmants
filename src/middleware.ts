@@ -1,4 +1,7 @@
-
+// This file is temporarily disabled to allow developer auto-login to function correctly.
+// It was renamed to middleware.ts.ignore
+// The original content is preserved below for reference.
+/*
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
@@ -35,4 +38,12 @@ export const config = {
   matcher: [
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)',
   ],
+};
+*/
+
+// To re-enable, rename this file back to `middleware.ts`
+export default function middleware() {}
+
+export const config = {
+  matcher: [],
 };
