@@ -5,30 +5,55 @@ import React from 'react';
 import { getSettings } from '@/app/settings/actions';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal } from 'lucide-react';
+import { Terminal, Users, SlidersHorizontal, Upload, MessageSquareQuote, CreditCard } from 'lucide-react';
 import type { AppSettings } from '@/lib/types';
 import FieldsSettings from './fields/fields-settings';
 import AliasesSettings from './aliases/aliases-settings';
 import CreditPolicySettings from './credit-policy/credit-policy-settings';
 import ImportSettings from './import/import-settings';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ClientPermissionsPage from '@/app/settings/client-permissions/page';
+import { Shield } from 'lucide-react';
+
 
 function RelationsSettingsPageContent({ initialSettings, onSettingsChanged }: { initialSettings: AppSettings, onSettingsChanged: () => void }) {
     
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            <div className="lg:col-span-2 space-y-6">
-                 <FieldsSettings relationSections={initialSettings.relationSections} onSettingsChanged={onSettingsChanged} />
-            </div>
-            <div className="lg:col-span-1 space-y-6">
-                 <AliasesSettings settings={initialSettings} onSettingsChanged={onSettingsChanged} />
-            </div>
-            <div className="lg:col-span-1 space-y-6">
-                 <CreditPolicySettings settings={initialSettings} onSettingsChanged={onSettingsChanged} />
-            </div>
-             <div className="lg:col-span-2">
-                 <ImportSettings settings={initialSettings} />
-            </div>
-        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>إعدادات العلاقات</CardTitle>
+                <CardDescription>
+                    إدارة شاملة لكل ما يتعلق بالعملاء والموردين، من الحقول المخصصة وسياسات الدفع إلى أدوات الاستيراد.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Tabs defaultValue="fields" className="w-full">
+                    <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
+                        <TabsTrigger value="fields"><SlidersHorizontal className="me-2 h-4 w-4"/>إدارة الحقول</TabsTrigger>
+                        <TabsTrigger value="import"><Upload className="me-2 h-4 w-4"/>الاستيراد والتصدير</TabsTrigger>
+                        <TabsTrigger value="aliases"><MessageSquareQuote className="me-2 h-4 w-4"/>مرادفات الاستيراد</TabsTrigger>
+                        <TabsTrigger value="credit_policy"><CreditCard className="me-2 h-4 w-4"/>سياسات الآجل</TabsTrigger>
+                        <TabsTrigger value="permissions"><Shield className="me-2 h-4 w-4"/>صلاحيات العملاء</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="fields" className="mt-6">
+                        <FieldsSettings relationSections={initialSettings.relationSections} onSettingsChanged={onSettingsChanged} />
+                    </TabsContent>
+                    <TabsContent value="import" className="mt-6">
+                        <ImportSettings settings={initialSettings} />
+                    </TabsContent>
+                    <TabsContent value="aliases" className="mt-6">
+                        <AliasesSettings settings={initialSettings} onSettingsChanged={onSettingsChanged} />
+                    </TabsContent>
+                    <TabsContent value="credit_policy" className="mt-6">
+                        <CreditPolicySettings settings={initialSettings} onSettingsChanged={onSettingsChanged} />
+                    </TabsContent>
+                     <TabsContent value="permissions" className="mt-6">
+                        <ClientPermissionsPage />
+                    </TabsContent>
+                </Tabs>
+            </CardContent>
+        </Card>
     );
 }
 
