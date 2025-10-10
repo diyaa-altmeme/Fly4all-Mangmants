@@ -3,7 +3,7 @@
 
 import React from 'react';
 import {
-    Users, GitBranch, SlidersHorizontal, Settings, Upload, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, MessageSquareQuote, Shield, FileText
+    Users, GitBranch, SlidersHorizontal, Settings, Upload, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, MessageSquareQuote, Shield, FileText, Terminal as DeveloperIcon
 } from 'lucide-react';
 import AppearanceSettings from '@/app/settings/sections/appearance-settings';
 import AccountingSettings from "@/app/settings/sections/accounting-settings";
@@ -17,6 +17,7 @@ import FieldsSettings from '@/app/relations/settings/fields/fields-settings';
 import ImportSettings from '@/app/relations/settings/import/import-settings';
 import AliasesSettings from '@/app/relations/settings/aliases/aliases-settings';
 import CreditPolicySettings from '@/app/relations/settings/credit-policy/credit-policy-settings';
+import DeveloperSettings from './sections/developer-settings';
 
 export const settingSections = [
     { 
@@ -64,6 +65,7 @@ export const settingSections = [
         icon: Database,
         subItems: [
              { id: 'system_status_check', name: 'فحص حالة النظام', component: SystemStatusSettings, icon: Shield },
+             { id: 'developer_settings', name: 'إعدادات المطور', component: DeveloperSettings, icon: DeveloperIcon },
         ]
     },
 ];
