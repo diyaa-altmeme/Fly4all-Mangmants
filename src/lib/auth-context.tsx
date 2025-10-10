@@ -47,17 +47,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (sessionUser) {
                 setUser(sessionUser);
             } else if (process.env.NODE_ENV === 'development' && !isPublicRoute) {
-                // Auto-login as admin in development environment if not on a public route
                 console.log("Development mode: Attempting to auto-login as admin...");
-                const { success, customToken } = await signInAsUserAction(ADMIN_UID_FOR_DEV);
+                const { success, customToken, error } = await signInAsUserAction(ADMIN_UID_FOR_DEV);
                  if (success && customToken) {
-                    // Redirect to the dev-login page to handle the sign-in flow.
-                    // This avoids iframe/cookie issues in preview environments.
-                    router.replace(`/auth/dev-login?token=${customToken}`);
-                    // Keep loading until redirect happens
-                    await new Promise(() => {});
+                    const userCredential = await signInWithCustomToken(auth, customToken);
+                    const idToken = await getIdToken(userCredential.user);
+                    await loginUser(idToken);
+                    // After successful session creation, fetch the user data again
+                    const newSessionUser = await getCurrentUserFromSession();
+                    if(newSessionUser) {
+                       setUser(newSessionUser);
+                    } else {
+                       throw new Error("Auto-login failed: Could not retrieve session user after login.");
+                    }
                 } else {
-                     throw new Error("Failed to get custom token for dev admin.");
+                     throw new Error(`Failed to get custom token for dev admin: ${error}`);
                 }
             } else if (!isPublicRoute) {
                 router.replace('/auth/login');
@@ -118,16 +122,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInAsUser = async (userId: string) => {
-    setLoading(true);
-    const { success, customToken, error } = await signInAsUserAction(userId);
-    if(success && customToken) {
-        // Redirect to a dedicated page to handle the sign-in logic
-        // This avoids issues with iframes and cookies in preview environments
-        router.push(`/auth/dev-login?token=${customToken}`);
-    } else {
-        console.error("Failed to sign in as user:", error);
-        setLoading(false);
-    }
+    // This is now handled automatically in dev mode.
+    // This function can be kept for manual use if needed in other parts of the app.
   }
 
 
