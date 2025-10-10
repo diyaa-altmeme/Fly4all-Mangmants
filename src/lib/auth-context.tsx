@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -22,14 +23,14 @@ interface AuthContextType {
   user: (User & { permissions?: string[] }) | (Client & { isClient: true }) | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signInAsUser: (userId: string) => Promise<{ success: boolean; error?: string }>;
+  signInAsUser: (userId: string) => Promise<void>;
   signOut: () => Promise<void>;
   hasPermission: (permission: keyof typeof PERMISSIONS) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
+const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/', '/auth/dev-login'];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
@@ -45,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(sessionUser);
             if (!sessionUser && !isPublicRoute) {
                 router.replace('/auth/login');
-            } else if (sessionUser && isPublicRoute && pathname !== '/') {
+            } else if (sessionUser && pathname === '/auth/login') {
                  router.replace('/dashboard');
             }
         } catch (error) {
@@ -72,8 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error(result.error);
       }
       
-      // Instead of re-fetching, we now force a reload to ensure the new session is picked up everywhere.
-      window.location.href = '/dashboard';
+      const sessionUser = await getCurrentUserFromSession();
+      if(sessionUser) {
+        setUser(sessionUser);
+        router.push('/dashboard');
+      } else {
+        throw new Error('Failed to retrieve user session after login.');
+      }
       
       return { success: true };
 
@@ -105,18 +111,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
         const result = await signInAsUserAction(userId);
         if (result.success && result.customToken) {
-            const userCredential = await signInWithCustomToken(auth, result.customToken);
-            const idToken = await getIdToken(userCredential.user);
-            await loginUser(idToken);
-            window.location.href = '/dashboard';
-            return { success: true };
+             const url = `/auth/dev-login?token=${result.customToken}`;
+             router.push(url);
         } else {
             throw new Error(result.error || 'Failed to get custom token.');
         }
     } catch(error: any) {
         console.error("Error signing in as user:", error);
         setLoading(false);
-        return { success: false, error: error.message };
     }
   }
 
