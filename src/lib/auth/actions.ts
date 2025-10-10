@@ -2,11 +2,14 @@
 'use server';
 
 import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
-import type { User, Client } from '@/lib/types';
+import type { User, Client, LoginCredentials } from '@/lib/types';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { getRoles } from '@/app/users/actions';
 import { PERMISSIONS } from './permissions';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { redirect } from 'next/navigation';
 
 export const getUserById = cache(async (uid: string): Promise<(User & { permissions?: string[] }) | null> => {
     const db = await getDb();
@@ -75,8 +78,8 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
     if (!sessionCookie) return null;
 
     try {
-        const auth = await getAuthAdmin();
-        const decodedClaims = await auth.verifySessionCookie(sessionCookie.value, true);
+        const authAdmin = await getAuthAdmin();
+        const decodedClaims = await authAdmin.verifySessionCookie(sessionCookie.value, true);
         
         const fullUser = await getUserById(decodedClaims.uid);
         if (fullUser) {
@@ -104,11 +107,11 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
 
 export async function createSessionCookie(idToken: string) {
     const expiresIn = 60 * 60 * 24 * 7 * 1000; // 7 days
-    const auth = await getAuthAdmin();
+    const authAdmin = await getAuthAdmin();
     
     try {
-        const decodedToken = await auth.verifyIdToken(idToken);
-        const userInAuth = await auth.getUser(decodedToken.uid);
+        const decodedToken = await authAdmin.verifyIdToken(idToken);
+        const userInAuth = await authAdmin.getUser(decodedToken.uid);
         
         // Fetch user data from Firestore to get the role
         const userInDb = await getUserById(decodedToken.uid);
@@ -116,10 +119,10 @@ export async function createSessionCookie(idToken: string) {
         // Set custom claims if they don't exist or are different
         const currentClaims = userInAuth.customClaims || {};
         if (currentClaims.role !== userInDb?.role) {
-            await auth.setCustomUserClaims(decodedToken.uid, { role: userInDb?.role || 'viewer' });
+            await authAdmin.setCustomUserClaims(decodedToken.uid, { role: userInDb?.role || 'viewer' });
         }
 
-        const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
+        const sessionCookie = await authAdmin.createSessionCookie(idToken, { expiresIn });
         
         cookies().set('session', sessionCookie, {
             maxAge: expiresIn,
@@ -135,6 +138,67 @@ export async function createSessionCookie(idToken: string) {
         return { success: false, error: error.message };
     }
 }
+
+export async function loginUser(credentials: LoginCredentials) {
+    try {
+        // Since we can't use the client-side `signInWithEmailAndPassword` in a Server Action,
+        // and we don't want to re-implement the logic, we will rely on the Admin SDK
+        // to validate the user. This flow is less secure than the client-side SDK flow.
+        // A better long-term solution is a custom backend endpoint.
+        // For now, we will create a session from an ID token generated on the client,
+        // which means the client form needs to get an ID token first.
+        // This is complex. Let's simplify. We will trust the server action for now.
+
+        // The correct way is to use the client SDK to sign in, get the idToken, and post that to a server action/route.
+        // Let's assume the form now posts the idToken.
+        
+        const { email, password } = credentials;
+
+        const authAdmin = getAuthAdmin();
+        
+        // This flow is NOT recommended as it bypasses many client-side checks.
+        // But for the sake of making it work within the current server-action constraint:
+        // Let's go back to the original plan. The client will sign in and the server will create the cookie.
+
+        const response = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email,
+              password,
+              returnSecureToken: true,
+            }),
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            let errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
+            if (result.error?.message === "INVALID_LOGIN_CREDENTIALS") {
+                errorMessage = "بيانات الدخول غير صحيحة.";
+            }
+             return { error: errorMessage };
+        }
+
+        const idToken = result.idToken;
+        
+        const sessionResult = await createSessionCookie(idToken);
+        if (!sessionResult.success) {
+            return { error: sessionResult.error };
+        }
+
+    } catch (error: any) {
+        console.error("Login Action Error: ", error);
+        return { error: error.message || 'An unexpected error occurred.' };
+    }
+    
+    // Redirect to the dashboard after successful login
+    redirect('/');
+}
+
 
 export async function logoutUser() {
     cookies().delete('session');
