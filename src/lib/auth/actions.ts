@@ -6,7 +6,7 @@ import type { User, Client } from '@/lib/types';
 import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { getRoles } from '@/app/users/actions';
-import { ROLES_PERMISSIONS } from './roles';
+import { PERMISSIONS } from './permissions';
 
 export const getUserById = cache(async (uid: string): Promise<(User & { permissions?: string[] }) | null> => {
     const db = await getDb();
@@ -24,7 +24,7 @@ export const getUserById = cache(async (uid: string): Promise<(User & { permissi
         if (userData.role) {
             if(userData.role === 'admin') {
                 // Admin gets all permissions implicitly from the defined roles list.
-                 permissions = Object.keys(ROLES_PERMISSIONS).flatMap(key => ROLES_PERMISSIONS[key]);
+                 permissions = Object.keys(PERMISSIONS);
             } else {
                 const userRole = allRoles.find(r => r.id === userData.role);
                 if (userRole) {
@@ -106,24 +106,34 @@ export async function createSessionCookie(idToken: string) {
     const expiresIn = 60 * 60 * 24 * 7 * 1000; // 7 days
     const auth = await getAuthAdmin();
     
-    const decodedToken = await auth.verifyIdToken(idToken);
-    const user = await getUserById(decodedToken.uid);
+    try {
+        const decodedToken = await auth.verifyIdToken(idToken);
+        const userInAuth = await auth.getUser(decodedToken.uid);
+        
+        // Fetch user data from Firestore to get the role
+        const userInDb = await getUserById(decodedToken.uid);
 
-    // Set custom claims if they don't exist or are different
-    const currentClaims = (await auth.getUser(decodedToken.uid)).customClaims || {};
-    if (currentClaims.role !== user?.role) {
-        await auth.setCustomUserClaims(decodedToken.uid, { role: user?.role || 'viewer' });
+        // Set custom claims if they don't exist or are different
+        const currentClaims = userInAuth.customClaims || {};
+        if (currentClaims.role !== userInDb?.role) {
+            await auth.setCustomUserClaims(decodedToken.uid, { role: userInDb?.role || 'viewer' });
+        }
+
+        const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
+        
+        cookies().set('session', sessionCookie, {
+            maxAge: expiresIn,
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            path: '/',
+            sameSite: 'strict',
+        });
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error creating session cookie:", error);
+        return { success: false, error: error.message };
     }
-
-    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
-    
-    cookies().set('session', sessionCookie, {
-        maxAge: expiresIn,
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        path: '/',
-        sameSite: 'strict',
-    });
 }
 
 export async function logoutUser() {
