@@ -76,10 +76,8 @@ export function LoginForm() {
     setError('');
     setIsLoading(true);
     
-    await signIn(email, password);
     // On success, the AuthProvider will handle the redirect.
     // If it fails, the AuthProvider might set an error state, or we can catch it.
-    // For now, let's assume the auth context handles errors.
     // The previous implementation was catching the error here. Let's re-add that.
     const result = await signIn(email, password);
     if (result && result.error) {
