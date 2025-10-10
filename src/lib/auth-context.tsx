@@ -6,6 +6,7 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   getIdToken,
+  signInWithCustomToken,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
@@ -21,7 +22,7 @@ interface AuthContextType {
   user: (User & { permissions?: string[] }) | (Client & { isClient: true }) | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signInAsUser: (userId: string) => Promise<void>;
+  signInAsUser: (userId: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   hasPermission: (permission: keyof typeof PERMISSIONS) => boolean;
 }
@@ -29,7 +30,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
-const ADMIN_UID = "5V2a9sFmEjZosRARbpA8deWhdVJ3"; // ضياء التميمي
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
@@ -72,13 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error(result.error);
       }
       
-      const sessionUser = await getCurrentUserFromSession();
-      if(sessionUser) {
-        setUser(sessionUser);
-        router.push('/dashboard');
-      } else {
-        throw new Error('Failed to retrieve user session after login.');
-      }
+      // Instead of re-fetching, we now force a reload to ensure the new session is picked up everywhere.
+      window.location.href = '/dashboard';
       
       return { success: true };
 
@@ -107,9 +102,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInAsUser = async (userId: string) => {
     setLoading(true);
-    await signInAsUserAction(userId);
-    // The server action will handle the redirect. The page will then reload
-    // and the useEffect will fetch the new session.
+    try {
+        const result = await signInAsUserAction(userId);
+        if (result.success && result.customToken) {
+            const userCredential = await signInWithCustomToken(auth, result.customToken);
+            const idToken = await getIdToken(userCredential.user);
+            await loginUser(idToken);
+            window.location.href = '/dashboard';
+            return { success: true };
+        } else {
+            throw new Error(result.error || 'Failed to get custom token.');
+        }
+    } catch(error: any) {
+        console.error("Error signing in as user:", error);
+        setLoading(false);
+        return { success: false, error: error.message };
+    }
   }
 
 
