@@ -7,7 +7,7 @@
  * 
  * How to run:
  * 1. Ensure you have the necessary permissions and your service account is configured correctly.
- * 2. From your terminal, run: `npm run migrate-users`
+ * 2. From your terminal, run: `npm run migrate:users`
  * 
  * What it does:
  * - Reads all documents from the `users` collection.

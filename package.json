@@ -10,7 +10,7 @@
     "lint": "next lint",
     "test": "echo \"Scripts are running!\"",
     "type-check": "tsc --noEmit",
-    "migrate-users": "ts-node scripts/migrate-users.ts"
+    "migrate:users": "ts-node scripts/migrate-users.ts"
   },
   "engines": {
     "node": ">=18.0.0",
