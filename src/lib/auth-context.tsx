@@ -31,6 +31,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/', '/auth/dev-login'];
+const ADMIN_UID_FOR_DEV = "5V2a9sFmEjZosRARbpA8deWhdVJ3"; // UID for "ضياء التميمي"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
@@ -43,11 +44,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initializeAuth = async () => {
         try {
             const sessionUser = await getCurrentUserFromSession();
-            setUser(sessionUser);
-            if (!sessionUser && !isPublicRoute) {
+            if (sessionUser) {
+                setUser(sessionUser);
+            } else if (process.env.NODE_ENV === 'development' && !isPublicRoute) {
+                // Auto-login as admin in development environment if not on a public route
+                console.log("Development mode: Attempting to auto-login as admin...");
+                const result = await signInAsUserAction(ADMIN_UID_FOR_DEV);
+                 if (result.success && result.customToken) {
+                    const userCredential = await signInWithCustomToken(auth, result.customToken);
+                    const idToken = await getIdToken(userCredential.user);
+                    const loginResult = await loginUser(idToken);
+                    if(loginResult.success) {
+                        const adminUser = await getCurrentUserFromSession();
+                        setUser(adminUser);
+                        if(pathname !== '/dashboard') {
+                            router.replace('/dashboard');
+                        }
+                    } else {
+                         throw new Error("Failed to create session for dev admin.");
+                    }
+                } else {
+                    throw new Error("Failed to get custom token for dev admin.");
+                }
+            } else if (!isPublicRoute) {
                 router.replace('/auth/login');
-            } else if (sessionUser && pathname === '/auth/login') {
-                 router.replace('/dashboard');
             }
         } catch (error) {
             console.error("Auth initialization error:", error);
@@ -59,8 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, [pathname, isPublicRoute, router]);
 
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
@@ -73,14 +92,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error(result.error);
       }
       
-      const sessionUser = await getCurrentUserFromSession();
-      if(sessionUser) {
-        setUser(sessionUser);
-        router.push('/dashboard');
-      } else {
-        throw new Error('Failed to retrieve user session after login.');
-      }
+      // Instead of re-fetching, just force a full page reload to let the middleware and server session take over
+      window.location.href = '/dashboard';
       
+      // Keep the promise pending to avoid unmounting components before reload
+      await new Promise(() => {});
+
       return { success: true };
 
     } catch (error: any) {
@@ -108,18 +125,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInAsUser = async (userId: string) => {
     setLoading(true);
-    try {
-        const result = await signInAsUserAction(userId);
-        if (result.success && result.customToken) {
-             const url = `/auth/dev-login?token=${result.customToken}`;
-             router.push(url);
-        } else {
-            throw new Error(result.error || 'Failed to get custom token.');
-        }
-    } catch(error: any) {
-        console.error("Error signing in as user:", error);
-        setLoading(false);
-    }
+    const url = `/auth/dev-login?token=${userId}`;
+    router.push(url);
   }
 
 
@@ -139,12 +146,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   if (loading) {
     return <Preloader />;
   }
-
-  return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  
+  // If we are on a public route, just render children.
+  // If not, only render children if a user object exists.
+  if (isPublicRoute || user) {
+     return (
+        <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser }}>
+        {children}
+        </AuthContext.Provider>
+    );
+  }
+  
+  // This will be shown briefly while redirecting.
+  return <Preloader />;
 }
 
 export function useAuth() {
