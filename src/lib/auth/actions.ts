@@ -7,9 +7,9 @@ import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { getRoles } from '@/app/users/actions';
 import { PERMISSIONS } from './permissions';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { redirect } from 'next/navigation';
+import { signInWithEmailAndPassword, getIdToken } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export const getUserById = cache(async (uid: string): Promise<(User & { permissions?: string[] }) | null> => {
     const db = await getDb();
@@ -113,10 +113,8 @@ export async function createSessionCookie(idToken: string) {
         const decodedToken = await authAdmin.verifyIdToken(idToken);
         const userInAuth = await authAdmin.getUser(decodedToken.uid);
         
-        // Fetch user data from Firestore to get the role
         const userInDb = await getUserById(decodedToken.uid);
 
-        // Set custom claims if they don't exist or are different
         const currentClaims = userInAuth.customClaims || {};
         if (currentClaims.role !== userInDb?.role) {
             await authAdmin.setCustomUserClaims(decodedToken.uid, { role: userInDb?.role || 'viewer' });
@@ -139,66 +137,41 @@ export async function createSessionCookie(idToken: string) {
     }
 }
 
-export async function loginUser(credentials: LoginCredentials) {
+export const getUserByEmail = cache(async (email: string): Promise<(User) | null> => {
+    const db = await getDb();
+    if (!db) return null;
+
     try {
-        // Since we can't use the client-side `signInWithEmailAndPassword` in a Server Action,
-        // and we don't want to re-implement the logic, we will rely on the Admin SDK
-        // to validate the user. This flow is less secure than the client-side SDK flow.
-        // A better long-term solution is a custom backend endpoint.
-        // For now, we will create a session from an ID token generated on the client,
-        // which means the client form needs to get an ID token first.
-        // This is complex. Let's simplify. We will trust the server action for now.
+        const usersRef = db.collection('users');
+        const snapshot = await usersRef.where('email', '==', email).limit(1).get();
 
-        // The correct way is to use the client SDK to sign in, get the idToken, and post that to a server action/route.
-        // Let's assume the form now posts the idToken.
-        
-        const { email, password } = credentials;
-
-        const authAdmin = getAuthAdmin();
-        
-        // This flow is NOT recommended as it bypasses many client-side checks.
-        // But for the sake of making it work within the current server-action constraint:
-        // Let's go back to the original plan. The client will sign in and the server will create the cookie.
-
-        const response = await fetch(
-          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email,
-              password,
-              returnSecureToken: true,
-            }),
-          }
-        );
-
-        const result = await response.json();
-
-        if (!response.ok) {
-            let errorMessage = "البريد الإلكتروني أو كلمة المرور غير صحيحة.";
-            if (result.error?.message === "INVALID_LOGIN_CREDENTIALS") {
-                errorMessage = "بيانات الدخول غير صحيحة.";
-            }
-             return { error: errorMessage };
+        if (snapshot.empty) {
+            return null;
         }
 
-        const idToken = result.idToken;
+        const userDoc = snapshot.docs[0];
+        const userData = userDoc.data() as Omit<User, 'uid' | 'permissions'>;
         
-        const sessionResult = await createSessionCookie(idToken);
-        if (!sessionResult.success) {
-            return { error: sessionResult.error };
-        }
+        return { ...userData, uid: userDoc.id };
 
-    } catch (error: any) {
-        console.error("Login Action Error: ", error);
-        return { error: error.message || 'An unexpected error occurred.' };
+    } catch (error) {
+        console.error("Error getting user by email:", error);
+        return null;
     }
-    
-    // Redirect to the dashboard after successful login
-    redirect('/');
-}
+});
 
+
+export async function loginUser(idToken: string) {
+  try {
+    const sessionResult = await createSessionCookie(idToken);
+    if (!sessionResult.success) {
+      return { error: sessionResult.error };
+    }
+  } catch (error: any) {
+    console.error("Login Action Error: ", error);
+    return { error: error.message || 'An unexpected error occurred.' };
+  }
+}
 
 export async function logoutUser() {
     cookies().delete('session');
