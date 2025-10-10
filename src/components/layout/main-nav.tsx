@@ -95,6 +95,7 @@ const operationsItems = [
     { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
     { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft, permission: 'remittances:read' },
     { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
+    { href: "/exchanges", label: "إدارة البورصات", icon: ChevronsRightLeft, permission: 'admin' },
 ];
 
 const reportsItems = [
