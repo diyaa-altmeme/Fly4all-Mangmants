@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -78,20 +79,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await getIdToken(userCredential.user);
-      const result = await loginUser(idToken);
       
-      if (result?.error) {
+      const result = await loginUser(idToken);
+       if (result?.error) {
           throw new Error(result.error);
       }
       
-      // After session cookie is set, fetch the user and update state
-      const sessionUser = await getCurrentUserFromSession();
-      if(sessionUser) {
-        setUser(sessionUser);
-        router.push('/dashboard');
-      } else {
-        throw new Error('Failed to retrieve user session after login.');
-      }
+      // Force a reload to ensure the new session cookie is picked up by the server
+      window.location.href = '/dashboard';
       
       return { success: true };
 
