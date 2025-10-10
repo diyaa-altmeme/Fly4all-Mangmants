@@ -55,11 +55,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     const idToken = await getIdToken(userCredential.user);
                     const loginResult = await loginUser(idToken);
                     if(loginResult.success) {
-                        const adminUser = await getCurrentUserFromSession();
-                        setUser(adminUser);
-                        if(pathname !== '/dashboard') {
-                            router.replace('/dashboard');
-                        }
+                        // Instead of trying to refetch, force a full page reload to ensure
+                        // the new session cookie is picked up by the server on the next request.
+                        window.location.href = '/dashboard';
+                         // Keep the component in a loading state until the redirect happens
+                        await new Promise(() => {});
                     } else {
                          throw new Error("Failed to create session for dev admin.");
                     }
@@ -125,8 +125,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInAsUser = async (userId: string) => {
     setLoading(true);
-    const url = `/auth/dev-login?token=${userId}`;
-    router.push(url);
+    const { success, customToken, error } = await signInAsUserAction(userId);
+    if(success && customToken) {
+        // Redirect to a dedicated page to handle the sign-in logic
+        // This avoids issues with iframes and cookies in preview environments
+        router.push(`/auth/dev-login?token=${customToken}`);
+    } else {
+        console.error("Failed to sign in as user:", error);
+        setLoading(false);
+    }
   }
 
 
