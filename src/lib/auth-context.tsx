@@ -6,7 +6,9 @@ import {
   signInWithEmailAndPassword, 
   signOut as firebaseSignOut,
   onIdTokenChanged,
-  User as FirebaseUser 
+  User as FirebaseUser,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
@@ -35,6 +37,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+
+  useEffect(() => {
+    // This effect handles setting the persistence layer for Firebase Auth.
+    // It's crucial for environments like iframes where default persistence might fail.
+    const setAuthPersistence = async () => {
+        try {
+            await setPersistence(auth, browserLocalPersistence);
+        } catch (error) {
+            console.error("Failed to set authentication persistence:", error);
+        }
+    };
+    
+    setAuthPersistence();
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
