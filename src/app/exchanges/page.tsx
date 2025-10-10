@@ -30,15 +30,15 @@ async function DashboardDataContainer() {
 export default function ExchangesDashboardPage() {
     return (
         <div className="space-y-6">
+            <CardHeader className="px-0 sm:px-6">
+                <CardTitle>لوحة تحكم البورصات</CardTitle>
+                <CardDescription>
+                    نظرة شاملة ومباشرة على جميع أرصدة البورصات وآخر الحركات المسجلة.
+                </CardDescription>
+            </CardHeader>
             <Card>
-                <CardHeader>
-                    <CardTitle>لوحة تحكم البورصات</CardTitle>
-                    <CardDescription>
-                        نظرة شاملة ومباشرة على جميع أرصدة البورصات وآخر الحركات المسجلة.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <CardContent className="pt-6">
+                    <Suspense fallback={<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"><Skeleton className="h-96 w-full" /><Skeleton className="h-96 w-full" /><Skeleton className="h-96 w-full" /></div>}>
                         <DashboardDataContainer />
                     </Suspense>
                 </CardContent>
