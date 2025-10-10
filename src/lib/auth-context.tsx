@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -85,8 +86,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error(result.error);
       }
       
-      // This is the critical fix. A full page reload ensures the new session cookie is sent to the server for the next page load.
-      window.location.href = '/dashboard';
+      const sessionUser = await getCurrentUserFromSession();
+      if(sessionUser) {
+        setUser(sessionUser);
+        router.push('/dashboard');
+      } else {
+        throw new Error('Failed to retrieve user session after login.');
+      }
       
       return { success: true };
 
