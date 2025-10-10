@@ -1,23 +1,18 @@
-
-'use client';
+"use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
-  signInWithEmailAndPassword, 
   signOut as firebaseSignOut,
-  onIdTokenChanged,
-  User as FirebaseUser,
-  setPersistence,
-  browserLocalPersistence
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
-import { createSessionCookie, getCurrentUserFromSession, logoutUser, getUserById } from '@/lib/auth/actions';
+import { getCurrentUserFromSession, logoutUser } from '@/lib/auth/actions';
 import { useRouter, usePathname } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/permissions';
 import { PERMISSIONS } from './auth/permissions';
 import Preloader from '@/components/layout/preloader';
 import { getSettings } from '@/app/settings/actions';
+import { getUserById } from '@/lib/auth/actions';
 
 interface AuthContextType {
   user: (User & { permissions?: string[] }) | (Client & { isClient: true }) | null;
@@ -40,16 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
   useEffect(() => {
-    const setAuthPersistence = async () => {
-        try {
-            await setPersistence(auth, browserLocalPersistence);
-        } catch (error) {
-            console.error("Failed to set authentication persistence:", error);
-        }
-    };
-    
-    setAuthPersistence();
-
     const initializeAuth = async () => {
         try {
             const settings = await getSettings();
@@ -63,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     throw new Error("Failed to fetch developer user account.");
                 }
                 setLoading(false);
-                return; // Stop further auth processing
+                return;
             }
 
             const sessionUser = await getCurrentUserFromSession();
@@ -87,42 +72,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
 
-  const signIn = async (email: string, password: string) => {
-    setLoading(true);
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await userCredential.user.getIdToken();
-      
-      const sessionResult = await createSessionCookie(idToken);
-      if (!sessionResult.success) {
-          throw new Error(sessionResult.error || 'Failed to create session cookie.');
-      }
-      
-      // Crucial fix: After creating the cookie, immediately re-fetch the user from the server session
-      // This updates the provider's state and breaks the loading loop.
-      const sessionUser = await getCurrentUserFromSession();
-       if (sessionUser) {
-        setUser(sessionUser);
-        router.push('/dashboard');
-      } else {
-        throw new Error('Failed to retrieve user session after login.');
-      }
+  // The signIn function is now handled by a server action in the login form.
+  // This function can be kept for other sign-in methods or removed if not needed.
+  const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
+      throw new Error("signIn function in AuthContext is deprecated. Use server action instead.");
+  }
 
-      return { success: true };
-    } catch (error: any) {
-      console.error('Sign-in error:', error);
-      let errorMessage = 'فشل تسجيل الدخول. يرجى التحقق من بياناتك.';
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
-      } else if (error.code === 'auth/user-disabled') {
-        errorMessage = 'هذا الحساب معطل.';
-      }
-      setLoading(false);
-      return { success: false, error: errorMessage };
-    } finally {
-        // We set loading to false only on failure. On success, the page will reload.
-    }
-  };
 
   const signOut = async () => {
     setLoading(true);

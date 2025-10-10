@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, User as UserIcon, Briefcase, ShieldCheck, MapPin, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useDebounce } from '@/hooks/use-debounce';
-import { getUserByEmail } from '@/app/users/actions';
+import { getUserByEmail } from '@/lib/auth/actions';
 import type { User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
@@ -47,12 +47,12 @@ const UserDetailsCard = ({ user }: { user: User }) => (
 );
 
 export function LoginForm() {
+  const { signIn, loading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [isSuccess, setIsSuccess] = useState(false);
-  const { signIn, loading: authLoading } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
   
   const [userDetails, setUserDetails] = useState<User | null>(null);
   const [isFetchingUser, setIsFetchingUser] = useState(false);
@@ -74,22 +74,18 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     
-    if (!email || !password) {
-      setError('يرجى إدخال البريد الإلكتروني وكلمة المرور');
-      return;
-    }
-
     const result = await signIn(email, password);
     
-    if (!result.success) {
-      setError(result.error || 'فشل تسجيل الدخول');
-    } else {
-        setIsSuccess(true);
+    if (result && result.error) {
+        setError(result.error);
     }
+    // On success, the AuthProvider will handle the redirect.
+    setIsLoading(false);
   };
   
-  const isLoading = authLoading || isSuccess;
+  const internalLoading = isLoading || authLoading;
 
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg">
@@ -102,7 +98,7 @@ export function LoginForm() {
       
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && !isSuccess && (
+          {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>خطأ</AlertTitle>
@@ -117,11 +113,12 @@ export function LoginForm() {
               <Input
                 id="email"
                 type="email"
+                name="email"
                 placeholder="example@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="pr-10"
-                disabled={isLoading}
+                disabled={internalLoading}
                 required
               />
             </div>
@@ -137,11 +134,12 @@ export function LoginForm() {
               <Input
                 id="password"
                 type={showPassword ? 'text' : 'password'}
+                name="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pr-10 pl-10"
-                disabled={isLoading}
+                disabled={internalLoading}
                 required
                 autoComplete="current-password"
               />
@@ -178,21 +176,10 @@ export function LoginForm() {
                 type="submit"
                 className="w-full"
                 size="lg"
-                disabled={isLoading}
+                disabled={internalLoading}
                 >
-                {authLoading ? (
-                    <>
-                    <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                    جاري التحقق...
-                    </>
-                ) : isSuccess ? (
-                    <>
-                    <CheckCircle className="ml-2 h-4 w-4" />
-                    تم التحقق بنجاح
-                    </>
-                ) : (
-                    'تسجيل الدخول'
-                )}
+                {internalLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                تسجيل الدخول
             </Button>
         </form>
       </CardContent>
