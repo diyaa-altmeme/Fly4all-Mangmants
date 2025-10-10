@@ -11,6 +11,7 @@ import { createNotification } from '../notifications/actions';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
+import { cache } from 'react';
 
 const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
@@ -26,7 +27,7 @@ const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
 };
 
 
-export async function getSubscriptions(includeDeleted = false): Promise<Subscription[]> {
+export const getSubscriptions = cache(async (includeDeleted = false): Promise<Subscription[]> => {
     const db = await getDb();
     if (!db) {
         console.error("Database not available, returning empty subscriptions list.");
@@ -70,9 +71,9 @@ export async function getSubscriptions(includeDeleted = false): Promise<Subscrip
         console.error("Error getting subscriptions from Firestore: ", String(error));
         return [];
     }
-}
+});
 
-export async function getSubscriptionById(id: string): Promise<Subscription | null> {
+export const getSubscriptionById = cache(async (id: string): Promise<Subscription | null> => {
     const db = await getDb();
     if (!db) return null;
 
@@ -95,7 +96,7 @@ export async function getSubscriptionById(id: string): Promise<Subscription | nu
         console.error(`Error getting subscription by ID ${id}:`, error);
         return null;
     }
-}
+});
 
 
 export async function addSubscription(subscriptionData: Omit<Subscription, 'id' | 'profit' | 'paidAmount' | 'status'>) {
@@ -212,7 +213,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
 }
 
 
-export async function getSubscriptionInstallments(subscriptionId: string): Promise<SubscriptionInstallment[]> {
+export const getSubscriptionInstallments = cache(async (subscriptionId: string): Promise<SubscriptionInstallment[]> => {
     const db = await getDb();
     if (!db) {
         console.error("Database not available, returning empty installments list.");
@@ -234,9 +235,9 @@ export async function getSubscriptionInstallments(subscriptionId: string): Promi
         console.error("Error getting subscription installments: ", String(error));
         throw new Error("Failed to fetch subscription installments.");
     }
-}
+});
 
-export async function getSubscriptionInstallmentsForAll(): Promise<SubscriptionInstallment[]> {
+export const getSubscriptionInstallmentsForAll = cache(async (): Promise<SubscriptionInstallment[]> => {
     const db = await getDb();
     if (!db) {
         console.error("Database not available, returning empty installments list.");
@@ -258,9 +259,9 @@ export async function getSubscriptionInstallmentsForAll(): Promise<SubscriptionI
         console.error("Error getting all subscription installments: ", String(error));
         return [];
     }
-}
+});
 
-export async function getInstallmentPayments(installmentId: string): Promise<Payment[]> {
+export const getInstallmentPayments = cache(async (installmentId: string): Promise<Payment[]> => {
     const db = await getDb();
     if (!db) return [];
     try {
@@ -278,7 +279,7 @@ export async function getInstallmentPayments(installmentId: string): Promise<Pay
         console.error(`Error getting payments for installment ${installmentId}:`, error);
         return [];
     }
-}
+});
 
 export async function paySubscriptionInstallment(
     installmentId: string,
@@ -673,9 +674,3 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
-
-
-
-    
-
-    
