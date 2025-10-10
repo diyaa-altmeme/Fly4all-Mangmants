@@ -8,13 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, User as UserIcon, Briefcase, ShieldCheck, MapPin, CheckCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, User as UserIcon, Briefcase, ShieldCheck, MapPin, CheckCircle, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { useDebounce } from '@/hooks/use-debounce';
 import { fetchUserByEmail } from '@/app/auth/login/actions';
 import type { User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../ui/sheet';
+import { getUsers } from '@/app/users/actions';
+import { ScrollArea } from '../ui/scroll-area';
 
 const UserDetailsCard = ({ user }: { user: User }) => (
     <Card className="mt-4 p-4 bg-muted/50 border-dashed">
@@ -45,6 +48,47 @@ const UserDetailsCard = ({ user }: { user: User }) => (
         </div>
     </Card>
 );
+
+const DirectLoginSheet = () => {
+    const { signInAsUser } = useAuth();
+    const [users, setUsers] = useState<User[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    const fetchUsers = async () => {
+        setLoading(true);
+        const fetchedUsers = await getUsers();
+        setUsers(fetchedUsers as User[]);
+        setLoading(false);
+    };
+
+    return (
+        <Sheet onOpenChange={(open) => open && fetchUsers()}>
+            <SheetTrigger asChild>
+                <Button variant="secondary" className="w-full">دخول مباشر (للمطورين)</Button>
+            </SheetTrigger>
+            <SheetContent>
+                <SheetHeader>
+                    <SheetTitle>الدخول المباشر</SheetTitle>
+                    <SheetDescription>اختر مستخدمًا لتسجيل الدخول بحسابه. هذه الميزة متاحة في وضع التطوير فقط.</SheetDescription>
+                </SheetHeader>
+                <div className="py-4">
+                    {loading ? <Loader2 className="animate-spin" /> : (
+                        <ScrollArea className="h-[calc(100vh-10rem)]">
+                            <div className="space-y-2">
+                                {users.map(user => (
+                                    <button key={user.uid} onClick={() => signInAsUser(user.uid)} className="w-full">
+                                        <UserDetailsCard user={user} />
+                                    </button>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    )}
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+};
+
 
 export function LoginForm() {
   const { signIn, loading: authLoading } = useAuth();
@@ -180,6 +224,9 @@ export function LoginForm() {
                     {internalLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                     تسجيل الدخول
                 </Button>
+                {process.env.NODE_ENV === 'development' && (
+                    <DirectLoginSheet />
+                )}
             </div>
         </form>
       </CardContent>
