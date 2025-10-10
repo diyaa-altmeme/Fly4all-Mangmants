@@ -6,7 +6,7 @@ import { getErrorLogs } from '../activity-log/actions';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Terminal, Users, ShieldCheck, FileWarning } from 'lucide-react';
 import AuditLogContent from '../activity-log/components/audit-log-content';
-import { getCurrentUserFromSession } from '@/app/auth/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { hasPermission } from '@/lib/permissions';
 import type { User } from '@/lib/types';
 

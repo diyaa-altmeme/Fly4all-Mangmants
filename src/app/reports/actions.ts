@@ -364,8 +364,8 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         const balanceIQD = entry.balanceIQD || 0;
         
         // Let's define debit as 'they owe us' and credit as 'we owe them'
-        if (balanceUSD > 0) acc.totalDebitUSD += balanceUSD; else acc.totalCreditUSD -= balanceUSD;
-        if (balanceIQD > 0) acc.totalDebitIQD += balanceIQD; else acc.totalCreditIQD -= balanceIQD;
+        if (balanceUSD > 0) acc.totalCreditUSD += balanceUSD; else acc.totalDebitUSD -= balanceUSD;
+        if (balanceIQD > 0) acc.totalCreditIQD += balanceIQD; else acc.totalDebitIQD -= balanceIQD;
         
         return acc;
     }, { totalDebitUSD: 0, totalCreditUSD: 0, totalDebitIQD: 0, totalCreditIQD: 0 });
@@ -374,8 +374,8 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
       entries,
       summary: {
         ...summary,
-        balanceUSD: summary.totalDebitUSD - summary.totalCreditUSD,
-        balanceIQD: summary.totalDebitIQD - summary.totalCreditIQD,
+        balanceUSD: summary.totalCreditUSD - summary.totalDebitUSD,
+        balanceIQD: summary.totalCreditIQD - summary.totalDebitIQD,
       },
     };
 }
