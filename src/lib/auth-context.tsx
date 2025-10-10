@@ -84,12 +84,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]); // Rerun check on path change
+  }, [pathname]);
 
 
   const signIn = async (email: string, password: string) => {
+    setLoading(true);
     try {
-      setLoading(true);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await userCredential.user.getIdToken();
       
@@ -98,8 +98,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error(sessionResult.error || 'Failed to create session cookie.');
       }
       
-      // Force a router refresh to make the server re-evaluate the session cookie
-      router.refresh(); 
+      // Crucial fix: After creating the cookie, immediately re-fetch the user from the server session
+      // This updates the provider's state and breaks the loading loop.
+      const sessionUser = await getCurrentUserFromSession();
+       if (sessionUser) {
+        setUser(sessionUser);
+        router.push('/dashboard');
+      } else {
+        throw new Error('Failed to retrieve user session after login.');
+      }
 
       return { success: true };
     } catch (error: any) {
@@ -112,6 +119,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setLoading(false);
       return { success: false, error: errorMessage };
+    } finally {
+        // We set loading to false only on failure. On success, the page will reload.
     }
   };
 
@@ -120,7 +129,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await firebaseSignOut(auth);
     await logoutUser(); // Clears server-side cookie
     setUser(null);
-    // Don't set loading to false, let the redirect and page load handle it
     router.push('/auth/login');
   };
 
