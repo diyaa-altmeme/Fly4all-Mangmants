@@ -1,7 +1,7 @@
 
 'use server';
 
-import { revalidatePath from 'next/cache';
+import { revalidatePath } from 'next/cache';
 import type { SiteAsset } from '@/lib/types';
 import { getDb, getStorageAdmin } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -126,5 +126,4 @@ export async function assignAsset(assetId: string, fullPath: string, assignmentP
         return { success: false, error: error.message };
     }
 }
-
     
