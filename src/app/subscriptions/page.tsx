@@ -1,19 +1,46 @@
 
-import React, { Suspense } from 'react';
+"use client";
+
+import React, { Suspense, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Terminal } from 'lucide-react';
 import { getSubscriptions, getSubscriptionInstallmentsForAll } from './actions';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import SubscriptionsContent from './components/subscriptions-content';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { Subscription, SubscriptionInstallment } from '@/lib/types';
 
 
-// This is now a Server Component again, which is better for initial data fetching.
-async function SubscriptionsData() {
-    const [subscriptions, installments, error] = await Promise.all([
-        getSubscriptions(),
-        getSubscriptionInstallmentsForAll(),
-    ]).then(res => [...res, null]).catch(e => [null, null, e.message || "Failed to load data"]);
+function SubscriptionsData() {
+    const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+    const [installments, setInstallments] = useState<SubscriptionInstallment[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [refreshedSubscriptions, refreshedInstallments] = await Promise.all([
+                getSubscriptions(),
+                getSubscriptionInstallmentsForAll(),
+            ]);
+            setSubscriptions(refreshedSubscriptions);
+            setInstallments(refreshedInstallments);
+        } catch (e: any) {
+            setError(e.message || "Failed to load data");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+
+    if (loading) {
+        return <Skeleton className="h-96 w-full" />;
+    }
 
     if (error) {
         return (
@@ -27,8 +54,8 @@ async function SubscriptionsData() {
 
     return (
         <SubscriptionsContent
-            initialSubscriptions={subscriptions || []}
-            initialInstallments={installments || []}
+            initialSubscriptions={subscriptions}
+            initialInstallments={installments}
         />
     );
 }

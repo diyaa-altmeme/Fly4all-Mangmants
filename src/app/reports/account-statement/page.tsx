@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState, useCallback } from 'react';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
@@ -19,23 +19,25 @@ function InvoicesReportDataContainer() {
     const searchParams = useSearchParams();
     const accountId = searchParams.get('accountId') || undefined;
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const [boxes, clientsResponse, suppliers] = await Promise.all([
-                    getBoxes(),
-                    getClients({ all: true }),
-                    getSuppliers({ all: true }),
-                ]);
-                setData({ boxes, clients: clientsResponse.clients, suppliers });
-            } catch (e: any) {
-                setError(e.message || "Failed to load report data.");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [boxes, clientsResponse, suppliers] = await Promise.all([
+                getBoxes(),
+                getClients({ all: true }),
+                getSuppliers({ all: true }),
+            ]);
+            setData({ boxes, clients: clientsResponse.clients, suppliers });
+        } catch (e: any) {
+            setError(e.message || "Failed to load report data.");
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     if (loading) {
         return <Skeleton className="h-[600px] w-full" />;
