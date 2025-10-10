@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -30,7 +29,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/', '/auth/dev-login'];
+const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
 const ADMIN_UID_FOR_DEV = "5V2a9sFmEjZosRARbpA8deWhdVJ3"; // UID for "ضياء التميمي"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -50,13 +49,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.log("Development mode: Attempting to auto-login as admin...");
                 const { success, customToken, error } = await signInAsUserAction(ADMIN_UID_FOR_DEV);
                  if (success && customToken) {
-                    const userCredential = await signInWithCustomToken(auth, customToken);
-                    const idToken = await getIdToken(userCredential.user);
+                    await signInWithCustomToken(auth, customToken);
+                    const idToken = await getIdToken(auth.currentUser!, true);
                     await loginUser(idToken);
-                    // After successful session creation, fetch the user data again
                     const newSessionUser = await getCurrentUserFromSession();
                     if(newSessionUser) {
                        setUser(newSessionUser);
+                       router.push('/dashboard');
                     } else {
                        throw new Error("Auto-login failed: Could not retrieve session user after login.");
                     }
@@ -77,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, []); // Run only once on mount
 
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
@@ -90,11 +89,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error(result.error);
       }
       
-      // Instead of re-fetching, just force a full page reload to let the middleware and server session take over
-      window.location.href = '/dashboard';
-      
-      // Keep the promise pending to avoid unmounting components before reload
-      await new Promise(() => {});
+      const newSessionUser = await getCurrentUserFromSession();
+      if (newSessionUser) {
+        setUser(newSessionUser);
+        router.push('/dashboard');
+      } else {
+        throw new Error("Failed to retrieve user session after login.");
+      }
 
       return { success: true };
 
@@ -121,10 +122,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const signInAsUser = async (userId: string) => {
-    // This is now handled automatically in dev mode.
-    // This function can be kept for manual use if needed in other parts of the app.
-  }
+   const signInAsUser = async (userId: string) => {
+    try {
+        const { success, customToken, error } = await signInAsUserAction(userId);
+        if (success && customToken) {
+            await signInWithCustomToken(auth, customToken);
+            const idToken = await getIdToken(auth.currentUser!, true); // Force refresh
+            const sessionResult = await loginUser(idToken);
+            if (sessionResult.error) throw new Error(sessionResult.error);
+            const newSessionUser = await getCurrentUserFromSession();
+            if (newSessionUser) {
+                setUser(newSessionUser);
+                router.push('/dashboard');
+            } else {
+                throw new Error("Failed to establish session for user.");
+            }
+        } else {
+            throw new Error(error || "Failed to get custom token.");
+        }
+    } catch (error: any) {
+        console.error(`Sign in as user ${userId} failed:`, error);
+        // Handle error display to the user if necessary
+    }
+  };
 
 
   const signOut = async () => {

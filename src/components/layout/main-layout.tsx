@@ -93,11 +93,12 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
     const isPublicPath = publicRoutes.some(route => pathname.startsWith(route));
 
-    // In development, we always show the AppLayout to make navigation easier.
+    // For development, always show the layout to allow login and navigation from the login page.
     if (process.env.NODE_ENV === 'development') {
         return <AppLayout>{children}</AppLayout>;
     }
     
+    // For production:
     if (isPublicPath) {
         return <>{children}</>;
     }
@@ -107,7 +108,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     }
 
     if (!user) {
-        // This should ideally be caught by the AuthProvider, but as a fallback:
+        // This should be caught by the AuthProvider, but as a fallback:
         if (typeof window !== 'undefined') {
             router.replace('/auth/login');
         }
