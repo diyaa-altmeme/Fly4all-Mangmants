@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { LogOut, User, Settings, CircleUserRound, Mail, Phone, Calendar, Shield, LifeBuoy } from "lucide-react";
 import Link from 'next/link';
+import { getRoles } from "@/app/users/actions";
 
 export function UserNav() {
   const { user, signOut } = useAuth();
@@ -50,7 +51,7 @@ export function UserNav() {
                     </p>
                     {'role' in user && (
                       <p className="text-xs font-semibold text-primary-foreground/80 flex items-center gap-2">
-                        {(roles => roles.find(r => r.id === user.role)?.name || user.role)}
+                        {('role' in user && user.role) || 'مستخدم'}
                       </p>
                     )}
                 </div>
@@ -80,9 +81,9 @@ export function UserNav() {
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut} className="text-red-500 focus:text-red-500 justify-end gap-2 m-2 text-base py-2">
           <span>تسجيل الخروج</span>
+          <LogOut className="h-4 w-4" />
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
-
