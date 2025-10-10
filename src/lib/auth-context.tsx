@@ -49,9 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     
     setAuthPersistence();
-  }, []);
 
-  useEffect(() => {
     const initializeAuth = async () => {
         try {
             const settings = await getSettings();
@@ -68,60 +66,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return; // Stop further auth processing
             }
 
-            // If not in dev mode, set up the standard auth listener
-            const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
-                try {
-                    if (firebaseUser) {
-                        const idToken = await firebaseUser.getIdToken();
-                        await createSessionCookie(idToken);
-                        const sessionUser = await getCurrentUserFromSession();
-                        setUser(sessionUser);
-                        if (isPublicRoute) {
-                            router.replace('/dashboard');
-                        }
-                    } else {
-                        setUser(null);
-                        if (!isPublicRoute) {
-                            router.replace('/auth/login');
-                        }
-                    }
-                } catch (error) {
-                    console.error("Auth state change error:", error);
-                    setUser(null);
-                } finally {
-                    setLoading(false);
-                }
-            });
-            
-            // Initial check in case onIdTokenChanged doesn't fire immediately
-            const initialSessionUser = await getCurrentUserFromSession();
-            if(!initialSessionUser && !isPublicRoute) {
+            const sessionUser = await getCurrentUserFromSession();
+            setUser(sessionUser);
+            if (!sessionUser && !isPublicRoute) {
                 router.replace('/auth/login');
-            } else if (initialSessionUser && isPublicRoute) {
-                 router.replace('/dashboard');
+            } else if (sessionUser && isPublicRoute) {
+                router.replace('/dashboard');
             }
-            setLoading(false);
-
-            return () => unsubscribe();
         } catch (error) {
-            console.error("Failed to initialize auth:", error);
+            console.error("Auth initialization error:", error);
             setUser(null);
+            if (!isPublicRoute) router.replace('/auth/login');
+        } finally {
             setLoading(false);
-            if (!isPublicRoute) {
-                router.replace('/auth/login');
-            }
         }
     };
 
     initializeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pathname]); // Rerun check on path change
+
 
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      // The onIdTokenChanged listener will handle session creation and state update.
+      const idToken = await userCredential.user.getIdToken();
+      
+      const sessionResult = await createSessionCookie(idToken);
+      if (!sessionResult.success) {
+          throw new Error(sessionResult.error || 'Failed to create session cookie.');
+      }
+      
+      // Force a router refresh to make the server re-evaluate the session cookie
+      router.refresh(); 
+
       return { success: true };
     } catch (error: any) {
       console.error('Sign-in error:', error);
@@ -141,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await firebaseSignOut(auth);
     await logoutUser(); // Clears server-side cookie
     setUser(null);
-    setLoading(false);
+    // Don't set loading to false, let the redirect and page load handle it
     router.push('/auth/login');
   };
 
