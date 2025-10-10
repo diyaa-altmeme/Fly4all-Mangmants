@@ -1,4 +1,3 @@
-
 import { LoginForm } from '@/components/auth/login-form';
 import Image from 'next/image';
 

@@ -9,7 +9,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
-import { getCurrentUserFromSession, loginUser, logoutUser } from '@/lib/auth/actions';
+import { getCurrentUserFromSession, loginUser, logoutUser, signInAsUser as signInAsUserAction } from '@/lib/auth/actions';
 import { useRouter, usePathname } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/permissions';
 import { PERMISSIONS } from './auth/permissions';
@@ -21,6 +21,7 @@ interface AuthContextType {
   user: (User & { permissions?: string[] }) | (Client & { isClient: true }) | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signInAsUser: (userId: string) => Promise<void>;
   signOut: () => Promise<void>;
   hasPermission: (permission: keyof typeof PERMISSIONS) => boolean;
 }
@@ -104,6 +105,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const signInAsUser = async (userId: string) => {
+    setLoading(true);
+    await signInAsUserAction(userId);
+    // The server action will handle the redirect. The page will then reload
+    // and the useEffect will fetch the new session.
+  }
+
 
   const signOut = async () => {
     setLoading(true);
@@ -123,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser }}>
       {children}
     </AuthContext.Provider>
   );

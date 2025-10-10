@@ -8,13 +8,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, User as UserIcon, Briefcase, ShieldCheck, MapPin, CheckCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, User as UserIcon, Briefcase, ShieldCheck, MapPin, CheckCircle, UserCog } from 'lucide-react';
 import Link from 'next/link';
 import { useDebounce } from '@/hooks/use-debounce';
 import { fetchUserByEmail } from '@/app/auth/login/actions';
-import type { User } from '@/lib/types';
+import type { User, Role } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { getUsers, getRoles } from '@/app/users/actions';
+import { ScrollArea } from '../ui/scroll-area';
+import { Badge } from '../ui/badge';
 
 const UserDetailsCard = ({ user }: { user: User }) => (
     <Card className="mt-4 p-4 bg-muted/50 border-dashed">
@@ -46,6 +57,79 @@ const UserDetailsCard = ({ user }: { user: User }) => (
     </Card>
 );
 
+const DirectLoginSheet = () => {
+    const [users, setUsers] = useState<User[]>([]);
+    const [roles, setRoles] = useState<Role[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { signInAsUser, loading: authLoading } = useAuth();
+    const [selectedUser, setSelectedUser] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            const usersData = await getUsers();
+            const rolesData = await getRoles();
+            setUsers(usersData as User[]);
+            setRoles(rolesData);
+            setLoading(false);
+        };
+        fetchData();
+    }, []);
+
+    const handleLogin = (userId: string) => {
+        setSelectedUser(userId);
+        signInAsUser(userId);
+    }
+    
+    return (
+        <Sheet>
+            <SheetTrigger asChild>
+                <Button variant="secondary" className="w-full">
+                     <UserCog className="me-2 h-4 w-4" />
+                    دخول مباشر (للمطورين)
+                </Button>
+            </SheetTrigger>
+            <SheetContent className="w-[400px] sm:w-[540px] flex flex-col">
+                <SheetHeader className="text-right">
+                    <SheetTitle>الدخول المباشر</SheetTitle>
+                    <SheetDescription>
+                        اختر أحد المستخدمين لتسجيل الدخول إلى النظام مباشرة دون الحاجة لكلمة مرور.
+                    </SheetDescription>
+                </SheetHeader>
+                <ScrollArea className="flex-grow">
+                    {loading ? (
+                        <div className="flex justify-center items-center h-full">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                    ) : (
+                        <div className="space-y-3 p-1">
+                            {users.map(user => {
+                                const role = roles.find(r => r.id === user.role);
+                                return (
+                                <Card key={user.uid} className="cursor-pointer hover:bg-muted" onClick={() => handleLogin(user.uid)}>
+                                    <CardContent className="p-3 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-12 w-12">
+                                                <AvatarImage src={user.avatarUrl} />
+                                                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <p className="font-bold">{user.name}</p>
+                                                <p className="text-xs text-muted-foreground">{role?.name || user.role}</p>
+                                            </div>
+                                        </div>
+                                         {(authLoading && selectedUser === user.uid) && <Loader2 className="h-5 w-5 animate-spin" />}
+                                    </CardContent>
+                                </Card>
+                            )})}
+                        </div>
+                    )}
+                </ScrollArea>
+            </SheetContent>
+        </Sheet>
+    )
+}
+
 export function LoginForm() {
   const { signIn, loading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
@@ -76,9 +160,6 @@ export function LoginForm() {
     setError('');
     setIsLoading(true);
     
-    // On success, the AuthProvider will handle the redirect.
-    // If it fails, the AuthProvider might set an error state, or we can catch it.
-    // The previous implementation was catching the error here. Let's re-add that.
     const result = await signIn(email, password);
     if (result && result.error) {
         setError(result.error);
@@ -173,16 +254,18 @@ export function LoginForm() {
                     </span>
                 </Link>
               </div>
-
-            <Button
-                type="submit"
-                className="w-full"
-                size="lg"
-                disabled={internalLoading}
-                >
-                {internalLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                تسجيل الدخول
-            </Button>
+            <div className="flex flex-col gap-2">
+                <Button
+                    type="submit"
+                    className="w-full"
+                    size="lg"
+                    disabled={internalLoading}
+                    >
+                    {internalLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                    تسجيل الدخول
+                </Button>
+                <DirectLoginSheet />
+            </div>
         </form>
       </CardContent>
     </Card>

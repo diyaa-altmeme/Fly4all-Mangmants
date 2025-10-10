@@ -46,7 +46,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 }
 
 
-export async function getUsers({ includeHrData = false, all = false, from, to }: { includeHrData?: boolean, all?: boolean, from?: Date, to?: Date } = {}): Promise<HrData[]> {
+export async function getUsers({ includeHrData = false, all = false, from, to }: { includeHrData?: boolean, all?: boolean, from?: Date, to?: Date } = {}): Promise<(User | HrData)[]> {
     try {
         const db = await getDb();
         const auth = getAuth();
