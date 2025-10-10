@@ -96,7 +96,7 @@ export async function runDataAudit(options: {
   checkCommissionErrors: boolean;
   checkInvoiceErrors: boolean;
   checkCostMismatch: boolean;
-  checkReturnTrip: boolean;
+  checkReturnTrip: boolean
 }): Promise<DataAuditIssue[]> {
     const allIssues: DataAuditIssue[] = [];
     const issuePromises: Promise<DataAuditIssue[]>[] = [];
