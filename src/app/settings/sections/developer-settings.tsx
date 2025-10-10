@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -72,7 +72,7 @@ export default function DeveloperSettings({ settings: initialSettings, onSetting
                             وضع المطور
                         </Label>
                         <p className="text-sm text-muted-foreground">
-                            عند التفعيل، يتم تجاوز صفحة تسجيل الدخول والدخول تلقائيًا كمدير النظام.
+                            عند التفعيل، يتم تجاوز شاشة تسجيل الدخول والدخول تلقائيًا كمدير النظام دون الحاجة لكلمات مرور أو ملفات تعريف ارتباط. يعمل هذا الوضع حتى في بيئات المعاينة (Preview).
                         </p>
                     </div>
                     <div className="flex items-center gap-4">
