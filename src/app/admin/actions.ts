@@ -2,7 +2,6 @@
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
-import { ensureRolesExist } from "@/lib/roles";
 import { getAuth } from "firebase-admin/auth";
 import { setDoc, doc } from 'firebase/firestore';
 
@@ -18,14 +17,11 @@ export async function setInitialAdmin(uid: string): Promise<{ success: boolean; 
   try {
     const db = await getDb();
     
-    // 1. Ensure all necessary roles, including 'admin', exist in Firestore.
-    await ensureRolesExist();
-
-    // 2. Set the user's role in the Firestore 'users' collection.
+    // 1. Set the user's role in the Firestore 'users' collection.
     const userRef = doc(db, 'users', uid);
     await setDoc(userRef, { role: 'admin' }, { merge: true });
 
-    // 3. Set custom claims on the user's authentication token.
+    // 2. Set custom claims on the user's authentication token.
     // This makes the 'admin' role available on the client-side immediately after login.
     await getAuth().setCustomUserClaims(uid, { role: 'admin' });
 
