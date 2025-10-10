@@ -49,22 +49,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } else if (process.env.NODE_ENV === 'development' && !isPublicRoute) {
                 // Auto-login as admin in development environment if not on a public route
                 console.log("Development mode: Attempting to auto-login as admin...");
-                const result = await signInAsUserAction(ADMIN_UID_FOR_DEV);
-                 if (result.success && result.customToken) {
-                    const userCredential = await signInWithCustomToken(auth, result.customToken);
-                    const idToken = await getIdToken(userCredential.user);
-                    const loginResult = await loginUser(idToken);
-                    if(loginResult.success) {
-                        // Instead of trying to refetch, force a full page reload to ensure
-                        // the new session cookie is picked up by the server on the next request.
-                        window.location.href = '/dashboard';
-                         // Keep the component in a loading state until the redirect happens
-                        await new Promise(() => {});
-                    } else {
-                         throw new Error("Failed to create session for dev admin.");
-                    }
+                const { success, customToken } = await signInAsUserAction(ADMIN_UID_FOR_DEV);
+                 if (success && customToken) {
+                    // Redirect to the dev-login page to handle the sign-in flow.
+                    // This avoids iframe/cookie issues in preview environments.
+                    router.replace(`/auth/dev-login?token=${customToken}`);
+                    // Keep loading until redirect happens
+                    await new Promise(() => {});
                 } else {
-                    throw new Error("Failed to get custom token for dev admin.");
+                     throw new Error("Failed to get custom token for dev admin.");
                 }
             } else if (!isPublicRoute) {
                 router.replace('/auth/login');
@@ -79,7 +72,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeAuth();
-  }, [pathname, isPublicRoute, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
