@@ -1,15 +1,18 @@
-"use client";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import Preloader from "@/components/layout/preloader";
+import { LandingPage } from "@/components/landing-page";
+import { getSettings } from "@/app/settings/actions";
+import { defaultSettingsData } from "@/lib/defaults";
+import type { LandingPageSettings } from "@/lib/types";
 
-export default function HomePage() {
-  const router = useRouter();
+export default async function IndexPage() {
+  let settings: LandingPageSettings;
+  try {
+    const appSettings = await getSettings();
+    settings = appSettings.theme?.landingPage || defaultSettingsData.theme.landingPage;
+  } catch (error) {
+    console.error("Failed to fetch settings, using default landing page settings.");
+    settings = defaultSettingsData.theme.landingPage;
+  }
 
-  useEffect(() => {
-    router.replace("/dashboard");
-  }, [router]);
-
-  return <Preloader />;
+  return <LandingPage settings={settings} />;
 }
