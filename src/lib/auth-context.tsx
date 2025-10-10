@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -14,8 +15,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/permissions';
 import { PERMISSIONS } from './auth/permissions';
 import Preloader from '@/components/layout/preloader';
-import { getSettings } from '@/app/settings/actions';
-import { getUserById } from '@/lib/auth/actions';
 
 interface AuthContextType {
   user: (User & { permissions?: string[] }) | (Client & { isClient: true }) | null;
@@ -29,7 +28,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
-const ADMIN_UID_FOR_DEV = "5V2a9sFmEjZosRARbpA8deWhdVJ3"; // UID for "ضياء التميمي"
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
@@ -137,8 +135,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return <Preloader />;
   }
   
-  // If we are on a public route, just render children.
-  // If not, only render children if a user object exists.
   if (isPublicRoute || user) {
      return (
         <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser }}>
@@ -147,7 +143,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
   
-  // This will be shown briefly while redirecting.
   return <Preloader />;
 }
 
