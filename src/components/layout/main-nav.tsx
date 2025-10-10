@@ -136,30 +136,38 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
         { href: "/accounts/vouchers/list", label: "سجل السندات", icon: ListChecks, permission: 'vouchers:read' },
         { href: "/settings", label: "الإعدادات", icon: Settings, permission: 'settings:read' }
     ];
-
-    const canCreate = hasPermission('vouchers:create');
-
-    const createButtons = [
-        { Dialog: NewStandardReceiptDialog, label: "سند قبض عادي", icon: FileDown },
-        { Dialog: NewDistributedReceiptDialog, label: "سند قبض مخصص", icon: GitBranch },
-        { Dialog: NewPaymentVoucherDialog, label: "سند دفع", icon: FileUp },
-        { Dialog: NewExpenseVoucherDialog, label: "سند مصاريف", icon: Banknote },
-        { Dialog: NewJournalVoucherDialog, label: "سند قيد داخلي", icon: BookUser },
-    ];
     
     const visibleMenuItems = menuItems.filter(item => hasPermission(item.permission as keyof typeof PERMISSIONS));
+    const canCreate = hasPermission('vouchers:create');
+
+    const MobileButtonWrapper = ({ DialogComponent, label, Icon }: { DialogComponent: React.ElementType, label: string, Icon: React.ElementType }) => (
+        <DialogComponent onVoucherAdded={onDataChanged}>
+            <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full">
+                <span>{label}</span><Icon className="h-4 w-4" />
+            </button>
+        </DialogComponent>
+    );
+
+    const DesktopButtonWrapper = ({ DialogComponent, label, Icon }: { DialogComponent: React.ElementType, label: string, Icon: React.ElementType }) => (
+        <DialogComponent onVoucherAdded={onDataChanged}>
+            <Button variant="ghost" className="justify-between gap-2 w-full">
+                <span>{label}</span><Icon className="h-4 w-4" />
+            </Button>
+        </DialogComponent>
+    );
 
     if (isMobile) {
         return (
             <div className="flex flex-col gap-1">
-                {canCreate && createButtons.map(({ Dialog, label, icon: Icon }) => (
-                    <Dialog key={label}>
-                         <DialogTrigger asChild>
-                            <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>{label}</span><Icon className="h-4 w-4" /></button>
-                         </DialogTrigger>
-                         <Dialog onVoucherAdded={onDataChanged} />
-                    </Dialog>
-                ))}
+                {canCreate && (
+                    <>
+                        <MobileButtonWrapper DialogComponent={NewStandardReceiptDialog} label="سند قبض عادي" Icon={FileDown} />
+                        <MobileButtonWrapper DialogComponent={NewDistributedReceiptDialog} label="سند قبض مخصص" Icon={GitBranch} />
+                        <MobileButtonWrapper DialogComponent={NewPaymentVoucherDialog} label="سند دفع" Icon={FileUp} />
+                        <MobileButtonWrapper DialogComponent={NewExpenseVoucherDialog} label="سند مصاريف" Icon={Banknote} />
+                        <MobileButtonWrapper DialogComponent={NewJournalVoucherDialog} label="سند قيد داخلي" Icon={BookUser} />
+                    </>
+                )}
                 {(canCreate && visibleMenuItems.length > 0) && <DropdownMenuSeparator />}
                 {visibleMenuItems.map(item => <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>)}
             </div>
@@ -169,18 +177,15 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
 
     return (
         <div className="flex flex-col gap-1 p-2">
-            {canCreate && createButtons.map(({ Dialog, label, icon: Icon }) => (
-                 <Dialog key={label}>
-                    <DialogTrigger asChild>
-                         <Button variant="ghost" className="justify-between gap-2 w-full">
-                            <span>{label}</span>
-                            <Icon className="h-4 w-4" />
-                        </Button>
-                    </DialogTrigger>
-                    {/* The content is now inside the dialog component itself */}
-                    <Dialog onVoucherAdded={onDataChanged} />
-                </Dialog>
-            ))}
+            {canCreate && (
+                <>
+                    <DesktopButtonWrapper DialogComponent={NewStandardReceiptDialog} label="سند قبض عادي" Icon={FileDown} />
+                    <DesktopButtonWrapper DialogComponent={NewDistributedReceiptDialog} label="سند قبض مخصص" Icon={GitBranch} />
+                    <DesktopButtonWrapper DialogComponent={NewPaymentVoucherDialog} label="سند دفع" Icon={FileUp} />
+                    <DesktopButtonWrapper DialogComponent={NewExpenseVoucherDialog} label="سند مصاريف" Icon={Banknote} />
+                    <DesktopButtonWrapper DialogComponent={NewJournalVoucherDialog} label="سند قيد داخلي" Icon={BookUser} />
+                </>
+            )}
             {(canCreate && visibleMenuItems.length > 0) && <DropdownMenuSeparator />}
             {visibleMenuItems.map(item => (
                 <DropdownMenuItem asChild key={item.href}>
@@ -256,12 +261,14 @@ const MainNavContent = () => {
                 {hasPermission('relations:read') && <DropdownMenuItem asChild>
                    <Link href="/clients" className="justify-between w-full flex items-center gap-2"><span>ادارة العلاقات</span><Users2 className="h-4 w-4" /></Link>
                </DropdownMenuItem>}
-                {hasPermission('relations:create') && <AddClientDialog onClientAdded={handleDataChange} onClientUpdated={handleDataChange}>
+                {hasPermission('relations:create') && 
+                <AddClientDialog onClientAdded={handleDataChange} onClientUpdated={handleDataChange}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between gap-2 w-full">
                         <span>إضافة علاقة</span>
                         <PlusCircle className="h-4 w-4" />
                     </DropdownMenuItem>
-                </AddClientDialog>}
+                </AddClientDialog>
+                }
                 <DropdownMenuSeparator />
                 {hasPermission('settings:read') && <DropdownMenuItem asChild><Link href="/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>}
            </>
