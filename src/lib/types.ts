@@ -504,6 +504,11 @@ export type DatabaseStatusSettings = {
     isDatabaseConnected: boolean;
 };
 
+export type DeveloperSettings = {
+  devModeEnabled?: boolean;
+};
+
+
 export type ImportFieldSettings = {
     [key: string]: {
         label: string;
@@ -625,6 +630,7 @@ export type AppSettings = {
     invoiceSequenceSettings?: InvoiceSequenceSettings;
     creditPolicySettings?: CreditPolicySettings;
     databaseStatus?: DatabaseStatusSettings;
+    developerSettings?: DeveloperSettings;
     theme?: ThemeCustomizationSettings;
     subscriptionSettings?: SubscriptionSettings;
     importFieldsSettings?: ImportFieldSettings;

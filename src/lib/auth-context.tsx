@@ -12,11 +12,12 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
-import { createSessionCookie, getCurrentUserFromSession, logoutUser } from '@/lib/auth/actions';
+import { createSessionCookie, getCurrentUserFromSession, logoutUser, getUserById } from '@/lib/auth/actions';
 import { useRouter, usePathname } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/permissions';
 import { PERMISSIONS } from './auth/permissions';
 import Preloader from '@/components/layout/preloader';
+import { getSettings } from '@/app/settings/actions';
 
 interface AuthContextType {
   user: (User & { permissions?: string[] }) | (Client & { isClient: true }) | null;
@@ -29,7 +30,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
-
+const ADMIN_UID = "5V2a9sFmEjZosRARbpA8deWhdVJ3"; // ضياء التميمي
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
@@ -39,8 +40,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
   useEffect(() => {
-    // This effect handles setting the persistence layer for Firebase Auth.
-    // It's crucial for environments like iframes where default persistence might fail.
     const setAuthPersistence = async () => {
         try {
             await setPersistence(auth, browserLocalPersistence);
@@ -53,31 +52,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
+    const initializeAuth = async () => {
         try {
-            if (firebaseUser) {
-                const idToken = await firebaseUser.getIdToken();
-                await createSessionCookie(idToken); 
-                const sessionUser = await getCurrentUserFromSession();
-                setUser(sessionUser);
-                 if (isPublicRoute) {
-                    router.replace('/dashboard');
+            const settings = await getSettings();
+            if (settings.developerSettings?.devModeEnabled) {
+                console.warn("Developer Mode is active. Bypassing login.");
+                const devUser = await getUserById(ADMIN_UID);
+                if (devUser) {
+                    setUser(devUser);
+                    if (isPublicRoute) router.replace('/dashboard');
+                } else {
+                    throw new Error("Failed to fetch developer user account.");
                 }
-            } else {
-                setUser(null);
-                 if (!isPublicRoute) {
-                    router.replace('/auth/login');
-                }
+                setLoading(false);
+                return; // Stop further auth processing
             }
-        } catch (error) {
-            console.error("Auth state change error:", error);
-            setUser(null);
-        } finally {
-            setLoading(false);
-        }
-    });
 
-    return () => unsubscribe();
+            // If not in dev mode, set up the standard auth listener
+            const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
+                try {
+                    if (firebaseUser) {
+                        const idToken = await firebaseUser.getIdToken();
+                        await createSessionCookie(idToken);
+                        const sessionUser = await getCurrentUserFromSession();
+                        setUser(sessionUser);
+                        if (isPublicRoute) {
+                            router.replace('/dashboard');
+                        }
+                    } else {
+                        setUser(null);
+                        if (!isPublicRoute) {
+                            router.replace('/auth/login');
+                        }
+                    }
+                } catch (error) {
+                    console.error("Auth state change error:", error);
+                    setUser(null);
+                } finally {
+                    setLoading(false);
+                }
+            });
+            
+            // Initial check in case onIdTokenChanged doesn't fire immediately
+            const initialSessionUser = await getCurrentUserFromSession();
+            if(!initialSessionUser && !isPublicRoute) {
+                router.replace('/auth/login');
+            } else if (initialSessionUser && isPublicRoute) {
+                 router.replace('/dashboard');
+            }
+            setLoading(false);
+
+            return () => unsubscribe();
+        } catch (error) {
+            console.error("Failed to initialize auth:", error);
+            setUser(null);
+            setLoading(false);
+            if (!isPublicRoute) {
+                router.replace('/auth/login');
+            }
+        }
+    };
+
+    initializeAuth();
   }, [isPublicRoute, router]);
 
   const signIn = async (email: string, password: string) => {
