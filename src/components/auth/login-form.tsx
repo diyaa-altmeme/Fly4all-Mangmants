@@ -8,127 +8,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, User as UserIcon, Briefcase, ShieldCheck, MapPin, CheckCircle, UserPlus } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
-import { useDebounce } from '@/hooks/use-debounce';
-import { fetchUserByEmail } from '@/app/auth/login/actions';
-import type { User } from '@/lib/types';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Separator } from '../ui/separator';
-import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../ui/sheet';
-import { getUsers } from '@/app/users/actions';
-import { ScrollArea } from '../ui/scroll-area';
-
-const UserDetailsCard = ({ user }: { user: User }) => (
-    <Card className="mt-4 p-4 bg-muted/50 border-dashed">
-        <div className="flex items-center gap-4">
-            <Avatar className="h-20 w-20 border-2 border-primary">
-                <AvatarImage src={user.avatarUrl} alt={user.name} />
-                <AvatarFallback className="text-2xl">{user.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div className="flex-grow">
-                <p className="font-bold text-lg">{user.name}</p>
-                <p className="text-sm text-muted-foreground">{user.email}</p>
-            </div>
-        </div>
-        <Separator className="my-3" />
-        <div className="grid grid-cols-3 gap-2 text-xs text-center">
-             <div className="flex flex-col items-center gap-1 p-1 rounded-md">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                <span className="font-semibold">{user.role}</span>
-            </div>
-             <div className="flex flex-col items-center gap-1 p-1 rounded-md">
-                <MapPin className="h-5 w-5 text-primary" />
-                <span className="font-semibold">{user.department || 'غير محدد'}</span>
-            </div>
-             <div className="flex flex-col items-center gap-1 p-1 rounded-md">
-                <Briefcase className="h-5 w-5 text-primary" />
-                <span className="font-semibold">{user.position || 'غير محدد'}</span>
-            </div>
-        </div>
-    </Card>
-);
-
-const DirectLoginSheet = () => {
-    const { signInAsUser } = useAuth();
-    const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState(false);
-
-    const fetchUsers = async () => {
-        setLoading(true);
-        const fetchedUsers = await getUsers();
-        setUsers(fetchedUsers as User[]);
-        setLoading(false);
-    };
-
-    return (
-        <Sheet onOpenChange={(open) => open && fetchUsers()}>
-            <SheetTrigger asChild>
-                <Button variant="secondary" className="w-full">دخول مباشر (للمطورين)</Button>
-            </SheetTrigger>
-            <SheetContent>
-                <SheetHeader>
-                    <SheetTitle>الدخول المباشر</SheetTitle>
-                    <SheetDescription>اختر مستخدمًا لتسجيل الدخول بحسابه. هذه الميزة متاحة في وضع التطوير فقط.</SheetDescription>
-                </SheetHeader>
-                <div className="py-4">
-                    {loading ? <Loader2 className="animate-spin" /> : (
-                        <ScrollArea className="h-[calc(100vh-10rem)]">
-                            <div className="space-y-2">
-                                {users.map(user => (
-                                    <button key={user.uid} onClick={() => signInAsUser(user.uid)} className="w-full">
-                                        <UserDetailsCard user={user} />
-                                    </button>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    )}
-                </div>
-            </SheetContent>
-        </Sheet>
-    );
-};
-
 
 export function LoginForm() {
-  const { signIn, loading: authLoading } = useAuth();
+  const { signIn, loading: authLoading, error: authError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   
-  const [userDetails, setUserDetails] = useState<User | null>(null);
-  const [isFetchingUser, setIsFetchingUser] = useState(false);
-  const debouncedEmail = useDebounce(email, 500);
+  const internalLoading = authLoading;
 
   useEffect(() => {
-    if (debouncedEmail) {
-      setIsFetchingUser(true);
-      fetchUserByEmail(debouncedEmail).then(details => {
-        setUserDetails(details);
-        setIsFetchingUser(false);
-      });
-    } else {
-      setUserDetails(null);
+    if (authError) {
+      setError(authError);
     }
-  }, [debouncedEmail]);
-
+  }, [authError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setIsLoading(true);
     
-    const result = await signIn(email, password);
-    if (result && result.error) {
-        setError(result.error);
-    }
-
-    setIsLoading(false);
+    await signIn(email, password);
   };
-  
-  const internalLoading = isLoading || authLoading;
 
   return (
     <Card className="w-full max-w-md mx-auto shadow-lg">
@@ -166,9 +69,6 @@ export function LoginForm() {
               />
             </div>
           </div>
-          
-           {isFetchingUser && <div className="flex justify-center p-2"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground"/></div>}
-           {userDetails && <UserDetailsCard user={userDetails} />}
 
           <div className="space-y-2">
             <Label htmlFor="password">كلمة المرور</Label>
@@ -224,9 +124,6 @@ export function LoginForm() {
                     {internalLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                     تسجيل الدخول
                 </Button>
-                {process.env.NODE_ENV === 'development' && (
-                    <DirectLoginSheet />
-                )}
             </div>
         </form>
       </CardContent>
