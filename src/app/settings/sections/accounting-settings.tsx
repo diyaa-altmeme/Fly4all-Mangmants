@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { getChartOfAccounts } from '@/app/reports/actions';
 import { useToast } from '@/hooks/use-toast';
 import ChartOfAccountsTree from '@/components/settings/chart-of-accounts-tree';
-import ExchangeRateTemplateDialog from '@/components/settings/exchange-rate-template-dialog';
 import InvoiceSequencesPage from '@/app/settings/invoice-sequences/page';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
