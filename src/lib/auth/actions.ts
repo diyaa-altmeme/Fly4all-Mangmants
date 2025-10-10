@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
@@ -103,7 +102,7 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
 });
 
 
-export async function createSessionCookie(idToken: string) {
+export async function createSessionCookie(idToken: string): Promise<{ success: boolean; user?: User & { permissions?: string[] }; error?: string }> {
     const expiresIn = 60 * 60 * 24 * 7 * 1000; // 7 days
     const authAdmin = await getAuthAdmin();
     
@@ -112,6 +111,9 @@ export async function createSessionCookie(idToken: string) {
         const userInAuth = await authAdmin.getUser(decodedToken.uid);
         
         const userInDb = await getUserById(decodedToken.uid);
+        if (!userInDb) {
+            throw new Error("User not found in database.");
+        }
 
         const currentClaims = userInAuth.customClaims || {};
         if (currentClaims.role !== userInDb?.role) {
@@ -128,7 +130,7 @@ export async function createSessionCookie(idToken: string) {
             sameSite: 'strict',
         });
 
-        return { success: true };
+        return { success: true, user: userInDb };
     } catch (error: any) {
         console.error("Error creating session cookie:", error);
         return { success: false, error: error.message };

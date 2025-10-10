@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -45,23 +44,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const sessionUser = await getCurrentUserFromSession();
             if (sessionUser) {
                 setUser(sessionUser);
-            } else if (process.env.NODE_ENV === 'development' && !isPublicRoute) {
-                console.log("Development mode: Attempting to auto-login as admin...");
-                const { success, customToken, error } = await signInAsUserAction(ADMIN_UID_FOR_DEV);
-                 if (success && customToken) {
-                    await signInWithCustomToken(auth, customToken);
-                    const idToken = await getIdToken(auth.currentUser!, true);
-                    await loginUser(idToken);
-                    const newSessionUser = await getCurrentUserFromSession();
-                    if(newSessionUser) {
-                       setUser(newSessionUser);
-                       router.push('/dashboard');
-                    } else {
-                       throw new Error("Auto-login failed: Could not retrieve session user after login.");
-                    }
-                } else {
-                     throw new Error(`Failed to get custom token for dev admin: ${error}`);
-                }
             } else if (!isPublicRoute) {
                 router.replace('/auth/login');
             }
@@ -76,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only once on mount
+  }, []);
 
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
@@ -85,18 +67,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const idToken = await getIdToken(userCredential.user);
       
       const result = await loginUser(idToken);
-       if (result?.error) {
-          throw new Error(result.error);
+       if (result.error || !result.success || !result.user) {
+          throw new Error(result.error || "Failed to create session or retrieve user data.");
       }
       
-      const newSessionUser = await getCurrentUserFromSession();
-      if (newSessionUser) {
-        setUser(newSessionUser);
-        router.push('/dashboard');
-      } else {
-        throw new Error("Failed to retrieve user session after login.");
-      }
-
+      setUser(result.user);
+      router.push('/dashboard');
+      
       return { success: true };
 
     } catch (error: any) {
@@ -129,14 +106,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await signInWithCustomToken(auth, customToken);
             const idToken = await getIdToken(auth.currentUser!, true); // Force refresh
             const sessionResult = await loginUser(idToken);
-            if (sessionResult.error) throw new Error(sessionResult.error);
-            const newSessionUser = await getCurrentUserFromSession();
-            if (newSessionUser) {
-                setUser(newSessionUser);
-                router.push('/dashboard');
-            } else {
-                throw new Error("Failed to establish session for user.");
-            }
+            if (sessionResult.error || !sessionResult.user) throw new Error(sessionResult.error || "Failed to establish session for user.");
+
+            setUser(sessionResult.user);
+            router.push('/dashboard');
         } else {
             throw new Error(error || "Failed to get custom token.");
         }
