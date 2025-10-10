@@ -2,11 +2,13 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
+  signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  getIdToken,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
-import { getCurrentUserFromSession, logoutUser } from '@/lib/auth/actions';
+import { getCurrentUserFromSession, loginUser, logoutUser } from '@/lib/auth/actions';
 import { useRouter, usePathname } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/permissions';
 import { PERMISSIONS } from './auth/permissions';
@@ -55,8 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser(sessionUser);
             if (!sessionUser && !isPublicRoute) {
                 router.replace('/auth/login');
-            } else if (sessionUser && isPublicRoute) {
-                router.replace('/dashboard');
+            } else if (sessionUser && isPublicRoute && pathname !== '/') {
+                 router.replace('/dashboard');
             }
         } catch (error) {
             console.error("Auth initialization error:", error);
@@ -72,10 +74,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
 
-  // The signIn function is now handled by a server action in the login form.
-  // This function can be kept for other sign-in methods or removed if not needed.
   const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
-      throw new Error("signIn function in AuthContext is deprecated. Use server action instead.");
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await getIdToken(userCredential.user);
+      const result = await loginUser(idToken);
+      
+      if (result?.error) {
+          throw new Error(result.error);
+      }
+      
+      // After session cookie is set, fetch the user and update state
+      const sessionUser = await getCurrentUserFromSession();
+      if(sessionUser) {
+        setUser(sessionUser);
+        router.push('/dashboard');
+      } else {
+        throw new Error('Failed to retrieve user session after login.');
+      }
+      
+      return { success: true };
+
+    } catch (error: any) {
+        console.error("Sign in failed:", error);
+        let errorMessage = "An unexpected error occurred.";
+        if (error.code) {
+          switch (error.code) {
+            case 'auth/user-not-found':
+            case 'auth/wrong-password':
+            case 'auth/invalid-credential':
+              errorMessage = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
+              break;
+            case 'auth/invalid-email':
+              errorMessage = 'صيغة البريد الإلكتروني غير صحيحة.';
+              break;
+            default:
+              errorMessage = error.message;
+          }
+        } else {
+            errorMessage = error.message;
+        }
+        return { success: false, error: errorMessage };
+    }
   }
 
 

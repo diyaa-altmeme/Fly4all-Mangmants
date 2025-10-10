@@ -11,7 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff, User as UserIcon, Briefcase, ShieldCheck, MapPin, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useDebounce } from '@/hooks/use-debounce';
-import { getUserByEmail } from '@/lib/auth/actions';
+import { fetchUserByEmail } from '@/app/auth/login/actions';
 import type { User } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
@@ -61,7 +61,7 @@ export function LoginForm() {
   useEffect(() => {
     if (debouncedEmail) {
       setIsFetchingUser(true);
-      getUserByEmail(debouncedEmail).then(details => {
+      fetchUserByEmail(debouncedEmail).then(details => {
         setUserDetails(details);
         setIsFetchingUser(false);
       });
@@ -76,12 +76,16 @@ export function LoginForm() {
     setError('');
     setIsLoading(true);
     
+    await signIn(email, password);
+    // On success, the AuthProvider will handle the redirect.
+    // If it fails, the AuthProvider might set an error state, or we can catch it.
+    // For now, let's assume the auth context handles errors.
+    // The previous implementation was catching the error here. Let's re-add that.
     const result = await signIn(email, password);
-    
     if (result && result.error) {
         setError(result.error);
     }
-    // On success, the AuthProvider will handle the redirect.
+
     setIsLoading(false);
   };
   
