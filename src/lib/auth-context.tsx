@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -41,20 +40,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initializeAuth = async () => {
         try {
-            const settings = await getSettings();
-            if (settings.developerSettings?.devModeEnabled) {
-                console.warn("Developer Mode is active. Bypassing login and cookie logic.");
-                const devUser = await getUserById(ADMIN_UID);
-                if (devUser) {
-                    setUser(devUser);
-                    if (isPublicRoute) router.replace('/dashboard');
-                } else {
-                    throw new Error("Failed to fetch developer user account.");
-                }
-                setLoading(false);
-                return;
-            }
-
             const sessionUser = await getCurrentUserFromSession();
             setUser(sessionUser);
             if (!sessionUser && !isPublicRoute) {
