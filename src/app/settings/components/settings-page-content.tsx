@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -13,6 +13,7 @@ import { settingSections } from '../sections.config';
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 
 interface SettingsPageContentProps {
     initialSettings: AppSettings;
@@ -22,6 +23,7 @@ interface SettingsPageContentProps {
 export default function SettingsPageContent({ initialSettings, onSettingsChanged }: SettingsPageContentProps) {
     const [searchTerm, setSearchTerm] = useState("");
     const [activeSection, setActiveSection] = useState("appearance_general");
+    const router = useRouter();
 
     const filteredSections = useMemo(() => {
         if (!searchTerm) return settingSections;
@@ -45,12 +47,18 @@ export default function SettingsPageContent({ initialSettings, onSettingsChanged
     }, [activeSection]);
 
 
+    const handleDataChange = useCallback(() => {
+        // This will re-fetch data on the server for the current route
+        router.refresh();
+    }, [router]);
+
+
     if (!initialSettings) {
         return null;
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
         <aside className="border-e bg-card p-4 space-y-4 rounded-lg h-full sticky top-20">
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -61,7 +69,7 @@ export default function SettingsPageContent({ initialSettings, onSettingsChanged
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-            <Accordion type="single" collapsible className="w-full">
+            <Accordion type="multiple" className="w-full" defaultValue={settingSections.map(s => s.id)}>
                 {filteredSections.map(section => {
                     const MainIcon = section.icon;
                     return(
@@ -100,7 +108,7 @@ export default function SettingsPageContent({ initialSettings, onSettingsChanged
         <main className="space-y-6">
             <Card>
                 <CardContent className="pt-6">
-                     {ActiveComponent ? <ActiveComponent settings={initialSettings} onSettingsChanged={onSettingsChanged} /> : (
+                     {ActiveComponent ? <ActiveComponent settings={initialSettings} onSettingsChanged={handleDataChange} /> : (
                         <div>الرجاء اختيار قسم من القائمة.</div>
                      )}
                 </CardContent>
@@ -109,3 +117,4 @@ export default function SettingsPageContent({ initialSettings, onSettingsChanged
       </div>
   );
 }
+
