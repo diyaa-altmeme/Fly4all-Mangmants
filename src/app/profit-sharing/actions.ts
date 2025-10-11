@@ -15,6 +15,8 @@ export interface MonthlyProfit {
   notes?: string;
   currency?: Currency;
   partners?: ProfitShare[]; // For manual entries
+  fromDate?: string;
+  toDate?: string;
 }
 
 export interface ProfitShare {
@@ -48,6 +50,8 @@ export async function getMonthlyProfits(): Promise<MonthlyProfit[]> {
         notes: `أرباح يدوية للفترة من ${data.fromDate} إلى ${data.toDate}`,
         currency: data.currency,
         partners: data.partners,
+        fromDate: data.fromDate,
+        toDate: data.toDate,
       } as MonthlyProfit;
     });
 
@@ -74,8 +78,9 @@ export async function getProfitSharesForMonth(monthId: string): Promise<ProfitSh
     const manualDoc = await db.collection('manual_monthly_profits').doc(monthId).get();
     if (manualDoc.exists) {
         const data = manualDoc.data();
-        return (data?.partners || []).map((p: any) => ({
+        return (data?.partners || []).map((p: any, index: number) => ({
             ...p,
+            id: p.id || `${monthId}-${index}`, // Ensure a unique ID
             profitMonthId: monthId,
             notes: 'حصة من توزيع يدوي',
         }));
@@ -123,6 +128,28 @@ export async function saveManualProfitDistribution(data: {
     }
 }
 
+export async function updateManualProfitDistribution(id: string, data: {
+    fromDate: string;
+    toDate: string;
+    profit: number;
+    currency: Currency;
+    partners: Omit<ProfitShare, 'id' | 'profitMonthId'>[];
+}): Promise<{ success: boolean; error?: string; }> {
+    const db = await getDb();
+    if (!db) return { success: false, error: 'Database not available' };
+    try {
+        await db.collection('manual_monthly_profits').doc(id).update({
+            ...data,
+            updatedAt: new Date().toISOString(),
+        });
+        revalidatePath('/profit-sharing');
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+
 export async function updateProfitShare(id: string, data: Partial<ProfitShare>): Promise<{ success: boolean; error?: string }> {
   const db = await getDb();
   if (!db) return { success: false, error: 'Database not available' };
@@ -140,6 +167,19 @@ export async function deleteProfitShare(id: string): Promise<{ success: boolean;
     if (!db) return { success: false, error: 'Database not available' };
     try {
         await db.collection('profit_shares').doc(id).delete();
+        revalidatePath('/profit-sharing');
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+
+export async function deleteManualProfitPeriod(id: string): Promise<{ success: boolean; error?: string }> {
+    const db = await getDb();
+    if (!db) return { success: false, error: 'Database not available' };
+    try {
+        await db.collection('manual_monthly_profits').doc(id).delete();
         revalidatePath('/profit-sharing');
         return { success: true };
     } catch (e: any) {
