@@ -32,6 +32,7 @@ const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const router = useRouter();
   const pathname = usePathname();
 
@@ -56,6 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
     setLoading(true);
+    setError('');
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await getIdToken(userCredential.user);
@@ -65,10 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error(result.error || "Failed to create session or retrieve user data.");
       }
       
-      // Instead of navigating, just update the user state.
-      // The MainLayout component will react to this change and render the appropriate view.
       setUser(result.user);
-      
       return { success: true };
 
     } catch (error: any) {
@@ -90,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
             errorMessage = error.message;
         }
+        setError(errorMessage);
         return { success: false, error: errorMessage };
     } finally {
         setLoading(false);
@@ -106,13 +106,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (sessionResult.error || !sessionResult.user) throw new Error(sessionResult.error || "Failed to establish session for user.");
 
             setUser(sessionResult.user);
-            // Let the MainLayout handle the redirect by updating the user state.
         } else {
             throw new Error(error || "Failed to get custom token.");
         }
     } catch (error: any) {
         console.error(`Sign in as user ${userId} failed:`, error);
-        // Handle error display to the user if necessary
     }
   };
 

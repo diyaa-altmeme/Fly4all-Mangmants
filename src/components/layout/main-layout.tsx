@@ -99,7 +99,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
     React.useEffect(() => {
         if (!loading && !user && !isPublicPath && !isLandingPage) {
-            router.replace('/auth/login');
+            router.replace('/');
+        }
+         if (!loading && user && (isPublicPath || isLandingPage)) {
+            router.replace('/dashboard');
         }
     }, [user, loading, isPublicPath, isLandingPage, router]);
     
@@ -108,30 +111,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     }
 
     if (!user && isLandingPage) {
-        // Render LandingPage directly, outside of any themed layout
         return <>{children}</>;
     }
 
-    if (user) {
+    if (user && !isPublicPath) {
         return <AppLayout>{children}</AppLayout>;
     }
     
-    if (isPublicPath) {
+    if (isPublicPath && !user) {
         return (
-             <div className="flex min-h-screen w-full flex-col bg-background">
-                <header
-                className={cn(
-                    "sticky top-0 z-40 flex h-16 items-center border-b bg-card px-4 sm:px-6 shadow-sm"
-                )}
-                >
-                    <div className="flex flex-1 items-center justify-start gap-4">
-                        <Link href="/" className="flex items-center gap-2 font-semibold">
-                            <Plane className="h-6 w-6 text-primary" />
-                            <h1 className="text-xl hidden sm:block">Mudarib</h1>
-                        </Link>
-                    </div>
-                </header>
-                <main className="flex-1 p-2 sm:p-4 md:p-6 bg-muted/40">
+             <div className="flex min-h-screen w-full flex-col bg-muted/40">
+                <main className="flex-1">
                     {children}
                 </main>
             </div>
