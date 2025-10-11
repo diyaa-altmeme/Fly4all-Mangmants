@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, RefreshCw, Download, FileSpreadsheet, Search, Users, User, ArrowDown, ArrowUp, DollarSign, Baby, Trash2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { PlusCircle, RefreshCw, Download, FileSpreadsheet, Search, Users, User, ArrowDown, ArrowUp, DollarSign, Baby, AlertTriangle, ExternalLink } from 'lucide-react';
 import type { FlightReportWithId, DataAuditIssue } from '@/lib/types';
 import FlightDataExtractorDialog from '@/app/bookings/components/flight-data-extractor-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +24,7 @@ import {
   DialogTrigger,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Trash2 } from 'lucide-react';
 
 const StatCard = ({ title, value, subValue, icon: Icon, valueClass }: { title: string, value: string, subValue?: string, icon: React.ElementType, valueClass?: string }) => (
     <div className="bg-muted/50 p-4 rounded-xl flex items-center gap-4">
@@ -88,7 +89,8 @@ const IssueDetailsDialog = ({ issue }: { issue: DataAuditIssue }) => {
             </div>
         </DialogContent>
     )
-}
+};
+
 
 const IssueBadge = ({ issue }: { issue: DataAuditIssue }) => {
     const config = {
@@ -260,5 +262,4 @@ export default function FlightAnalysisContent({ initialReports }: { initialRepor
             </Card>
         </div>
     );
-
-    
+}
