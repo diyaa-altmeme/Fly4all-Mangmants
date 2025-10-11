@@ -1,9 +1,9 @@
 
-
 import { LandingPage } from "@/components/landing-page";
 import { getSettings } from "@/app/settings/actions";
 import { defaultSettingsData } from "@/lib/defaults";
 import type { LandingPageSettings } from "@/lib/types";
+import "./landing-page.css";
 
 // This component is now rendered directly by MainLayout for unauthenticated users,
 // but we keep the data fetching logic here.

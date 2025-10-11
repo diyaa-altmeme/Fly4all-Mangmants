@@ -20,6 +20,7 @@ import type { User, Client } from "@/lib/types";
 import { UserNav } from "./user-nav";
 import { LandingPage } from "@/components/landing-page";
 import { defaultSettingsData } from "@/lib/defaults";
+import "@/app/globals.css";
 
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
@@ -111,16 +112,30 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         return <>{children}</>;
     }
 
-    if (user && 'role' in user) {
+    if (user) {
         return <AppLayout>{children}</AppLayout>;
     }
     
-    if (user && 'isClient' in user) {
-        return <>{children}</>;
-    }
-    
     if (isPublicPath) {
-        return <>{children}</>;
+        return (
+             <div className="flex min-h-screen w-full flex-col bg-background">
+                <header
+                className={cn(
+                    "sticky top-0 z-40 flex h-16 items-center border-b bg-card px-4 sm:px-6 shadow-sm"
+                )}
+                >
+                    <div className="flex flex-1 items-center justify-start gap-4">
+                        <Link href="/" className="flex items-center gap-2 font-semibold">
+                            <Plane className="h-6 w-6 text-primary" />
+                            <h1 className="text-xl hidden sm:block">Mudarib</h1>
+                        </Link>
+                    </div>
+                </header>
+                <main className="flex-1 p-2 sm:p-4 md:p-6 bg-muted/40">
+                    {children}
+                </main>
+            </div>
+        );
     }
     
     return <Preloader />;
