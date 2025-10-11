@@ -92,23 +92,19 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
 
     const isPublicPath = publicRoutes.some(route => pathname.startsWith(route));
-
-    // For development, always show the layout to allow login and navigation from the login page.
-    if (process.env.NODE_ENV === 'development') {
-        return <AppLayout>{children}</AppLayout>;
-    }
     
-    // For production:
+    // In all environments, if we are on a public path, just show the children without the main layout
     if (isPublicPath) {
         return <>{children}</>;
     }
     
+    // If we are not on a public path, we check for loading state.
     if (loading) {
         return <Preloader />;
     }
 
+    // If not loading and no user, we redirect. This should be handled by AuthProvider, but it's a safeguard.
     if (!user) {
-        // This should be caught by the AuthProvider, but as a fallback:
         if (typeof window !== 'undefined') {
             router.replace('/auth/login');
         }
@@ -116,10 +112,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     }
     
     if (user && 'isClient' in user && user.isClient) {
-        // This is a client, render client layout (which is handled by page for now)
+        // This is a client, client-specific layout is handled by the page for now.
         return <>{children}</>;
     }
 
-    // This is a regular employee/admin
+    // If we have a regular user and it's not a public path, show the full AppLayout.
     return <AppLayout>{children}</AppLayout>;
 }
