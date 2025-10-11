@@ -39,10 +39,22 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
         if (isOpen) { // fetch only when opening
             setIsLoading(true);
             const fetchedShares = await getProfitSharesForMonth(period.id);
-            setShares(fetchedShares);
+            // Enrich shares with partner names if they are missing
+            const enrichedShares = produce(fetchedShares, draft => {
+                draft.forEach(share => {
+                    if (!share.partnerName) {
+                        const partner = partners.find(p => p.id === share.partnerId);
+                        if (partner) {
+                            share.partnerName = partner.name;
+                        }
+                    }
+                });
+            });
+
+            setShares(enrichedShares);
             setIsLoading(false);
         }
-    }, [isOpen, period.id]);
+    }, [isOpen, period.id, partners]);
 
     useEffect(() => {
         if(isOpen) {
@@ -64,17 +76,17 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
         <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
              <tbody className="border-t">
                 <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                    <TableCell>
+                    <TableCell className="p-2">
                         <CollapsibleTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="font-semibold">{description.split(' | ')[0]}</TableCell>
-                    <TableCell>{fromDate}</TableCell>
-                    <TableCell>{toDate}</TableCell>
-                    <TableCell className="text-right font-mono font-bold">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
+                    <TableCell className="font-semibold p-2">{description.split(' | ')[0]}</TableCell>
+                    <TableCell className="p-2">{fromDate}</TableCell>
+                    <TableCell className="p-2">{toDate}</TableCell>
+                    <TableCell className="text-right font-mono font-bold p-2">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
@@ -167,11 +179,11 @@ export default function ProfitSharingContent({ initialMonthlyProfits, partners, 
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead className="w-[50px]"></TableHead>
-                                <TableHead>الوصف</TableHead>
-                                <TableHead>تاريخ البدء</TableHead>
-                                <TableHead>تاريخ الانتهاء</TableHead>
-                                <TableHead className="text-right">إجمالي الربح</TableHead>
+                                <TableHead className="w-[50px] p-2"></TableHead>
+                                <TableHead className="p-2">الوصف</TableHead>
+                                <TableHead className="p-2">تاريخ البدء</TableHead>
+                                <TableHead className="p-2">تاريخ الانتهاء</TableHead>
+                                <TableHead className="text-right p-2">إجمالي الربح</TableHead>
                             </TableRow>
                         </TableHeader>
                         {filteredMonthlyProfits.map((p, index) => (
@@ -184,4 +196,3 @@ export default function ProfitSharingContent({ initialMonthlyProfits, partners, 
     </div>
   );
 }
-
