@@ -95,6 +95,7 @@ const operationsItems = [
     { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
     { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft, permission: 'remittances:read' },
     { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
+    { href: "/bookings/fly-changes", label: "تغييرات فلاي والوزن", icon: Package, permission: 'admin' },
     { href: "/exchanges", label: "إدارة البورصات", icon: ChevronsRightLeft, permission: 'admin' },
 ];
 
@@ -103,7 +104,7 @@ const reportsItems = [
     { href: "/reports/account-statement", label: "كشف حساب", icon: FileText, permission: 'reports:account_statement' },
     { href: "/profits", label: "الأرباح الشهرية", icon: BarChart3, permission: 'reports:profits' },
     { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
-    { href: "/reports/boxes", label: "تقرير الصناديق", icon: Boxes, permission: 'admin' },
+    { href: "/boxes", label: "تقرير الصناديق", icon: Boxes, permission: 'admin' },
     { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
     { href: "/reconciliation", label: "التدقيق الذكي", icon: Wand2, permission: 'admin' },
     { href: "/reports/advanced", label: "تقارير متقدمة", icon: AreaChart, permission: 'reports:read:all' },

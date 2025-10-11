@@ -81,11 +81,7 @@ export default function ClientsPage() {
     return (
         <ProtectedPage permission="relations:read">
             <div className="space-y-6">
-                <div className="px-0 sm:px-6">
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة العلاقات</h1>
-                    <p className="text-muted-foreground">إدارة جميع العملاء والموردين في مكان واحد.</p>
-                </div>
-                <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+                 <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
                     <ClientsDataContainer />
                 </Suspense>
             </div>
