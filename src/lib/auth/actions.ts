@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
@@ -83,19 +84,16 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
             return fullUser;
         }
         
-        // This part is for potential future client login
         if (decodedClaims.isClient) {
              const client = await getClientById(decodedClaims.uid);
              if (client) return { ...client, isClient: true };
         }
         
-        // If user not found in DB but has a valid session, something is wrong. Log out.
         console.warn(`Session cookie for UID ${decodedClaims.uid} is valid, but user not found in Firestore. Logging out.`);
         cookies().delete('session');
         return null;
 
     } catch (error) {
-        // Session cookie is invalid.
         cookies().delete('session');
         return null;
     }
@@ -122,12 +120,13 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 
         const sessionCookie = await authAdmin.createSessionCookie(idToken, { expiresIn });
         
-        cookies().set('session', sessionCookie, {
+        const cookieStore = cookies();
+        cookieStore.set('session', sessionCookie, {
             maxAge: expiresIn,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             path: '/',
-            sameSite: 'strict',
+            sameSite: 'lax', 
         });
 
         return { success: true, user: userInDb };
@@ -135,6 +134,18 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
         console.error("Error creating session cookie:", error);
         return { success: false, error: error.message };
     }
+}
+
+export async function createOtpSessionCookie(sessionPayload: any): Promise<void> {
+    const expiresIn = 60 * 60 * 24 * 7; // 7 days in seconds
+    const cookieStore = cookies();
+    cookieStore.set('session', JSON.stringify(sessionPayload), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: expiresIn,
+        path: '/',
+        sameSite: 'lax',
+    });
 }
 
 export const getUserByEmail = cache(async (email: string): Promise<(User) | null> => {
@@ -178,5 +189,6 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
 
 
 export async function logoutUser() {
-    cookies().delete('session');
+    const cookieStore = cookies();
+    cookieStore.delete('session');
 }
