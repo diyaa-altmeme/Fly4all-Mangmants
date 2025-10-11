@@ -17,10 +17,9 @@ import { produce } from 'immer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDebounce } from '@/hooks/use-debounce';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
+// import * as XLSX from 'xlsx'; // Temporarily disabled
 import { isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-
 
 // تعريف أنواع الفرز
 type SortKey = keyof FlightReport | 'totalRevenue' | 'paxCount' | 'filteredRevenue' | 'supplierName' | 'totalDiscount' | 'manualDiscountValue';
@@ -75,11 +74,10 @@ interface FlightAnalysisContentProps {
 export default function FlightAnalysisContent({ initialReports, onRefresh }: FlightAnalysisContentProps) {
     const [allReports, setAllReports] = useState(initialReports);
     const [selectedReports, setSelectedReports] = useState<FlightReportWithId[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
-    const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 5 });
+    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 5 });
     const [sortDescriptor, setSortDescriptor] = useState<{ column: SortKey, direction: SortDirection }>({ column: 'flightDate', direction: 'descending' });
 
     useEffect(() => {
@@ -129,7 +127,7 @@ export default function FlightAnalysisContent({ initialReports, onRefresh }: Fli
             return sortDescriptor.direction === 'descending' ? -cmp : cmp;
         });
     }, [allReports, sortDescriptor]);
-
+    
     const filteredReports = useMemo(() => {
         if (!debouncedSearchTerm) return sortedReports;
         const lowercasedTerm = debouncedSearchTerm.toLowerCase();
@@ -195,7 +193,7 @@ export default function FlightAnalysisContent({ initialReports, onRefresh }: Fli
                          <div className="flex items-center gap-2">
                             <Button onClick={handleComprehensiveExport} variant="outline" disabled={allReports.length === 0}><FileSpreadsheet className="me-2 h-4 w-4"/>تصدير شامل</Button>
                             <Button onClick={handleExport} variant="outline" disabled={allReports.length === 0}><FileSpreadsheet className="me-2 h-4 w-4"/>تصدير الملخص</Button>
-                            <Button onClick={onRefresh} variant="outline" disabled={isLoading}>{isLoading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث البيانات</Button>
+                            <Button onClick={onRefresh} variant="outline"><RefreshCw className="h-4 w-4 me-2" /> تحديث البيانات</Button>
                             <FlightDataExtractorDialog onSaveSuccess={onRefresh}>
                                 <Button><PlusCircle className="h-4 w-4 me-2" />رفع وتحليل ملف جديد</Button>
                             </FlightDataExtractorDialog>
@@ -207,23 +205,22 @@ export default function FlightAnalysisContent({ initialReports, onRefresh }: Fli
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input placeholder="بحث شامل..." className="ps-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
-                    {isLoading ? ( <Skeleton className="h-96 w-full" /> ) : ( <>
-                        <FlightReportsTable 
-                            reports={paginatedReports}
-                            sortDescriptor={sortDescriptor}
-                            setSortDescriptor={setSortDescriptor}
-                            onSelectionChange={setSelectedReports}
-                            onUpdateReport={handleUpdateReport}
-                            onDeleteReport={handleDeleteReport}
-                        />
-                        <DataTablePagination
-                            pageIndex={pagination.pageIndex}
-                            pageSize={pagination.pageSize}
-                            totalCount={filteredReports.length}
-                            onPageChange={(index) => setPagination(prev => ({...prev, pageIndex: index}))}
-                            onPageSizeChange={(size) => setPagination({ pageIndex: 0, pageSize: size })}
-                        />
-                    </>)}
+                    
+                    <FlightReportsTable 
+                        reports={paginatedReports}
+                        sortDescriptor={sortDescriptor}
+                        setSortDescriptor={setSortDescriptor}
+                        onSelectionChange={setSelectedReports}
+                        onUpdateReport={handleUpdateReport}
+                        onDeleteReport={handleDeleteReport}
+                    />
+                    <DataTablePagination
+                        pageIndex={pagination.pageIndex}
+                        pageSize={pagination.pageSize}
+                        totalCount={filteredReports.length}
+                        onPageChange={(index) => setPagination(prev => ({...prev, pageIndex: index}))}
+                        onPageSizeChange={(size) => setPagination({ pageIndex: 0, pageSize: size })}
+                    />
                 </CardContent>
             </Card>
         </div>
