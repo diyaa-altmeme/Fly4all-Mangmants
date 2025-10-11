@@ -3,10 +3,10 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { MonthlyProfit, ProfitShare } from "../actions";
-import { getProfitSharesForMonth } from "../actions";
+import { getProfitSharesForMonth, deleteManualProfitPeriod } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Loader2, Edit, Filter } from "lucide-react";
+import { PlusCircle, Loader2, Edit, Filter, MoreHorizontal, Trash2 } from "lucide-react";
 import SharesTable from "./shares-table";
 import AddEditShareDialog from "./add-edit-share-dialog";
 import AddManualProfitDialog from "./add-manual-profit-dialog";
@@ -17,6 +17,12 @@ import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { produce } from 'immer';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
+import { buttonVariants } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import EditManualProfitDialog from "./edit-manual-profit-dialog";
+
 
 const StatCard = ({ title, value }: { title: string; value: string }) => (
     <div className="bg-muted/50 border p-4 rounded-lg text-center">
@@ -35,6 +41,7 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
     const [shares, setShares] = useState<ProfitShare[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+    const { toast } = useToast();
 
     const fetchShares = useCallback(async () => {
         if (isOpen) { // fetch only when opening
@@ -56,6 +63,17 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
             setIsLoading(false);
         }
     }, [isOpen, period.id, partners]);
+    
+    const handleDelete = async () => {
+        if(period.fromSystem) return; // Should not happen
+        const result = await deleteManualProfitPeriod(period.id);
+        if (result.success) {
+            toast({ title: 'تم حذف الفترة اليدوية بنجاح' });
+            onDataChange();
+        } else {
+            toast({ title: 'خطأ', description: result.error, variant: 'destructive'});
+        }
+    };
 
     useEffect(() => {
         if(isOpen) {
@@ -70,8 +88,8 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
 
     const description = period.notes || (period.fromSystem ? `أرباح شهر ${period.id}` : 'فترة يدوية');
     const dateInfo = description.match(/من ([\d-]+) إلى ([\d-]+)/);
-    let fromDate = period.fromSystem ? format(parseISO(`${period.id}-01`), 'yyyy-MM-dd') : (dateInfo ? dateInfo[1] : '-');
-    let toDate = period.fromSystem ? '-' : (dateInfo ? dateInfo[2] : '-');
+    let fromDate = period.fromSystem ? format(parseISO(`${period.id}-01`), 'yyyy-MM-dd') : (dateInfo ? dateInfo[1] : period.fromDate);
+    let toDate = period.fromSystem ? '-' : (dateInfo ? dateInfo[2] : period.toDate);
 
     return (
         <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
@@ -88,10 +106,41 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
                     <TableCell className="p-2">{fromDate}</TableCell>
                     <TableCell className="p-2">{toDate}</TableCell>
                     <TableCell className="text-right font-mono font-bold p-2">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
+                    <TableCell className="p-2 text-center">
+                        {!period.fromSystem && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <EditManualProfitDialog period={period} partners={partners} onSuccess={onDataChange} />
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                                                <Trash2 className="me-2 h-4 w-4"/> حذف الفترة
+                                            </DropdownMenuItem>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                                <AlertDialogDescription>سيتم حذف هذه الفترة اليدوية وكل توزيعاتها.</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                                <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleDelete();}} className={cn(buttonVariants({variant: 'destructive'}))}>نعم، احذف</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    </TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={5} className="p-0">
+                        <TableCell colSpan={6} className="p-0">
                             <div className="p-4 bg-muted/20">
                                 {isLoading ? (
                                     <div className="flex justify-center p-8"><Loader2 className="animate-spin h-6 w-6"/></div>
@@ -185,6 +234,7 @@ export default function ProfitSharingContent({ initialMonthlyProfits, partners, 
                                 <TableHead className="p-2">تاريخ البدء</TableHead>
                                 <TableHead className="p-2">تاريخ الانتهاء</TableHead>
                                 <TableHead className="text-right p-2">إجمالي الربح</TableHead>
+                                <TableHead className="text-center p-2">الإجراءات</TableHead>
                             </TableRow>
                         </TableHeader>
                         {filteredMonthlyProfits.map((p, index) => (
