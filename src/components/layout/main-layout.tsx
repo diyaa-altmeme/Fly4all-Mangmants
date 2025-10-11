@@ -18,9 +18,11 @@ import Preloader from './preloader';
 import { usePathname, useRouter } from 'next/navigation';
 import type { User, Client } from "@/lib/types";
 import { UserNav } from "./user-nav";
-import { LandingHeader } from "@/components/landing-page";
+import { LandingPage } from "@/components/landing-page";
+import { defaultSettingsData } from "@/lib/defaults";
 
-const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
+
+const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
@@ -91,37 +93,35 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const isPublicPath = publicRoutes.some(route => pathname.startsWith(route) && (route === '/' ? pathname.length === 1 : true));
+    const isPublicPath = publicRoutes.some(route => pathname.startsWith(route));
+    const isLandingPage = pathname === '/';
 
     React.useEffect(() => {
-        // If auth check is done, user is not logged in, and it's not a public path, redirect to login.
-        if (!loading && !user && !isPublicPath) {
+        if (!loading && !user && !isPublicPath && !isLandingPage) {
             router.replace('/auth/login');
         }
-    }, [user, loading, isPublicPath, router]);
+    }, [user, loading, isPublicPath, isLandingPage, router]);
     
-    // While loading, show a preloader.
     if (loading) {
         return <Preloader />;
     }
 
-    // If user is logged in (and not a client), show the main app layout.
+    if (!user && isLandingPage) {
+        // Render LandingPage directly, outside of any themed layout
+        return <>{children}</>;
+    }
+
     if (user && 'role' in user) {
         return <AppLayout>{children}</AppLayout>;
     }
     
-    // If user is a client, show the client-specific layout (or just children for now)
     if (user && 'isClient' in user) {
-        // This is where a dedicated client layout would go.
         return <>{children}</>;
     }
     
-    // If not logged in but on a public page, show the page content.
     if (isPublicPath) {
         return <>{children}</>;
     }
     
-    // In the brief moment between the auth check finishing and the redirect effect running,
-    // show a preloader to prevent flashing protected content.
     return <Preloader />;
 }
