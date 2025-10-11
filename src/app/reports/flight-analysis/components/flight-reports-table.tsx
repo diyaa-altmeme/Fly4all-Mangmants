@@ -1,18 +1,17 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import type { FlightReport, PnrGroup, DataAuditIssue, Passenger, ExtractedPassenger, FlightReportWithId, ManualDiscount } from '@/lib/types';
+import type { FlightReportWithId, ManualDiscount } from '@/lib/types';
 import { ChevronDown, Edit, Trash2, MoreHorizontal, AlertTriangle, Download, FileText as InvoiceIcon, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Repeat, Repeat1, XCircle, FileWarning, Briefcase, User, Plane, Calendar as CalendarIcon, Clock, Users, DollarSign, BadgePercent, ShieldCheck, Save, UserSquare, Baby, UserRound, Passport } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogContent, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { cn } from '@/lib/utils';
-import { buttonVariants } from '@/components/ui/button';
 import Image from 'next/image';
 import { format, parseISO, isValid } from 'date-fns';
 import { Loader2 } from 'lucide-react';
@@ -28,123 +27,343 @@ import { NumericInput } from '@/components/ui/numeric-input';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { produce } from 'immer';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-// --- Helper Components ---
+
+/**
+ * =================================================================================
+ * 1. نافذة ملخص الأسعار (PriceSummaryDialog)
+ * =================================================================================
+ */
 const formatCurrency = (amount?: number): string => {
-    if (typeof amount !== 'number' || isNaN(amount)) return '$0.00';
+    if (typeof amount !== 'number' || isNaN(amount)) {
+        return '$0.00';
+    }
     return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-const getTripDirection = (route: string) => {
-    const IRAQI_AIRPORTS = ['BGW', 'NJF', 'EBL', 'ISU', 'BSR'];
-    if (!route || typeof route !== 'string') return null;
-    const parts = route.split(/ -> |-/).map(s => s.trim().toUpperCase());
-    if (IRAQI_AIRPORTS.includes(parts[0]) && !IRAQI_AIRPORTS.includes(parts[parts.length - 1])) return 'مغادرة';
-    if (!IRAQI_AIRPORTS.includes(parts[0]) && IRAQI_AIRPORTS.includes(parts[parts.length - 1])) return 'عودة';
-    return null;
-};
+const PriceSummaryDialog = ({ report }: { report: FlightReportWithId }) => {
+    if (!report.payDistribution || report.payDistribution.length === 0) {
+        return null;
+    }
 
-const TripTypeBadge = ({ type }: { type?: 'DEPARTURE' | 'RETURN' | 'SINGLE' | 'ROUND_TRIP' }) => {
-    if (type === 'DEPARTURE') return <Badge className="bg-green-100 text-green-700 hover:bg-green-200">ذهاب</Badge>;
-    if (type === 'RETURN') return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200">عودة</Badge>;
-    if (type === 'ROUND_TRIP') return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200">ذهاب وعودة</Badge>;
-    return <Badge variant="outline">رحلة مفردة</Badge>;
-};
-
-const PassengerTypeIcon = ({ type, className }: { type: ExtractedPassenger['passengerType'], className?: string }) => {
-    const config = {
-        Adult: { icon: UserSquare },
-        Child: { icon: UserRound },
-        Infant: { icon: Baby }
-    }[type || 'Adult'];
-
-    if (!config) return null;
-    const Icon = config.icon;
-    return <Icon className={cn("h-4 w-4", className)} />;
-}
-
-const IssueDetailsDialog = ({ issues, open, onOpenChange, title }: { issues: DataAuditIssue[], open: boolean, onOpenChange: (open: boolean) => void, title: string }) => {
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-4xl"><DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>تم العثور على {issues.length} مشكلة.</DialogDescription></DialogHeader>
-                <div className="max-h-96 overflow-y-auto space-y-4">{issues.map((issue, index) => (
-                    <div key={index} className="p-3 border rounded-md bg-muted/50">
-                        <p className="font-semibold text-sm">{issue.description}</p>
-                        {issue.details && Array.isArray(issue.details) && (
-                            <Table><TableHeader><TableRow><TableHead>الملف</TableHead><TableHead>المرجع</TableHead><TableHead>الوجهة</TableHead><TableHead>التاريخ</TableHead></TableRow></TableHeader>
-                                <TableBody>{issue.details.map((detail: any, idx: number) => (
-                                    <TableRow key={idx}><TableCell><Badge variant="secondary">{detail.fileName}</Badge></TableCell><TableCell className="font-mono">{detail.bookingReference}</TableCell><TableCell>{detail.route}</TableCell><TableCell>{detail.date}</TableCell></TableRow>
-                                ))}</TableBody>
-                            </Table>
-                        )}
-                    </div>
-                ))}</div>
+        <Dialog>
+            <DialogTrigger asChild>
+                 <button className="w-full text-center hover:underline font-mono font-bold">
+                    {formatCurrency(report.totalRevenue)}
+                </button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>ملخص الأسعار لملف: {report.fileName}</DialogTitle>
+                    <DialogDescription>
+                        توزيع الركاب حسب سعر التذكرة.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-80 overflow-y-auto border rounded-md">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>السعر</TableHead>
+                                <TableHead>عدد الركاب</TableHead>
+                                <TableHead className="text-right">الإجمالي</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {report.payDistribution.map((p, i) => (
+                                <TableRow key={i}>
+                                    <TableCell>{formatCurrency(p.amount)}</TableCell>
+                                    <TableCell>{p.count}</TableCell>
+                                    <TableCell className="text-right font-mono">{formatCurrency(p.subtotal)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                         <TableFooter>
+                            <TableRow>
+                                <TableCell className="font-bold">المجموع</TableCell>
+                                <TableCell className="font-bold">{report.paxCount}</TableCell>
+                                <TableCell className="text-right font-bold">{formatCurrency(report.totalRevenue)}</TableCell>
+                            </TableRow>
+                        </TableFooter>
+                    </Table>
+                </div>
             </DialogContent>
         </Dialog>
     );
 };
 
+
+/**
+ * =================================================================================
+ * 2. نافذة تفاصيل الخصم (DiscountDetailsDialog)
+ * =================================================================================
+ */
+const DiscountDetailsDialog = ({ report, children, defaultOpen }: { report: FlightReportWithId, children: React.ReactNode, defaultOpen?: 'auto' | 'manual' }) => {
+    const discountedPassengers = (report.passengers || []).filter(p => p.tripType === 'RETURN');
+    const manualDiscount = report.manualDiscount || { type: 'fixed', value: 0 };
+
+    const calculatedManualDiscount = useMemo(() => {
+        if (manualDiscount.type === 'fixed') return manualDiscount.value || 0;
+        if (manualDiscount.type === 'per_passenger') {
+            const passengerCounts = (report.passengers || []).reduce((acc, p) => {
+                const type = p.passengerType || 'Adult';
+                acc[type] = (acc[type] || 0) + 1;
+                return acc;
+            }, {} as Record<'Adult' | 'Child' | 'Infant', number>);
+            
+            const adultDiscount = (passengerCounts['Adult'] || 0) * (manualDiscount.perAdult || 0);
+            const childDiscount = (passengerCounts['Child'] || 0) * (manualDiscount.perChild || 0);
+            const infantDiscount = (passengerCounts['Infant'] || 0) * (manualDiscount.perInfant || 0);
+            return adultDiscount + childDiscount + infantDiscount;
+        }
+        return 0;
+    }, [manualDiscount, report.passengers]);
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogContent className="sm:max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>تفاصيل الخصم لملف: {report.fileName}</DialogTitle>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                     <Card>
+                        <CardHeader className="pb-2">
+                             <CardTitle className="text-base">ملخص مالي</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                            <div className="flex justify-between font-medium"><span className="text-muted-foreground">الإجمالي الأصلي:</span><span className="font-mono">{formatCurrency(report.totalRevenue)}</span></div>
+                            <div className="flex justify-between font-medium"><span className="text-muted-foreground">خصم العودة:</span><span className="font-mono text-orange-600">- {formatCurrency(report.totalDiscount)}</span></div>
+                            <div className="flex justify-between font-medium"><span className="text-muted-foreground">خصم يدوي:</span><span className="font-mono text-red-600">- {formatCurrency(calculatedManualDiscount)}</span></div>
+                            <Separator />
+                            <div className="flex justify-between font-bold text-base"><span className="text-primary">الصافي النهائي:</span><span className="font-mono text-primary">{formatCurrency(report.filteredRevenue)}</span></div>
+                        </CardContent>
+                    </Card>
+
+                    <Accordion type="single" collapsible className="w-full space-y-2" defaultValue={defaultOpen}>
+                        <AccordionItem value="auto" className="border rounded-lg bg-background">
+                            <AccordionTrigger className="font-semibold px-4 py-3 hover:no-underline">الخصم التلقائي (خصم العودة)</AccordionTrigger>
+                            <AccordionContent className="p-4 border-t">
+                                {discountedPassengers.length === 0 ? <p className="text-sm text-muted-foreground text-center py-4">لا يوجد خصم عودة تلقائي.</p> : (
+                                    <div className="max-h-60 overflow-y-auto">
+                                        <Table>
+                                            <TableHeader><TableRow><TableHead>المسافر</TableHead><TableHead>تاريخ الذهاب</TableHead><TableHead>تاريخ العودة</TableHead><TableHead className="text-right">المبلغ المخصوم</TableHead></TableRow></TableHeader>
+                                            <TableBody>
+                                                {discountedPassengers.map((p, i) => (
+                                                    <TableRow key={i}><TableCell>{p.name}</TableCell><TableCell>{p.departureDate ? format(parseISO(p.departureDate), 'yyyy-MM-dd') : '-'}</TableCell><TableCell>{report.flightDate ? format(parseISO(report.flightDate), 'yyyy-MM-dd') : '-'}</TableCell><TableCell className="text-right font-mono text-red-500">- {formatCurrency(p.payable)}</TableCell></TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                )}
+                            </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="manual" className="border rounded-lg bg-background">
+                            <AccordionTrigger className="font-semibold px-4 py-3 hover:no-underline">الخصم اليدوي</AccordionTrigger>
+                            <AccordionContent className="p-4 border-t">
+                                {calculatedManualDiscount === 0 && !report.manualDiscountNotes ? <p className="text-sm text-muted-foreground text-center py-4">لا يوجد خصم يدوي.</p> : (
+                                    <div className="space-y-4">
+                                        {manualDiscount.type === 'per_passenger' ? (
+                                             <Table>
+                                                <TableHeader><TableRow><TableHead>الفئة</TableHead><TableHead>العدد</TableHead><TableHead>خصم الفرد</TableHead><TableHead className="text-right">الإجمالي</TableHead></TableRow></TableHeader>
+                                                <TableBody>
+                                                    <TableRow><TableCell>بالغ</TableCell><TableCell>{(report.passengers || []).filter(p=>p.passengerType === 'Adult').length}</TableCell><TableCell>{formatCurrency(manualDiscount.perAdult)}</TableCell><TableCell className="text-right">{formatCurrency((manualDiscount.perAdult || 0) * (report.passengers || []).filter(p=>p.passengerType === 'Adult').length)}</TableCell></TableRow>
+                                                    <TableRow><TableCell>طفل</TableCell><TableCell>{(report.passengers || []).filter(p=>p.passengerType === 'Child').length}</TableCell><TableCell>{formatCurrency(manualDiscount.perChild)}</TableCell><TableCell className="text-right">{formatCurrency((manualDiscount.perChild || 0) * (report.passengers || []).filter(p=>p.passengerType === 'Child').length)}</TableCell></TableRow>
+                                                    <TableRow><TableCell>رضيع</TableCell><TableCell>{(report.passengers || []).filter(p=>p.passengerType === 'Infant').length}</TableCell><TableCell>{formatCurrency(manualDiscount.perInfant)}</TableCell><TableCell className="text-right">{formatCurrency((manualDiscount.perInfant || 0) * (report.passengers || []).filter(p=>p.passengerType === 'Infant').length)}</TableCell></TableRow>
+                                                </TableBody>
+                                                <TableFooter><TableRow><TableCell colSpan={3} className="font-bold">المجموع</TableCell><TableCell className="text-right font-bold">{formatCurrency(calculatedManualDiscount)}</TableCell></TableRow></TableFooter>
+                                            </Table>
+                                        ) : (
+                                            <p className="font-semibold text-center p-4">مبلغ ثابت: <span className="font-mono text-red-500">{formatCurrency(calculatedManualDiscount)}</span></p>
+                                        )}
+                                        {report.manualDiscountNotes && <p className="text-sm text-muted-foreground mt-2 border-t pt-2"><b>ملاحظات:</b> {report.manualDiscountNotes}</p>}
+                                    </div>
+                                )}
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+
+/**
+ * =================================================================================
+ * 3. نافذة إضافة/تعديل الخصم اليدوي (ManualDiscountDialog)
+ * =================================================================================
+ */
 const ManualDiscountDialog = ({ report, onSaveSuccess }: { report: FlightReportWithId, onSaveSuccess: (updatedReport: FlightReportWithId) => void }) => {
     const [open, setOpen] = useState(false);
     const [discount, setDiscount] = useState<ManualDiscount>(report.manualDiscount || { type: 'fixed', value: 0 });
     const [notes, setNotes] = useState<string>(report.manualDiscountNotes || '');
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
-    const passengerCounts = useMemo(() => (report.passengers || []).reduce((acc, p) => { acc[p.passengerType || 'Adult'] = (acc[p.passengerType || 'Adult'] || 0) + 1; return acc; }, {} as Record<string, number>), [report.passengers]);
-    useEffect(() => { if(open) { setDiscount(report.manualDiscount || { type: 'fixed', value: 0 }); setNotes(report.manualDiscountNotes || ''); }}, [open, report]);
+
+    const passengerCounts = useMemo(() => 
+        (report.passengers || []).reduce((acc, p) => {
+            const type = p.passengerType || 'Adult';
+            acc[type] = (acc[type] || 0) + 1;
+            return acc;
+        }, {} as Record<'Adult' | 'Child' | 'Infant', number>),
+    [report.passengers]);
     
+    useEffect(() => {
+        if(open) {
+            setDiscount(report.manualDiscount || { type: 'fixed', value: 0 });
+            setNotes(report.manualDiscountNotes || '');
+        }
+    }, [open, report]);
+    
+     const handleDiscountTypeChange = (type: 'fixed' | 'per_passenger') => {
+        if (type === 'fixed') {
+            setDiscount({ type: 'fixed', value: 0 });
+        } else {
+            setDiscount({
+                type: 'per_passenger',
+                perAdult: 0,
+                perChild: 0,
+                perInfant: 0,
+            });
+        }
+    };
+
     const calculatedDiscount = useMemo(() => {
-        if (discount.type === 'fixed') return discount.value || 0;
-        if (discount.type === 'per_passenger') {
-            return ((passengerCounts['Adult'] || 0) * (discount.perAdult || 0)) + ((passengerCounts['Child'] || 0) * (discount.perChild || 0)) + ((passengerCounts['Infant'] || 0) * (discount.perInfant || 0));
-        } return 0;
+        if (discount.type === 'fixed') {
+            return discount.value || 0;
+        } else if (discount.type === 'per_passenger') {
+            const adultDiscount = (passengerCounts.Adult || 0) * (discount.perAdult || 0);
+            const childDiscount = (passengerCounts.Child || 0) * (discount.perChild || 0);
+            const infantDiscount = (passengerCounts.Infant || 0) * (discount.perInfant || 0);
+            return adultDiscount + childDiscount + infantDiscount;
+        }
+        return 0;
     }, [discount, passengerCounts]);
 
     const handleSave = async () => {
         setIsSaving(true);
         const result = await updateManualDiscount(report.id, calculatedDiscount, notes, discount);
-        if (result.success && result.updatedReport) { toast({ title: "تم حفظ الخصم" }); onSaveSuccess(result.updatedReport); setOpen(false); } 
-        else { toast({ title: "خطأ", description: result.error, variant: "destructive" }); }
+        if (result.success && result.updatedReport) {
+            toast({ title: "تم حفظ الخصم اليدوي" });
+            onSaveSuccess(result.updatedReport);
+            setOpen(false);
+        } else {
+            toast({ title: "خطأ", description: result.error, variant: "destructive" });
+        }
         setIsSaving(false);
     };
 
+    const handleDeleteDiscount = async () => {
+        setIsSaving(true);
+        const result = await updateManualDiscount(report.id, 0, '', undefined);
+        if (result.success && result.updatedReport) {
+            toast({ title: "تم حذف الخصم اليدوي" });
+            onSaveSuccess(result.updatedReport);
+            setOpen(false);
+        } else {
+            toast({ title: "خطأ", description: result.error, variant: "destructive" });
+        }
+        setIsSaving(false);
+    };
+    
+    
+    const netBeforeManualDiscount = (report.totalRevenue || 0) - (report.totalDiscount || 0);
+    const newNetAfterDiscount = netBeforeManualDiscount - calculatedDiscount;
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><DropdownMenuItem onSelect={(e) => e.preventDefault()}><BadgePercent className="me-2 h-4 w-4" /> إضافة/تعديل خصم يدوي</DropdownMenuItem></DialogTrigger>
-            <DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>إدارة الخصم اليدوي</DialogTitle></DialogHeader>
+            <DialogTrigger asChild>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                    <BadgePercent className="me-2 h-4 w-4" /> إضافة / تعديل خصم يدوي
+                </DropdownMenuItem>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle>إضافة/تعديل الخصم اليدوي</DialogTitle>
+                    <DialogDescription>
+                        اختر نوع الخصم وأدخل القيم. سيتم خصم المبلغ الإجمالي من صافي الربح.
+                    </DialogDescription>
+                </DialogHeader>
                 <div className="py-4 space-y-4">
-                    <RadioGroup value={discount.type} onValueChange={(v) => setDiscount({ type: v as any })} className="grid grid-cols-2 gap-4">
-                        <Label className={cn("border rounded-md p-4 text-center cursor-pointer", discount.type === 'fixed' && 'bg-accent text-accent-foreground')}><RadioGroupItem value="fixed" className="sr-only"/>مبلغ ثابت</Label>
-                        <Label className={cn("border rounded-md p-4 text-center cursor-pointer", discount.type === 'per_passenger' && 'bg-accent text-accent-foreground')}><RadioGroupItem value="per_passenger" className="sr-only"/>خصم لكل مسافر</Label>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="p-3 border rounded-lg text-center bg-muted/50">
+                            <Label className="text-xs text-muted-foreground">الصافي قبل الخصم اليدوي</Label>
+                            <p className="font-mono font-bold text-lg">{formatCurrency(netBeforeManualDiscount)}</p>
+                        </div>
+                         <div className="p-3 border rounded-lg text-center border-primary bg-primary/10">
+                            <Label className="text-xs text-primary">الصافي الجديد بعد الخصم</Label>
+                            <p className="font-mono font-bold text-lg text-primary">{formatCurrency(newNetAfterDiscount)}</p>
+                        </div>
+                    </div>
+                     <RadioGroup 
+                        value={discount.type} 
+                        onValueChange={handleDiscountTypeChange}
+                        className="grid grid-cols-2 gap-4"
+                     >
+                        <Label htmlFor="type-fixed" className={cn("border rounded-md p-4 text-center cursor-pointer", discount.type === 'fixed' && 'bg-accent text-accent-foreground ring-2 ring-accent')}>
+                            <RadioGroupItem value="fixed" id="type-fixed" className="sr-only"/>
+                            مبلغ ثابت
+                        </Label>
+                        <Label htmlFor="type-per-passenger" className={cn("border rounded-md p-4 text-center cursor-pointer", discount.type === 'per_passenger' && 'bg-accent text-accent-foreground ring-2 ring-accent')}>
+                             <RadioGroupItem value="per_passenger" id="type-per-passenger" className="sr-only"/>
+                             خصم لكل مسافر
+                        </Label>
                     </RadioGroup>
-                    {discount.type === 'fixed' && <NumericInput value={discount.value} onValueChange={v => setDiscount({ type: 'fixed', value: v || 0 })} />}
-                    {discount.type === 'per_passenger' && <div className="space-y-2">
-                        <div className="grid grid-cols-2 gap-2"><span>بالغ ({passengerCounts['Adult'] || 0})</span><NumericInput value={discount.perAdult} onValueChange={v => setDiscount(d => ({...d, type:'per_passenger', perAdult: v || 0}))} /></div>
-                        <div className="grid grid-cols-2 gap-2"><span>طفل ({passengerCounts['Child'] || 0})</span><NumericInput value={discount.perChild} onValueChange={v => setDiscount(d => ({...d, type:'per_passenger', perChild: v || 0}))} /></div>
-                        <div className="grid grid-cols-2 gap-2"><span>رضيع ({passengerCounts['Infant'] || 0})</span><NumericInput value={discount.perInfant} onValueChange={v => setDiscount(d => ({...d, type:'per_passenger', perInfant: v || 0}))} /></div>
-                    </div>}
-                    <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="ملاحظات الخصم (اختياري)"/>
+
+                    {discount.type === 'fixed' && (
+                        <div className="space-y-1.5">
+                            <Label>مبلغ الخصم الإجمالي</Label>
+                            <NumericInput
+                                value={discount.value}
+                                onValueChange={(v) => setDiscount({ type: 'fixed', value: v || 0 })}
+                            />
+                        </div>
+                    )}
+                     {discount.type === 'per_passenger' && (
+                        <div className="space-y-3 p-3 border rounded-md">
+                            <h4 className="font-semibold text-sm">أدخل الخصم لكل فئة</h4>
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                <Label>فئة المسافر</Label>
+                                <Label>قيمة الخصم</Label>
+                                <div className="font-medium text-sm flex items-center gap-2">{passengerCounts.Adult || 0} <span className="text-muted-foreground">بالغ</span></div>
+                                <NumericInput value={discount.perAdult} onValueChange={v => setDiscount(d => ({ ...d, type: 'per_passenger', perAdult: v || 0 }))} />
+                                <div className="font-medium text-sm flex items-center gap-2">{passengerCounts.Child || 0} <span className="text-muted-foreground">طفل</span></div>
+                                <NumericInput value={discount.perChild} onValueChange={v => setDiscount(d => ({ ...d, type: 'per_passenger', perChild: v || 0 }))} />
+                                <div className="font-medium text-sm flex items-center gap-2">{passengerCounts.Infant || 0} <span className="text-muted-foreground">رضيع</span></div>
+                                <NumericInput value={discount.perInfant} onValueChange={v => setDiscount(d => ({ ...d, type: 'per_passenger', perInfant: v || 0 }))} />
+                            </div>
+                        </div>
+                    )}
+                     <div className="space-y-1.5">
+                        <Label>ملاحظات (اختياري)</Label>
+                        <Textarea 
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                        />
+                    </div>
                 </div>
-                <DialogFooter><Button onClick={handleSave} disabled={isSaving}><Save className="me-2 h-4 w-4"/> حفظ</Button></DialogFooter>
+                 <DialogFooter className="justify-between">
+                    <Button variant="destructive" onClick={handleDeleteDiscount} disabled={isSaving}>
+                         {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                        <Trash2 className="me-2 h-4 w-4" />
+                        حذف الخصم
+                    </Button>
+                    <Button onClick={handleSave} disabled={isSaving}>
+                        {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                        <Save className="me-2 h-4 w-4" />
+                        حفظ الخصم
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 };
 
-const SortableHeader = ({ children, column, sortDescriptor, setSortDescriptor }: { children: React.ReactNode, column: any, sortDescriptor: { column: any, direction: any }, setSortDescriptor: (descriptor: { column: any, direction: any }) => void }) => {
-    const isSorted = sortDescriptor.column === column;
-    const direction = isSorted ? sortDescriptor.direction : 'descending';
-    const newDirection = direction === 'ascending' ? 'descending' : 'ascending';
-    
-    return (
-        <Button variant="ghost" className="px-2 py-1 h-auto font-bold" onClick={() => setSortDescriptor({ column, direction: newDirection })}>
-            {children}
-            {isSorted && (direction === 'ascending' ? <ArrowUp className="ms-2 h-4 w-4" /> : <ArrowDown className="ms-2 h-4 w-4" />)}
-        </Button>
-    )
-};
 
-
+// Main Row Component
 const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateReport }: {
     report: FlightReportWithId; index: number; onDeleteReport: (id: string) => void;
     onSelectionChange: (id: string, isSelected: boolean) => void; onUpdateReport: (updatedReport: FlightReportWithId) => void;
@@ -174,14 +393,13 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
     const hasFileIssues = (report.issues?.fileAnalysis?.length || 0) > 0;
     const hasReturnTripIssues = (report.issues?.tripAnalysis?.length || 0) > 0;
 
-
     return (
-        <>
+        <React.Fragment>
             <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
                 <TableCell className="text-center">{index + 1}</TableCell>
                 <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
                 <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(prev => !prev)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(!isOpen)}>
                         <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
                     </Button>
                 </TableCell>
@@ -190,9 +408,17 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
                 <TableCell>{isValid(parseISO(report.flightDate)) ? format(parseISO(report.flightDate), 'yyyy-MM-dd') : report.flightDate}</TableCell>
                 <TableCell className="text-center">{report.flightTime}</TableCell>
                 <TableCell className="text-center">{report.paxCount}</TableCell>
-                <TableCell className="font-mono text-center">{formatCurrency(report.totalRevenue)}</TableCell>
-                <TableCell className="font-mono text-center text-red-600">{formatCurrency(report.totalDiscount)}</TableCell>
-                <TableCell className="font-mono text-center text-orange-600">{formatCurrency(report.manualDiscountValue)}</TableCell>
+                <TableCell className="text-center"><PriceSummaryDialog report={report} /></TableCell>
+                <TableCell className="text-center font-mono text-red-600">
+                     <DiscountDetailsDialog report={report} defaultOpen="auto">
+                        <button className="w-full text-center hover:underline">{formatCurrency(report.totalDiscount)}</button>
+                    </DiscountDetailsDialog>
+                </TableCell>
+                <TableCell className="font-mono text-center text-orange-600">
+                     <DiscountDetailsDialog report={report} defaultOpen="manual">
+                        <button className="w-full text-center hover:underline">{formatCurrency(report.manualDiscountValue)}</button>
+                    </DiscountDetailsDialog>
+                </TableCell>
                 <TableCell className="font-mono text-center font-bold text-green-600">{formatCurrency(report.filteredRevenue)}</TableCell>
                 <TableCell className="text-center">{hasFileIssues ? <Button variant="destructive" size="sm" onClick={() => setShowFileIssues(true)}>مكرر ({report.issues?.fileAnalysis.length})</Button> : <Badge variant="outline">سليم</Badge>}</TableCell>
                 <TableCell className="text-center">{hasReturnTripIssues ? <Badge variant="secondary">ذهاب وعودة ({report.issues?.tripAnalysis.length})</Badge> : <Badge variant="outline">سليم</Badge>}</TableCell>
@@ -262,12 +488,12 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
             )}
              {report.issues && <IssueDetailsDialog issues={report.issues.duplicatePnr} open={showPnrIssues} onOpenChange={setShowPnrIssues} title="مشاكل تكرار مرجع الحجز" />}
             {report.issues && <IssueDetailsDialog issues={report.issues.fileAnalysis} open={showFileIssues} onOpenChange={setShowFileIssues} title="مشاكل تكرار ملف الرحلة" />}
-        </>
+        </React.Fragment>
     );
 };
 
 
-// --- المكون الرئيسي: جدول التقارير ---
+// --- Main Table Component ---
 export default function FlightReportsTable({ reports, sortDescriptor, setSortDescriptor, onSelectionChange, onUpdateReport, onDeleteReport }: any) {
     const [selectedIds, setSelectedIds] = React.useState(new Set<string>());
 
@@ -329,3 +555,4 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
         </div>
     );
 }
+
