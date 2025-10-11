@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PlusCircle, Loader2, Edit, Filter, MoreHorizontal, Trash2, ChevronDown } from "lucide-react";
 import SharesTable from "./shares-table";
-import AddEditShareDialog from "./add-edit-share-dialog";
 import AddManualProfitDialog from "./add-manual-profit-dialog";
 import { format, parseISO } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -23,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import EditManualProfitDialog from "./edit-manual-profit-dialog";
 
 
-const StatCard = ({ title, value }: { title: string; value: string }) => (
+const StatCard = ({ title, value }: { title: string, value: string }) => (
     <div className="bg-muted/50 border p-4 rounded-lg text-center">
         <p className="text-sm text-muted-foreground font-bold">{title}</p>
         <p className="text-2xl font-bold">{value}</p>
@@ -236,8 +235,13 @@ export default function ProfitSharingContent({ initialMonthlyProfits, partners, 
                                 <TableHead className="text-center p-2">الإجراءات</TableHead>
                             </TableRow>
                         </TableHeader>
-                        {filteredMonthlyProfits.map((p, index) => (
-                            <PeriodRow key={p.id} period={p} partners={partners} onDataChange={onDataChange} />
+                        {filteredMonthlyProfits.map((p) => (
+                            <PeriodRow
+                                key={p.id}
+                                period={p}
+                                partners={partners}
+                                onDataChange={onDataChange}
+                            />
                         ))}
                     </Table>
                 </div>
