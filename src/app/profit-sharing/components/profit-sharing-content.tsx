@@ -33,16 +33,17 @@ interface PeriodRowProps {
   period: MonthlyProfit;
   partners: { id: string; name: string; type: string }[];
   onDataChange: () => void;
+  index: number;
 }
 
-const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
+const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) => {
     const [shares, setShares] = useState<ProfitShare[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
     const { toast } = useToast();
 
     const fetchShares = useCallback(async () => {
-        if (isOpen) { // fetch only when opening
+        if (isOpen) { 
             setIsLoading(true);
             const fetchedShares = await getProfitSharesForMonth(period.id);
             const enrichedShares = produce(fetchedShares, draft => {
@@ -62,7 +63,7 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
     }, [isOpen, period.id, partners]);
     
     const handleDelete = async () => {
-        if(period.fromSystem) return; // Should not happen
+        if(period.fromSystem) return; 
         const result = await deleteManualProfitPeriod(period.id);
         if (result.success) {
             toast({ title: 'تم حذف الفترة اليدوية بنجاح' });
@@ -79,31 +80,30 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
     }, [isOpen, fetchShares]);
 
     const handleSuccess = () => {
-        fetchShares(); // re-fetch shares for this specific row
-        onDataChange(); // notify parent to refetch all periods if needed
+        fetchShares();
+        onDataChange(); 
     }
 
-    const description = period.notes || (period.fromSystem ? `أرباح شهر ${period.id}` : 'فترة يدوية');
-    const dateInfo = description.match(/من ([\d-]+) إلى ([\d-]+)/);
-    let fromDate = period.fromSystem ? format(parseISO(`${period.id}-01`), 'yyyy-MM-dd') : (dateInfo ? dateInfo[1] : period.fromDate);
-    let toDate = period.fromSystem ? '-' : (dateInfo ? dateInfo[2] : period.toDate);
+    const description = period.notes || (period.fromSystem ? `أرباح شهر ${period.id}` : `فترة يدوية`);
+    const fromDate = period.fromSystem ? format(parseISO(`${period.id}-01`), 'yyyy-MM-dd') : period.fromDate;
+    const toDate = period.fromSystem ? '-' : period.toDate;
 
     return (
         <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
              <tbody className="border-t">
                 <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                    <TableCell className="p-2">
-                        <CollapsibleTrigger asChild>
+                    <TableCell className="p-1 text-center font-bold">
+                       <CollapsibleTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="font-semibold p-2">{description.split(' | ')[0]}</TableCell>
-                    <TableCell className="p-2">{fromDate}</TableCell>
-                    <TableCell className="p-2">{toDate}</TableCell>
-                    <TableCell className="text-right font-mono font-bold p-2">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
-                    <TableCell className="p-2 text-center">
+                    <TableCell className="font-semibold p-1">{description.split(' | ')[0]}</TableCell>
+                    <TableCell className="p-1">{fromDate}</TableCell>
+                    <TableCell className="p-1">{toDate}</TableCell>
+                    <TableCell className="text-right font-mono font-bold p-1">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
+                    <TableCell className="p-1 text-center">
                         {!period.fromSystem && (
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -138,7 +138,7 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
                 <CollapsibleContent asChild>
                     <TableRow>
                         <TableCell colSpan={6} className="p-0">
-                            <div className="p-4 bg-muted/20">
+                            <div className="p-2 bg-muted/20">
                                 {isLoading ? (
                                     <div className="flex justify-center p-8"><Loader2 className="animate-spin h-6 w-6"/></div>
                                 ) : (
@@ -164,22 +164,32 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
 interface ProfitSharingContentProps {
   initialMonthlyProfits: MonthlyProfit[];
   partners: { id: string; name: string; type: string }[];
-  onDataChange: () => void;
 }
 
-export default function ProfitSharingContent({ initialMonthlyProfits, partners, onDataChange }: ProfitSharingContentProps) {
+export default function ProfitSharingContent({ initialMonthlyProfits, partners }: ProfitSharingContentProps) {
+  const [profits, setProfits] = useState(initialMonthlyProfits);
   const [typeFilter, setTypeFilter] = useState<'all' | 'system' | 'manual'>('all');
+  const [selectedMonth, setSelectedMonth] = useState<MonthlyProfit | null>(null);
+  
+  useEffect(() => {
+    setProfits(initialMonthlyProfits);
+  }, [initialMonthlyProfits]);
+
+  const onDataChange = () => {
+      // This is a placeholder for a potential refetch logic
+      // In a server component world, this would trigger a router.refresh()
+  }
 
   const filteredMonthlyProfits = useMemo(() => {
-      if (typeFilter === 'all') return initialMonthlyProfits;
-      return initialMonthlyProfits.filter(p => p.fromSystem === (typeFilter === 'system'));
-  }, [initialMonthlyProfits, typeFilter]);
+      if (typeFilter === 'all') return profits;
+      return profits.filter(p => p.fromSystem === (typeFilter === 'system'));
+  }, [profits, typeFilter]);
   
   const { totalDistributedProfit, totalCompanyShare, grandTotal } = useMemo(() => {
       let grandTotal = 0;
       let totalDistributed = 0;
 
-      initialMonthlyProfits.forEach(p => {
+      profits.forEach(p => {
           grandTotal += p.totalProfit;
           if (Array.isArray(p.partners)) {
              totalDistributed += p.partners.reduce((sum, partner) => sum + partner.amount, 0);
@@ -191,7 +201,7 @@ export default function ProfitSharingContent({ initialMonthlyProfits, partners, 
           totalCompanyShare: grandTotal - totalDistributed
       };
 
-  }, [initialMonthlyProfits]);
+  }, [profits]);
 
   return (
     <div className="space-y-6">

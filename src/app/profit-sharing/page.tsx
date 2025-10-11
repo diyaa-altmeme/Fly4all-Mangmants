@@ -10,6 +10,8 @@ import { Terminal } from 'lucide-react';
 import type { Client, MonthlyProfit } from '@/lib/types';
 import { produce } from 'immer';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ProfitSharingPage() {
     const [monthlyProfits, clientsResponse, error] = await Promise.all([
         getMonthlyProfits(),
@@ -45,24 +47,6 @@ export default async function ProfitSharingPage() {
             }
         });
     });
-
-    const currentMonthId = format(new Date(), 'yyyy-MM');
-    const initialMonthId = enrichedMonthlyProfits.find(p => p.id === currentMonthId) ? currentMonthId : (enrichedMonthlyProfits[0]?.id || '');
-    
-    const initialSharesData = initialMonthId ? await getProfitSharesForMonth(initialMonthId) : [];
-    
-    // Enrich shares fetched for the initial month
-    const enrichedInitialShares = produce(initialSharesData, draft => {
-        draft.forEach(share => {
-            if (!share.partnerName) {
-                const partner = partners.find(p => p.id === share.partnerId);
-                if (partner) {
-                    share.partnerName = partner.name;
-                }
-            }
-        });
-    });
-
 
     return (
         <ProfitSharingContent
