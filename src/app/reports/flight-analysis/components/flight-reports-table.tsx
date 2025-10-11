@@ -161,7 +161,7 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
 
     return (
         <Collapsible asChild>
-            <>
+            <tbody className="border-b">
                 <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
                     <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
                     <TableCell>
@@ -207,7 +207,7 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
                         </TableCell>
                     </TableRow>
                 </CollapsibleContent>
-            </>
+            </tbody>
         </Collapsible>
     );
 };
@@ -260,13 +260,15 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
                         <TableHead>الإجراءات</TableHead>
                     </TableRow>
                 </TableHeader>
-                <TableBody>
-                    {reports.length === 0 ? (
+                
+                {reports.length === 0 ? (
+                    <TableBody>
                         <TableRow><TableCell colSpan={12} className="h-24 text-center">لا توجد تقارير محفوظة.</TableCell></TableRow>
-                    ) : reports.map((report: FlightReportWithId, index: number) => (
-                        <ReportRow key={report.id} report={report} index={index} onDeleteReport={onDeleteReport} onSelectionChange={handleSelectRow} onUpdateReport={onUpdateReport}/>
-                    ))}
-                </TableBody>
+                    </TableBody>
+                ) : reports.map((report: FlightReportWithId, index: number) => (
+                    <ReportRow key={report.id} report={report} index={index} onDeleteReport={onDeleteReport} onSelectionChange={handleSelectRow} onUpdateReport={onUpdateReport}/>
+                ))}
+                
             </Table>
         </div>
     );
