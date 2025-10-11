@@ -147,7 +147,7 @@ const FeatureShowcase = ({ feature, reverse = false }: { feature: LandingPageFea
                 viewport={{ once: true, amount: 0.5 }}
                 transition={{ duration: 0.6 }}
             >
-                <Image src={feature.imageUrl} alt={feature.title} layout="fill" objectFit="cover" />
+                <Image src={feature.imageUrl} alt={feature.title} fill className="object-cover" />
             </motion.div>
         </div>
     );
@@ -266,7 +266,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
             </main>
 
             <footer className="relative py-20 bg-primary/10 text-center mt-16 overflow-hidden">
-                <Image src={settings.footerImageUrl} alt="Footer background" layout="fill" objectFit="cover" className="opacity-10" />
+                <Image src={settings.footerImageUrl} alt="Footer background" fill className="object-cover opacity-10" />
                 <div className="container mx-auto relative z-10">
                      <h2 className="text-4xl font-black tracking-tighter">هل أنت جاهز لتبسيط محاسبة شركتك؟</h2>
                     <p className="mt-4 text-lg max-w-xl mx-auto">
