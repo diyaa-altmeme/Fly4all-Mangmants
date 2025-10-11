@@ -1,135 +1,224 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { FlightReport, BookingEntry, DataAuditIssue } from '@/lib/types';
+import type { FlightReport, DataAuditIssue, ManualDiscount, FlightReportWithId } from '@/lib/types';
+import { normalizeName } from '@/lib/utils';
+import { cache } from 'react';
+import { produce } from 'immer';
+import { parseISO, isValid } from 'date-fns';
 import { revalidatePath } from 'next/cache';
-import { addDays, format, isAfter, isBefore, parse } from 'date-fns';
+import { FieldValue } from 'firebase-admin/firestore';
 
-const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
-    const data = doc.data() as any;
-    if (!data) return null;
-    const safeData = { ...data, id: doc.id };
-    for (const key in safeData) {
-        if (safeData[key] && typeof safeData[key].toDate === 'function') {
-            safeData[key] = safeData[key].toDate().toISOString();
-        }
-    }
-    return safeData;
-};
+/**
+ * @fileoverview Server actions for the Flight Analysis feature.
+ * - getFlightReportsData: Fetches all flight reports from Firestore.
+ * - runAdvancedFlightAudit: The core logic. Fetches all reports and performs a series of checks:
+ *   - findDuplicatePnrsInReports: Detects if the same PNR/BookingRef appears on different flights.
+ *   - findDuplicateFiles: Creates a 'fingerprint' for each file to detect if the same report was uploaded multiple times.
+ *   - processSingleReport: Processes individual reports to find return trips and calculate discounts.
+ * - updateManualDiscount: Server action to add/edit/remove a manual discount on a report.
+ * - deleteFlightReport: Server action to delete a report from Firestore.
+ */
 
-export async function getFlightReports(): Promise<FlightReport[]> {
-    try {
-        const db = await getDb();
-        if (!db) return [];
-        const snapshot = await db.collection('flight_reports').orderBy('flightDate', 'desc').get();
-        if (snapshot.empty) return [];
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FlightReport));
-    } catch (error) {
-        console.error("Error getting flight reports: ", String(error));
-        return [];
-    }
-}
-
-export async function deleteFlightReport(id: string): Promise<{ success: boolean, error?: string }> {
-    const db = await getDb();
-    if (!db) return { success: false, error: "Database not available." };
-    try {
-        await db.collection('flight_reports').doc(id).delete();
-        revalidatePath('/reports/flight-analysis');
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: "Failed to delete report." };
-    }
-}
-
-
-export async function runAdvancedFlightAudit(): Promise<Partial<FlightReport>[]> {
+// يجلب جميع تقارير الرحلات من قاعدة البيانات مع استخدام التخزين المؤقت لتجنب الطلبات المتكررة
+export const getFlightReportsData = cache(async (): Promise<FlightReport[]> => {
     const db = await getDb();
     if (!db) return [];
+    const snapshot = await db.collection('flight_reports').orderBy('flightDate', 'desc').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FlightReport));
+});
 
-    const bookingsSnapshot = await db.collection('bookings').get();
-    const bookings = bookingsSnapshot.docs.map(doc => processDoc(doc) as BookingEntry);
+// دالة للعثور على حجوزات مكررة (نفس مرجع الحجز في رحلات مختلفة)
+async function findDuplicatePnrsInReports(reports: FlightReport[]): Promise<Map<string, DataAuditIssue[]>> {
+    const pnrOccurrences = new Map<string, { reportId: string; route: string; date: string; pnr: string; fileName: string; time: string, paxCount: number }[]>();
 
-    const issues: DataAuditIssue[] = [];
-    const pnrMap: { [key: string]: BookingEntry[] } = {};
-    const ticketNumberMap: { [key: string]: BookingEntry[] } = {};
+    // 1. تجميع كل الحجوزات حسب مرجع الحجز
+    reports.forEach(report => {
+        (report.pnrGroups || []).forEach(pnrGroup => {
+            const bookingReference = pnrGroup.bookingReference;
+            if (!bookingReference) return;
 
-    for (const booking of bookings) {
-        // Group by PNR
-        if (booking.pnr) {
-            if (!pnrMap[booking.pnr]) pnrMap[booking.pnr] = [];
-            pnrMap[booking.pnr].push(booking);
-        }
-        
-        // Group by ticket number for cross-PNR checks
-        for (const passenger of booking.passengers) {
-            if (passenger.ticketNumber) {
-                 if (!ticketNumberMap[passenger.ticketNumber]) ticketNumberMap[passenger.ticketNumber] = [];
-                 ticketNumberMap[passenger.ticketNumber].push(booking);
+            if (!pnrOccurrences.has(bookingReference)) {
+                pnrOccurrences.set(bookingReference, []);
+            }
+            pnrOccurrences.get(bookingReference)!.push({
+                reportId: report.id, route: report.route, date: report.flightDate,
+                pnr: pnrGroup.pnr, fileName: report.fileName, time: report.flightTime, paxCount: pnrGroup.paxCount,
+            });
+        });
+    });
+
+    const issuesByReportId = new Map<string, DataAuditIssue[]>();
+
+    // 2. التحقق من وجود مرجع الحجز في رحلات مختلفة
+    for (const [bookingReference, occurrences] of pnrOccurrences.entries()) {
+        if (occurrences.length > 1) {
+            const uniqueFlights = new Set(occurrences.map(o => `${o.route}|${o.date}`));
+            
+            if (uniqueFlights.size > 1) { // إذا وجد في أكثر من رحلة
+                const flightDetails = Array.from(uniqueFlights).join(' و ');
+                const issue: DataAuditIssue = {
+                    id: `pnr-${bookingReference}`, type: 'DUPLICATE_PNR', pnr: bookingReference,
+                    description: `تم العثور على مرجع الحجز في رحلات مختلفة: ${flightDetails}`,
+                    details: occurrences.map(occ => ({ ...occ, bookingReference: bookingReference })), link: '#',
+                };
+                
+                occurrences.forEach(occ => {
+                    if (!issuesByReportId.has(occ.reportId)) issuesByReportId.set(occ.reportId, []);
+                    if (!issuesByReportId.get(occ.reportId)!.some(i => i.id === issue.id)) {
+                         issuesByReportId.get(occ.reportId)!.push(issue);
+                    }
+                });
             }
         }
     }
-    
-    const duplicatePnrIssues: DataAuditIssue[] = Object.entries(pnrMap)
-        .filter(([pnr, pnrBookings]) => pnrBookings.length > 1)
-        .map(([pnr, pnrBookings]) => ({
-            id: `pnr-${pnr}`,
-            type: 'DUPLICATE_PNR',
-            pnr: pnr,
-            description: `تم العثور على ${pnrBookings.length} حجوزات بنفس رقم PNR. أرقام الفواتير: ${pnrBookings.map(b => b.invoiceNumber).join(', ')}`,
-            link: `/bookings?search=${pnr}&searchField=pnr`,
-            details: pnrBookings.map(b => ({ id: b.id, invoice: b.invoiceNumber }))
-        }));
-        
-    const tripAnalysisIssues: DataAuditIssue[] = [];
-    Object.values(pnrMap).forEach(pnrBookings => {
-        const passengerTrips: { [name: string]: { count: number, dates: Date[] } } = {};
-        pnrBookings.forEach(booking => {
-            booking.passengers.forEach(p => {
-                const nameKey = p.name.toLowerCase().trim();
-                if (!passengerTrips[nameKey]) {
-                    passengerTrips[nameKey] = { count: 0, dates: [] };
-                }
-                passengerTrips[nameKey].count++;
-                if (booking.travelDate) {
-                     passengerTrips[nameKey].dates.push(parse(booking.travelDate, 'yyyy-MM-dd', new Date()));
-                }
-            });
-        });
-        
-        Object.entries(passengerTrips).forEach(([name, tripData]) => {
-            if (tripData.count > 1) { // Potential round trip
-                const sortedDates = tripData.dates.sort((a,b) => a.getTime() - b.getTime());
-                const daysBetween = (sortedDates[1].getTime() - sortedDates[0].getTime()) / (1000 * 3600 * 24);
-                if (daysBetween > 90) { // Arbitrary threshold
-                    tripAnalysisIssues.push({
-                         id: `return-${pnrBookings[0].pnr}-${name}`,
-                         type: 'UNMATCHED_RETURN',
-                         pnr: pnrBookings[0].pnr,
-                         description: `المسافر ${name} لديه رحلة عودة بفارق ${daysBetween} يوم، قد تكون رحلة منفصلة.`,
-                         link: `/bookings?search=${pnrBookings[0].pnr}&searchField=pnr`,
-                    })
-                }
-            }
-        })
-    });
-    
-    const fileAnalysisIssues: DataAuditIssue[] = []; // Placeholder
-    const dataIntegrityIssues: DataAuditIssue[] = []; // Placeholder
-
-    // This is a simplified report structure just for the issues.
-    return [{
-        id: 'advanced_audit_report',
-        fileName: 'Advanced System-Wide Audit',
-        flightDate: format(new Date(), 'yyyy-MM-dd'),
-        issues: {
-            tripAnalysis: tripAnalysisIssues,
-            duplicatePnr: duplicatePnrIssues,
-            fileAnalysis: fileAnalysisIssues,
-            dataIntegrity: dataIntegrityIssues,
-        },
-    }];
+    return issuesByReportId;
 }
 
+// دالة للعثور على ملفات التقارير المكررة
+async function findDuplicateFiles(reports: FlightReport[]): Promise<Map<string, DataAuditIssue[]>> {
+    const fileFingerprintMap = new Map<string, { reportId: string; fileName: string; flightDate: string; flightTime: string; route: string; }[]>();
+    
+    // إنشاء "بصمة" لكل ملف لتمييزه
+    reports.forEach(report => {
+        const fingerprint = `${report.flightDate}|${report.flightTime}|${report.route}|${report.paxCount}|${(report.totalRevenue || 0).toFixed(2)}`;
+        if (!fileFingerprintMap.has(fingerprint)) fileFingerprintMap.set(fingerprint, []);
+        fileFingerprintMap.get(fingerprint)!.push({ reportId: report.id, fileName: report.fileName, flightDate: report.flightDate, flightTime: report.flightTime, route: report.route });
+    });
+
+    const issuesByReportId = new Map<string, DataAuditIssue[]>();
+    for (const [fingerprint, occurrences] of fileFingerprintMap.entries()) {
+        if (occurrences.length > 1) {
+            const fileNames = occurrences.map(o => o.fileName).join(', ');
+            const issue: DataAuditIssue = {
+                id: `file-${fingerprint}`, type: 'DUPLICATE_FILE', description: `تم العثور على هذا الملف مكررًا في: ${fileNames}`,
+                details: occurrences, link: '#',
+            };
+            
+            occurrences.forEach(occ => {
+                if (!issuesByReportId.has(occ.reportId)) issuesByReportId.set(occ.reportId, []);
+                issuesByReportId.get(occ.reportId)!.push(issue);
+            });
+        }
+    }
+    return issuesByReportId;
+}
+
+// دالة لمعالجة تقرير واحد وتحليل رحلات الذهاب والعودة وحساب الخصومات
+const processSingleReport = (report: FlightReport, passengerTripMap: Map<string, any[]>, duplicatePnrIssues: DataAuditIssue[], fileAnalysisIssues: DataAuditIssue[]): FlightReport => {
+    return produce(report, draftReport => {
+        draftReport.issues = { tripAnalysis: [], duplicatePnr: duplicatePnrIssues, fileAnalysis: fileAnalysisIssues, dataIntegrity: [] };
+        draftReport.totalDiscount = 0;
+        draftReport.tripTypeCounts = { oneWay: 0, roundTrip: 0 };
+        const processedPassengersForTripCount = new Set<string>();
+
+        (draftReport.passengers || []).forEach(passenger => {
+            const uniqueKey = `${normalizeName(passenger.bookingReference)}|${normalizeName(passenger.name)}|${passenger.passportNumber || ''}`;
+            const allTripsForPassengerOnPnr = passengerTripMap.get(uniqueKey) || [];
+            
+            if (allTripsForPassengerOnPnr.length > 1) {
+                 if (!processedPassengersForTripCount.has(uniqueKey)) {
+                    draftReport.tripTypeCounts.roundTrip += 1;
+                    processedPassengersForTripCount.add(uniqueKey);
+                }
+
+                const currentTripInstance = allTripsForPassengerOnPnr.find(t => t.reportId === draftReport.id);
+                if (currentTripInstance) {
+                    const tripIndex = allTripsForPassengerOnPnr.indexOf(currentTripInstance);
+                    if (tripIndex === 0) { passenger.tripType = 'DEPARTURE'; passenger.actualPrice = passenger.payable; } 
+                    else if (tripIndex > 0) { passenger.tripType = 'RETURN'; passenger.actualPrice = 0; passenger.departureDate = allTripsForPassengerOnPnr[0].date.toISOString(); draftReport.totalDiscount! += passenger.payable; }
+                }
+                
+                if (!draftReport.issues!.tripAnalysis.some(issue => issue.id === `return-${uniqueKey}`)) {
+                    draftReport.issues!.tripAnalysis.push({ id: `return-${uniqueKey}`, type: 'UNMATCHED_RETURN', pnr: passenger.bookingReference, description: `رحلة ذهاب وعودة للمسافر: ${passenger.name}`, details: allTripsForPassengerOnPnr });
+                }
+            } else {
+                 if (!processedPassengersForTripCount.has(uniqueKey)) {
+                    draftReport.tripTypeCounts.oneWay += 1;
+                    processedPassengersForTripCount.add(uniqueKey);
+                }
+                passenger.tripType = 'SINGLE'; passenger.actualPrice = passenger.payable;
+            }
+        });
+        
+        let manualDiscountValue = 0;
+        if(draftReport.manualDiscount?.type === 'fixed') { manualDiscountValue = draftReport.manualDiscount.value || 0; } 
+        else if (draftReport.manualDiscount?.type === 'per_passenger') {
+            const passengerCounts = (draftReport.passengers || []).reduce((acc, p) => { acc[p.passengerType || 'Adult'] = (acc[p.passengerType || 'Adult'] || 0) + 1; return acc; }, {} as Record<string, number>);
+            manualDiscountValue = ((passengerCounts.Adult || 0) * (draftReport.manualDiscount.perAdult || 0)) + ((passengerCounts.Child || 0) * (draftReport.manualDiscount.perChild || 0)) + ((passengerCounts.Infant || 0) * (draftReport.manualDiscount.perInfant || 0));
+        }
+
+        draftReport.manualDiscountValue = manualDiscountValue;
+        draftReport.filteredRevenue = (draftReport.totalRevenue || 0) - (draftReport.totalDiscount || 0) - manualDiscountValue;
+    });
+};
+
+// الدالة الرئيسية التي تشغل جميع عمليات التدقيق
+export async function runAdvancedFlightAudit(): Promise<FlightReport[]> {
+    const reports = await getFlightReportsData();
+    if (reports.length === 0) return [];
+    
+    const [duplicatePnrIssuesByReportId, duplicateFileIssuesByReportId] = await Promise.all([ findDuplicatePnrsInReports(reports), findDuplicateFiles(reports) ]);
+    
+    const passengerTripMap = new Map<string, any[]>();
+    reports.forEach(report => {
+        (report.pnrGroups || []).forEach(pnrGroup => {
+            pnrGroup.passengers.forEach(p => {
+                const uniqueKey = `${normalizeName(pnrGroup.bookingReference)}|${normalizeName(p.name)}|${p.passportNumber || ''}`;
+                if (!passengerTripMap.has(uniqueKey)) passengerTripMap.set(uniqueKey, []);
+                passengerTripMap.get(uniqueKey)!.push({ reportId: report.id, date: parseISO(report.flightDate), bookingReference: pnrGroup.bookingReference });
+            });
+        });
+    });
+
+    for (const trips of passengerTripMap.values()) { trips.sort((a, b) => a.date.getTime() - b.date.getTime()); }
+
+    const analyzedReports = reports.map(report => processSingleReport(report, passengerTripMap, duplicatePnrIssuesByReportId.get(report.id) || [], duplicateFileIssuesByReportId.get(report.id) || []));
+
+    return [...analyzedReports].sort((a, b) => parseISO(b.flightDate).getTime() - parseISO(a.flightDate).getTime());
+}
+
+// دالة لحفظ تقرير جديد (تستخدمها أداة الاستيراد)
+export async function saveFlightReport(report: Omit<FlightReport, 'id'>): Promise<{ success: boolean; error?: string }> {
+    const db = await getDb(); if (!db) return { success: false, error: "Database not available." };
+    try {
+        const docRef = db.collection('flight_reports').doc(); await docRef.set({ ...report, id: docRef.id });
+        revalidatePath('/reports/flight-analysis'); return { success: true };
+    } catch (e: any) { return { success: false, error: e.message }; }
+}
+
+// دالة لحذف تقرير
+export async function deleteFlightReport(id: string): Promise<{ success: boolean; error?: string, deletedId?: string }> {
+    const db = await getDb(); if (!db) return { success: false, error: "Database not available." };
+    try {
+        await db.collection('flight_reports').doc(id).delete();
+        revalidatePath('/reports/flight-analysis'); return { success: true, deletedId: id };
+    } catch (e: any) { console.error(`فشل حذف التقرير: ${id}`, e); return { success: false, error: `فشل حذف التقرير: ${e.message}` }; }
+}
+
+// دالة لتحديث حالة التحديد (للتحاسب)
+export async function updateFlightReportSelection(id: string, isSelected: boolean): Promise<{ success: boolean; error?: string, updatedReport?: FlightReportWithId }> {
+    const db = await getDb(); if (!db) return { success: false, error: "Database not available." };
+    try {
+        const docRef = db.collection('flight_reports').doc(id); await docRef.update({ isSelectedForReconciliation: isSelected });
+        const updatedDoc = await docRef.get(); const updatedData = { id: updatedDoc.id, ...updatedDoc.data() } as FlightReportWithId;
+        return { success: true, updatedReport: updatedData };
+    } catch (e: any) { console.error(`Error updating selection for ${id}:`, e); return { success: false, error: e.message }; }
+}
+
+// دالة لتحديث الخصم اليدوي
+export async function updateManualDiscount(id: string, value: number, notes?: string, discountDetails?: ManualDiscount): Promise<{ success: boolean; error?: string, updatedReport?: FlightReportWithId }> {
+    const db = await getDb(); if (!db) return { success: false, error: "Database not available." };
+    try {
+        const docRef = db.collection('flight_reports').doc(id);
+        const dataToUpdate: any = { manualDiscountValue: value };
+        if (discountDetails) { dataToUpdate.manualDiscount = discountDetails; } else { dataToUpdate.manualDiscount = FieldValue.delete(); }
+        if (notes) { dataToUpdate.manualDiscountNotes = notes; } else { dataToUpdate.manualDiscountNotes = FieldValue.delete(); }
+        await docRef.update(dataToUpdate);
+        
+        const allAnalyzedReports = await runAdvancedFlightAudit(); const updatedReport = allAnalyzedReports.find(r => r.id === id);
+        if (!updatedReport) { throw new Error("Could not find the updated report after analysis."); }
+        return { success: true, updatedReport: updatedReport as FlightReportWithId };
+    } catch (e: any) { console.error(`Error updating manual discount for ${id}:`, e); return { success: false, error: e.message }; }
+}

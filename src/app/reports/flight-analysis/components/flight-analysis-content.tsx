@@ -1,264 +1,261 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { PlusCircle, RefreshCw, Download, FileSpreadsheet, Search, Users, User, ArrowDown, ArrowUp, DollarSign, Baby, AlertTriangle, ExternalLink, Trash2 } from 'lucide-react';
-import type { FlightReportWithId, DataAuditIssue } from '@/lib/types';
 import FlightDataExtractorDialog from '@/app/bookings/components/flight-data-extractor-dialog';
-import { useToast } from '@/hooks/use-toast';
+import FlightReportsTable from './flight-reports-table';
+import { useRouter } from 'next/navigation';
+import { PlusCircle, Wand2, Search, DollarSign, RefreshCw, Loader2, FileSpreadsheet, Users, User, Baby, UserSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { deleteFlightReport } from '../actions';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import type { FlightReport, FlightReportWithId } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription,
-} from '@/components/ui/dialog';
+import { runAdvancedFlightAudit } from '../actions';
+import { useToast } from '@/hooks/use-toast';
+import { produce } from 'immer';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useDebounce } from '@/hooks/use-debounce';
+import { DataTablePagination } from '@/components/ui/data-table-pagination';
+// import * as XLSX from 'xlsx'; // Temporarily disabled
+import { isValid, parseISO } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 
+// تعريف أنواع الفرز
+type SortKey = keyof FlightReport | 'totalRevenue' | 'paxCount' | 'filteredRevenue' | 'supplierName' | 'totalDiscount' | 'manualDiscountValue';
+type SortDirection = 'ascending' | 'descending';
 
-const StatCard = ({ title, value, subValue, icon: Icon, valueClass }: { title: string, value: string, subValue?: string, icon: React.ElementType, valueClass?: string }) => (
-    <div className="bg-muted/50 p-4 rounded-xl flex items-center gap-4">
-        <div className="p-3 bg-background rounded-full">
-            <Icon className="h-6 w-6 text-primary" />
-        </div>
-        <div>
-            <p className="text-sm font-semibold text-muted-foreground">{title}</p>
-            <p className={cn("text-2xl font-bold font-mono", valueClass)}>{value}</p>
-            {subValue && <p className="text-xs text-muted-foreground font-mono">{subValue}</p>}
-        </div>
+// بطاقة لعرض الإحصائيات المالية
+const SummaryStatCard = ({ title, value, currency, className }: { title: string; value: number; currency: string; className?: string }) => (
+    <div className={cn("text-center p-2 rounded-lg bg-background", className)}>
+        <p className="text-xs font-bold text-muted-foreground">{title}</p>
+        <p className="font-bold font-mono text-sm">
+            {value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} {currency}
+        </p>
     </div>
 );
 
-const IssueDetailsDialog = ({ issue }: { issue: DataAuditIssue }) => {
-    const typeConfig: Record<DataAuditIssue['type'], { label: string }> = {
-        DUPLICATE_PNR: { label: "تكرار PNR" },
-        NEGATIVE_PROFIT: { label: "ربح سالب" },
-        ZERO_PRICE: { label: "سعر صفري" },
-        COMMISSION_ERROR: { label: "خطأ في العمولة" },
-        INVOICE_ERROR: { label: "خطأ في الفاتورة" },
-        SAVE_ERROR: { label: "خطأ في الحفظ" },
-        COST_MISMATCH: { label: "عدم تطابق الكلفة" },
-        UNMATCHED_RETURN: { label: "رحلة ذهاب وعودة" },
-        DUPLICATE_FILE: { label: "ملف مكرر" },
-    };
-    const config = typeConfig[issue.type];
-
-    return (
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>تفاصيل المشكلة: {config?.label || issue.type}</DialogTitle>
-                <DialogDescription>{issue.description}</DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-                {issue.type === 'DUPLICATE_PNR' && issue.details && Array.isArray(issue.details) && (
-                    <div>
-                        <h4 className="font-bold mb-2">الحجوزات المكررة لـ PNR: {issue.pnr}</h4>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>رقم الفاتورة</TableHead>
-                                    <TableHead>الإجراء</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {issue.details.map((detail: any) => (
-                                    <TableRow key={detail.id}>
-                                        <TableCell>{detail.invoice || detail.id}</TableCell>
-                                        <TableCell>
-                                            <Button asChild variant="secondary" size="sm">
-                                                <Link href={`/bookings?search=${issue.pnr}&searchField=pnr`} target="_blank">
-                                                    الذهاب للحجز <ExternalLink className="h-3 w-3 ms-2"/>
-                                                </Link>
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+// بطاقة لعرض الملخص المالي الكامل (الإجمالي والمحدد)
+const FinancialSummaryCard = ({ title, summary, currency, className }: { title: string; summary: { totalRevenue: number; totalDiscount: number; manualDiscount: number; filteredRevenue: number; adults: number, children: number, infants: number, returnAdults: number; returnChildren: number; returnInfants: number; paxCount: number, returnPaxCount: number }; currency: string; className?: string }) => (
+    <Card className={cn("shadow-sm", className)}>
+        <CardHeader className="p-3">
+            <CardTitle className="text-base text-center flex flex-col items-center justify-center gap-2">
+                <span>{title}</span>
+                 <div className="flex items-center gap-2">
+                    <Badge variant="default" className="text-base px-3 py-1">
+                        <div className="flex items-center gap-1.5">
+                            <Users className="h-4 w-4" />
+                            {summary.paxCount}
+                            {summary.returnPaxCount > 0 && <span className="text-xs">({summary.paxCount - summary.returnPaxCount} صافي)</span>}
+                        </div>
+                    </Badge>
+                    <div className="flex items-center gap-1 text-xs">
+                        (<Badge variant="secondary" className="px-1.5 py-0.5"><div className="flex items-center gap-1"><UserSquare className="h-3 w-3" />{summary.adults} {summary.returnAdults > 0 && <span className="text-xs">({summary.adults - summary.returnAdults})</span>}</div></Badge>
+                        <Badge variant="secondary" className="px-1.5 py-0.5"><div className="flex items-center gap-1"><User className="h-3 w-3" />{summary.children} {summary.returnChildren > 0 && <span className="text-xs">({summary.children - summary.returnChildren})</span>}</div></Badge>
+                        <Badge variant="secondary" className="px-1.5 py-0.5"><div className="flex items-center gap-1"><Baby className="h-3 w-3" />{summary.infants} {summary.returnInfants > 0 && <span className="text-xs">({summary.infants - summary.returnInfants})</span>}</div></Badge>)
                     </div>
-                )}
-            </div>
-        </DialogContent>
-    )
-};
-
-
-const IssueBadge = ({ issue }: { issue: DataAuditIssue }) => {
-    const config = {
-        'DUPLICATE_PNR': { label: 'تكرار', variant: 'destructive' as const },
-        'UNMATCHED_RETURN': { label: 'ذهاب وعودة', variant: 'secondary' as const },
-    }[issue.type] || { label: issue.type, variant: 'outline' as const };
-    
-    return <Badge variant={config.variant}>{config.label} ({issue.details?.length || 'N/A'})</Badge>
-}
+                </div>
+            </CardTitle>
+        </CardHeader>
+        <CardContent className="p-3 grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <SummaryStatCard title="الإجمالي" value={summary.totalRevenue} currency={currency} />
+            <SummaryStatCard title="خصم العودة" value={summary.totalDiscount} currency={currency} />
+            <SummaryStatCard title="خصم يدوي" value={summary.manualDiscount} currency={currency} />
+             <SummaryStatCard title="الصافي" value={summary.filteredRevenue} currency={currency} className="bg-green-50 dark:bg-green-950/30 text-green-800 dark:text-green-200" />
+        </CardContent>
+    </Card>
+);
 
 export default function FlightAnalysisContent({ initialReports }: { initialReports: Partial<FlightReportWithId>[] }) {
-    const [reports, setReports] = useState(initialReports);
-    const [selectedReport, setSelectedReport] = useState<Partial<FlightReportWithId> | null>(null);
+    const router = useRouter();
+    // حالة لتخزين جميع التقارير
+    const [allReports, setAllReports] = useState<FlightReportWithId[]>(initialReports as FlightReportWithId[]);
+    // حالة لتخزين التقارير المحددة (التي تم وضع علامة صح عليها)
+    const [selectedReports, setSelectedReports] = useState<FlightReportWithId[]>([]);
+    // حالة للتحميل
+    const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
-
-    const handleSuccess = () => {
-        // Here you would typically refetch the data
-        toast({ title: 'Success', description: 'Action completed.' });
-    };
-
-    const handleDelete = async (id: string) => {
-        const result = await deleteFlightReport(id);
-        if (result.success) {
-            setReports(prev => prev.filter(r => r.id !== id));
-            toast({ title: 'تم حذف التقرير' });
-        } else {
-            toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
-        }
-    };
     
-    const overallSummary = useMemo(() => {
-        let totalPax = 0, totalRevenue = 0, totalReturnDiscount = 0, totalManualDiscount = 0;
-        let adultCount = 0, childCount = 0, infantCount = 0;
+    // حالات لفرز الجدول والبحث
+    const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 5 });
+    const [sortDescriptor, setSortDescriptor] = useState<{ column: SortKey, direction: SortDirection }>({ column: 'flightDate', direction: 'descending' });
 
-        reports.forEach(report => {
-            totalPax += report.paxCount || 0;
-            totalRevenue += report.totalRevenue || 0;
-            totalReturnDiscount += report.pnrGroups?.reduce((sum, g) => sum + (g.passengers.some(p => p.tripType === 'ROUND_TRIP') ? 145 : 0), 0) || 0;
-            totalManualDiscount += report.manualDiscountValue || 0;
-            
-            report.passengers?.forEach(p => {
-                if(p.passengerType === 'Adult') adultCount++;
-                else if(p.passengerType === 'Child') childCount++;
-                else if (p.passengerType === 'Infant') infantCount++;
+
+    // دالة لجلب وتدقيق البيانات من الخادم
+    const fetchData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const reportsData = await runAdvancedFlightAudit();
+            setAllReports(reportsData as FlightReportWithId[]);
+        } catch (error) {
+            toast({
+                title: "خطأ",
+                description: "فشل في تحميل بيانات تحليل الرحلات.",
+                variant: "destructive"
             });
-        });
-        
-        return {
-            totalPax, totalRevenue, totalReturnDiscount, totalManualDiscount,
-            netRevenue: totalRevenue - totalReturnDiscount - totalManualDiscount,
-            adultCount, childCount, infantCount,
+        } finally {
+            setIsLoading(false);
         }
-    }, [reports]);
+    }, [toast]);
+    
+    // جلب البيانات عند تحميل الصفحة لأول مرة
+    useEffect(() => {
+       if(initialReports.length > 0) {
+            setAllReports(initialReports as FlightReportWithId[]);
+            setIsLoading(false);
+       } else {
+            fetchData();
+       }
+    }, [initialReports, fetchData]);
+
+    // دالة لتحديث تقرير معين في القائمة (بعد تعديل الخصم مثلاً)
+    const handleUpdateReport = (updatedReport: FlightReportWithId) => {
+        setAllReports(produce(draft => {
+            const index = draft.findIndex(r => r.id === updatedReport.id);
+            if (index !== -1) {
+                draft[index] = updatedReport;
+            }
+        }));
+    };
+
+    // دالة لحذف تقرير من القائمة
+    const handleDeleteReport = (reportId: string) => {
+        setAllReports(produce(draft => {
+            return draft.filter(r => r.id !== reportId);
+        }));
+    };
+
+    // دوال للتصدير (معطلة حاليًا)
+    const handleExport = () => { toast({ title: "وظيفة معطلة", description: "تم تعطيل تصدير الملخص مؤقتًا.", variant: "destructive" }); };
+    const handleComprehensiveExport = () => { toast({ title: "وظيفة معطلة", description: "تم تعطيل التصدير الشامل مؤقتًا.", variant: "destructive" }); };
+    
+    // فرز البيانات بناءً على اختيار المستخدم
+    const sortedReports = useMemo(() => {
+        return [...allReports].sort((a, b) => {
+            let first: any, second: any;
+            if (sortDescriptor.column === 'flightDate') {
+                const dateAValue = a.flightDate || '';
+                const dateBValue = b.flightDate || '';
+                const dateA = isValid(parseISO(dateAValue)) ? parseISO(dateAValue) : new Date(0);
+                const dateB = isValid(parseISO(dateBValue)) ? parseISO(dateBValue) : new Date(0);
+                first = dateA.getTime();
+                second = dateB.getTime();
+            } else {
+                 first = a[sortDescriptor.column as keyof FlightReport] || 0;
+                 second = b[sortDescriptor.column as keyof FlightReport] || 0;
+            }
+
+            let cmp = 0;
+            if(typeof first === 'string' && typeof second === 'string') {
+                cmp = first.localeCompare(second);
+            } else if (typeof first === 'number' && typeof second === 'number') {
+                cmp = first - second;
+            }
+
+            return sortDescriptor.direction === 'descending' ? -cmp : cmp;
+        });
+    }, [allReports, sortDescriptor]);
+    
+    // فلترة البيانات بناءً على مصطلح البحث
+    const filteredReports = useMemo(() => {
+        if (!debouncedSearchTerm) return sortedReports;
+        const lowercasedTerm = debouncedSearchTerm.toLowerCase();
+        return sortedReports.filter(report =>
+            report.fileName.toLowerCase().includes(lowercasedTerm) ||
+            report.route.toLowerCase().includes(lowercasedTerm) ||
+            (report.supplierName || '').toLowerCase().includes(lowercasedTerm) ||
+            report.pnrGroups.some(pnrGroup =>
+                pnrGroup.pnr.toLowerCase().includes(lowercasedTerm) ||
+                pnrGroup.bookingReference.toLowerCase().includes(lowercasedTerm) ||
+                pnrGroup.passengers.some(p => p.name.toLowerCase().includes(lowercasedTerm))
+            )
+        );
+    }, [sortedReports, debouncedSearchTerm]);
+
+    // تطبيق التقسيم على الصفحات
+    const paginatedReports = useMemo(() => {
+        const { pageIndex, pageSize } = pagination;
+        const start = pageIndex * pageSize;
+        const end = start + pageSize;
+        return filteredReports.slice(start, end);
+    }, [filteredReports, pagination]);
+
+    // دالة لحساب الملخصات المالية
+    const calculateSummary = (reports: FlightReportWithId[]) => {
+      return reports.reduce((acc, report) => {
+        acc.totalRevenue += report.totalRevenue || 0;
+        acc.totalDiscount += report.totalDiscount || 0;
+        acc.manualDiscount += report.manualDiscountValue || 0;
+        acc.paxCount += report.paxCount || 0;
+        const returnPassengers = (report.passengers || []).filter(p => p.tripType === 'RETURN');
+        acc.returnPaxCount += returnPassengers.length;
+        const passengerCounts = (report.passengers || []).reduce((acc, p) => {
+            const type = p.passengerType || 'Adult'; acc[type] = (acc[type] || 0) + 1; return acc;
+        }, {} as Record<string, number>);
+        acc.adults += passengerCounts['Adult'] || 0; acc.children += passengerCounts['Child'] || 0; acc.infants += passengerCounts['Infant'] || 0;
+        const returnPassengerCounts = returnPassengers.reduce((acc, p) => {
+            const type = p.passengerType || 'Adult'; acc[type] = (acc[type] || 0) + 1; return acc;
+        }, {} as Record<string, number>);
+        acc.returnAdults += returnPassengerCounts['Adult'] || 0; acc.returnChildren += returnPassengerCounts['Child'] || 0; acc.returnInfants += returnPassengerCounts['Infant'] || 0;
+        acc.filteredRevenue += report.filteredRevenue || 0;
+        return acc;
+    }, { totalRevenue: 0, totalDiscount: 0, manualDiscount: 0, filteredRevenue: 0, adults: 0, children: 0, infants: 0, returnAdults: 0, returnChildren: 0, returnInfants: 0, paxCount: 0, returnPaxCount: 0 });
+  };
+
+  const totals = React.useMemo(() => calculateSummary(allReports), [allReports]);
+  const selectedTotals = React.useMemo(() => calculateSummary(selectedReports), [selectedReports]);
 
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>الملخص المالي</CardTitle>
-                </CardHeader>
+             <Card>
+                <CardHeader><CardTitle>الملخص المالي</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <Card>
-                        <CardHeader><CardTitle className="text-lg">الملخص الإجمالي</CardTitle></CardHeader>
-                        <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                            <StatCard title="صافي" value={`$${overallSummary.netRevenue.toLocaleString()}`} icon={DollarSign} valueClass="text-green-600" />
-                            <StatCard title="خصم يدوي" value={`$${overallSummary.totalManualDiscount.toLocaleString()}`} icon={ArrowDown} valueClass="text-red-500" />
-                            <StatCard title="خصم العودة" value={`$${overallSummary.totalReturnDiscount.toLocaleString()}`} icon={ArrowDown} valueClass="text-red-500" />
-                             <StatCard title="الإجمالي" value={`$${overallSummary.totalRevenue.toLocaleString()}`} icon={DollarSign} />
-                        </CardContent>
-                     </Card>
-                     <Card>
-                         <CardHeader><CardTitle className="text-lg">ملخص المحدد</CardTitle></CardHeader>
-                        <CardContent className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                           <StatCard title="صافي" value="$0" icon={DollarSign} valueClass="text-green-600" />
-                           <StatCard title="خصم يدوي" value="$0" icon={ArrowDown} valueClass="text-red-500" />
-                           <StatCard title="خصم العودة" value="$0" icon={ArrowDown} valueClass="text-red-500" />
-                           <StatCard title="الإجمالي" value="$0" icon={DollarSign} />
-                        </CardContent>
-                    </Card>
+                     <FinancialSummaryCard title="الملخص الإجمالي" summary={totals} currency="USD" />
+                    <FinancialSummaryCard title="ملخص المحدد" summary={selectedTotals} currency="USD" className="border-primary" />
                 </CardContent>
             </Card>
-
-            <Card>
-                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div>
-                        <CardTitle>أرشيف تقارير الرحلات</CardTitle>
-                        <CardDescription>استعراض وتحليل جميع الرحلات التي تم استيرادها إلى النظام.</CardDescription>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <FlightDataExtractorDialog onSaveSuccess={handleSuccess}>
-                            <Button>
-                                <PlusCircle className="me-2 h-4 w-4" />
-                                رفع وتحليل ملف جديد
-                            </Button>
-                        </FlightDataExtractorDialog>
-                        <Button variant="outline"><RefreshCw className="me-2 h-4 w-4" />تحديث البيانات</Button>
-                        <Button variant="outline"><FileSpreadsheet className="me-2 h-4 w-4" />تصدير الملخص</Button>
-                        <Button variant="outline"><FileSpreadsheet className="me-2 h-4 w-4" />تصدير شامل</Button>
+             <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>أرشيف تقارير الرحلات</CardTitle>
+                            <CardDescription>استعراض وتحليل جميع الرحلات التي تم استيرادها إلى النظام.</CardDescription>
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <Button onClick={handleComprehensiveExport} variant="outline" disabled={allReports.length === 0}><FileSpreadsheet className="me-2 h-4 w-4"/>تصدير شامل</Button>
+                            <Button onClick={handleExport} variant="outline" disabled={allReports.length === 0}><FileSpreadsheet className="me-2 h-4 w-4"/>تصدير الملخص</Button>
+                            <Button onClick={fetchData} variant="outline" disabled={isLoading}>{isLoading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث البيانات</Button>
+                            <FlightDataExtractorDialog onSaveSuccess={fetchData}>
+                                <Button><PlusCircle className="h-4 w-4 me-2" />رفع وتحليل ملف جديد</Button>
+                            </FlightDataExtractorDialog>
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
-                     <div className="relative mb-4">
-                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="بحث شامل..." className="ps-10" />
+                    <div className="mb-4 relative max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="بحث شامل..." className="ps-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
-                    <div className="border rounded-lg overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>#</TableHead>
-                                    <TableHead>التحاسب</TableHead>
-                                    <TableHead>المصدر</TableHead>
-                                    <TableHead>الوجهة</TableHead>
-                                    <TableHead>تاريخ الرحلة</TableHead>
-                                    <TableHead>الوقت</TableHead>
-                                    <TableHead>المسافرون</TableHead>
-                                    <TableHead>الإجمالي</TableHead>
-                                    <TableHead>خصم تلقائي</TableHead>
-                                    <TableHead>خصم يدوي</TableHead>
-                                    <TableHead>الصافي</TableHead>
-                                    <TableHead>تحليل الملف</TableHead>
-                                    <TableHead>الـ B.R المكررة</TableHead>
-                                    <TableHead>تحليل الرحلة</TableHead>
-                                    <TableHead>الإجراءات</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {reports.map((report, index) => (
-                                    <TableRow key={report.id || index}>
-                                        <TableCell>{index + 1}</TableCell>
-                                        <TableCell><Checkbox /></TableCell>
-                                        <TableCell>{report.supplierName}</TableCell>
-                                        <TableCell>{report.route}</TableCell>
-                                        <TableCell>{report.flightDate}</TableCell>
-                                        <TableCell>{report.flightTime}</TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <Users className="h-4 w-4" />
-                                                <span>{report.paxCount}</span>
-                                                <span className="text-xs text-muted-foreground">({(report.passengers?.filter(p => p.passengerType === 'Adult').length || 0)} بالغ)</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="font-mono">${''}${report.totalRevenue?.toLocaleString()}</TableCell>
-                                        <TableCell className="font-mono text-red-500">${report.pnrGroups?.reduce((sum, g) => sum + (g.passengers.some(p => p.tripType === 'ROUND_TRIP') ? 145 : 0), 0).toLocaleString()}</TableCell>
-                                        <TableCell className="font-mono text-red-500">${(report.manualDiscountValue || 0).toLocaleString()}</TableCell>
-                                        <TableCell className="font-mono font-bold">${((report.totalRevenue || 0) - (report.pnrGroups?.reduce((sum, g) => sum + (g.passengers.some(p => p.tripType === 'ROUND_TRIP') ? 145 : 0), 0) || 0) - (report.manualDiscountValue || 0)).toLocaleString()}</TableCell>
-                                        <TableCell>سليم</TableCell>
-                                        <TableCell>
-                                            {report.issues?.duplicatePnr && report.issues.duplicatePnr.length > 0
-                                                ? <IssueBadge issue={report.issues.duplicatePnr[0]} />
-                                                : "سليم"
-                                            }
-                                        </TableCell>
-                                        <TableCell>
-                                            {report.issues?.tripAnalysis && report.issues.tripAnalysis.length > 0
-                                                ? <IssueBadge issue={report.issues.tripAnalysis[0]} />
-                                                : "سليم"
-                                            }
-                                        </TableCell>
-                                        <TableCell>
-                                             <Button variant="ghost" size="icon" onClick={() => handleDelete(report.id!)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
+                    {isLoading ? ( <Skeleton className="h-96 w-full" /> ) : ( <>
+                        <FlightReportsTable 
+                            reports={paginatedReports}
+                            sortDescriptor={sortDescriptor}
+                            setSortDescriptor={setSortDescriptor}
+                            onSelectionChange={setSelectedReports}
+                            onUpdateReport={handleUpdateReport}
+                            onDeleteReport={handleDeleteReport}
+                        />
+                        <DataTablePagination
+                            pageIndex={pagination.pageIndex}
+                            pageSize={pagination.pageSize}
+                            totalCount={filteredReports.length}
+                            onPageChange={(index) => setPagination(prev => ({...prev, pageIndex: index}))}
+                            onPageSizeChange={(size) => setPagination({ pageIndex: 0, pageSize: size })}
+                        />
+                    </>)}
                 </CardContent>
             </Card>
         </div>
