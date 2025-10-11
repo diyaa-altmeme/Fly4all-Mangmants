@@ -59,10 +59,10 @@ import {
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
-import NewDistributedReceiptDialog from "@/app/accounts/vouchers/components/new-distributed-receipt-dialog";
-import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-payment-voucher-dialog";
-import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
-import NewJournalVoucherDialog from "@/app/accounts/vouchers/components/new-journal-voucher-dialog";
+import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
+import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
+import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
+import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
 import AddClientDialog from "@/app/clients/components/add-client-dialog";
 import { DropdownMenuSeparator, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -111,14 +111,14 @@ const reportsItems = [
 
 const systemItems = [
     { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'settings:update' },
-    { href: "/users", label: "الموظفين والصلاحيات", icon: Briefcase, permission: 'users:read' },
+    { href: "/users", label: "الموظفين والصلاحيات", icon: Users, permission: 'users:read' },
+    { href: "/boxes", label: "الصناديق", icon: Boxes, permission: 'admin' },
+    { href: "/templates", label: "قوالب الرسائل", icon: FileImage, permission: 'admin' },
     { href: "/system/activity-log", label: "سجل النشاطات", icon: History, permission: 'system:audit_log:read' },
     { href: "/system/error-log", label: "سجل الأخطاء", icon: FileWarning, permission: 'system:error_log:read' },
     { href: "/system/data-audit", label: "فحص البيانات", icon: ScanSearch, permission: 'system:data_audit:run' },
     { href: "/support", label: "الدعم والمساعدة", icon: HelpCircle, permission: 'public' },
     { href: "/coming-soon", label: "الميزات القادمة", icon: Lightbulb, permission: 'public' },
-    { href: "/boxes", label: "الصناديق", icon: Boxes, permission: 'admin' },
-    { href: "/templates", label: "قوالب الرسائل", icon: FileImage, permission: 'admin' },
 ];
 
 const MobileSubItem = ({ href, icon: Icon, children }: { href: string; icon: React.ElementType; children: React.ReactNode }) => (
