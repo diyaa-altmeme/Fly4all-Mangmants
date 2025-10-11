@@ -120,8 +120,8 @@ export default function SegmentsPage() {
             <Accordion type="single" collapsible defaultValue={sortedPeriods[0] ? `${sortedPeriods[0].fromDate}_${sortedPeriods[0].toDate}`: ''}>
                 {sortedPeriods.map(period => (
                     <AccordionItem value={`${period.fromDate}_${period.toDate}`} key={`${period.fromDate}_${period.toDate}`}>
-                        <AccordionTrigger className="p-4 bg-card rounded-lg shadow-sm hover:no-underline font-bold text-lg">
-                           <div className="flex items-center justify-between w-full">
+                        <div className="p-4 bg-card rounded-lg shadow-sm flex items-center justify-between w-full">
+                           <AccordionTrigger className="p-0 font-bold text-lg hover:no-underline flex-grow">
                              <div className="flex items-center gap-6">
                                 <div className="flex items-center gap-2">
                                     <Calendar className="h-5 w-5 text-primary"/>
@@ -131,9 +131,11 @@ export default function SegmentsPage() {
                                 <span>إلى</span>
                                 <span>{period.toDate}</span>
                              </div>
+                           </AccordionTrigger>
+                           <div onClick={(e) => e.stopPropagation()}>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" onClick={e => e.stopPropagation()}><MoreHorizontal /></Button>
+                                    <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
                                      <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={fetchData} />
@@ -141,7 +143,7 @@ export default function SegmentsPage() {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                            </div>
-                        </AccordionTrigger>
+                        </div>
                         <AccordionContent className="p-4 border-t">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <StatCard title="إجمالي ربح الفترة" value={`$${period.totalProfit.toFixed(2)}`} />
