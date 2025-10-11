@@ -91,6 +91,10 @@ async function findDuplicateFiles(reports: FlightReport[]): Promise<Map<string, 
     const issuesByReportId = new Map<string, DataAuditIssue[]>();
     for (const [fingerprint, occurrences] of fileFingerprintMap.entries()) {
         if (occurrences.length > 1) {
+            // Sort to ensure the "first" one is consistent
+            occurrences.sort((a, b) => a.reportId.localeCompare(b.reportId));
+            const originalReportId = occurrences[0].reportId;
+
             const fileNames = occurrences.map(o => o.fileName).join(', ');
             const issue: DataAuditIssue = {
                 id: `file-${fingerprint}`, type: 'DUPLICATE_FILE', description: `تم العثور على هذا الملف مكررًا في: ${fileNames}`,
@@ -98,8 +102,11 @@ async function findDuplicateFiles(reports: FlightReport[]): Promise<Map<string, 
             };
             
             occurrences.forEach(occ => {
+                // Assign the issue to all reports in the duplicate set
                 if (!issuesByReportId.has(occ.reportId)) issuesByReportId.set(occ.reportId, []);
-                issuesByReportId.get(occ.reportId)!.push(issue);
+                
+                const issueWithOriginal = { ...issue, details: { ...issue.details, originalReportId } };
+                issuesByReportId.get(occ.reportId)!.push(issueWithOriginal);
             });
         }
     }
@@ -114,13 +121,19 @@ const processSingleReport = (report: FlightReport, passengerTripMap: Map<string,
         draftReport.tripTypeCounts = { oneWay: 0, roundTrip: 0 };
         const processedPassengersForTripCount = new Set<string>();
 
-        // Check for duplicate file issue
-        const isDuplicateFile = fileAnalysisIssues.length > 0;
-        if (isDuplicateFile) {
-            // If it's a duplicate file, zero out its financial contributions
+        // Check if this report is a duplicate and NOT the original one
+        const fileIssue = fileAnalysisIssues.find(issue => issue.type === 'DUPLICATE_FILE');
+        const isDuplicateAndNotOriginal = fileIssue && (fileIssue.details as any).originalReportId !== draftReport.id;
+        
+        if (isDuplicateAndNotOriginal) {
+            // If it's a duplicate file and not the first one, zero out its financial contributions
             draftReport.totalDiscount = 0;
             draftReport.manualDiscountValue = 0;
             draftReport.filteredRevenue = 0;
+            // Also zero out passenger-level prices to reflect this
+            (draftReport.passengers || []).forEach(p => {
+                p.actualPrice = 0;
+            });
         } else {
              (draftReport.passengers || []).forEach(passenger => {
                 const uniqueKey = `${normalizeName(passenger.bookingReference)}|${normalizeName(passenger.name)}|${passenger.passportNumber || ''}`;
@@ -233,3 +246,4 @@ export async function updateManualDiscount(id: string, value: number, notes?: st
         return { success: true, updatedReport: updatedReport as FlightReportWithId };
     } catch (e: any) { console.error(`Error updating manual discount for ${id}:`, e); return { success: false, error: e.message }; }
 }
+
