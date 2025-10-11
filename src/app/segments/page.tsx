@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown } from 'lucide-react';
+import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from './actions';
 import { getClients } from '@/app/relations/actions';
@@ -41,37 +41,41 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
     const [isOpen, setIsOpen] = useState(false);
 
     const handleDeletePeriod = async (fromDate: string, toDate: string) => {
-        // This function should be passed down from the parent or defined here
-        // For now, let's assume it's defined in the parent and passed via onDataChange
+        await deleteSegmentPeriod(fromDate, toDate);
+        onDataChange();
     };
 
     return (
         <Collapsible asChild key={`${period.fromDate}_${period.toDate}`}>
-            <>
-                <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                    <TableCell className="p-2 text-center">
-                        <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+             <tbody className="border-t">
+                <TableRow>
+                    <TableCell className="p-0 text-center">
+                         <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:rotate-180">
+                                <ChevronDown className="h-4 w-4" />
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="text-center font-bold">{`#${index + 1}`}</TableCell>
-                    <TableCell className="text-center">{period.fromDate}</TableCell>
-                    <TableCell className="text-center">{period.toDate}</TableCell>
-                    <TableCell className="text-center font-mono">{period.totalProfit.toFixed(2)}</TableCell>
-                    <TableCell className="text-center font-mono text-green-600">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
-                    <TableCell className="text-center font-mono text-blue-600">{period.totalPartnerShare.toFixed(2)}</TableCell>
-                    <TableCell className="text-center">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
-                                <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                    <TableCell colSpan={7}>
+                        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 w-full text-sm p-2 items-center">
+                            <div className="flex items-center gap-2 font-bold"><Badge>فترة #{index + 1}</Badge></div>
+                            <div className="flex items-center gap-2"><span className="text-muted-foreground">من تاريخ:</span> {period.fromDate}</div>
+                            <div className="flex items-center gap-2"><span className="text-muted-foreground">الى تاريخ:</span> {period.toDate}</div>
+                            <div className="flex items-center gap-2"><span className="text-muted-foreground">إجمالي الربح:</span> <span className="font-mono">{period.totalProfit.toFixed(2)}</span></div>
+                            <div className="flex items-center gap-2"><span className="text-muted-foreground">حصة الشركة:</span> <span className="font-mono text-green-600">{period.totalAlrawdatainShare.toFixed(2)}</span></div>
+                            <div className="flex items-center gap-2"><span className="text-muted-foreground">حصة الشريك:</span> <span className="font-mono text-blue-600">{period.totalPartnerShare.toFixed(2)}</span></div>
+                            <div className="text-left">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
+                                        <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        </div>
                     </TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
@@ -83,7 +87,7 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                         </TableCell>
                     </TableRow>
                 </CollapsibleContent>
-            </>
+            </tbody>
         </Collapsible>
     );
 };
@@ -248,40 +252,24 @@ export default function SegmentsPage() {
                 <CardContent>
                     <div className="border rounded-lg overflow-x-auto">
                         <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[50px]"></TableHead>
-                                    <TableHead className="text-center font-bold">#</TableHead>
-                                    <TableHead className="text-center font-bold">من تاريخ</TableHead>
-                                    <TableHead className="text-center font-bold">إلى تاريخ</TableHead>
-                                    <TableHead className="text-center font-bold">إجمالي الربح</TableHead>
-                                    <TableHead className="text-center font-bold">حصة الشركة</TableHead>
-                                    <TableHead className="text-center font-bold">حصة الشريك</TableHead>
-                                    <TableHead className="text-center font-bold">الإجراءات</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            
-                                {sortedAndFilteredPeriods.length > 0 ? (
-                                    sortedAndFilteredPeriods.map((period, idx) => (
-                                        <PeriodRow
-                                            key={`${period.fromDate}_${period.toDate}`}
-                                            period={period}
-                                            index={idx}
-                                            clients={clients}
-                                            suppliers={suppliers}
-                                            onDataChange={fetchData}
-                                        />
-                                    ))
-                                ) : (
-                                    <TableBody>
-                                        <TableRow>
-                                            <TableCell colSpan={8} className="text-center h-24">
-                                                لا توجد بيانات للفترة المحددة.
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                )}
-                            
+                             {sortedAndFilteredPeriods.length === 0 ? (
+                                <TableBody>
+                                    <TableRow>
+                                        <TableCell colSpan={8} className="text-center h-24">
+                                            لا توجد بيانات للفترة المحددة.
+                                        </TableCell>
+                                    </TableRow>
+                                </TableBody>
+                            ) : sortedAndFilteredPeriods.map((period, idx) => (
+                                <PeriodRow
+                                    key={`${period.fromDate}_${period.toDate}`}
+                                    period={period}
+                                    index={idx}
+                                    clients={clients}
+                                    suppliers={suppliers}
+                                    onDataChange={fetchData}
+                                />
+                            ))}
                         </Table>
                     </div>
                 </CardContent>

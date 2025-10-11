@@ -149,17 +149,22 @@ export default function EditSegmentPeriodDialog({ existingPeriod, clients, suppl
      const calculateShares = (data: CompanyEntryFormValues, companySettings?: SegmentSettings) => {
         const client = clients.find(c => c.id === data.clientId);
         const settings = companySettings || {
-            ticketProfitPercentage: 50, visaProfitPercentage: 100, hotelProfitPercentage: 100,
-            groupProfitPercentage: 100, alrawdatainSharePercentage: 50,
+            tickets: { type: 'percentage', value: 50 },
+            visas: { type: 'fixed', value: 1 },
+            hotels: { type: 'fixed', value: 1 },
+            groups: { type: 'fixed', value: 1 }
         };
 
-        const ticketProfits = data.tickets * (settings.ticketProfitPercentage / 100);
-        const visaProfits = data.visas * (settings.visaProfitPercentage / 100);
-        const hotelProfits = data.hotels * (settings.hotelProfitPercentage / 100);
-        const groupProfits = data.groups * (settings.groupProfitPercentage / 100);
+        const ticketProfits = data.tickets * (settings.tickets.value || 0); // Assuming value is profit per ticket
+        const visaProfits = data.visas * (settings.visas.value || 0);
+        const hotelProfits = data.hotels * (settings.hotels.value || 0);
+        const groupProfits = data.groups * (settings.groups.value || 0);
+
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
-        const alrawdatainShare = total * (settings.alrawdatainSharePercentage / 100);
+        
+        const alrawdatainSharePercentage = companySettings?.alrawdatainSharePercentage || 50;
+        const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
         
         const selectedPartnerOption = partnerOptions.find(p => p.value === data.partnerId);
@@ -292,7 +297,7 @@ export default function EditSegmentPeriodDialog({ existingPeriod, clients, suppl
                                                 <TableCell className="font-semibold">{entry.companyName}</TableCell>
                                                 <TableCell className="font-mono">{entry.total.toFixed(2)}</TableCell>
                                                 <TableCell className="font-mono text-green-600">{entry.alrawdatainShare.toFixed(2)}</TableCell>
-                                                <TableCell className="font-mono text-green-600">{entry.partnerShare.toFixed(2)}</TableCell>
+                                                <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)}</TableCell>
                                                 <TableCell className='text-center space-x-1'>
                                                     <Button variant="ghost" size="icon" className='h-8 w-8 text-blue-600'><Pencil className='h-4 w-4'/></Button>
                                                     <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={(e) => {e.stopPropagation(); removeEntry(index)}}><Trash2 className='h-4 w-4'/></Button>
