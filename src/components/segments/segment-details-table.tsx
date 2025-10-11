@@ -1,17 +1,22 @@
-
 "use client";
 
 import * as React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Trash2 } from 'lucide-react';
 import type { SegmentEntry } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 
 const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
 
 interface SegmentDetailsTableProps {
   period: {
     entries: SegmentEntry[];
+    totalTickets: number;
+    totalOther: number;
+    totalProfit: number;
+    totalAlrawdatainShare: number;
+    totalPartnerShare: number;
   };
   onDeleteEntry: (id: string) => void;
 }
@@ -26,7 +31,9 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
           <TableHead>أرباح التذاكر</TableHead>
           <TableHead>أرباح أخرى</TableHead>
           <TableHead>الإجمالي</TableHead>
-          <TableHead className="text-center">حذف</TableHead>
+          <TableHead>حصة الروضتين</TableHead>
+          <TableHead>حصة الشريك</TableHead>
+          <TableHead className="w-[50px] text-center">حذف</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -37,6 +44,8 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
             <TableCell className="font-mono">{formatCurrency(entry.ticketProfits)}</TableCell>
             <TableCell className="font-mono">{formatCurrency(entry.otherProfits)}</TableCell>
             <TableCell className="font-mono font-bold">{formatCurrency(entry.total)}</TableCell>
+            <TableCell className="font-mono text-green-600">{formatCurrency(entry.alrawdatainShare)}</TableCell>
+            <TableCell className="font-mono text-green-600">{formatCurrency(entry.partnerShare)}</TableCell>
             <TableCell className="text-center">
               <Button
                 variant="ghost"
@@ -50,6 +59,17 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
           </TableRow>
         ))}
       </TableBody>
+       <TableFooter>
+        <TableRow className="bg-muted font-bold">
+          <TableCell colSpan={2}>المجموع</TableCell>
+          <TableCell>{formatCurrency(period.totalTickets)}</TableCell>
+          <TableCell>{formatCurrency(period.totalOther)}</TableCell>
+          <TableCell>{formatCurrency(period.totalProfit)}</TableCell>
+          <TableCell className="text-green-600">{formatCurrency(period.totalAlrawdatainShare)}</TableCell>
+          <TableCell className="text-green-600">{formatCurrency(period.totalPartnerShare)}</TableCell>
+          <TableCell></TableCell>
+        </TableRow>
+      </TableFooter>
     </Table>
   );
 }

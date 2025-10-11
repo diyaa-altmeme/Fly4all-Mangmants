@@ -1,10 +1,9 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch } from 'lucide-react';
+import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from './actions';
 import { getClients } from '@/app/relations/actions';
@@ -18,12 +17,20 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
 import EditSegmentPeriodDialog from '@/components/segments/edit-segment-period-dialog';
 import SegmentSettingsDialog from '@/components/segments/segment-settings-dialog';
+import { DateRange } from "react-day-picker";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarUI } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { useDebounce } from '@/hooks/use-debounce';
 
 
 const StatCard = ({ title, value }: { title: string, value: string }) => (
-    <div className="bg-muted/50 p-3 rounded-lg text-center">
-        <p className="text-xs text-muted-foreground font-semibold">{title}</p>
-        <p className="font-bold text-base font-mono">{value}</p>
+    <div className="bg-muted/50 p-4 rounded-lg text-center flex-1">
+        <p className="text-sm text-muted-foreground font-semibold">{title}</p>
+        <p className="text-2xl font-bold font-mono">{value}</p>
     </div>
 );
 
@@ -34,6 +41,9 @@ export default function SegmentsPage() {
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
+    const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [date, setDate] = React.useState<DateRange | undefined>();
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -67,18 +77,43 @@ export default function SegmentsPage() {
                     entries: [],
                     totalProfit: 0,
                     totalAlrawdatainShare: 0,
-                    totalPartnerShare: 0
+                    totalPartnerShare: 0,
+                    totalTickets: 0,
+                    totalOther: 0,
                 };
             }
             acc[periodKey].entries.push(entry);
             acc[periodKey].totalProfit += entry.total;
             acc[periodKey].totalAlrawdatainShare += entry.alrawdatainShare;
             acc[periodKey].totalPartnerShare += entry.partnerShare;
+            acc[periodKey].totalTickets += entry.ticketProfits;
+            acc[periodKey].totalOther += entry.otherProfits;
             return acc;
-        }, {} as Record<string, { fromDate: string; toDate: string; entries: SegmentEntry[], totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number }>);
+        }, {} as Record<string, { fromDate: string; toDate: string; entries: SegmentEntry[], totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number }>);
     }, [segments]);
     
-    const sortedPeriods = useMemo(() => Object.values(groupedByPeriod).sort((a,b) => new Date(b.toDate).getTime() - new Date(a.toDate).getTime()), [groupedByPeriod]);
+    const sortedAndFilteredPeriods = useMemo(() => {
+         let periods = Object.values(groupedByPeriod).sort((a,b) => new Date(b.toDate).getTime() - new Date(a.toDate).getTime());
+        
+        if (debouncedSearchTerm) {
+            periods = periods.filter(p => 
+                p.entries.some(e => 
+                    e.companyName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
+                    e.partnerName.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+                )
+            );
+        }
+
+        if (date?.from && date?.to) {
+            periods = periods.filter(p => {
+                const periodDate = new Date(p.fromDate);
+                return periodDate >= date.from! && periodDate <= date.to!;
+            });
+        }
+        
+        return periods;
+
+    }, [groupedByPeriod, debouncedSearchTerm, date]);
 
     const handleDeletePeriod = async (fromDate: string, toDate: string) => {
         const result = await deleteSegmentPeriod(fromDate, toDate);
@@ -90,6 +125,15 @@ export default function SegmentsPage() {
         }
     }
     
+    const { grandTotalProfit, grandTotalAlrawdatainShare, grandTotalPartnerShare } = useMemo(() => {
+        return sortedAndFilteredPeriods.reduce((acc, period) => {
+            acc.grandTotalProfit += period.totalProfit;
+            acc.grandTotalAlrawdatainShare += period.totalAlrawdatainShare;
+            acc.grandTotalPartnerShare += period.totalPartnerShare;
+            return acc;
+        }, { grandTotalProfit: 0, grandTotalAlrawdatainShare: 0, grandTotalPartnerShare: 0 });
+    }, [sortedAndFilteredPeriods]);
+
     if (loading) {
         return (
              <div className="space-y-4">
@@ -102,37 +146,72 @@ export default function SegmentsPage() {
 
     return (
         <div className="space-y-6">
-             <Card>
-                <CardHeader className="flex flex-row justify-between items-start">
-                    <div>
-                        <CardTitle>إدارة السكمنت</CardTitle>
-                        <CardDescription>
-                            عرض وإدارة سجلات السكمنت الشهرية وتوزيع الأرباح بين الشركاء.
-                        </CardDescription>
-                    </div>
-                    <div className="flex items-center gap-2">
-                         <SegmentSettingsDialog clients={clients} onSettingsSaved={fetchData} />
-                         <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={fetchData} />
+            <Card>
+                <CardHeader>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                        <div>
+                            <CardTitle>سجل حسابات السكمنت</CardTitle>
+                            <CardDescription>
+                                عرض ملخص الفترات المحاسبية للسكمنت.
+                            </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                             <SegmentSettingsDialog clients={clients} onSettingsSaved={fetchData} />
+                             <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={fetchData} />
+                        </div>
                     </div>
                 </CardHeader>
-             </Card>
-            
-            <Accordion type="single" collapsible defaultValue={sortedPeriods[0] ? `${sortedPeriods[0].fromDate}_${sortedPeriods[0].toDate}`: ''}>
-                {sortedPeriods.map(period => (
+                <CardContent className="space-y-4">
+                     <div className="flex flex-col sm:flex-row items-center gap-2">
+                        <div className="relative flex-grow">
+                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="بحث بالشركة أو الشريك..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="ps-10"
+                            />
+                        </div>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    id="date"
+                                    variant={"outline"}
+                                    className={cn("w-full sm:w-[250px] justify-start text-left font-normal", !date && "text-muted-foreground")}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {date?.from ? (date.to ? (<>{format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}</>) : (format(date.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <CalendarUI initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
+                            </PopoverContent>
+                        </Popover>
+                         <Button onClick={() => { setSearchTerm(''); setDate(undefined); }} variant="ghost" className={!searchTerm && !date ? 'hidden' : ''}>مسح</Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <StatCard title="إجمالي أرباح السكمنت" value={`$${grandTotalProfit.toFixed(2)}`} />
+                        <StatCard title="حصة الروضتين" value={`$${grandTotalAlrawdatainShare.toFixed(2)}`} />
+                        <StatCard title="حصة الشريك" value={`$${grandTotalPartnerShare.toFixed(2)}`} />
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Accordion type="single" collapsible defaultValue={sortedAndFilteredPeriods[0] ? `${sortedAndFilteredPeriods[0].fromDate}_${sortedAndFilteredPeriods[0].toDate}`: ''}>
+                {sortedAndFilteredPeriods.map((period, idx) => (
                     <AccordionItem value={`${period.fromDate}_${period.toDate}`} key={`${period.fromDate}_${period.toDate}`}>
-                        <div className="p-4 bg-card rounded-lg shadow-sm flex items-center justify-between w-full">
+                        <div className="p-4 bg-card rounded-lg shadow-sm flex items-center justify-between w-full border">
                            <AccordionTrigger className="p-0 font-bold text-lg hover:no-underline flex-grow">
-                             <div className="flex items-center gap-6">
-                                <div className="flex items-center gap-2">
-                                    <Calendar className="h-5 w-5 text-primary"/>
-                                    <span>الفترة المحاسبية</span>
-                                </div>
-                                <span>{period.fromDate}</span>
-                                <span>إلى</span>
-                                <span>{period.toDate}</span>
+                             <div className="grid grid-cols-1 md:grid-cols-6 gap-4 w-full text-sm">
+                                <div className="flex items-center gap-2 font-bold"><Badge>فترة #{sortedAndFilteredPeriods.length - idx}</Badge></div>
+                                <div className="flex items-center gap-2"><span className="text-muted-foreground">من تاريخ:</span> {period.fromDate}</div>
+                                <div className="flex items-center gap-2"><span className="text-muted-foreground">الى تاريخ:</span> {period.toDate}</div>
+                                <div className="flex items-center gap-2"><span className="text-muted-foreground">أرباح التذاكر:</span> <span className="font-mono">{period.totalTickets.toFixed(2)}</span></div>
+                                <div className="flex items-center gap-2"><span className="text-muted-foreground">أرباح أخرى:</span> <span className="font-mono">{period.totalOther.toFixed(2)}</span></div>
+                                <div className="flex items-center gap-2"><span className="text-muted-foreground">حصة الشريك:</span> <span className="font-mono text-green-600">{period.totalPartnerShare.toFixed(2)}</span></div>
                              </div>
                            </AccordionTrigger>
-                           <div onClick={(e) => e.stopPropagation()}>
+                           <div onClick={(e) => e.stopPropagation()} className="shrink-0 pl-4">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
@@ -144,21 +223,16 @@ export default function SegmentsPage() {
                             </DropdownMenu>
                            </div>
                         </div>
-                        <AccordionContent className="p-4 border-t">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                <StatCard title="إجمالي ربح الفترة" value={`$${period.totalProfit.toFixed(2)}`} />
-                                <StatCard title="إجمالي حصة الروضتين" value={`$${period.totalAlrawdatainShare.toFixed(2)}`} />
-                                <StatCard title="إجمالي حصة الشركاء" value={`$${period.totalPartnerShare.toFixed(2)}`} />
-                            </div>
+                        <AccordionContent className="p-2 md:p-4 border-x border-b rounded-b-lg">
                             <SegmentDetailsTable period={period} onDeleteEntry={() => {}} />
                         </AccordionContent>
                     </AccordionItem>
                 ))}
             </Accordion>
-             {sortedPeriods.length === 0 && (
+             {sortedAndFilteredPeriods.length === 0 && (
                 <div className="text-center p-12 border-2 border-dashed rounded-lg">
                     <GitBranch className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">لا توجد سجلات سكمنت لعرضها. ابدأ بإضافة سجل جديد.</p>
+                    <p className="mt-4 text-muted-foreground">لا توجد سجلات سكمنت لعرضها.</p>
                 </div>
             )}
         </div>
