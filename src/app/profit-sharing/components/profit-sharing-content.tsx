@@ -6,7 +6,7 @@ import type { MonthlyProfit, ProfitShare } from "../actions";
 import { getProfitSharesForMonth, deleteManualProfitPeriod } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Loader2, Edit, Filter, MoreHorizontal, Trash2 } from "lucide-react";
+import { PlusCircle, Loader2, Edit, Filter, MoreHorizontal, Trash2, ChevronDown } from "lucide-react";
 import SharesTable from "./shares-table";
 import AddEditShareDialog from "./add-edit-share-dialog";
 import AddManualProfitDialog from "./add-manual-profit-dialog";
@@ -15,7 +15,6 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
 import { produce } from 'immer';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
