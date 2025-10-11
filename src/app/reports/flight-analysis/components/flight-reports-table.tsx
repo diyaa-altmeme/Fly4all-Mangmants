@@ -34,7 +34,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 // --- Helper Components ---
 const formatCurrency = (amount?: number): string => {
     if (typeof amount !== 'number' || isNaN(amount)) return '$0.00';
-    return `$${''}${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 const getTripDirection = (route: string) => {
@@ -121,7 +121,6 @@ const ManualDiscountDialog = ({ report, onSaveSuccess }: { report: FlightReportW
     );
 };
 
-// Sortable table header
 const SortableHeader = ({ children, column, sortDescriptor, setSortDescriptor }: { children: React.ReactNode, column: any, sortDescriptor: { column: any, direction: any }, setSortDescriptor: (descriptor: { column: any, direction: any }) => void }) => {
     const isSorted = sortDescriptor.column === column;
     const direction = isSorted ? sortDescriptor.direction : 'descending';
@@ -140,10 +139,77 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
     report: FlightReportWithId; index: number; onDeleteReport: (id: string) => void;
     onSelectionChange: (id: string, isSelected: boolean) => void; onUpdateReport: (updatedReport: FlightReportWithId) => void;
 }) => {
-    // ... Implementation of a single row in the table, including its collapsible content
-    // This is a large component, and for brevity, its full code is in the file.
-    // It includes logic for showing/hiding details, triggering dialogs, and handling delete actions.
-    return null; // Placeholder as full implementation is complex and not needed for fixing the error.
+    const { toast } = useToast();
+    const [showPnrIssues, setShowPnrIssues] = useState(false);
+    const [showFileIssues, setShowFileIssues] = useState(false);
+
+    const handleDelete = async () => {
+        const result = await deleteFlightReport(report.id);
+        if (result.success && result.deletedId) {
+            toast({ title: 'تم حذف التقرير' });
+            onDeleteReport(result.deletedId);
+        } else {
+            toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
+        }
+    };
+    
+    const handleSelectChange = (checked: boolean) => {
+        onSelectionChange(report.id, checked);
+    };
+
+    const tripDirection = getTripDirection(report.route);
+
+    return (
+        <Collapsible asChild>
+            <tbody className="border-b">
+                <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
+                    <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
+                    <TableCell>
+                        <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        </CollapsibleTrigger>
+                    </TableCell>
+                    <TableCell>{report.supplierName}</TableCell>
+                    <TableCell className="font-semibold">{report.route}{tripDirection && <Badge variant="outline" className="ms-2">{tripDirection}</Badge>}</TableCell>
+                    <TableCell>{isValid(parseISO(report.flightDate)) ? format(parseISO(report.flightDate), 'yyyy-MM-dd') : report.flightDate}</TableCell>
+                    <TableCell className="text-center">{report.paxCount}</TableCell>
+                    <TableCell className="font-mono text-center">{formatCurrency(report.totalRevenue)}</TableCell>
+                    <TableCell className="font-mono text-center text-blue-600">{formatCurrency(report.totalDiscount)}</TableCell>
+                    <TableCell className="font-mono text-center text-orange-600">{formatCurrency(report.manualDiscountValue)}</TableCell>
+                    <TableCell className="font-mono text-center font-bold text-green-600">{formatCurrency(report.filteredRevenue)}</TableCell>
+                    <TableCell className="text-center">
+                        <div className="flex justify-center items-center gap-1">
+                            {report.issues?.duplicatePnr.length > 0 && <TooltipProvider><Tooltip><TooltipTrigger><Badge variant="destructive" className="cursor-pointer" onClick={() => setShowPnrIssues(true)}>{report.issues.duplicatePnr.length}</Badge></TooltipTrigger><TooltipContent><p>تكرار مرجع الحجز</p></TooltipContent></Tooltip></TooltipProvider>}
+                            {report.issues?.fileAnalysis.length > 0 && <TooltipProvider><Tooltip><TooltipTrigger><Badge variant="destructive" className="bg-yellow-500 cursor-pointer" onClick={() => setShowFileIssues(true)}>{report.issues.fileAnalysis.length}</Badge></TooltipTrigger><TooltipContent><p>تكرار ملف الرحلة</p></TooltipContent></Tooltip></TooltipProvider>}
+                        </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal /></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <ManualDiscountDialog report={report} onSaveSuccess={onUpdateReport} />
+                                <DropdownMenuItem><InvoiceIcon className="me-2 h-4 w-4" /> عرض فاتورة</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <AlertDialog><AlertDialogTrigger asChild><DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-500"><Trash2 className="me-2 h-4 w-4" />حذف التقرير</DropdownMenuItem></AlertDialogTrigger>
+                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذا التقرير بشكل دائم.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel>إلغاء</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({variant:'destructive'}))}>نعم، احذف</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                </AlertDialog>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
+                </TableRow>
+                <CollapsibleContent asChild>
+                    <TableRow>
+                        <TableCell colSpan={12} className="p-0">
+                            {/* ... Collapsible Content Implementation ... */}
+                        </TableCell>
+                    </TableRow>
+                </CollapsibleContent>
+            </tbody>
+        </Collapsible>
+    );
 };
 
 
@@ -186,7 +252,7 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
                         <TableHead><SortableHeader column="route" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الوجهة</SortableHeader></TableHead>
                         <TableHead><SortableHeader column="flightDate" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>تاريخ الرحلة</SortableHeader></TableHead>
                         <TableHead><SortableHeader column="paxCount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الركاب</SortableHeader></TableHead>
-                        <TableHead><SortableHeader column="totalRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الإجمالي</TableHead></TableHead>
+                        <TableHead><SortableHeader column="totalRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الإجمالي</SortableHeader></TableHead>
                         <TableHead><SortableHeader column="totalDiscount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم العودة</SortableHeader></TableHead>
                         <TableHead><SortableHeader column="manualDiscountValue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم يدوي</SortableHeader></TableHead>
                         <TableHead><SortableHeader column="filteredRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الصافي</SortableHeader></TableHead>
@@ -206,5 +272,3 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
     );
 }
 
-
-    
