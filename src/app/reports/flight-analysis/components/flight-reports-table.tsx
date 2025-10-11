@@ -160,53 +160,55 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
     const tripDirection = getTripDirection(report.route);
 
     return (
-        <React.Fragment>
-            <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
-                <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
-                <TableCell>
-                    <CollapsibleTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ChevronDown className="h-4 w-4" />
-                        </Button>
-                    </CollapsibleTrigger>
-                </TableCell>
-                <TableCell>{report.supplierName}</TableCell>
-                <TableCell className="font-semibold">{report.route}{tripDirection && <Badge variant="outline" className="ms-2">{tripDirection}</Badge>}</TableCell>
-                <TableCell>{isValid(parseISO(report.flightDate)) ? format(parseISO(report.flightDate), 'yyyy-MM-dd') : report.flightDate}</TableCell>
-                <TableCell className="text-center">{report.paxCount}</TableCell>
-                <TableCell className="font-mono text-center">{formatCurrency(report.totalRevenue)}</TableCell>
-                <TableCell className="font-mono text-center text-blue-600">{formatCurrency(report.totalDiscount)}</TableCell>
-                <TableCell className="font-mono text-center text-orange-600">{formatCurrency(report.manualDiscountValue)}</TableCell>
-                <TableCell className="font-mono text-center font-bold text-green-600">{formatCurrency(report.filteredRevenue)}</TableCell>
-                <TableCell className="text-center">
-                    <div className="flex justify-center items-center gap-1">
-                        {report.issues?.duplicatePnr.length > 0 && <TooltipProvider><Tooltip><TooltipTrigger><Badge variant="destructive" className="cursor-pointer" onClick={() => setShowPnrIssues(true)}>{report.issues.duplicatePnr.length}</Badge></TooltipTrigger><TooltipContent><p>تكرار مرجع الحجز</p></TooltipContent></Tooltip></TooltipProvider>}
-                        {report.issues?.fileAnalysis.length > 0 && <TooltipProvider><Tooltip><TooltipTrigger><Badge variant="destructive" className="bg-yellow-500 cursor-pointer" onClick={() => setShowFileIssues(true)}>{report.issues.fileAnalysis.length}</Badge></TooltipTrigger><TooltipContent><p>تكرار ملف الرحلة</p></TooltipContent></Tooltip></TooltipProvider>}
-                    </div>
-                </TableCell>
-                <TableCell className="text-center">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal /></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <ManualDiscountDialog report={report} onSaveSuccess={onUpdateReport} />
-                            <DropdownMenuItem><InvoiceIcon className="me-2 h-4 w-4" /> عرض فاتورة</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <AlertDialog><AlertDialogTrigger asChild><DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-500"><Trash2 className="me-2 h-4 w-4" />حذف التقرير</DropdownMenuItem></AlertDialogTrigger>
-                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذا التقرير بشكل دائم.</AlertDialogDescription></AlertDialogHeader>
-                                <AlertDialogFooter><AlertDialogCancel>إلغاء</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({variant:'destructive'}))}>نعم، احذف</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-                            </AlertDialog>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </TableCell>
-            </TableRow>
-            <CollapsibleContent asChild>
-                <TableRow>
-                    <TableCell colSpan={12} className="p-0">
-                        {/* ... Collapsible Content Implementation ... */}
+        <Collapsible asChild>
+            <>
+                <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
+                    <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
+                    <TableCell>
+                        <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <ChevronDown className="h-4 w-4" />
+                            </Button>
+                        </CollapsibleTrigger>
+                    </TableCell>
+                    <TableCell>{report.supplierName}</TableCell>
+                    <TableCell className="font-semibold">{report.route}{tripDirection && <Badge variant="outline" className="ms-2">{tripDirection}</Badge>}</TableCell>
+                    <TableCell>{isValid(parseISO(report.flightDate)) ? format(parseISO(report.flightDate), 'yyyy-MM-dd') : report.flightDate}</TableCell>
+                    <TableCell className="text-center">{report.paxCount}</TableCell>
+                    <TableCell className="font-mono text-center">{formatCurrency(report.totalRevenue)}</TableCell>
+                    <TableCell className="font-mono text-center text-blue-600">{formatCurrency(report.totalDiscount)}</TableCell>
+                    <TableCell className="font-mono text-center text-orange-600">{formatCurrency(report.manualDiscountValue)}</TableCell>
+                    <TableCell className="font-mono text-center font-bold text-green-600">{formatCurrency(report.filteredRevenue)}</TableCell>
+                    <TableCell className="text-center">
+                        <div className="flex justify-center items-center gap-1">
+                            {report.issues?.duplicatePnr.length > 0 && <TooltipProvider><Tooltip><TooltipTrigger><Badge variant="destructive" className="cursor-pointer" onClick={() => setShowPnrIssues(true)}>{report.issues.duplicatePnr.length}</Badge></TooltipTrigger><TooltipContent><p>تكرار مرجع الحجز</p></TooltipContent></Tooltip></TooltipProvider>}
+                            {report.issues?.fileAnalysis.length > 0 && <TooltipProvider><Tooltip><TooltipTrigger><Badge variant="destructive" className="bg-yellow-500 cursor-pointer" onClick={() => setShowFileIssues(true)}>{report.issues.fileAnalysis.length}</Badge></TooltipTrigger><TooltipContent><p>تكرار ملف الرحلة</p></TooltipContent></Tooltip></TooltipProvider>}
+                        </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal /></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <ManualDiscountDialog report={report} onSaveSuccess={onUpdateReport} />
+                                <DropdownMenuItem><InvoiceIcon className="me-2 h-4 w-4" /> عرض فاتورة</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <AlertDialog><AlertDialogTrigger asChild><DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-500"><Trash2 className="me-2 h-4 w-4" />حذف التقرير</DropdownMenuItem></AlertDialogTrigger>
+                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذا التقرير بشكل دائم.</AlertDialogDescription></AlertDialogHeader>
+                                    <AlertDialogFooter><AlertDialogCancel>إلغاء</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({variant:'destructive'}))}>نعم، احذف</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                                </AlertDialog>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </TableCell>
                 </TableRow>
-            </CollapsibleContent>
-        </React.Fragment>
+                <CollapsibleContent asChild>
+                    <TableRow>
+                        <TableCell colSpan={12} className="p-0">
+                            {/* ... Collapsible Content Implementation ... */}
+                        </TableCell>
+                    </TableRow>
+                </CollapsibleContent>
+            </>
+        </Collapsible>
     );
 };
 
