@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -7,7 +8,12 @@ import { Trash2 } from 'lucide-react';
 import type { SegmentEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 
-const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
+const formatCurrency = (amount: number) => {
+    if (typeof amount !== 'number' || isNaN(amount)) {
+        return '$0.00';
+    }
+    return `$${amount.toFixed(2)}`;
+};
 
 interface SegmentDetailsTableProps {
   period: {
