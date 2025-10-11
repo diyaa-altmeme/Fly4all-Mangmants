@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
-import { getSegments, deleteSegmentPeriod } from './actions';
+import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
 import { getClients } from '@/app/relations/actions';
 import { getSuppliers } from '@/app/suppliers/actions';
 import AddSegmentPeriodDialog from './add-segment-period-dialog';
@@ -46,35 +46,33 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
     };
 
     return (
-        <Collapsible asChild key={`${period.fromDate}_${period.toDate}`}>
-             <tbody className="border-t">
-                <TableRow>
-                    <TableCell className="p-0 text-center">
-                         <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:rotate-180">
-                                <ChevronDown className="h-4 w-4" />
-                            </Button>
-                        </CollapsibleTrigger>
+        <Collapsible asChild key={`${period.fromDate}_${period.toDate}`} open={isOpen} onOpenChange={setIsOpen}>
+            <tbody className="border-t">
+                <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+                    <TableCell className="text-center font-bold">
+                       <Badge>{period.entries.length > 0 ? period.entries.length : '0'}</Badge>
                     </TableCell>
-                    <TableCell colSpan={7}>
-                        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 w-full text-sm p-2 items-center">
-                            <div className="flex items-center gap-2 font-bold"><Badge>فترة #{index + 1}</Badge></div>
-                            <div className="flex items-center gap-2"><span className="text-muted-foreground">من تاريخ:</span> {period.fromDate}</div>
-                            <div className="flex items-center gap-2"><span className="text-muted-foreground">الى تاريخ:</span> {period.toDate}</div>
-                            <div className="flex items-center gap-2"><span className="text-muted-foreground">إجمالي الربح:</span> <span className="font-mono">{period.totalProfit.toFixed(2)}</span></div>
-                            <div className="flex items-center gap-2"><span className="text-muted-foreground">حصة الشركة:</span> <span className="font-mono text-green-600">{period.totalAlrawdatainShare.toFixed(2)}</span></div>
-                            <div className="flex items-center gap-2"><span className="text-muted-foreground">حصة الشريك:</span> <span className="font-mono text-blue-600">{period.totalPartnerShare.toFixed(2)}</span></div>
-                            <div className="text-left">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
-                                        <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
+                    <TableCell className="font-mono text-center">{period.fromDate}</TableCell>
+                    <TableCell className="font-mono text-center">{period.toDate}</TableCell>
+                    <TableCell className="font-mono text-center font-bold">{period.totalProfit.toFixed(2)}</TableCell>
+                    <TableCell className="font-mono text-center text-green-600">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
+                    <TableCell className="font-mono text-center text-blue-600">{period.totalPartnerShare.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">
+                        <div className="flex items-center justify-center">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
+                                    <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                             <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                                </Button>
+                            </CollapsibleTrigger>
                         </div>
                     </TableCell>
                 </TableRow>
@@ -82,6 +80,7 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                     <TableRow>
                         <TableCell colSpan={8} className="p-0">
                             <div className="p-4 bg-muted/30">
+                                <h4 className="font-bold mb-2">تفاصيل شركات الفترة:</h4>
                                 <SegmentDetailsTable period={period} onDeleteEntry={() => {}} />
                             </div>
                         </TableCell>
@@ -247,11 +246,22 @@ export default function SegmentsPage() {
 
              <Card>
                 <CardHeader>
-                    <CardTitle>ملخص الفترات</CardTitle>
+                    <CardTitle>ملخص الفترات المحاسبية</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="border rounded-lg overflow-x-auto">
                         <Table>
+                             <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[50px]">عدد الشركات</TableHead>
+                                    <TableHead className="text-center">من تاريخ</TableHead>
+                                    <TableHead className="text-center">إلى تاريخ</TableHead>
+                                    <TableHead className="text-center">إجمالي الربح</TableHead>
+                                    <TableHead className="text-center">حصة الروضتين</TableHead>
+                                    <TableHead className="text-center">حصة الشريك</TableHead>
+                                    <TableHead className="text-center">الإجراءات</TableHead>
+                                </TableRow>
+                            </TableHeader>
                              {sortedAndFilteredPeriods.length === 0 ? (
                                 <TableBody>
                                     <TableRow>

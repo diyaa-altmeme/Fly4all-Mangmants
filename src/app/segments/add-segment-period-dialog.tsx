@@ -100,22 +100,17 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
      const calculateShares = (data: CompanyEntryFormValues, companySettings?: SegmentSettings) => {
         const effectiveSettings = companySettings || {
-            tickets: { type: 'percentage', value: 50 },
-            visas: { type: 'fixed', value: 1 },
-            hotels: { type: 'fixed', value: 1 },
-            groups: { type: 'fixed', value: 1 }
+            ticketProfitPercentage: 50, visaProfitPercentage: 100, hotelProfitPercentage: 100,
+            groupProfitPercentage: 100, alrawdatainSharePercentage: 50,
         };
 
-        const ticketProfits = data.tickets * (effectiveSettings.tickets.value || 0); // Assuming value is profit per ticket
-        const visaProfits = data.visas * (effectiveSettings.visas.value || 0);
-        const hotelProfits = data.hotels * (effectiveSettings.hotels.value || 0);
-        const groupProfits = data.groups * (effectiveSettings.groups.value || 0);
-
+        const ticketProfits = data.tickets * (effectiveSettings.ticketProfitPercentage / 100);
+        const visaProfits = data.visas * (effectiveSettings.visaProfitPercentage / 100);
+        const hotelProfits = data.hotels * (effectiveSettings.hotelProfitPercentage / 100);
+        const groupProfits = data.groups * (effectiveSettings.groupProfitPercentage / 100);
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
-        
-        const alrawdatainSharePercentage = companySettings?.alrawdatainSharePercentage || 50;
-        const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
+        const alrawdatainShare = total * (effectiveSettings.alrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
         
         const client = clients.find(c => c.id === data.clientId);
