@@ -9,7 +9,6 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import FlyChangesTable from './fly-changes-table';
 import { type FlyChangeOrBaggage } from '../actions';
 import AddChangeOrBaggageDialog from './add-change-or-baggage-dialog';
-import InlineNewChangeOrBaggageForm from './inline-new-change-or-baggage-form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -90,22 +89,6 @@ export default function FlyChangesContent({ initialData, clients, suppliers }: F
                     <PlusCircle className="me-2 h-4 w-4" /> إضافة جديدة
                 </Button>
             </AddChangeOrBaggageDialog>
-
-           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                إضافة سريعة <ChevronsUpDown className="ms-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-                <DropdownMenuItem onSelect={() => setShowInlineForm('change')}>
-                    <RefreshCw className="me-2 h-4 w-4"/> إضافة تغيير سريع
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setShowInlineForm('baggage')}>
-                    <Weight className="me-2 h-4 w-4"/> إضافة وزن سريع
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
         
         <div className="flex items-center gap-2 w-full flex-wrap sm:w-auto sm:flex-nowrap justify-end">
@@ -136,16 +119,6 @@ export default function FlyChangesContent({ initialData, clients, suppliers }: F
             </Button>
         </div>
       </div>
-      
-       {showInlineForm && (
-            <InlineNewChangeOrBaggageForm
-                type={showInlineForm}
-                clients={clients}
-                suppliers={suppliers}
-                onSuccess={handleSuccess}
-                onCancel={() => setShowInlineForm(false)}
-            />
-        )}
       
       <FlyChangesTable 
         data={filteredData}

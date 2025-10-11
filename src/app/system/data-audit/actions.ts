@@ -1,12 +1,10 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import type { BookingEntry, DataAuditIssue } from '@/lib/types';
 import { cache } from 'react';
-import { runAdvancedFlightAudit } from '@/app/reports/flight-analysis/actions';
-
+import { runAdvancedFlightAudit as runLegacyAdvancedFlightAudit } from '@/app/reports/flight-analysis/actions';
 
 // Using cache to avoid re-fetching within the same request
 const getBookingsData = cache(async (): Promise<BookingEntry[]> => {
@@ -112,18 +110,19 @@ export async function runDataAudit(options: {
     }
     
     // Use the unified advanced audit logic
-    const reports = await runAdvancedFlightAudit();
-    
-    reports.forEach(report => {
-        if(report.issues) {
-            allIssues.push(...report.issues.tripAnalysis);
-            allIssues.push(...report.issues.duplicatePnr);
-            allIssues.push(...report.issues.fileAnalysis);
-            allIssues.push(...report.issues.dataIntegrity);
-        }
-    });
+    if (options.checkReturnTrip) {
+        const reports = await runLegacyAdvancedFlightAudit();
+        reports.forEach(report => {
+            if(report.issues) {
+                allIssues.push(...report.issues.tripAnalysis);
+                // We'll let the other function handle duplicate PNRs to avoid duplication
+                // allIssues.push(...report.issues.duplicatePnr); 
+                allIssues.push(...report.issues.fileAnalysis);
+                allIssues.push(...report.issues.dataIntegrity);
+            }
+        });
+    }
 
-    
     // TODO: Implement these checks
     if (options.checkCommissionErrors) {
         // issuePromises.push(findCommissionErrors());
@@ -140,5 +139,3 @@ export async function runDataAudit(options: {
 
     return allIssues;
 }
-
-    
