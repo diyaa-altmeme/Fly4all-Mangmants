@@ -14,20 +14,13 @@ import Preloader from '@/components/layout/preloader';
 
 export default function LoginPage() {
   const { user, loading } = useAuth();
-
-  // While checking for user, show a preloader if we are not on the login page itself.
-  // On the login page, we want to show the form until the MainLayout handles the redirect.
-  if (loading && typeof window !== 'undefined' && window.location.pathname !== '/auth/login') {
+  
+  if (loading) {
     return <Preloader />;
   }
   
-  // If the user is logged in, MainLayout will redirect to the dashboard.
-  // Showing a preloader here prevents a flash of the login form.
-  if (user) {
-    return <Preloader />;
-  }
-
-  // Only show the login form if there is no user and not loading.
+  // The MainLayout will handle redirection if the user is already logged in.
+  // We just show the login form here.
   return (
     <div className="bg-background">
         <LandingHeader showTitle={true} isScrolled={false} settings={defaultSettingsData.theme.landingPage} />

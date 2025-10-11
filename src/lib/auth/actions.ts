@@ -120,7 +120,7 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 
         const sessionCookie = await authAdmin.createSessionCookie(idToken, { expiresIn });
         
-        const cookieStore = cookies();
+        const cookieStore = await cookies();
         cookieStore.set('session', sessionCookie, {
             maxAge: expiresIn,
             httpOnly: true,
@@ -138,7 +138,7 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 
 export async function createOtpSessionCookie(sessionPayload: any): Promise<void> {
     const expiresIn = 60 * 60 * 24 * 7; // 7 days in seconds
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set('session', JSON.stringify(sessionPayload), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -189,6 +189,6 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
 
 
 export async function logoutUser() {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.delete('session');
 }

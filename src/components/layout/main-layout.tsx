@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from '@/lib/auth-context';
 import Preloader from './preloader';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import type { User, Client } from "@/lib/types";
 import { UserNav } from "./user-nav";
 import { LandingHeader } from "@/components/landing-page";
@@ -89,37 +89,18 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
-    const router = useRouter();
     const pathname = usePathname();
 
     const isPublicPath = publicRoutes.some(route => pathname.startsWith(route) && (route === '/' ? pathname.length === 1 : true));
 
-    React.useEffect(() => {
-        if (loading) return; // Don't do anything while loading
-
-        if (!user && !isPublicPath) {
-            router.replace('/auth/login');
-        } else if (user && isPublicPath && pathname !== '/') {
-            router.replace('/dashboard');
-        }
-    }, [user, loading, isPublicPath, pathname, router]);
-
     if (loading) {
         return <Preloader />;
     }
-    
-    // If we have a user and we are NOT on a public path, show the main app layout.
-    // Or if we are on the dashboard, it should also be within the app layout.
-    if (user && (!isPublicPath || pathname === '/dashboard')) {
+
+    if (user && !('isClient' in user)) {
         return <AppLayout>{children}</AppLayout>;
     }
     
-    // If it's a public path (and the user is not logged in, or it's the root page),
-    // render the children directly. These pages (like login, landing) manage their own layout.
-    if (isPublicPath) {
-        return <>{children}</>;
-    }
-
-    // Fallback for edge cases, e.g. user is null but path is not public yet.
-    return <Preloader />;
+    // For clients or non-logged-in users on public pages
+    return <>{children}</>;
 }
