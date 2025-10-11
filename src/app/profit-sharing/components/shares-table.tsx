@@ -59,7 +59,7 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
               <TableRow key={share.id}>
                 <TableCell className="font-medium text-center">{share.partnerName}</TableCell>
                 <TableCell className="text-center font-mono">{share.percentage.toFixed(2)}%</TableCell>
-                <TableCell className="text-center font-mono font-bold text-green-600">{share.amount.toLocaleString()} {currency}</TableCell>
+                <TableCell className="text-center font-mono font-bold text-green-600">{share.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {currency}</TableCell>
                 <TableCell className="text-center">{share.notes || "-"}</TableCell>
                 <TableCell className="text-center">
                     <DropdownMenu>

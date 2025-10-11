@@ -12,6 +12,15 @@ import AddEditShareDialog from "./add-edit-share-dialog";
 import Link from "next/link";
 import AddManualProfitDialog from "./add-manual-profit-dialog";
 import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
+import { format, parseISO } from 'date-fns';
+
+
+const StatCard = ({ title, value }: { title: string; value: string }) => (
+    <div className="bg-muted/50 border p-4 rounded-lg text-center">
+        <p className="text-sm text-muted-foreground font-bold">{title}</p>
+        <p className="text-2xl font-bold">{value}</p>
+    </div>
+);
 
 interface ProfitSharingContentProps {
   initialMonthlyProfits: MonthlyProfit[];
@@ -19,13 +28,6 @@ interface ProfitSharingContentProps {
   partners: { id: string; name: string; type: string }[];
   initialMonthId: string;
 }
-
-const StatCard = ({ title, value }: { title: string; value: string }) => (
-    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 p-4 rounded-lg text-center">
-        <p className="text-sm text-green-700 dark:text-green-300 font-bold">{title}</p>
-        <p className="text-2xl font-bold text-green-800 dark:text-green-200">{value}</p>
-    </div>
-);
 
 export default function ProfitSharingContent({ initialMonthlyProfits, initialShares, partners, initialMonthId }: ProfitSharingContentProps) {
   const [selectedMonth, setSelectedMonth] = useState(initialMonthId);
@@ -89,13 +91,29 @@ export default function ProfitSharingContent({ initialMonthlyProfits, initialSha
             </Select>
 
             <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={filteredMonthlyProfits.length === 0}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[280px]">
                     <SelectValue placeholder="اختر فترة..." />
                 </SelectTrigger>
                 <SelectContent>
-                    {filteredMonthlyProfits.map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.id}</SelectItem>
-                    ))}
+                    {filteredMonthlyProfits.map(p => {
+                         const description = p.notes || (p.fromSystem ? `أرباح شهر ${p.id}` : 'فترة يدوية');
+                         const dateInfo = description.match(/من ([\d-]+) إلى ([\d-]+)/);
+                         let fromDate, toDate;
+                         if (dateInfo) {
+                             fromDate = format(parseISO(dateInfo[1]), 'yyyy/MM/dd');
+                             toDate = format(parseISO(dateInfo[2]), 'yyyy/MM/dd');
+                         }
+                        return (
+                            <SelectItem key={p.id} value={p.id}>
+                                <div className="flex flex-col text-right">
+                                    <span className="font-semibold">{description.split(' | ')[0]}</span>
+                                    {fromDate && toDate && (
+                                        <span className="text-xs text-muted-foreground font-mono">{fromDate} - {toDate}</span>
+                                    )}
+                                </div>
+                            </SelectItem>
+                        )
+                    })}
                 </SelectContent>
             </Select>
         </div>
