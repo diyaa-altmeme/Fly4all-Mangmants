@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { Checkbox } from "@/components/ui/checkbox";
 
 const StatCard = ({ title, value, subValue, icon: Icon, valueClass }: { title: string, value: string, subValue?: string, icon: React.ElementType, valueClass?: string }) => (
     <div className="bg-muted/50 p-4 rounded-xl flex items-center gap-4">
