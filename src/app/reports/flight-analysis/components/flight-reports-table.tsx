@@ -24,40 +24,6 @@ import {
 } from 'lucide-react';
 import { saveFlightReport } from '@/app/reports/flight-analysis/actions';
 import { produce } from 'immer';
-
-
-// =================================================================================
-// 1. نافذة رفع وتحليل الملفات (FlightDataExtractorDialog)
-// =================================================================================
-
-/**
- * **FlightDataExtractorDialog**
- * - **الغرض**: هذا هو المكون الأساسي لبدء عملية التحليل بأكملها. يوفر واجهة متكاملة
- *   للمستخدم لرفع ملفات Excel، معاينة البيانات المستخرجة، وحفظها في النظام.
- * 
- * - **آلية العمل**:
- *   1. **منطقة السحب والإفلات (`useDropzone`)**: تسمح للمستخدم بسحب ملفات Excel أو تحديدها يدويًا.
- *   2. **معالجة الملف (`processFile`)**: عند رفع ملف، تقوم هذه الوظيفة بقراءته باستخدام مكتبة `XLSX`.
- *      - **استخراج ذكي**: لا تعتمد على مواقع خلايا ثابتة، بل تبحث عن رؤوس الأعمدة (مثل 'Booking Reference', 'Full Name') لتحديد البيانات.
- *      - **تنظيف وتنسيق**: تحتوي على وظائف مساعدة (`parseDateValue`, `parsePayableValue`) لتنظيف وتوحيد صيغ التواريخ والأرقام.
- *   3. **عرض المعاينة**: لكل ملف يتم تحليله، تعرض بطاقة (`Card`) تحتوي على:
- *      - **ملخص الرحلة**: تفاصيل أساسية مثل المورد، الوجهة، التاريخ، والوقت.
- *      - **ملخص الأسعار**: جدول يوضح توزيع الأسعار وعدد المسافرين لكل سعر.
- *      - **توزيع الحجوزات**: جدول قابل للطي يعرض كل حجز (PNR) مع إمكانية توسيعه لرؤية المسافرين بداخله (`PnrRow`).
- *   4. **أزرار التحكم بالبطاقة**:
- *      - **تصدير**: لتنزيل نسخة Excel من البيانات التي تم تحليلها للتو (قبل الحفظ).
- *      - **حفظ التقرير**: يستدعي `saveFlightReport` (Server Action) لحفظ البيانات في قاعدة البيانات.
- *      - **إزالة**: لحذف البطاقة من قائمة المعاينة إذا كان هناك خطأ.
- *   5. **الحفظ الجماعي (`handleSaveAll`)**: زر لحفظ جميع التقارير التي تم تحليلها دفعة واحدة.
- */
-
-// This file is now very large. Consider splitting it into smaller components.
-// For now, we will proceed with the combined file as requested.
-
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid } from 'date-fns';
@@ -76,6 +42,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import Link from 'next/link';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const formatCurrency = (amount?: number): string => {
     if (typeof amount !== 'number' || isNaN(amount)) {
@@ -472,7 +442,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     onDeleteReport: (id: string) => void;
     onUpdateReport: (updatedReport: FlightReportWithId) => void;
 }) => {
-    const [isOpen, setIsOpen] = useState(false);
+    const [isCollapsibleOpen, setIsCollapsibleOpen] = useState(false);
     const [isTripAnalysisOpen, setIsTripAnalysisOpen] = React.useState(false);
     const [isDuplicatePnrIssuesOpen, setIsDuplicatePnrIssuesOpen] = React.useState(false);
     const [isFileAnalysisOpen, setIsFileAnalysisOpen] = React.useState(false);
@@ -517,17 +487,17 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
             <IssueDetailsDialog issues={duplicatePnrIssues} open={isDuplicatePnrIssuesOpen} onOpenChange={setIsDuplicatePnrIssuesOpen} title="تفاصيل الـ Booking References المكررة" />
             <IssueDetailsDialog issues={fileAnalysisIssues} open={isFileAnalysisOpen} onOpenChange={setIsFileAnalysisOpen} title="تفاصيل الملفات المكررة" />
             
-            <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
+            <Collapsible asChild open={isCollapsibleOpen} onOpenChange={setIsCollapsibleOpen}>
               <tbody className="border-t bg-card">
-                  <TableRow data-state={isOpen ? "open" : "closed"}>
+                  <TableRow data-state={isCollapsibleOpen ? "open" : "closed"}>
                       <TableCell className="text-center">{index + 1}</TableCell>
                       <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
                       <TableCell>
-                          <CollapsibleTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
-                              </Button>
-                          </CollapsibleTrigger>
+                         <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", isCollapsibleOpen && "rotate-180")} />
+                            </Button>
+                        </CollapsibleTrigger>
                       </TableCell>
                       <TableCell>{report.supplierName}</TableCell>
                       <TableCell className="font-semibold">{report.route}</TableCell>
@@ -555,7 +525,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                       <TableCell className="text-center">{hasFileIssues ? <Button variant="destructive" size="sm" onClick={() => setIsFileAnalysisOpen(true)}>مكرر ({fileAnalysisIssues.length})</Button> : <div className="flex items-center justify-center gap-2 font-semibold text-green-600"><CheckCircle className="h-4 w-4" /><span>سليم</span></div>}</TableCell>
                       <TableCell className="text-center">{hasTripIssues ? <Button variant="secondary" size="sm" onClick={() => setIsTripAnalysisOpen(true)}>ذهاب وعودة ({tripAnalysisIssues.length})</Button> : <div className="flex items-center justify-center gap-2 font-semibold text-green-600"><CheckCircle className="h-4 w-4" /><span>سليم</span></div>}</TableCell>
                       <TableCell className="text-center">{hasPnrIssues ? <Button variant="destructive" size="sm" onClick={() => setIsDuplicatePnrIssuesOpen(true)}>تكرار ({duplicatePnrIssues.length})</Button> : <div className="flex items-center justify-center gap-2 font-semibold text-green-600"><CheckCircle className="h-4 w-4" /><span>سليم</span></div>}</TableCell>
-                      <TableCell className="text-center"><div className="flex items-center justify-center gap-2 font-semibold text-green-600"><CheckCircle className="h-4 w-4" /><span>سليم</span></div>}</TableCell>
+                      <TableCell className="text-center"><div className="flex items-center justify-center gap-2 font-semibold text-green-600"><CheckCircle className="h-4 w-4" /><span>سليم</span></div></TableCell>
                       <TableCell className="text-center">
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4"/></Button></DropdownMenuTrigger>
@@ -735,6 +705,3 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
         </div>
     );
 }
-
-
-    
