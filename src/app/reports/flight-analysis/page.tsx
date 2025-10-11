@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { FlightReport, FlightReportWithId } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { runAdvancedFlightAudit } from './actions';
+import { runAdvancedFlightAudit } from '../actions';
 import { useToast } from '@/hooks/use-toast';
 import { produce } from 'immer';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -255,3 +255,5 @@ export default function FlightAnalysisPage() {
         </div>
     );
 }
+
+    
