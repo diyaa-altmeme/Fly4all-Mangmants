@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
+import { produce } from 'immer';
 
 const StatCard = ({ title, value }: { title: string; value: string }) => (
     <div className="bg-muted/50 border p-4 rounded-lg text-center">
