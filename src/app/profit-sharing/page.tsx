@@ -31,23 +31,15 @@ export default async function ProfitSharingPage() {
     }));
     
     const currentMonthId = format(new Date(), 'yyyy-MM');
-    const initialMonthId = monthlyProfits.find(p => p.id === currentMonthId) ? currentMonthId : (monthlyProfits[0]?.id || currentMonthId);
-    const initialShares = await getProfitSharesForMonth(initialMonthId);
+    const initialMonthId = monthlyProfits.find(p => p.id === currentMonthId) ? currentMonthId : (monthlyProfits[0]?.id || '');
+    const initialShares = initialMonthId ? await getProfitSharesForMonth(initialMonthId) : [];
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>توزيع حصص الأرباح</CardTitle>
-                <CardDescription>إدارة وتوزيع حصص الأرباح بين الشركاء والمساهمين.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <ProfitSharingContent
-                    initialMonthlyProfits={monthlyProfits}
-                    initialShares={initialShares}
-                    partners={partners}
-                    initialMonthId={initialMonthId}
-                />
-            </CardContent>
-        </Card>
+        <ProfitSharingContent
+            initialMonthlyProfits={monthlyProfits}
+            initialShares={initialShares}
+            partners={partners}
+            initialMonthId={initialMonthId}
+        />
     );
 }

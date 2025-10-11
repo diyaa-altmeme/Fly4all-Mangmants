@@ -13,7 +13,9 @@ import Link from "next/link";
 import AddManualProfitDialog from "./add-manual-profit-dialog";
 import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
 import { format, parseISO } from 'date-fns';
-
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 const StatCard = ({ title, value }: { title: string; value: string }) => (
     <div className="bg-muted/50 border p-4 rounded-lg text-center">
@@ -69,6 +71,8 @@ export default function ProfitSharingContent({ initialMonthlyProfits, initialSha
   }, [filteredMonthlyProfits, selectedMonth]);
   
   const handleDataChange = () => {
+      // This should trigger a re-fetch at the page level in a real app
+      // For now, we'll re-fetch what this component can control.
       fetchSharesForMonth(selectedMonth);
   };
   
@@ -77,88 +81,110 @@ export default function ProfitSharingContent({ initialMonthlyProfits, initialSha
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-              <SelectTrigger className="w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">الكل</SelectItem>
-                <SelectItem value="system">تلقائي</SelectItem>
-                <SelectItem value="manual">يدوي</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <StatCard title="💰 صافي الربح للفترة" value={`${totalProfit.toLocaleString()} ${selectedProfitData?.currency || 'USD'}`} />
+            <StatCard title="📊 نسبة التوزيع الإجمالية" value={`${totalPercentage.toFixed(2)}%`} />
+            <StatCard title="💵 المبلغ الموزع" value={`${totalAmountDistributed.toLocaleString()} ${selectedProfitData?.currency || 'USD'}`} />
+        </div>
 
-            <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={filteredMonthlyProfits.length === 0}>
-                <SelectTrigger className="w-[280px]">
-                    <SelectValue placeholder="اختر فترة..." />
-                </SelectTrigger>
-                <SelectContent>
-                    {filteredMonthlyProfits.map(p => {
-                         const description = p.notes || (p.fromSystem ? `أرباح شهر ${p.id}` : 'فترة يدوية');
-                         const dateInfo = description.match(/من ([\d-]+) إلى ([\d-]+)/);
-                         let fromDate, toDate;
-                         if (dateInfo) {
-                             fromDate = format(parseISO(dateInfo[1]), 'yyyy/MM/dd');
-                             toDate = format(parseISO(dateInfo[2]), 'yyyy/MM/dd');
-                         }
-                        return (
-                            <SelectItem key={p.id} value={p.id}>
-                                <div className="flex flex-col text-right">
-                                    <span className="font-semibold">{description.split(' | ')[0]}</span>
-                                    {fromDate && toDate && (
-                                        <span className="text-xs text-muted-foreground font-mono">{fromDate} - {toDate}</span>
-                                    )}
-                                </div>
-                            </SelectItem>
-                        )
-                    })}
-                </SelectContent>
-            </Select>
-        </div>
-        <div className="flex items-center gap-2">
-            <AddManualProfitDialog partners={partners} onSuccess={handleDataChange} />
-            <AddEditShareDialog 
-                monthId={selectedMonth} 
-                totalProfit={totalProfit}
-                partners={partners}
-                onSuccess={handleDataChange}
-                disabled={!selectedProfitData || !selectedProfitData.fromSystem}
-            >
-                <Button disabled={!selectedProfitData || !selectedProfitData.fromSystem}><PlusCircle className="me-2 h-4 w-4" /> إضافة توزيع</Button>
-            </AddEditShareDialog>
-        </div>
-      </div>
+        <Card>
+            <CardHeader className="flex flex-row justify-between items-center">
+                <div>
+                    <CardTitle>الفترات المحاسبية للأرباح</CardTitle>
+                    <CardDescription>اختر فترة لعرض توزيع حصصها في الجدول السفلي.</CardDescription>
+                </div>
+                 <div className="flex items-center gap-2">
+                    <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+                        <SelectTrigger className="w-[150px]">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">الكل</SelectItem>
+                            <SelectItem value="system">تلقائي</SelectItem>
+                            <SelectItem value="manual">يدوي</SelectItem>
+                        </SelectContent>
+                    </Select>
+                     <AddManualProfitDialog partners={partners} onSuccess={handleDataChange} />
+                </div>
+            </CardHeader>
+            <CardContent>
+                 <div className="border rounded-lg overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>الوصف</TableHead>
+                                <TableHead>تاريخ البدء</TableHead>
+                                <TableHead>تاريخ الانتهاء</TableHead>
+                                <TableHead className="text-right">إجمالي الربح</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredMonthlyProfits.map(p => {
+                                const description = p.notes || (p.fromSystem ? `أرباح شهر ${p.id}` : 'فترة يدوية');
+                                const dateInfo = description.match(/من ([\d-]+) إلى ([\d-]+)/);
+                                let fromDate = p.fromSystem ? format(parseISO(`${p.id}-01`), 'yyyy-MM-dd') : (dateInfo ? dateInfo[1] : '-');
+                                let toDate = p.fromSystem ? '-' : (dateInfo ? dateInfo[2] : '-');
+                                
+                                return (
+                                    <TableRow
+                                        key={p.id}
+                                        className={cn("cursor-pointer", selectedMonth === p.id && "bg-muted font-bold")}
+                                        onClick={() => setSelectedMonth(p.id)}
+                                    >
+                                        <TableCell className="font-semibold">{description.split(' | ')[0]}</TableCell>
+                                        <TableCell>{fromDate}</TableCell>
+                                        <TableCell>{toDate}</TableCell>
+                                        <TableCell className="text-right font-mono">{p.totalProfit.toLocaleString()} {p.currency || 'USD'}</TableCell>
+                                    </TableRow>
+                                )
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
       
        {!selectedProfitData && !loadingShares ? (
           <div className="text-center p-8 border-2 border-dashed rounded-lg">
              <p className="text-muted-foreground">الرجاء اختيار فترة لعرض بياناتها.</p>
           </div>
        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <StatCard title="💰 صافي الربح للفترة" value={`${totalProfit.toLocaleString()} ${selectedProfitData?.currency || 'USD'}`} />
-                <StatCard title="📊 نسبة التوزيع الإجمالية" value={`${totalPercentage.toFixed(2)}%`} />
-                <StatCard title="💵 المبلغ الموزع" value={`${totalAmountDistributed.toLocaleString()} ${selectedProfitData?.currency || 'USD'}`} />
-            </div>
-
-            {loadingShares ? (
-                <div className="flex justify-center items-center h-64">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-            ) : (
-                <SharesTable 
-                      shares={shares} 
-                      partners={partners} 
-                      onDataChange={handleDataChange}
-                      totalProfit={totalProfit}
-                      currency={selectedProfitData?.currency || 'USD'}
-                      isManual={!selectedProfitData?.fromSystem}
-                  />
-            )}
-         </>
-       )}
+            <Card>
+                <CardHeader className="flex flex-row justify-between items-center">
+                    <div>
+                        <CardTitle>تفاصيل توزيع الحصص</CardTitle>
+                        <CardDescription>
+                            حصص الشركاء والمساهمين من أرباح الفترة المحددة.
+                        </CardDescription>
+                    </div>
+                     <AddEditShareDialog 
+                        monthId={selectedMonth} 
+                        totalProfit={totalProfit}
+                        partners={partners}
+                        onSuccess={handleDataChange}
+                        disabled={!selectedProfitData || !selectedProfitData.fromSystem}
+                    >
+                        <Button disabled={!selectedProfitData || !selectedProfitData.fromSystem}><PlusCircle className="me-2 h-4 w-4" /> إضافة توزيع</Button>
+                    </AddEditShareDialog>
+                </CardHeader>
+                <CardContent>
+                    {loadingShares ? (
+                        <div className="flex justify-center items-center h-64">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : (
+                        <SharesTable 
+                            shares={shares} 
+                            partners={partners} 
+                            onDataChange={handleDataChange}
+                            totalProfit={totalProfit}
+                            currency={selectedProfitData?.currency || 'USD'}
+                            isManual={!selectedProfitData?.fromSystem}
+                        />
+                    )}
+                </CardContent>
+            </Card>
+         )}
 
     </div>
   );
