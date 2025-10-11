@@ -40,7 +40,20 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
   };
 
   const { partnerShares, companyShare } = React.useMemo(() => {
-    const distributedPercentage = shares.reduce((sum, share) => sum + share.percentage, 0);
+    // For system-generated profits, 'shares' contains the full distribution including the company.
+    // For manual entries, 'shares' only contains explicitly added partners.
+    
+    let distributedPercentage = 0;
+    if (isManual) {
+        // For manual, we calculate based on explicitly added shares
+        distributedPercentage = shares.reduce((sum, share) => sum + share.percentage, 0);
+    } else {
+        // For system, the total profit is already the final number. We just display what's there.
+        // Or if we assume shares from DB are only for partners, we do the same calc.
+        // Let's stick to the manual calculation logic for consistency based on the `shares` prop.
+        distributedPercentage = shares.reduce((sum, share) => sum + share.percentage, 0);
+    }
+
     const companyPercentage = 100 - distributedPercentage;
     const companyAmount = totalProfit * (companyPercentage / 100);
 
@@ -49,8 +62,8 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
       profitMonthId: monthId,
       partnerId: 'alrawdatain',
       partnerName: 'حصالة الشركة',
-      percentage: companyPercentage,
-      amount: companyAmount,
+      percentage: companyPercentage > 0.001 ? companyPercentage : 0,
+      amount: companyAmount > 0.001 ? companyAmount : 0,
       notes: 'الحصة المتبقية للشركة',
     };
 
@@ -58,9 +71,9 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
       partnerShares: shares,
       companyShare: companyShareRow,
     };
-  }, [shares, totalProfit, monthId]);
+  }, [shares, totalProfit, monthId, isManual]);
 
-  const allRows = [companyShare, ...partnerShares];
+  const allRows = [companyShare, ...partnerShares].filter(row => row.percentage > 0.001); // Filter out zero-percentage rows
   const totalAmountDistributed = allRows.reduce((sum, row) => sum + row.amount, 0);
 
 
@@ -79,9 +92,9 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
                     totalProfit={totalProfit}
                     partners={partners}
                     onSuccess={onDataChange}
-                    disabled={isManual}
+                    disabled={!isManual}
                 >
-                    <Button variant="ghost" size="sm" disabled={isManual}>إضافة</Button>
+                    <Button variant="ghost" size="sm" disabled={!isManual}>إضافة</Button>
                 </AddEditShareDialog>
             </TableHead>
           </TableRow>
@@ -89,7 +102,14 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
         <TableBody>
           {allRows.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center p-2">لا توجد توزيعات لهذه الفترة.</TableCell>
+                 <TableCell className="font-semibold p-2 text-right flex items-center gap-2">
+                    <Landmark className="h-4 w-4 text-green-600"/>
+                    حصالة الشركة
+                </TableCell>
+                <TableCell className="text-center font-mono p-2">100.00%</TableCell>
+                <TableCell className="text-right font-mono font-bold p-2">{totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {currency}</TableCell>
+                <TableCell className="text-right p-2"> كامل الربح للشركة </TableCell>
+                <TableCell className="text-center p-2"></TableCell>
             </TableRow>
           ) : (
             allRows.map((share, index) => (
@@ -104,7 +124,7 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
                 <TableCell className="text-center p-2">
                   {share.id !== 'company-share' && (
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={isManual}><MoreVertical className="h-4 w-4"/></Button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={!isManual}><MoreVertical className="h-4 w-4"/></Button></DropdownMenuTrigger>
                         <DropdownMenuContent>
                             <AddEditShareDialog
                                 isEditing
@@ -113,13 +133,13 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
                                 totalProfit={totalProfit}
                                 partners={partners}
                                 onSuccess={onDataChange}
-                                disabled={isManual}
+                                disabled={!isManual}
                             >
-                                <DropdownMenuItem onSelect={e => e.preventDefault()} disabled={isManual}><Edit className="me-2 h-4 w-4"/> تعديل</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={e => e.preventDefault()} disabled={!isManual}><Edit className="me-2 h-4 w-4"/> تعديل</DropdownMenuItem>
                             </AddEditShareDialog>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive" disabled={isManual}><Trash2 className="me-2 h-4 w-4"/> حذف</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive" disabled={!isManual}><Trash2 className="me-2 h-4 w-4"/> حذف</DropdownMenuItem>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>هذا الإجراء سيحذف الحصة بشكل دائم.</AlertDialogDescription></AlertDialogHeader>
@@ -141,7 +161,7 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
             <TableRow>
                 <TableCell className="font-bold">المجموع</TableCell>
                 <TableCell className="text-center font-bold font-mono">100.00%</TableCell>
-                <TableCell className="text-right font-bold font-mono">{totalAmountDistributed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {currency}</TableCell>
+                <TableCell className="text-right font-bold font-mono">{totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {currency}</TableCell>
                 <TableCell colSpan={2}></TableCell>
             </TableRow>
         </TableFooter>
