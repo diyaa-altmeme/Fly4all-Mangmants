@@ -29,15 +29,13 @@ import { cn } from '@/lib/utils';
 import { updateManualDiscount } from '../actions';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ChevronDown, Edit, MoreHorizontal, AlertTriangle, Download, FileText as InvoiceIcon, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Repeat, Repeat1, XCircle, FileWarning, Briefcase, User, Plane, Calendar as CalendarIcon, Clock, Users, DollarSign, ShieldCheck, UserSquare, Baby, UserRound, Passport } from 'lucide-react';
+import { ChevronDown, Edit, MoreHorizontal, FileText as InvoiceIcon, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Repeat, Repeat1, XCircle, FileWarning, Briefcase, User, Plane, Calendar as CalendarIcon, Clock, Users, DollarSign, ShieldCheck, UserSquare, Baby, UserRound, Passport, AlertTriangle } from 'lucide-react';
 import { Badge as BadgeComponent } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
 } from "@/components/ui/alert-dialog";
 import { deleteFlightReport, updateFlightReportSelection } from '../actions';
@@ -379,8 +377,6 @@ const ManualDiscountDialog = ({ report, onSaveSuccess }: { report: FlightReportW
     );
 };
 
-
-
 const getTripDirection = (route: string) => {
     if (!route) return '';
     const parts = route.split('-');
@@ -433,6 +429,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     const { toast } = useToast();
     const [showPnrIssues, setShowPnrIssues] = useState(false);
     const [showFileIssues, setShowFileIssues] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
     
     const handleDelete = async () => {
         const result = await deleteFlightReport(report.id);
@@ -455,121 +452,116 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     const hasReturnTripIssues = (report.issues?.tripAnalysis?.length || 0) > 0;
 
     return (
-        <Collapsible asChild>
-            <tbody className="border-b">
-                 <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
-                    <TableCell className="text-center">{index + 1}</TableCell>
-                    <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
-                    <TableCell>
-                        <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
-                            </Button>
-                        </CollapsibleTrigger>
-                    </TableCell>
-                    <TableCell>{report.supplierName}</TableCell>
-                    <TableCell className="font-semibold">{report.route}{tripDirection && <BadgeComponent variant="outline" className="ms-2">{tripDirection}</BadgeComponent>}</TableCell>
-                    <TableCell>{isValid(parseISO(report.flightDate)) ? format(parseISO(report.flightDate), 'yyyy-MM-dd') : report.flightDate}</TableCell>
-                    <TableCell className="text-center">{report.flightTime}</TableCell>
-                    <TableCell className="text-center">{report.paxCount}</TableCell>
-                    <TableCell className="text-center"><PriceSummaryDialog report={report} /></TableCell>
-                    <TableCell className="font-mono text-center text-orange-600">
-                        <DiscountDetailsDialog report={report} defaultOpen="auto">
-                            <button className="w-full text-center hover:underline">{formatCurrency(report.totalDiscount)}</button>
-                        </DiscountDetailsDialog>
-                    </TableCell>
-                    <TableCell className="font-mono text-center text-red-600">
-                        <DiscountDetailsDialog report={report} defaultOpen="manual">
-                            <button className="w-full text-center hover:underline">{formatCurrency(report.manualDiscountValue)}</button>
-                        </DiscountDetailsDialog>
-                    </TableCell>
-                    <TableCell className="font-mono text-center font-bold text-green-600">{formatCurrency(report.filteredRevenue)}</TableCell>
-                    <TableCell className="text-center">{hasFileIssues ? <Button variant="destructive" size="sm" onClick={() => setShowFileIssues(true)}>مكرر ({report.issues?.fileAnalysis.length})</Button> : <BadgeComponent variant="outline">سليم</BadgeComponent>}</TableCell>
-                    <TableCell className="text-center">{hasReturnTripIssues ? <BadgeComponent variant="secondary">ذهاب وعودة ({report.issues?.tripAnalysis.length})</BadgeComponent> : <BadgeComponent variant="outline">سليم</BadgeComponent>}</TableCell>
-                    <TableCell className="text-center">{hasPnrIssues ? <Button variant="destructive" size="sm" onClick={() => setShowPnrIssues(true)}>تكرار ({report.issues?.duplicatePnr.length})</Button> : <BadgeComponent variant="outline">سليم</BadgeComponent>}</TableCell>
-                    <TableCell className="text-center"><BadgeComponent variant="outline">سليم</BadgeComponent}</TableCell>
-                    <TableCell className="text-center">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <ManualDiscountDialog report={report} onSaveSuccess={onUpdateReport} />
-                                <DropdownMenuItem><InvoiceIcon className="me-2 h-4 w-4" /> عرض فاتورة</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-500"><Trash2 className="me-2 h-4 w-4" />حذف التقرير</DropdownMenuItem>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                            <AlertDialogDescription>سيتم حذف هذا التقرير بشكل دائم.</AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({variant:'destructive'}))}>نعم، احذف</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+        <React.Fragment>
+            <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
+                <TableCell className="text-center">{index + 1}</TableCell>
+                <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
+                <TableCell>
+                    <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(!isOpen)}>
+                            <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                        </Button>
+                    </CollapsibleTrigger>
+                </TableCell>
+                <TableCell>{report.supplierName}</TableCell>
+                <TableCell className="font-semibold">{report.route}{tripDirection && <BadgeComponent variant="outline" className="ms-2">{tripDirection}</BadgeComponent>}</TableCell>
+                <TableCell>{isValid(parseISO(report.flightDate)) ? format(parseISO(report.flightDate), 'yyyy-MM-dd') : report.flightDate}</TableCell>
+                <TableCell className="text-center">{report.flightTime}</TableCell>
+                <TableCell className="text-center">{report.paxCount}</TableCell>
+                <TableCell className="text-center"><PriceSummaryDialog report={report} /></TableCell>
+                <TableCell className="font-mono text-center text-orange-600">
+                    <DiscountDetailsDialog report={report} defaultOpen="auto">
+                        <button className="w-full text-center hover:underline">{formatCurrency(report.totalDiscount)}</button>
+                    </DiscountDetailsDialog>
+                </TableCell>
+                <TableCell className="font-mono text-center text-red-600">
+                    <DiscountDetailsDialog report={report} defaultOpen="manual">
+                        <button className="w-full text-center hover:underline">{formatCurrency(report.manualDiscountValue)}</button>
+                    </DiscountDetailsDialog>
+                </TableCell>
+                <TableCell className="font-mono text-center font-bold text-green-600">{formatCurrency(report.filteredRevenue)}</TableCell>
+                <TableCell className="text-center">{hasFileIssues ? <Button variant="destructive" size="sm" onClick={() => setShowFileIssues(true)}>مكرر ({report.issues?.fileAnalysis.length})</Button> : <BadgeComponent variant="outline">سليم</BadgeComponent>}</TableCell>
+                <TableCell className="text-center">{hasReturnTripIssues ? <BadgeComponent variant="secondary">ذهاب وعودة ({report.issues?.tripAnalysis.length})</BadgeComponent> : <BadgeComponent variant="outline">سليم</BadgeComponent>}</TableCell>
+                <TableCell className="text-center">{hasPnrIssues ? <Button variant="destructive" size="sm" onClick={() => setShowPnrIssues(true)}>تكرار ({report.issues?.duplicatePnr.length})</Button> : <BadgeComponent variant="outline">سليم</BadgeComponent>}</TableCell>
+                <TableCell className="text-center"><BadgeComponent variant="outline">سليم</BadgeComponent></TableCell>
+                <TableCell className="text-center">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <ManualDiscountDialog report={report} onSaveSuccess={onUpdateReport} />
+                            <DropdownMenuItem><InvoiceIcon className="me-2 h-4 w-4" /> عرض فاتورة</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="me-2 h-4 w-4" />حذف التقرير</DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                        <AlertDialogDescription>سيتم حذف هذا التقرير بشكل دائم.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({variant:'destructive'}))}>نعم، احذف</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </TableCell>
+            </TableRow>
+             {isOpen && (
+                <TableRow>
+                    <TableCell colSpan={17} className="p-0">
+                        <div className="p-4 bg-muted/50">
+                            <h4 className="font-bold mb-2">تفاصيل المسافرين:</h4>
+                            <div className="border rounded-lg overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-background">
+                                        <TableHead className="font-semibold">المسافر</TableHead>
+                                        <TableHead className="font-semibold">الجواز</TableHead>
+                                        <TableHead className="font-semibold">PNR / مرجع الحجز</TableHead>
+                                        <TableHead className="text-center font-semibold">نوع الرحلة</TableHead>
+                                        <TableHead className="text-center font-semibold">السعر المدفوع</TableHead>
+                                        <TableHead className="text-center font-semibold">السعر الفعلي</TableHead>
+                                        <TableHead className="text-center font-semibold">الحالة</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {(report.passengers || []).map((p, i) => (
+                                        <TableRow key={`${p.name}-${i}`}>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <PassengerTypeIcon type={p.passengerType!} />
+                                                    <span className="font-medium">{p.name}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="font-mono">{p.passportNumber || '-'}</TableCell>
+                                            <TableCell className="font-mono">{p.pnrClass} / {p.bookingReference}</TableCell>
+                                            <TableCell className="text-center"><TripTypeBadge type={p.tripType} /></TableCell>
+                                            <TableCell className="text-center font-mono">{formatCurrency(p.payable)}</TableCell>
+                                            <TableCell className="text-center font-mono font-bold text-primary">{formatCurrency(p.actualPrice)}</TableCell>
+                                            <TableCell className="text-center">
+                                                {(report.issues?.tripAnalysis || []).find(issue => issue.details?.some((d: any) => d.bookingReference === p.bookingReference)) 
+                                                    ? <BadgeComponent variant="secondary">ذهاب وعودة</BadgeComponent>
+                                                    : <BadgeComponent variant="outline">ذهاب فقط</BadgeComponent>
+                                                }
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                            </div>
+                        </div>
                     </TableCell>
                 </TableRow>
-                <CollapsibleContent asChild>
-                    <TableRow>
-                        <TableCell colSpan={17} className="p-0">
-                            <div className="p-4 bg-muted/50">
-                                <h4 className="font-bold mb-2">تفاصيل المسافرين:</h4>
-                                <div className="border rounded-lg overflow-hidden">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="bg-background">
-                                            <TableHead className="font-semibold">المسافر</TableHead>
-                                            <TableHead className="font-semibold">الجواز</TableHead>
-                                            <TableHead className="font-semibold">PNR / مرجع الحجز</TableHead>
-                                            <TableHead className="text-center font-semibold">نوع الرحلة</TableHead>
-                                            <TableHead className="text-center font-semibold">السعر المدفوع</TableHead>
-                                            <TableHead className="text-center font-semibold">السعر الفعلي</TableHead>
-                                            <TableHead className="text-center font-semibold">الحالة</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {(report.passengers || []).map((p, i) => (
-                                            <TableRow key={`${p.name}-${i}`}>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <PassengerTypeIcon type={p.passengerType!} />
-                                                        <span className="font-medium">{p.name}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="font-mono">{p.passportNumber || '-'}</TableCell>
-                                                <TableCell className="font-mono">{p.pnrClass} / {p.bookingReference}</TableCell>
-                                                <TableCell className="text-center"><TripTypeBadge type={p.tripType} /></TableCell>
-                                                <TableCell className="text-center font-mono">{formatCurrency(p.payable)}</TableCell>
-                                                <TableCell className="text-center font-mono font-bold text-primary">{formatCurrency(p.actualPrice)}</TableCell>
-                                                <TableCell className="text-center">
-                                                    {(report.issues?.tripAnalysis || []).find(issue => issue.details?.some((d: any) => d.bookingReference === p.bookingReference)) 
-                                                        ? <BadgeComponent variant="secondary">ذهاب وعودة</BadgeComponent>
-                                                        : <BadgeComponent variant="outline">ذهاب فقط</BadgeComponent>
-                                                    }
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                                </div>
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                </CollapsibleContent>
-                 {report.issues && <IssueDetailsDialog issues={report.issues.duplicatePnr} open={showPnrIssues} onOpenChange={setShowPnrIssues} title="مشاكل تكرار مرجع الحجز" />}
-                {report.issues && <IssueDetailsDialog issues={report.issues.fileAnalysis} open={showFileIssues} onOpenChange={setShowFileIssues} title="مشاكل تكرار ملف الرحلة" />}
-            </tbody>
-        </Collapsible>
+            )}
+             {report.issues && <IssueDetailsDialog issues={report.issues.duplicatePnr} open={showPnrIssues} onOpenChange={setShowPnrIssues} title="مشاكل تكرار مرجع الحجز" />}
+            {report.issues && <IssueDetailsDialog issues={report.issues.fileAnalysis} open={showFileIssues} onOpenChange={setShowFileIssues} title="مشاكل تكرار ملف الرحلة" />}
+        </React.Fragment>
     );
 };
-
-type SortKey = keyof FlightReport | 'totalRevenue' | 'paxCount' | 'filteredRevenue' | 'supplierName' | 'totalDiscount' | 'manualDiscountValue';
-type SortDirection = 'ascending' | 'descending';
 
 const SortableHeader = ({ column, sortDescriptor, setSortDescriptor, children }: {
     column: SortKey;
@@ -590,7 +582,14 @@ const SortableHeader = ({ column, sortDescriptor, setSortDescriptor, children }:
 
 
 // --- Main Table Component ---
-export default function FlightReportsTable({ reports, sortDescriptor, setSortDescriptor, onSelectionChange, onUpdateReport, onDeleteReport }: any) {
+export default function FlightReportsTable({ reports, sortDescriptor, setSortDescriptor, onSelectionChange, onUpdateReport, onDeleteReport }: { 
+    reports: FlightReportWithId[], 
+    sortDescriptor: { column: SortKey, direction: SortDirection },
+    setSortDescriptor: (descriptor: { column: SortKey, direction: SortDirection }) => void,
+    onSelectionChange: (selected: FlightReportWithId[]) => void,
+    onUpdateReport: (updatedReport: FlightReportWithId) => void,
+    onDeleteReport: (id: string) => void
+}) {
     const [selectedIds, setSelectedIds] = React.useState(new Set<string>());
 
     React.useEffect(() => {
@@ -626,13 +625,13 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
                         <TableHead className="w-[50px]"></TableHead>
                         <TableHead><SortableHeader column="supplierName" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>المصدر</SortableHeader></TableHead>
                         <TableHead><SortableHeader column="route" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الوجهة</SortableHeader></TableHead>
-                        <TableHead><SortableHeader column="flightDate" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>تاريخ الرحلة</TableHead></TableHead>
+                        <TableHead><SortableHeader column="flightDate" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>تاريخ الرحلة</SortableHeader></TableHead>
                         <TableHead className="text-center">الوقت</TableHead>
                         <TableHead><SortableHeader column="paxCount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>المسافرون</TableHead></TableHead>
-                        <TableHead><SortableHeader column="totalRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الإجمالي</TableHead></TableHead>
-                        <TableHead><SortableHeader column="totalDiscount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم تلقائي</TableHead></TableHead>
-                        <TableHead><SortableHeader column="manualDiscountValue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم يدوي</TableHead></TableHead>
-                        <TableHead><SortableHeader column="filteredRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الصافي</TableHead></TableHead>
+                        <TableHead><SortableHeader column="totalRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الإجمالي</SortableHeader></TableHead>
+                        <TableHead><SortableHeader column="totalDiscount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم تلقائي</SortableHeader></TableHead>
+                        <TableHead><SortableHeader column="manualDiscountValue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم يدوي</SortableHeader></TableHead>
+                        <TableHead><SortableHeader column="filteredRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الصافي</SortableHeader></TableHead>
                         <TableHead>تحليل الملف</TableHead>
                         <TableHead>تحليل الرحلة</TableHead>
                         <TableHead>الـ B.R المكررة</TableHead>
@@ -640,15 +639,15 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
                         <TableHead>الإجراءات</TableHead>
                     </TableRow>
                 </TableHeader>
-                
+                <TableBody>
                     {reports.length === 0 ? (
-                        <TableBody>
-                            <TableRow><TableCell colSpan={17} className="h-24 text-center">لا توجد تقارير محفوظة.</TableCell></TableRow>
-                        </TableBody>
+                        <TableRow>
+                            <TableCell colSpan={17} className="h-24 text-center">لا توجد تقارير محفوظة.</TableCell>
+                        </TableRow>
                     ) : reports.map((report: FlightReportWithId, index: number) => (
                         <ReportRow key={report.id} report={report} index={index} onDeleteReport={onDeleteReport} onSelectionChange={handleSelectRow} onUpdateReport={onUpdateReport}/>
                     ))}
-                
+                </TableBody>
             </Table>
         </div>
     );
