@@ -106,7 +106,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     }, [open, periodForm, companyForm]);
 
      const calculateShares = (data: CompanyEntryFormValues, companySettings?: SegmentSettings) => {
-        const effectiveSettings = companySettings || {
+        const effectiveSettings: SegmentSettings = companySettings || {
             ticketProfitPercentage: 50, visaProfitPercentage: 100, hotelProfitPercentage: 100,
             groupProfitPercentage: 100, alrawdatainSharePercentage: 50,
         };
@@ -302,5 +302,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
