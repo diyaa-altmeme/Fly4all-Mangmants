@@ -71,7 +71,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { DialogTrigger } from "@/components/ui/dialog";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useAuth } from '@/lib/auth-context';
-import type { PERMISSIONS } from '@/lib/permissions';
+import type { Permission } from '@/lib/types';
+import { PERMISSIONS } from '@/lib/permissions';
 
 const NavLink = ({ href, children, active, className }: { href: string; children: React.ReactNode, active: boolean, className?: string }) => (
     <Link
@@ -109,7 +110,7 @@ const reportsItems = [
 ];
 
 const systemItems = [
-    { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'settings:read' },
+    { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'settings:update' },
     { href: "/users", label: "الموظفين والصلاحيات", icon: Briefcase, permission: 'users:read' },
     { href: "/system/activity-log", label: "سجل النشاطات", icon: History, permission: 'system:audit_log:read' },
     { href: "/system/error-log", label: "سجل الأخطاء", icon: FileWarning, permission: 'system:error_log:read' },
@@ -137,7 +138,7 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
         { href: "/settings", label: "الإعدادات", icon: Settings, permission: 'settings:read' }
     ];
     
-    const visibleMenuItems = menuItems.filter(item => hasPermission(item.permission as keyof typeof PERMISSIONS));
+    const visibleMenuItems = menuItems.filter(item => hasPermission(item.permission as Permission));
     const canCreate = hasPermission('vouchers:create');
 
     const MobileButtonWrapper = ({ DialogComponent, label, Icon }: { DialogComponent: React.ElementType, label: string, Icon: React.ElementType }) => (
@@ -245,7 +246,7 @@ const MainNavContent = () => {
       return items.filter(item => {
           if (item.permission === 'public') return true;
           if (item.permission === 'admin') return user && 'role' in user && user.role === 'admin';
-          return hasPermission(item.permission as keyof typeof PERMISSIONS);
+          return hasPermission(item.permission as Permission);
       });
   }
   
@@ -270,7 +271,7 @@ const MainNavContent = () => {
                 </AddClientDialog>
                 }
                 <DropdownMenuSeparator />
-                {hasPermission('settings:read') && <DropdownMenuItem asChild><Link href="/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>}
+                {hasPermission('settings:read') && <DropdownMenuItem asChild><Link href="/relations/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>}
            </>
       )},
       {
@@ -348,7 +349,7 @@ const MainNavContent = () => {
                        <PlusCircle className="h-4 w-4" />
                     </button>
                 </AddClientDialog>}
-                {hasPermission('settings:read') && <MobileSubItem href="/settings" icon={Settings}>الإعدادات</MobileSubItem>}
+                {hasPermission('settings:read') && <MobileSubItem href="/relations/settings" icon={Settings}>الإعدادات</MobileSubItem>}
             </div>
         )
       }
@@ -438,3 +439,5 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
+
+    
