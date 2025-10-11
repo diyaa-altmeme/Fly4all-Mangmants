@@ -17,7 +17,7 @@ import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/comp
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -29,7 +29,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid } from 'date-fns';
-import { produce } from 'immer';
 import Image from 'next/image';
 
 import { 
@@ -368,7 +367,7 @@ const getTripDirection = (route: string) => {
 const IssueDetailsDialog = ({ issues, open, onOpenChange, title }: { issues: DataAuditIssue[], open: boolean, onOpenChange: (open: boolean) => void, title: string }) => {
     if (!issues || issues.length === 0) return null;
     
-    const description = `تم العثور على ${issues.length} مشكلة من هذا النوع.`;
+    const description = `تم العثور على ${issues.length} مشكلة من هذا النوع.`
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -428,6 +427,7 @@ const IssueDetailsDialog = ({ issues, open, onOpenChange, title }: { issues: Dat
     );
 };
 
+
 const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateReport }: {
     report: FlightReportWithId;
     index: number;
@@ -441,6 +441,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     const [isFileAnalysisOpen, setIsFileAnalysisOpen] = React.useState(false);
     const { toast } = useToast();
 
+    // استخراج المشاكل من التقرير
     const tripAnalysisIssues = report.issues?.tripAnalysis || [];
     const duplicatePnrIssues = report.issues?.duplicatePnr || [];
     const fileAnalysisIssues = report.issues?.fileAnalysis || [];
@@ -473,17 +474,15 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
             <IssueDetailsDialog issues={tripAnalysisIssues} open={isTripAnalysisOpen} onOpenChange={setIsTripAnalysisOpen} title="تفاصيل رحلات الذهاب والعودة" />
             <IssueDetailsDialog issues={duplicatePnrIssues} open={isDuplicatePnrIssuesOpen} onOpenChange={setIsDuplicatePnrIssuesOpen} title="تفاصيل الـ Booking References المكررة" />
             <IssueDetailsDialog issues={fileAnalysisIssues} open={isFileAnalysisOpen} onOpenChange={setIsFileAnalysisOpen} title="تفاصيل الملفات المكررة" />
-            
-            <tbody className="border-b">
-                <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
+            <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
                     <TableCell className="text-center">{index + 1}</TableCell>
                     <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
                     <TableCell>
-                         <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(!isOpen)}>
+                         <Collapsible trigger={<CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
                             </Button>
-                        </CollapsibleTrigger>
+                        </CollapsibleTrigger>} open={isOpen} onOpenChange={setIsOpen}>
                     </TableCell>
                     <TableCell>{report.supplierName}</TableCell>
                     <TableCell className="font-semibold">{report.route}</TableCell>
@@ -538,9 +537,9 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                         </DropdownMenu>
                     </TableCell>
                 </TableRow>
-                <CollapsibleContent asChild>
-                    <TableRow>
-                        <TableCell colSpan={17} className="p-0">
+                <TableRow>
+                    <TableCell colSpan={17} className="p-0">
+                        <CollapsibleContent>
                             <div className="p-4 bg-muted/50">
                                 <h4 className="font-bold mb-2">تفاصيل المسافرين:</h4>
                                 <div className="border rounded-lg overflow-hidden">
@@ -556,23 +555,22 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                                         </TableHeader>
                                         <TableBody>
                                             {(report.passengers || []).map((p: ExtractedPassenger & { tripType?: 'DEPARTURE' | 'RETURN' | 'SINGLE' }, i: number) => (
-                                                <TableRow key={p.name + i}>
-                                                    <TableCell>{p.name}</TableCell>
-                                                    <TableCell>{p.passportNumber || '-'}</TableCell>
-                                                    <TableCell><Badge variant="outline">{p.passengerType || 'Adult'}</Badge></TableCell>
-                                                    <TableCell>{p.tripType}</TableCell>
-                                                    <TableCell className="text-right font-mono">{p.payable}</TableCell>
-                                                </TableRow>
-                                            ))}
+                                            <TableRow key={p.name + i}>
+                                                <TableCell>{p.name}</TableCell>
+                                                <TableCell>{p.passportNumber || '-'}</TableCell>
+                                                <TableCell><Badge variant="outline">{p.passengerType || 'Adult'}</Badge></TableCell>
+                                                <TableCell>{p.tripType}</TableCell>
+                                                <TableCell className="text-right font-mono">{p.payable}</TableCell>
+                                            </TableRow>
+                                        ))}
                                         </TableBody>
                                     </Table>
                                 </div>
                             </div>
-                        </TableCell>
-                    </TableRow>
-                </CollapsibleContent>
-            </tbody>
-        </React.Fragment>
+                        </CollapsibleContent>
+                    </TableCell>
+                </TableRow>
+       </React.Fragment>
     );
 };
 
@@ -586,20 +584,16 @@ const SortableHeader: React.FC<{
   children: React.ReactNode;
 }> = ({ column, sortDescriptor, setSortDescriptor, children }) => {
     const isSorted = sortDescriptor.column === column;
-    const isAscending = sortDescriptor.direction === 'ascending';
-    
+    const direction = isSorted ? sortDescriptor.direction : 'descending';
+
     const toggleSort = () => {
-        if (isSorted) {
-            setSortDescriptor({ column, direction: isAscending ? 'descending' : 'ascending' });
-        } else {
-            setSortDescriptor({ column, direction: 'descending' });
-        }
+        setSortDescriptor({ column, direction: isSorted && direction === 'ascending' ? 'descending' : 'ascending' });
     };
     
     return (
         <Button variant="ghost" onClick={toggleSort} className="px-1">
             {children}
-            {isSorted && (isAscending ? <ArrowUp className="ms-2 h-4 w-4" /> : <ArrowDown className="ms-2 h-4 w-4" />)}
+            {isSorted && (direction === 'ascending' ? <ArrowUp className="ms-2 h-4 w-4" /> : <ArrowDown className="ms-2 h-4 w-4" />)}
             {!isSorted && <ArrowUpDown className="ms-2 h-4 w-4 opacity-30" />}
         </Button>
     )
@@ -672,14 +666,13 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
                         <TableHead className="text-center">الإجراءات</TableHead>
                     </TableRow>
                 </TableHeader>
-                
                     {reports.length === 0 ? (
                         <TableBody>
                             <TableRow><TableCell colSpan={17} className="h-24 text-center">لا توجد تقارير لعرضها.</TableCell></TableRow>
                         </TableBody>
                     ) : (
                         reports.map((report, index) => (
-                            <ReportRow
+                             <ReportRow
                                 key={report.id}
                                 report={report}
                                 index={index}
@@ -693,5 +686,3 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
         </div>
     );
 }
-
-    
