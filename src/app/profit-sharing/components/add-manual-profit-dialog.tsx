@@ -21,7 +21,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { saveManualProfitDistribution } from "@/app/profits/manual/actions";
+import { saveManualProfitDistribution } from "@/app/profit-sharing/actions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -254,7 +254,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                               </TableHeader>
                               <TableBody>
                                   {distribution.map((d, index) => (
-                                      <TableRow key={`${d.id}-${index}`} className={d.id === 'alrawdatain' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
+                                      <TableRow key={`${''}${d.id}-${index}`} className={d.id === 'alrawdatain' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
                                           <TableCell className="font-semibold flex items-center gap-2">
                                               {d.id === 'alrawdatain' && <Landmark className="h-4 w-4 text-green-600"/>}
                                               {d.name}
@@ -293,3 +293,5 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     </Dialog>
   );
 }
+
+    
