@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -520,7 +521,10 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                       </TableCell>
                       <TableCell className="font-mono text-center font-bold text-green-600">
                            <DiscountDetailsDialog report={report}>
-                               <button className="w-full text-center hover:underline">{formatCurrency(report.filteredRevenue)}</button>
+                               <button className="w-full text-center hover:underline flex items-center justify-center gap-1">
+                                 {hasFileIssues && <AlertTriangle className="h-4 w-4 text-destructive" />}
+                                 {formatCurrency(report.filteredRevenue)}
+                                </button>
                            </DiscountDetailsDialog>
                       </TableCell>
                       <TableCell className="text-center">{hasFileIssues ? <Button variant="destructive" size="sm" onClick={() => setIsFileAnalysisOpen(true)}>مكرر ({fileAnalysisIssues.length})</Button> : <div className="flex items-center justify-center gap-2 font-semibold text-green-600"><CheckCircle className="h-4 w-4" /><span>سليم</span></div>}</TableCell>

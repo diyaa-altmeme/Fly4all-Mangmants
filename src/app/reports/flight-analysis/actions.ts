@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -113,44 +114,54 @@ const processSingleReport = (report: FlightReport, passengerTripMap: Map<string,
         draftReport.tripTypeCounts = { oneWay: 0, roundTrip: 0 };
         const processedPassengersForTripCount = new Set<string>();
 
-        (draftReport.passengers || []).forEach(passenger => {
-            const uniqueKey = `${normalizeName(passenger.bookingReference)}|${normalizeName(passenger.name)}|${passenger.passportNumber || ''}`;
-            const allTripsForPassengerOnPnr = passengerTripMap.get(uniqueKey) || [];
-            
-            if (allTripsForPassengerOnPnr.length > 1) {
-                 if (!processedPassengersForTripCount.has(uniqueKey)) {
-                    draftReport.tripTypeCounts.roundTrip += 1;
-                    processedPassengersForTripCount.add(uniqueKey);
-                }
-
-                const currentTripInstance = allTripsForPassengerOnPnr.find(t => t.reportId === draftReport.id);
-                if (currentTripInstance) {
-                    const tripIndex = allTripsForPassengerOnPnr.indexOf(currentTripInstance);
-                    if (tripIndex === 0) { passenger.tripType = 'DEPARTURE'; passenger.actualPrice = passenger.payable; } 
-                    else if (tripIndex > 0) { passenger.tripType = 'RETURN'; passenger.actualPrice = 0; passenger.departureDate = allTripsForPassengerOnPnr[0].date.toISOString(); draftReport.totalDiscount! += passenger.payable; }
-                }
+        // Check for duplicate file issue
+        const isDuplicateFile = fileAnalysisIssues.length > 0;
+        if (isDuplicateFile) {
+            // If it's a duplicate file, zero out its financial contributions
+            draftReport.totalDiscount = 0;
+            draftReport.manualDiscountValue = 0;
+            draftReport.filteredRevenue = 0;
+        } else {
+             (draftReport.passengers || []).forEach(passenger => {
+                const uniqueKey = `${normalizeName(passenger.bookingReference)}|${normalizeName(passenger.name)}|${passenger.passportNumber || ''}`;
+                const allTripsForPassengerOnPnr = passengerTripMap.get(uniqueKey) || [];
                 
-                if (!draftReport.issues!.tripAnalysis.some(issue => issue.id === `return-${uniqueKey}`)) {
-                    draftReport.issues!.tripAnalysis.push({ id: `return-${uniqueKey}`, type: 'UNMATCHED_RETURN', pnr: passenger.bookingReference, description: `رحلة ذهاب وعودة للمسافر: ${passenger.name}`, details: allTripsForPassengerOnPnr });
+                if (allTripsForPassengerOnPnr.length > 1) {
+                    if (!processedPassengersForTripCount.has(uniqueKey)) {
+                        draftReport.tripTypeCounts.roundTrip += 1;
+                        processedPassengersForTripCount.add(uniqueKey);
+                    }
+
+                    const currentTripInstance = allTripsForPassengerOnPnr.find(t => t.reportId === draftReport.id);
+                    if (currentTripInstance) {
+                        const tripIndex = allTripsForPassengerOnPnr.indexOf(currentTripInstance);
+                        if (tripIndex === 0) { passenger.tripType = 'DEPARTURE'; passenger.actualPrice = passenger.payable; } 
+                        else if (tripIndex > 0) { passenger.tripType = 'RETURN'; passenger.actualPrice = 0; passenger.departureDate = allTripsForPassengerOnPnr[0].date.toISOString(); draftReport.totalDiscount! += passenger.payable; }
+                    }
+                    
+                    if (!draftReport.issues!.tripAnalysis.some(issue => issue.id === `return-${uniqueKey}`)) {
+                        draftReport.issues!.tripAnalysis.push({ id: `return-${uniqueKey}`, type: 'UNMATCHED_RETURN', pnr: passenger.bookingReference, description: `رحلة ذهاب وعودة للمسافر: ${passenger.name}`, details: allTripsForPassengerOnPnr });
+                    }
+                } else {
+                    if (!processedPassengersForTripCount.has(uniqueKey)) {
+                        draftReport.tripTypeCounts.oneWay += 1;
+                        processedPassengersForTripCount.add(uniqueKey);
+                    }
+                    passenger.tripType = 'SINGLE'; passenger.actualPrice = passenger.payable;
                 }
-            } else {
-                 if (!processedPassengersForTripCount.has(uniqueKey)) {
-                    draftReport.tripTypeCounts.oneWay += 1;
-                    processedPassengersForTripCount.add(uniqueKey);
-                }
-                passenger.tripType = 'SINGLE'; passenger.actualPrice = passenger.payable;
+            });
+            
+            let manualDiscountValue = 0;
+            if(draftReport.manualDiscount?.type === 'fixed') { manualDiscountValue = draftReport.manualDiscount.value || 0; } 
+            else if (draftReport.manualDiscount?.type === 'per_passenger') {
+                const passengerCounts = (draftReport.passengers || []).reduce((acc, p) => { acc[p.passengerType || 'Adult'] = (acc[p.passengerType || 'Adult'] || 0) + 1; return acc; }, {} as Record<string, number>);
+                manualDiscountValue = ((passengerCounts.Adult || 0) * (draftReport.manualDiscount.perAdult || 0)) + ((passengerCounts.Child || 0) * (draftReport.manualDiscount.perChild || 0)) + ((passengerCounts.Infant || 0) * (draftReport.manualDiscount.perInfant || 0));
             }
-        });
-        
-        let manualDiscountValue = 0;
-        if(draftReport.manualDiscount?.type === 'fixed') { manualDiscountValue = draftReport.manualDiscount.value || 0; } 
-        else if (draftReport.manualDiscount?.type === 'per_passenger') {
-            const passengerCounts = (draftReport.passengers || []).reduce((acc, p) => { acc[p.passengerType || 'Adult'] = (acc[p.passengerType || 'Adult'] || 0) + 1; return acc; }, {} as Record<string, number>);
-            manualDiscountValue = ((passengerCounts.Adult || 0) * (draftReport.manualDiscount.perAdult || 0)) + ((passengerCounts.Child || 0) * (draftReport.manualDiscount.perChild || 0)) + ((passengerCounts.Infant || 0) * (draftReport.manualDiscount.perInfant || 0));
+
+            draftReport.manualDiscountValue = manualDiscountValue;
+            draftReport.filteredRevenue = (draftReport.totalRevenue || 0) - (draftReport.totalDiscount || 0) - manualDiscountValue;
         }
 
-        draftReport.manualDiscountValue = manualDiscountValue;
-        draftReport.filteredRevenue = (draftReport.totalRevenue || 0) - (draftReport.totalDiscount || 0) - manualDiscountValue;
     });
 };
 
