@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
@@ -244,10 +245,6 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
   }, [extractedData]);
 
   const handleSave = async () => {
-    if (!defaultSupplier) {
-        toast({ title: "مطلوب", description: "الرجاء اختيار مصدر للتقرير.", variant: "destructive" });
-        return;
-    }
       setIsSaving(true);
       const supplierInfo = supplierOptions.find(s => s.value === defaultSupplier);
       
@@ -256,15 +253,15 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
           flightDate: flightInfo.date,
           flightTime: flightInfo.time,
           route: flightInfo.route,
-          supplierName: supplierInfo?.label || 'Unknown',
+          supplierName: supplierInfo?.label || 'تحليل',
           paxCount,
           totalRevenue,
           pnrGroups: extractedData,
           passengers: extractedData.flatMap(pnrGroup => pnrGroup.passengers),
           payDistribution,
           tripTypeCounts,
-          filteredRevenue: 0, // This will be calculated on the backend/analysis
-          totalDiscount: 0, // This will be calculated on the backend/analysis
+          filteredRevenue: 0,
+          totalDiscount: 0,
       };
 
       const result = await saveFlightReport(reportToSave);
@@ -422,15 +419,6 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
             )}
         </div>
          <DialogFooter>
-            <div className="flex items-center gap-2">
-                <Label>مصدر التقرير:</Label>
-                <Autocomplete
-                    options={supplierOptions}
-                    value={defaultSupplier}
-                    onValueChange={setDefaultSupplier}
-                    placeholder="اختر المورد..."
-                />
-            </div>
           <DialogClose asChild>
             <Button variant="ghost">إلغاء</Button>
           </DialogClose>
@@ -442,5 +430,3 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
     </Dialog>
   );
 }
-
-    
