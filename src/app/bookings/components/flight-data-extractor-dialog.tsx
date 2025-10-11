@@ -141,7 +141,7 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
                 const lastName = detectedLastNameCol ? (row[detectedLastNameCol] || '') : '';
 
                 if (firstName && lastName) {
-                    passengerName = `${firstName} ${lastName}`.trim();
+                    passengerName = `${''}${firstName} ${lastName}`.trim();
                 } else if (detectedFullNameCol) {
                     passengerName = row[detectedFullNameCol] || 'N/A';
                 }
@@ -248,18 +248,14 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
   }, [extractedData]);
 
   const handleSave = async () => {
-      if (!defaultClient || !defaultSupplier) {
-          toast({ title: 'بيانات ناقصة', description: 'الرجاء اختيار مورد وعميل افتراضي لحفظ الحجوزات.', variant: 'destructive' });
-          return;
-      }
       setIsSaving(true);
       const allBookingsToSave: Omit<BookingEntry, 'id' | 'invoiceNumber' | 'enteredBy' | 'enteredAt' | 'isEntered' | 'isAudited' | 'isDeleted'>[] = extractedData.map(pnrGroup => ({
           pnr: pnrGroup.pnr,
           route: flightInfo.route,
           issueDate: flightInfo.date,
           travelDate: flightInfo.date,
-          supplierId: defaultSupplier,
-          clientId: defaultClient,
+          supplierId: 'default_supplier_for_analysis',
+          clientId: 'default_client_for_analysis',
           boxId: 'default_box', // Placeholder
           currency: 'USD',
           notes: `تم الاستيراد من ملف: ${fileName}`,
@@ -352,20 +348,6 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
                                 <CardDescription>تم تحليل {paxCount} مسافر.</CardDescription>
                             </div>
                              <div className="flex items-center gap-2">
-                                <Autocomplete
-                                    searchAction="suppliers"
-                                    placeholder="المورد الافتراضي..."
-                                    value={defaultSupplier}
-                                    onValueChange={setDefaultSupplier}
-                                    options={supplierOptions}
-                                />
-                                <Autocomplete
-                                    searchAction="clients"
-                                    placeholder="العميل الافتراضي..."
-                                    value={defaultClient}
-                                    onValueChange={setDefaultClient}
-                                    options={clientOptions}
-                                />
                                 <Button variant="outline" onClick={handleExport}>
                                     <Download className="me-2 h-4 w-4" />
                                     تصدير النتائج
