@@ -1,9 +1,7 @@
-
-"use client";
+'use client';
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import FlightDataExtractorDialog from '@/app/bookings/components/flight-data-extractor-dialog';
 import FlightAnalysisContent from './components/flight-analysis-content';
 import { useRouter } from 'next/navigation';
 import { PlusCircle, Wand2, Search, DollarSign, RefreshCw, Loader2, FileSpreadsheet, Users, User, Baby, UserSquare } from 'lucide-react';
@@ -17,10 +15,9 @@ import { produce } from 'immer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDebounce } from '@/hooks/use-debounce';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
-// import * as XLSX from 'xlsx'; // Temporarily disabled
+import * as XLSX from 'xlsx';
 import { isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-
 
 export default function FlightAnalysisPage() {
     const router = useRouter();
