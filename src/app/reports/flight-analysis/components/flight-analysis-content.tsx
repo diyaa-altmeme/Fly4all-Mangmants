@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, RefreshCw, Download, FileSpreadsheet, Search, Users, User, ArrowDown, ArrowUp, DollarSign, Baby, AlertTriangle, ExternalLink } from 'lucide-react';
+import { PlusCircle, RefreshCw, Download, FileSpreadsheet, Search, Users, User, ArrowDown, ArrowUp, DollarSign, Baby, AlertTriangle, ExternalLink, Trash2, Checkbox } from 'lucide-react';
 import type { FlightReportWithId, DataAuditIssue } from '@/lib/types';
 import FlightDataExtractorDialog from '@/app/bookings/components/flight-data-extractor-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +23,7 @@ import {
   DialogTrigger,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Trash2 } from 'lucide-react';
+
 
 const StatCard = ({ title, value, subValue, icon: Icon, valueClass }: { title: string, value: string, subValue?: string, icon: React.ElementType, valueClass?: string }) => (
     <div className="bg-muted/50 p-4 rounded-xl flex items-center gap-4">
@@ -40,7 +39,7 @@ const StatCard = ({ title, value, subValue, icon: Icon, valueClass }: { title: s
 );
 
 const IssueDetailsDialog = ({ issue }: { issue: DataAuditIssue }) => {
-    const typeConfig = {
+    const typeConfig: Record<DataAuditIssue['type'], { label: string }> = {
         DUPLICATE_PNR: { label: "تكرار PNR" },
         NEGATIVE_PROFIT: { label: "ربح سالب" },
         ZERO_PRICE: { label: "سعر صفري" },
@@ -49,13 +48,14 @@ const IssueDetailsDialog = ({ issue }: { issue: DataAuditIssue }) => {
         SAVE_ERROR: { label: "خطأ في الحفظ" },
         COST_MISMATCH: { label: "عدم تطابق الكلفة" },
         UNMATCHED_RETURN: { label: "رحلة ذهاب وعودة" },
+        DUPLICATE_FILE: { label: "ملف مكرر" },
     };
     const config = typeConfig[issue.type];
 
     return (
         <DialogContent>
             <DialogHeader>
-                <DialogTitle>تفاصيل المشكلة: {config.label}</DialogTitle>
+                <DialogTitle>تفاصيل المشكلة: {config?.label || issue.type}</DialogTitle>
                 <DialogDescription>{issue.description}</DialogDescription>
             </DialogHeader>
             <div className="py-4">
