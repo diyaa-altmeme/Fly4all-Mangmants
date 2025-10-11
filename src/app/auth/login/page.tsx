@@ -1,4 +1,3 @@
-
 'use client';
 
 import { LoginForm } from '@/components/auth/login-form';
@@ -10,35 +9,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { CheckCircle } from 'lucide-react';
 import { LandingPage, LandingHeader } from '@/components/landing-page';
 import { defaultSettingsData } from '@/lib/defaults';
+import Preloader from '@/components/layout/preloader';
 
 export default function LoginPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
-  // If the user is already logged in, show a confirmation message instead of the form.
-  if (user) {
-    return (
-        <div className="bg-background">
-            <LandingHeader showTitle={true} isScrolled={true} settings={defaultSettingsData.theme.landingPage} />
-            <div className="flex items-center justify-center pt-32 pb-16">
-                <Card className="w-full max-w-md text-center">
-                    <CardHeader>
-                        <div className="mx-auto bg-green-100 p-3 rounded-full">
-                            <CheckCircle className="h-12 w-12 text-green-600" />
-                        </div>
-                        <CardTitle className="mt-4">تم تسجيل الدخول بنجاح</CardTitle>
-                        <CardDescription>أنت مسجل الدخول حاليًا باسم: {user.name}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button asChild size="lg" className="w-full">
-                            <Link href="/dashboard">الانتقال إلى لوحة التحكم</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-    );
+  // While checking for user, or if user is found, show a preloader.
+  // The redirect logic is handled by MainLayout now.
+  if (loading || user) {
+    return <Preloader />;
   }
 
+  // Only show the login form if there is no user and not loading.
   return (
     <div className="bg-background">
         <LandingHeader showTitle={true} isScrolled={false} settings={defaultSettingsData.theme.landingPage} />
