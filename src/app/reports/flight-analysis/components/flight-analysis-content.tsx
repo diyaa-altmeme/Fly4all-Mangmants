@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, RefreshCw, Download, FileSpreadsheet, Search, Users, User, ArrowDown, ArrowUp, DollarSign, Baby } from 'lucide-react';
+import { PlusCircle, RefreshCw, Download, FileSpreadsheet, Search, Users, User, ArrowDown, ArrowUp, DollarSign, Baby, Trash2, AlertTriangle, ExternalLink } from 'lucide-react';
 import type { FlightReportWithId, DataAuditIssue } from '@/lib/types';
 import FlightDataExtractorDialog from '@/app/bookings/components/flight-data-extractor-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +16,14 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 const StatCard = ({ title, value, subValue, icon: Icon, valueClass }: { title: string, value: string, subValue?: string, icon: React.ElementType, valueClass?: string }) => (
     <div className="bg-muted/50 p-4 rounded-xl flex items-center gap-4">
@@ -29,6 +37,58 @@ const StatCard = ({ title, value, subValue, icon: Icon, valueClass }: { title: s
         </div>
     </div>
 );
+
+const IssueDetailsDialog = ({ issue }: { issue: DataAuditIssue }) => {
+    const typeConfig = {
+        DUPLICATE_PNR: { label: "تكرار PNR" },
+        NEGATIVE_PROFIT: { label: "ربح سالب" },
+        ZERO_PRICE: { label: "سعر صفري" },
+        COMMISSION_ERROR: { label: "خطأ في العمولة" },
+        INVOICE_ERROR: { label: "خطأ في الفاتورة" },
+        SAVE_ERROR: { label: "خطأ في الحفظ" },
+        COST_MISMATCH: { label: "عدم تطابق الكلفة" },
+        UNMATCHED_RETURN: { label: "رحلة ذهاب وعودة" },
+    };
+    const config = typeConfig[issue.type];
+
+    return (
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>تفاصيل المشكلة: {config.label}</DialogTitle>
+                <DialogDescription>{issue.description}</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+                {issue.type === 'DUPLICATE_PNR' && issue.details && Array.isArray(issue.details) && (
+                    <div>
+                        <h4 className="font-bold mb-2">الحجوزات المكررة لـ PNR: {issue.pnr}</h4>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>رقم الفاتورة</TableHead>
+                                    <TableHead>الإجراء</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {issue.details.map((detail: any) => (
+                                    <TableRow key={detail.id}>
+                                        <TableCell>{detail.invoice || detail.id}</TableCell>
+                                        <TableCell>
+                                            <Button asChild variant="secondary" size="sm">
+                                                <Link href={`/bookings?search=${issue.pnr}&searchField=pnr`} target="_blank">
+                                                    الذهاب للحجز <ExternalLink className="h-3 w-3 ms-2"/>
+                                                </Link>
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
+            </div>
+        </DialogContent>
+    )
+}
 
 const IssueBadge = ({ issue }: { issue: DataAuditIssue }) => {
     const config = {
@@ -200,4 +260,5 @@ export default function FlightAnalysisContent({ initialReports }: { initialRepor
             </Card>
         </div>
     );
-}
+
+    
