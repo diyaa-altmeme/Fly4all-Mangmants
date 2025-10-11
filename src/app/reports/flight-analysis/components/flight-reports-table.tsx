@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -33,7 +32,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isValid } from 'date-fns';
@@ -411,8 +410,10 @@ const IssueDetailsDialog = ({ issues, open, onOpenChange, title }: { issues: Dat
                 <div className="max-h-96 overflow-y-auto">
                     <div className="space-y-4">
                         {issues.map((issue, index) => (
-                            <div key={index} className="p-3 border rounded-md bg-muted/50">
-                                <p className="font-semibold text-sm">{issue.description}</p>
+                            <Alert key={index} variant="destructive">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertTitle>مشكلة في: {issue.pnr || 'ملف مكرر'}</AlertTitle>
+                                <AlertDescription>{issue.description}</AlertDescription>
                                 {issue.details && Array.isArray(issue.details) && (
                                     <div className="mt-2 text-xs text-muted-foreground">
                                         <Table>
@@ -450,7 +451,7 @@ const IssueDetailsDialog = ({ issues, open, onOpenChange, title }: { issues: Dat
                                         </Table>
                                     </div>
                                 )}
-                            </div>
+                            </Alert>
                         ))}
                     </div>
                 </div>
@@ -458,6 +459,7 @@ const IssueDetailsDialog = ({ issues, open, onOpenChange, title }: { issues: Dat
         </Dialog>
     );
 };
+
 
 const BadgeComponent = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof Badge>>(({...props}, ref) => {
     return <Badge {...props} ref={ref} />
@@ -492,7 +494,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
 
 
     const handleDelete = async () => {
-        onDeleteReport(report.id);
+        onDeleteReport(report.id); // Optimistic update
         const result = await deleteFlightReport(report.id);
         if (!result.success) {
             toast({ title: "خطأ", description: result.error, variant: "destructive" });
@@ -502,11 +504,14 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     };
     
     const handleSelectChange = async (checked: boolean) => {
-        onSelectionChange(report.id, checked);
+        const updatedReport = produce(report, draft => { draft.isSelectedForReconciliation = checked; });
+        onUpdateReport(updatedReport); // Optimistic UI update
+
         const result = await updateFlightReportSelection(report.id, checked);
          if (!result.success) {
             toast({ title: "خطأ", description: "فشل تحديث حالة التحديد.", variant: "destructive" });
-             onSelectionChange(report.id, !checked); // Revert UI on failure
+             const revertedReport = produce(report, draft => { draft.isSelectedForReconciliation = !checked; });
+             onUpdateReport(revertedReport);
         }
     }
 
@@ -516,7 +521,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
             <IssueDetailsDialog issues={duplicatePnrIssues} open={isDuplicatePnrIssuesOpen} onOpenChange={setIsDuplicatePnrIssuesOpen} title="تفاصيل الـ Booking References المكررة" />
             <IssueDetailsDialog issues={fileAnalysisIssues} open={isFileAnalysisOpen} onOpenChange={setIsFileAnalysisOpen} title="تفاصيل الملفات المكررة" />
             
-            <tbody className="border-b bg-card">
+            <tbody className="border-b">
                 <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
                     <TableCell className="text-center">{index + 1}</TableCell>
                     <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
@@ -618,9 +623,14 @@ const SortableHeader = ({ column, sortDescriptor, setSortDescriptor, children }:
 };
 
 
-// =================================================================================
-// 6. الجدول الرئيسي للتقارير (FlightReportsTable)
-// =================================================================================
+/**
+ * =================================================================================
+ * 6. الجدول الرئيسي للتقارير (FlightReportsTable)
+ * =================================================================================
+ */
+type SortKey = keyof FlightReport | 'totalRevenue' | 'paxCount' | 'filteredRevenue' | 'supplierName' | 'totalDiscount' | 'manualDiscountValue';
+type SortDirection = 'ascending' | 'descending';
+
 interface FlightReportsTableProps {
   reports: FlightReportWithId[];
   sortDescriptor: { column: SortKey, direction: SortDirection };
@@ -698,4 +708,4 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
         </div>
     );
 }
-
+```
