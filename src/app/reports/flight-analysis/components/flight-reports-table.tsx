@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import type { FlightReport, PnrGroup, DataAuditIssue, Passenger, ExtractedPassenger, FlightReportWithId, ManualDiscount } from '@/lib/types';
-import { ChevronDown, Edit, Trash2, MoreHorizontal, AlertTriangle, Download, FileText as InvoiceIcon, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Repeat, Repeat1, XCircle, FileWarning, Briefcase, User, Plane, Calendar as CalendarIcon, Clock, Users, DollarSign, BadgePercent, ShieldCheck, Save } from 'lucide-react';
+import { ChevronDown, Edit, Trash2, MoreHorizontal, AlertTriangle, Download, FileText as InvoiceIcon, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Repeat, Repeat1, XCircle, FileWarning, Briefcase, User, Plane, Calendar as CalendarIcon, Clock, Users, DollarSign, BadgePercent, ShieldCheck, Save, UserSquare, Baby, UserRound, Passport } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -52,6 +52,18 @@ const TripTypeBadge = ({ type }: { type?: 'DEPARTURE' | 'RETURN' | 'SINGLE' | 'R
     if (type === 'ROUND_TRIP') return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200">ذهاب وعودة</Badge>;
     return <Badge variant="outline">رحلة مفردة</Badge>;
 };
+
+const PassengerTypeIcon = ({ type, className }: { type: ExtractedPassenger['passengerType'], className?: string }) => {
+    const config = {
+        Adult: { icon: UserSquare },
+        Child: { icon: UserRound },
+        Infant: { icon: Baby }
+    }[type || 'Adult'];
+
+    if (!config) return null;
+    const Icon = config.icon;
+    return <Icon className={cn("h-4 w-4", className)} />;
+}
 
 const IssueDetailsDialog = ({ issues, open, onOpenChange, title }: { issues: DataAuditIssue[], open: boolean, onOpenChange: (open: boolean) => void, title: string }) => {
     return (
@@ -161,7 +173,7 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
 
     return (
         <Collapsible asChild>
-            <tbody className="border-b">
+            <React.Fragment>
                 <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
                     <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
                     <TableCell>
@@ -203,11 +215,51 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
                 <CollapsibleContent asChild>
                     <TableRow>
                         <TableCell colSpan={12} className="p-0">
-                            {/* ... Collapsible Content Implementation ... */}
+                             <div className="p-4 bg-muted/50">
+                                <h4 className="font-bold mb-2">تفاصيل المسافرين:</h4>
+                                <div className="border rounded-lg overflow-hidden">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="bg-background">
+                                            <TableHead className="font-semibold">المسافر</TableHead>
+                                            <TableHead className="font-semibold">الجواز</TableHead>
+                                            <TableHead className="font-semibold">PNR / مرجع الحجز</TableHead>
+                                            <TableHead className="text-center font-semibold">نوع الرحلة</TableHead>
+                                            <TableHead className="text-center font-semibold">السعر المدفوع</TableHead>
+                                            <TableHead className="text-center font-semibold">السعر الفعلي</TableHead>
+                                            <TableHead className="text-center font-semibold">الحالة</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(report.passengers || []).map((p, i) => (
+                                            <TableRow key={`${p.name}-${i}`}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <PassengerTypeIcon type={p.passengerType} />
+                                                        <span className="font-medium">{p.name}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="font-mono">{p.passportNumber || '-'}</TableCell>
+                                                <TableCell className="font-mono">{p.pnrClass} / {p.bookingReference}</TableCell>
+                                                <TableCell className="text-center"><TripTypeBadge type={p.tripType} /></TableCell>
+                                                <TableCell className="text-center font-mono">{formatCurrency(p.payable)}</TableCell>
+                                                <TableCell className="text-center font-mono font-bold text-primary">{formatCurrency(p.actualPrice)}</TableCell>
+                                                <TableCell className="text-center">
+                                                    {(report.issues?.tripAnalysis || []).find(issue => issue.details?.some((d: any) => d.bookingReference === p.bookingReference)) 
+                                                        ? <Badge variant="secondary">ذهاب وعودة</Badge>
+                                                        : <Badge variant="outline">ذهاب فقط</Badge>
+                                                    }
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                                </div>
+                            </div>
                         </TableCell>
                     </TableRow>
                 </CollapsibleContent>
-            </tbody>
+            </React.Fragment>
         </Collapsible>
     );
 };
@@ -260,15 +312,13 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
                         <TableHead>الإجراءات</TableHead>
                     </TableRow>
                 </TableHeader>
-                
-                {reports.length === 0 ? (
-                    <TableBody>
+                 <TableBody>
+                    {reports.length === 0 ? (
                         <TableRow><TableCell colSpan={12} className="h-24 text-center">لا توجد تقارير محفوظة.</TableCell></TableRow>
-                    </TableBody>
-                ) : reports.map((report: FlightReportWithId, index: number) => (
-                    <ReportRow key={report.id} report={report} index={index} onDeleteReport={onDeleteReport} onSelectionChange={handleSelectRow} onUpdateReport={onUpdateReport}/>
-                ))}
-                
+                    ) : reports.map((report: FlightReportWithId, index: number) => (
+                        <ReportRow key={report.id} report={report} index={index} onDeleteReport={onDeleteReport} onSelectionChange={handleSelectRow} onUpdateReport={onUpdateReport}/>
+                    ))}
+                 </TableBody>
             </Table>
         </div>
     );
