@@ -3,19 +3,19 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type { MonthlyProfit, ProfitShare } from "../actions";
-import { getProfitSharesForMonth, seedMonthlyProfit } from "../actions";
+import { getProfitSharesForMonth } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PlusCircle, Download, BarChart, Loader2, Edit, Bot, User, Filter, SlidersHorizontal } from "lucide-react";
+import { PlusCircle, Loader2, Edit, Filter } from "lucide-react";
 import SharesTable from "./shares-table";
 import AddEditShareDialog from "./add-edit-share-dialog";
-import Link from "next/link";
 import AddManualProfitDialog from "./add-manual-profit-dialog";
-import { DataTableFacetedFilter } from "@/components/ui/data-table-faceted-filter";
 import { format, parseISO } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 
 const StatCard = ({ title, value }: { title: string; value: string }) => (
     <div className="bg-muted/50 border p-4 rounded-lg text-center">
@@ -24,17 +24,91 @@ const StatCard = ({ title, value }: { title: string; value: string }) => (
     </div>
 );
 
-interface ProfitSharingContentProps {
-  initialMonthlyProfits: MonthlyProfit[];
-  initialShares: ProfitShare[];
+interface PeriodRowProps {
+  period: MonthlyProfit;
   partners: { id: string; name: string; type: string }[];
-  initialMonthId: string;
+  onDataChange: () => void;
 }
 
-export default function ProfitSharingContent({ initialMonthlyProfits, initialShares, partners, initialMonthId }: ProfitSharingContentProps) {
-  const [selectedMonth, setSelectedMonth] = useState(initialMonthId);
-  const [shares, setShares] = useState(initialShares);
-  const [loadingShares, setLoadingShares] = useState(false);
+const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
+    const [shares, setShares] = useState<ProfitShare[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+
+    const fetchShares = useCallback(async () => {
+        if (isOpen) { // fetch only when opening
+            setIsLoading(true);
+            const fetchedShares = await getProfitSharesForMonth(period.id);
+            setShares(fetchedShares);
+            setIsLoading(false);
+        }
+    }, [isOpen, period.id]);
+
+    useEffect(() => {
+        if(isOpen) {
+            fetchShares();
+        }
+    }, [isOpen, fetchShares]);
+
+    const handleSuccess = () => {
+        fetchShares(); // re-fetch shares for this specific row
+        onDataChange(); // notify parent to refetch all periods if needed
+    }
+
+    const description = period.notes || (period.fromSystem ? `أرباح شهر ${period.id}` : 'فترة يدوية');
+    const dateInfo = description.match(/من ([\d-]+) إلى ([\d-]+)/);
+    let fromDate = period.fromSystem ? format(parseISO(`${period.id}-01`), 'yyyy-MM-dd') : (dateInfo ? dateInfo[1] : '-');
+    let toDate = period.fromSystem ? '-' : (dateInfo ? dateInfo[2] : '-');
+
+    return (
+        <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
+             <tbody className="border-t">
+                <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+                    <TableCell>
+                        <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                            </Button>
+                        </CollapsibleTrigger>
+                    </TableCell>
+                    <TableCell className="font-semibold">{description.split(' | ')[0]}</TableCell>
+                    <TableCell>{fromDate}</TableCell>
+                    <TableCell>{toDate}</TableCell>
+                    <TableCell className="text-right font-mono font-bold">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
+                </TableRow>
+                <CollapsibleContent asChild>
+                    <TableRow>
+                        <TableCell colSpan={5} className="p-0">
+                            <div className="p-4 bg-muted/20">
+                                {isLoading ? (
+                                    <div className="flex justify-center p-8"><Loader2 className="animate-spin h-6 w-6"/></div>
+                                ) : (
+                                    <SharesTable 
+                                        shares={shares}
+                                        partners={partners}
+                                        onDataChange={handleSuccess}
+                                        totalProfit={period.totalProfit}
+                                        currency={period.currency || 'USD'}
+                                        isManual={!period.fromSystem}
+                                        monthId={period.id}
+                                    />
+                                )}
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                </CollapsibleContent>
+            </tbody>
+        </Collapsible>
+    )
+}
+
+interface ProfitSharingContentProps {
+  initialMonthlyProfits: MonthlyProfit[];
+  partners: { id: string; name: string; type: string }[];
+  onDataChange: () => void;
+}
+
+export default function ProfitSharingContent({ initialMonthlyProfits, partners, onDataChange }: ProfitSharingContentProps) {
   const [typeFilter, setTypeFilter] = useState<'all' | 'system' | 'manual'>('all');
 
   const filteredMonthlyProfits = useMemo(() => {
@@ -42,56 +116,37 @@ export default function ProfitSharingContent({ initialMonthlyProfits, initialSha
       return initialMonthlyProfits.filter(p => p.fromSystem === (typeFilter === 'system'));
   }, [initialMonthlyProfits, typeFilter]);
   
-  const selectedProfitData = useMemo(() => {
-    return initialMonthlyProfits.find(p => p.id === selectedMonth);
-  }, [selectedMonth, initialMonthlyProfits]);
-  
-  const totalProfit = selectedProfitData?.totalProfit || 0;
-  
-  const fetchSharesForMonth = useCallback(async (monthId: string) => {
-    setLoadingShares(true);
-    const newShares = await getProfitSharesForMonth(monthId);
-    setShares(newShares);
-    setLoadingShares(false);
-  }, []);
+  const { totalDistributedProfit, totalCompanyShare, grandTotal } = useMemo(() => {
+      let grandTotal = 0;
+      let totalDistributed = 0;
 
-  useEffect(() => {
-    if (selectedMonth) {
-        fetchSharesForMonth(selectedMonth);
-    }
-  }, [selectedMonth, fetchSharesForMonth]);
-  
-  useEffect(() => {
-      if(filteredMonthlyProfits.length > 0 && !filteredMonthlyProfits.find(p => p.id === selectedMonth)) {
-          setSelectedMonth(filteredMonthlyProfits[0].id);
-      } else if (filteredMonthlyProfits.length === 0) {
-          setSelectedMonth('');
-          setShares([]);
-      }
-  }, [filteredMonthlyProfits, selectedMonth]);
-  
-  const handleDataChange = () => {
-      // This should trigger a re-fetch at the page level in a real app
-      // For now, we'll re-fetch what this component can control.
-      fetchSharesForMonth(selectedMonth);
-  };
-  
-  const totalPercentage = useMemo(() => shares.reduce((sum, share) => sum + share.percentage, 0), [shares]);
-  const totalAmountDistributed = useMemo(() => shares.reduce((sum, share) => sum + share.amount, 0), [shares]);
+      initialMonthlyProfits.forEach(p => {
+          grandTotal += p.totalProfit;
+          if (Array.isArray(p.partners)) {
+             totalDistributed += p.partners.reduce((sum, partner) => sum + partner.amount, 0);
+          }
+      });
+      return {
+          grandTotal: grandTotal,
+          totalDistributedProfit: totalDistributed,
+          totalCompanyShare: grandTotal - totalDistributed
+      };
+
+  }, [initialMonthlyProfits]);
 
   return (
     <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard title="💰 صافي الربح للفترة" value={`${totalProfit.toLocaleString()} ${selectedProfitData?.currency || 'USD'}`} />
-            <StatCard title="📊 نسبة التوزيع الإجمالية" value={`${totalPercentage.toFixed(2)}%`} />
-            <StatCard title="💵 المبلغ الموزع" value={`${totalAmountDistributed.toLocaleString()} ${selectedProfitData?.currency || 'USD'}`} />
+            <StatCard title="💰 إجمالي صافي الأرباح" value={`${grandTotal.toLocaleString()} USD`} />
+            <StatCard title="📊 إجمالي حصص الشركاء الموزعة" value={`${totalDistributedProfit.toLocaleString()} USD`} />
+            <StatCard title="🏢 إجمالي حصة الشركة" value={`${totalCompanyShare.toLocaleString()} USD`} />
         </div>
 
         <Card>
             <CardHeader className="flex flex-row justify-between items-center">
                 <div>
                     <CardTitle>الفترات المحاسبية للأرباح</CardTitle>
-                    <CardDescription>اختر فترة لعرض توزيع حصصها في الجدول السفلي.</CardDescription>
+                    <CardDescription>انقر على أي فترة لعرض توزيع حصصها.</CardDescription>
                 </div>
                  <div className="flex items-center gap-2">
                     <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
@@ -104,7 +159,7 @@ export default function ProfitSharingContent({ initialMonthlyProfits, initialSha
                             <SelectItem value="manual">يدوي</SelectItem>
                         </SelectContent>
                     </Select>
-                     <AddManualProfitDialog partners={partners} onSuccess={handleDataChange} />
+                     <AddManualProfitDialog partners={partners} onSuccess={onDataChange} />
                 </div>
             </CardHeader>
             <CardContent>
@@ -112,80 +167,21 @@ export default function ProfitSharingContent({ initialMonthlyProfits, initialSha
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-[50px]"></TableHead>
                                 <TableHead>الوصف</TableHead>
                                 <TableHead>تاريخ البدء</TableHead>
                                 <TableHead>تاريخ الانتهاء</TableHead>
                                 <TableHead className="text-right">إجمالي الربح</TableHead>
                             </TableRow>
                         </TableHeader>
-                        <TableBody>
-                            {filteredMonthlyProfits.map(p => {
-                                const description = p.notes || (p.fromSystem ? `أرباح شهر ${p.id}` : 'فترة يدوية');
-                                const dateInfo = description.match(/من ([\d-]+) إلى ([\d-]+)/);
-                                let fromDate = p.fromSystem ? format(parseISO(`${p.id}-01`), 'yyyy-MM-dd') : (dateInfo ? dateInfo[1] : '-');
-                                let toDate = p.fromSystem ? '-' : (dateInfo ? dateInfo[2] : '-');
-                                
-                                return (
-                                    <TableRow
-                                        key={p.id}
-                                        className={cn("cursor-pointer", selectedMonth === p.id && "bg-muted font-bold")}
-                                        onClick={() => setSelectedMonth(p.id)}
-                                    >
-                                        <TableCell className="font-semibold">{description.split(' | ')[0]}</TableCell>
-                                        <TableCell>{fromDate}</TableCell>
-                                        <TableCell>{toDate}</TableCell>
-                                        <TableCell className="text-right font-mono">{p.totalProfit.toLocaleString()} {p.currency || 'USD'}</TableCell>
-                                    </TableRow>
-                                )
-                            })}
-                        </TableBody>
+                        {filteredMonthlyProfits.map((p, index) => (
+                            <PeriodRow key={p.id} period={p} partners={partners} onDataChange={onDataChange} />
+                        ))}
                     </Table>
                 </div>
             </CardContent>
         </Card>
-      
-       {!selectedProfitData && !loadingShares ? (
-          <div className="text-center p-8 border-2 border-dashed rounded-lg">
-             <p className="text-muted-foreground">الرجاء اختيار فترة لعرض بياناتها.</p>
-          </div>
-       ) : (
-            <Card>
-                <CardHeader className="flex flex-row justify-between items-center">
-                    <div>
-                        <CardTitle>تفاصيل توزيع الحصص</CardTitle>
-                        <CardDescription>
-                            حصص الشركاء والمساهمين من أرباح الفترة المحددة.
-                        </CardDescription>
-                    </div>
-                     <AddEditShareDialog 
-                        monthId={selectedMonth} 
-                        totalProfit={totalProfit}
-                        partners={partners}
-                        onSuccess={handleDataChange}
-                        disabled={!selectedProfitData || !selectedProfitData.fromSystem}
-                    >
-                        <Button disabled={!selectedProfitData || !selectedProfitData.fromSystem}><PlusCircle className="me-2 h-4 w-4" /> إضافة توزيع</Button>
-                    </AddEditShareDialog>
-                </CardHeader>
-                <CardContent>
-                    {loadingShares ? (
-                        <div className="flex justify-center items-center h-64">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                    ) : (
-                        <SharesTable 
-                            shares={shares} 
-                            partners={partners} 
-                            onDataChange={handleDataChange}
-                            totalProfit={totalProfit}
-                            currency={selectedProfitData?.currency || 'USD'}
-                            isManual={!selectedProfitData?.fromSystem}
-                        />
-                    )}
-                </CardContent>
-            </Card>
-         )}
-
     </div>
   );
 }
+
