@@ -34,7 +34,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route) && (route === '/' ? pathname.length === 1 : true));
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -52,7 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     initializeAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -67,10 +65,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error(result.error || "Failed to create session or retrieve user data.");
       }
       
+      // Instead of navigating, just update the user state.
+      // The MainLayout component will react to this change and render the appropriate view.
       setUser(result.user);
-      // The MainLayout component now handles the rendering logic, so a hard redirect is not needed.
-      // This allows for a smoother SPA-like transition.
-      router.replace('/dashboard');
+      
       return { success: true };
 
     } catch (error: any) {
@@ -108,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (sessionResult.error || !sessionResult.user) throw new Error(sessionResult.error || "Failed to establish session for user.");
 
             setUser(sessionResult.user);
-            router.replace('/dashboard');
+            // Let the MainLayout handle the redirect by updating the user state.
         } else {
             throw new Error(error || "Failed to get custom token.");
         }
