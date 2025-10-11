@@ -21,7 +21,6 @@ import { buttonVariants } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import EditManualProfitDialog from "./edit-manual-profit-dialog";
 
-
 const StatCard = ({ title, value }: { title: string, value: string }) => (
     <div className="bg-muted/50 border p-4 rounded-lg text-center">
         <p className="text-sm text-muted-foreground font-bold">{title}</p>
@@ -45,22 +44,27 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
     const fetchShares = useCallback(async () => {
         if (isOpen) { 
             setIsLoading(true);
-            const fetchedShares = await getProfitSharesForMonth(period.id);
-            const enrichedShares = produce(fetchedShares, draft => {
-                draft.forEach(share => {
-                    if (!share.partnerName) {
-                        const partner = partners.find(p => p.id === share.partnerId);
-                        if (partner) {
-                            share.partnerName = partner.name;
+            try {
+                const fetchedShares = await getProfitSharesForMonth(period.id);
+                const enrichedShares = produce(fetchedShares, draft => {
+                    draft.forEach(share => {
+                        if (!share.partnerName) {
+                            const partner = partners.find(p => p.id === share.partnerId);
+                            if (partner) {
+                                share.partnerName = partner.name;
+                            }
                         }
-                    }
+                    });
                 });
-            });
-
-            setShares(enrichedShares);
-            setIsLoading(false);
+                setShares(enrichedShares);
+            } catch (error) {
+                console.error("Failed to fetch or enrich shares", error);
+                toast({ title: 'خطأ', description: 'فشل تحميل تفاصيل الحصص.', variant: 'destructive'});
+            } finally {
+                setIsLoading(false);
+            }
         }
-    }, [isOpen, period.id, partners]);
+    }, [isOpen, period.id, partners, toast]);
     
     const handleDelete = async () => {
         if(period.fromSystem) return; 
@@ -92,7 +96,7 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
         <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
              <tbody className="border-t">
                 <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                    <TableCell className="p-1 text-center font-bold">
+                    <TableCell className="p-1 text-center">
                        <CollapsibleTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
@@ -100,8 +104,8 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
                         </CollapsibleTrigger>
                     </TableCell>
                     <TableCell className="font-semibold p-1">{description.split(' | ')[0]}</TableCell>
-                    <TableCell className="p-1">{fromDate}</TableCell>
-                    <TableCell className="p-1">{toDate}</TableCell>
+                    <TableCell className="p-1 text-center">{fromDate}</TableCell>
+                    <TableCell className="p-1 text-center">{toDate}</TableCell>
                     <TableCell className="text-right font-mono font-bold p-1">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
                     <TableCell className="p-1 text-center">
                         {!period.fromSystem && (
@@ -164,21 +168,16 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
 interface ProfitSharingContentProps {
   initialMonthlyProfits: MonthlyProfit[];
   partners: { id: string; name: string; type: string }[];
+  onDataChange: () => void;
 }
 
-export default function ProfitSharingContent({ initialMonthlyProfits, partners }: ProfitSharingContentProps) {
+export default function ProfitSharingContent({ initialMonthlyProfits, partners, onDataChange }: ProfitSharingContentProps) {
   const [profits, setProfits] = useState(initialMonthlyProfits);
   const [typeFilter, setTypeFilter] = useState<'all' | 'system' | 'manual'>('all');
-  const [selectedMonth, setSelectedMonth] = useState<MonthlyProfit | null>(null);
   
   useEffect(() => {
     setProfits(initialMonthlyProfits);
   }, [initialMonthlyProfits]);
-
-  const onDataChange = () => {
-      // This is a placeholder for a potential refetch logic
-      // In a server component world, this would trigger a router.refresh()
-  }
 
   const filteredMonthlyProfits = useMemo(() => {
       if (typeFilter === 'all') return profits;
@@ -238,8 +237,8 @@ export default function ProfitSharingContent({ initialMonthlyProfits, partners }
                             <TableRow>
                                 <TableHead className="w-[50px] p-2"></TableHead>
                                 <TableHead className="p-2">الوصف</TableHead>
-                                <TableHead className="p-2">تاريخ البدء</TableHead>
-                                <TableHead className="p-2">تاريخ الانتهاء</TableHead>
+                                <TableHead className="p-2 text-center">تاريخ البدء</TableHead>
+                                <TableHead className="p-2 text-center">تاريخ الانتهاء</TableHead>
                                 <TableHead className="text-right p-2">إجمالي الربح</TableHead>
                                 <TableHead className="text-center p-2">الإجراءات</TableHead>
                             </TableRow>
