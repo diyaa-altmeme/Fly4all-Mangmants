@@ -1,10 +1,9 @@
-
 "use client";
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import FlightDataExtractorDialog from '@/app/bookings/components/flight-data-extractor-dialog';
-import FlightReportsTable from './flight-reports-table';
+import FlightReportsTable from '@/app/reports/flight-analysis/components/flight-reports-table';
 import { useRouter } from 'next/navigation';
 import { PlusCircle, Wand2, Search, DollarSign, RefreshCw, Loader2, FileSpreadsheet, Users, User, Baby, UserSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -20,7 +19,6 @@ import { DataTablePagination } from '@/components/ui/data-table-pagination';
 // import * as XLSX from 'xlsx'; // Temporarily disabled
 import { isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 
 // تعريف أنواع الفرز
 type SortKey = keyof FlightReport | 'totalRevenue' | 'paxCount' | 'filteredRevenue' | 'supplierName' | 'totalDiscount' | 'manualDiscountValue';
@@ -67,14 +65,14 @@ const FinancialSummaryCard = ({ title, summary, currency, className }: { title: 
     </Card>
 );
 
-export default function FlightAnalysisContent({ initialReports }: { initialReports: Partial<FlightReportWithId>[] }) {
+export default function FlightAnalysisPage() {
     const router = useRouter();
     // حالة لتخزين جميع التقارير
-    const [allReports, setAllReports] = useState<FlightReportWithId[]>(initialReports as FlightReportWithId[]);
+    const [allReports, setAllReports] = useState<FlightReportWithId[]>([]);
     // حالة لتخزين التقارير المحددة (التي تم وضع علامة صح عليها)
     const [selectedReports, setSelectedReports] = useState<FlightReportWithId[]>([]);
     // حالة للتحميل
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
     
     // حالات لفرز الجدول والبحث
@@ -103,13 +101,8 @@ export default function FlightAnalysisContent({ initialReports }: { initialRepor
     
     // جلب البيانات عند تحميل الصفحة لأول مرة
     useEffect(() => {
-       if(initialReports.length > 0) {
-            setAllReports(initialReports as FlightReportWithId[]);
-            setIsLoading(false);
-       } else {
-            fetchData();
-       }
-    }, [initialReports, fetchData]);
+        fetchData();
+    }, [fetchData]);
 
     // دالة لتحديث تقرير معين في القائمة (بعد تعديل الخصم مثلاً)
     const handleUpdateReport = (updatedReport: FlightReportWithId) => {
@@ -209,7 +202,7 @@ export default function FlightAnalysisContent({ initialReports }: { initialRepor
   const selectedTotals = React.useMemo(() => calculateSummary(selectedReports), [selectedReports]);
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-6">
              <Card>
                 <CardHeader><CardTitle>الملخص المالي</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
