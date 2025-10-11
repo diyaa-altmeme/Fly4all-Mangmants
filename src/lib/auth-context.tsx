@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route) && (route === '/' ? pathname.length === 1 : true));
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pathname]);
 
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
@@ -143,6 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
   }
   
+  // This should theoretically not be reached often if redirects are working
   return <Preloader />;
 }
 
