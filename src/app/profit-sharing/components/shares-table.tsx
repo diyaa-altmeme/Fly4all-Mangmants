@@ -40,21 +40,18 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
   };
 
   const { partnerShares, companyShare } = React.useMemo(() => {
-    // For system-generated profits, 'shares' contains the full distribution including the company.
-    // For manual entries, 'shares' only contains explicitly added partners.
+    let totalPartnerPercentage = 0;
     
-    let distributedPercentage = 0;
-    if (isManual) {
-        // For manual, we calculate based on explicitly added shares
-        distributedPercentage = shares.reduce((sum, share) => sum + share.percentage, 0);
-    } else {
-        // For system, the total profit is already the final number. We just display what's there.
-        // Or if we assume shares from DB are only for partners, we do the same calc.
-        // Let's stick to the manual calculation logic for consistency based on the `shares` prop.
-        distributedPercentage = shares.reduce((sum, share) => sum + share.percentage, 0);
-    }
+    const enrichedPartnerShares = shares.map(share => {
+        totalPartnerPercentage += share.percentage;
+        const partner = partners.find(p => p.id === share.partnerId);
+        return {
+            ...share,
+            partnerName: partner?.name || share.partnerName,
+        };
+    });
 
-    const companyPercentage = 100 - distributedPercentage;
+    const companyPercentage = 100 - totalPartnerPercentage;
     const companyAmount = totalProfit * (companyPercentage / 100);
 
     const companyShareRow: ProfitShare = {
@@ -68,10 +65,10 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
     };
 
     return {
-      partnerShares: shares,
+      partnerShares: enrichedPartnerShares,
       companyShare: companyShareRow,
     };
-  }, [shares, totalProfit, monthId, isManual]);
+}, [shares, partners, totalProfit, monthId]);
 
   const allRows = [companyShare, ...partnerShares].filter(row => row.percentage > 0.001); // Filter out zero-percentage rows
   const totalAmountDistributed = allRows.reduce((sum, row) => sum + row.amount, 0);
