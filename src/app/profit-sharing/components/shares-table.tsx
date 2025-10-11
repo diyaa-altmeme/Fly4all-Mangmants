@@ -1,9 +1,9 @@
 
 "use client";
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Edit, Trash2 } from "lucide-react";
+import { MoreVertical, Edit, Trash2, Landmark } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import type { ProfitShare } from "../actions";
 import AddEditShareDialog from "./add-edit-share-dialog";
@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import type { Currency } from "@/lib/types";
+import React from "react";
 
 
 interface SharesTableProps {
@@ -38,15 +39,40 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
       }
   };
 
+  const { partnerShares, companyShare } = React.useMemo(() => {
+    const distributedPercentage = shares.reduce((sum, share) => sum + share.percentage, 0);
+    const companyPercentage = 100 - distributedPercentage;
+    const companyAmount = totalProfit * (companyPercentage / 100);
+
+    const companyShareRow: ProfitShare = {
+      id: 'company-share',
+      profitMonthId: monthId,
+      partnerId: 'alrawdatain',
+      partnerName: 'حصالة الشركة',
+      percentage: companyPercentage,
+      amount: companyAmount,
+      notes: 'الحصة المتبقية للشركة',
+    };
+
+    return {
+      partnerShares: shares,
+      companyShare: companyShareRow,
+    };
+  }, [shares, totalProfit, monthId]);
+
+  const allRows = [companyShare, ...partnerShares];
+  const totalAmountDistributed = allRows.reduce((sum, row) => sum + row.amount, 0);
+
+
   return (
     <div className="border rounded-lg overflow-x-auto bg-background text-xs">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="font-bold text-center p-2">الشريك</TableHead>
+            <TableHead className="font-bold p-2 text-right">الشريك</TableHead>
             <TableHead className="text-center font-bold p-2">النسبة</TableHead>
-            <TableHead className="text-center font-bold p-2">المبلغ</TableHead>
-            <TableHead className="font-bold text-center p-2">ملاحظات</TableHead>
+            <TableHead className="text-right font-bold p-2">المبلغ</TableHead>
+            <TableHead className="font-bold text-right p-2">ملاحظات</TableHead>
             <TableHead className="text-center font-bold p-2">
                  <AddEditShareDialog 
                     monthId={monthId} 
@@ -61,18 +87,22 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
           </TableRow>
         </TableHeader>
         <TableBody>
-          {shares.length === 0 ? (
+          {allRows.length === 0 ? (
             <TableRow>
               <TableCell colSpan={5} className="h-24 text-center p-2">لا توجد توزيعات لهذه الفترة.</TableCell>
             </TableRow>
           ) : (
-            shares.map((share) => (
-              <TableRow key={share.id}>
-                <TableCell className="font-medium text-center p-2">{share.partnerName}</TableCell>
+            allRows.map((share, index) => (
+              <TableRow key={share.id} className={share.id === 'company-share' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
+                <TableCell className="font-semibold p-2 text-right flex items-center gap-2">
+                    {share.id === 'company-share' && <Landmark className="h-4 w-4 text-green-600"/>}
+                    {share.partnerName}
+                </TableCell>
                 <TableCell className="text-center font-mono p-2">{share.percentage.toFixed(2)}%</TableCell>
-                <TableCell className="text-center font-mono font-bold text-green-600 p-2">{share.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {currency}</TableCell>
-                <TableCell className="text-center p-2">{share.notes || "-"}</TableCell>
+                <TableCell className="text-right font-mono font-bold p-2">{share.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {currency}</TableCell>
+                <TableCell className="text-right p-2">{share.notes || "-"}</TableCell>
                 <TableCell className="text-center p-2">
+                  {share.id !== 'company-share' && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" disabled={isManual}><MoreVertical className="h-4 w-4"/></Button></DropdownMenuTrigger>
                         <DropdownMenuContent>
@@ -101,11 +131,20 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
                             </AlertDialog>
                         </DropdownMenuContent>
                     </DropdownMenu>
+                  )}
                 </TableCell>
               </TableRow>
             ))
           )}
         </TableBody>
+         <TableFooter>
+            <TableRow>
+                <TableCell className="font-bold">المجموع</TableCell>
+                <TableCell className="text-center font-bold font-mono">100.00%</TableCell>
+                <TableCell className="text-right font-bold font-mono">{totalAmountDistributed.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {currency}</TableCell>
+                <TableCell colSpan={2}></TableCell>
+            </TableRow>
+        </TableFooter>
       </Table>
     </div>
   );
