@@ -17,15 +17,14 @@ import { produce } from 'immer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDebounce } from '@/hooks/use-debounce';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
-// import * as XLSX from 'xlsx'; // Temporarily disabled
+import * as XLSX from 'xlsx';
 import { isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 
-// تعريف أنواع الفرز
+
 type SortKey = keyof FlightReport | 'totalRevenue' | 'paxCount' | 'filteredRevenue' | 'supplierName' | 'totalDiscount' | 'manualDiscountValue';
 type SortDirection = 'ascending' | 'descending';
 
-// بطاقة لعرض الإحصائيات المالية
 const SummaryStatCard = ({ title, value, currency, className }: { title: string; value: number; currency: string; className?: string }) => (
     <div className={cn("text-center p-2 rounded-lg bg-background", className)}>
         <p className="text-xs font-bold text-muted-foreground">{title}</p>
@@ -35,7 +34,7 @@ const SummaryStatCard = ({ title, value, currency, className }: { title: string;
     </div>
 );
 
-// بطاقة لعرض الملخص المالي الكامل (الإجمالي والمحدد)
+
 const FinancialSummaryCard = ({ title, summary, currency, className }: { title: string; summary: { totalRevenue: number; totalDiscount: number; manualDiscount: number; filteredRevenue: number; adults: number, children: number, infants: number, returnAdults: number; returnChildren: number; returnInfants: number; paxCount: number, returnPaxCount: number }; currency: string; className?: string }) => (
     <Card className={cn("shadow-sm", className)}>
         <CardHeader className="p-3">
@@ -177,7 +176,9 @@ export default function FlightAnalysisContent({ initialReports, onRefresh }: Fli
     return (
         <div className="flex flex-col gap-6">
              <Card>
-                <CardHeader><CardTitle>الملخص المالي</CardTitle></CardHeader>
+                <CardHeader>
+                    <CardTitle>الملخص المالي</CardTitle>
+                </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                      <FinancialSummaryCard title="الملخص الإجمالي" summary={totals} currency="USD" />
                     <FinancialSummaryCard title="ملخص المحدد" summary={selectedTotals} currency="USD" className="border-primary" />
@@ -195,7 +196,10 @@ export default function FlightAnalysisContent({ initialReports, onRefresh }: Fli
                             <Button onClick={handleExport} variant="outline" disabled={allReports.length === 0}><FileSpreadsheet className="me-2 h-4 w-4"/>تصدير الملخص</Button>
                             <Button onClick={onRefresh} variant="outline"><RefreshCw className="h-4 w-4 me-2" /> تحديث البيانات</Button>
                             <FlightDataExtractorDialog onSaveSuccess={onRefresh}>
-                                <Button><PlusCircle className="h-4 w-4 me-2" />رفع وتحليل ملف جديد</Button>
+                                <Button>
+                                    <PlusCircle className="h-4 w-4 me-2" />
+                                    رفع وتحليل ملف جديد
+                                </Button>
                             </FlightDataExtractorDialog>
                         </div>
                     </div>
@@ -203,7 +207,12 @@ export default function FlightAnalysisContent({ initialReports, onRefresh }: Fli
                 <CardContent>
                     <div className="mb-4 relative max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="بحث شامل..." className="ps-10" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <Input 
+                            placeholder="بحث شامل..."
+                            className="ps-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
                     
                     <FlightReportsTable 

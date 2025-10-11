@@ -152,7 +152,7 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
     onSelectionChange: (id: string, isSelected: boolean) => void; onUpdateReport: (updatedReport: FlightReportWithId) => void;
 }) => {
     const { toast } = useToast();
-    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
     const [showPnrIssues, setShowPnrIssues] = useState(false);
     const [showFileIssues, setShowFileIssues] = useState(false);
 
@@ -173,13 +173,16 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
     const tripDirection = getTripDirection(report.route);
 
     return (
-        <React.Fragment>
+        <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
+          <React.Fragment>
             <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
                 <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
                 <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsDetailsOpen(!isDetailsOpen)}>
-                        <ChevronDown className={cn("h-4 w-4 transition-transform", isDetailsOpen && "rotate-180")} />
-                    </Button>
+                    <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ChevronDown className="h-4 w-4" />
+                        </Button>
+                    </CollapsibleTrigger>
                 </TableCell>
                 <TableCell>{report.supplierName}</TableCell>
                 <TableCell className="font-semibold">{report.route}{tripDirection && <Badge variant="outline" className="ms-2">{tripDirection}</Badge>}</TableCell>
@@ -210,8 +213,8 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
                     </DropdownMenu>
                 </TableCell>
             </TableRow>
-            {isDetailsOpen && (
-                <TableRow>
+            <CollapsibleContent asChild>
+                 <TableRow>
                     <TableCell colSpan={12} className="p-0">
                         <div className="p-4 bg-muted/50">
                             <h4 className="font-bold mb-2">تفاصيل المسافرين:</h4>
@@ -256,8 +259,11 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
                         </div>
                     </TableCell>
                 </TableRow>
-            )}
-        </React.Fragment>
+            </CollapsibleContent>
+             {report.issues && <IssueDetailsDialog issues={report.issues.duplicatePnr} open={showPnrIssues} onOpenChange={setShowPnrIssues} title="مشاكل تكرار مرجع الحجز" />}
+            {report.issues && <IssueDetailsDialog issues={report.issues.fileAnalysis} open={showFileIssues} onOpenChange={setShowFileIssues} title="مشاكل تكرار ملف الرحلة" />}
+          </React.Fragment>
+        </Collapsible>
     );
 };
 
@@ -319,4 +325,3 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
         </div>
     );
 }
-
