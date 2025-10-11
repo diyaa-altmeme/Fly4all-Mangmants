@@ -57,6 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
+    setLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await getIdToken(userCredential.user);
@@ -67,9 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       setUser(result.user);
-      // The redirect is now handled by the MainLayout component based on the user state.
-      // This ensures a seamless transition without a full page reload.
-      
+      // The MainLayout component now handles the rendering logic, so a hard redirect is not needed.
+      // This allows for a smoother SPA-like transition.
+      router.replace('/dashboard');
       return { success: true };
 
     } catch (error: any) {
@@ -92,6 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             errorMessage = error.message;
         }
         return { success: false, error: errorMessage };
+    } finally {
+        setLoading(false);
     }
   }
 
@@ -105,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (sessionResult.error || !sessionResult.user) throw new Error(sessionResult.error || "Failed to establish session for user.");
 
             setUser(sessionResult.user);
-            // Redirect is handled by MainLayout
+            router.replace('/dashboard');
         } else {
             throw new Error(error || "Failed to get custom token.");
         }
@@ -129,19 +132,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return checkUserPermission(user, permission);
   }
   
-  if (loading) {
-    return <Preloader />;
-  }
-
-  // If there's no user and we are on a protected route, show preloader while redirecting.
-  if (!user && !isPublicRoute) {
-      // The redirect should be happening in the layout, but this is a safeguard.
-      if (typeof window !== 'undefined') {
-        router.replace('/auth/login');
-      }
-      return <Preloader />;
-  }
-
   return (
       <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser }}>
       {children}

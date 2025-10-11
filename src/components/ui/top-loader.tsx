@@ -3,15 +3,15 @@
 
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-// NProgress is disabled to prevent full page reloads on navigation.
-// import NProgress from "nprogress";
 
+// NProgress functionality is disabled to prevent full page reloads on navigation,
+// which was causing session issues in preview environments.
 export default function TopLoader() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    // NProgress.done();
+    // Original NProgress.done() call removed.
   }, [pathname, searchParams]);
 
   return null;
