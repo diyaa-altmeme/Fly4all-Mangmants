@@ -1,14 +1,14 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import type { Client, Supplier, Currency } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
+import { format, parseISO } from 'date-fns';
 
 export interface MonthlyProfit {
-  id: string; // Format: "YYYY-MM"
+  id: string; // Format: "YYYY-MM" or a Firestore ID for manual entries
   totalProfit: number;
   createdAt: string; // ISO string
   fromSystem: boolean;
@@ -33,7 +33,7 @@ export async function getMonthlyProfits(): Promise<MonthlyProfit[]> {
   try {
     const [systemSnapshot, manualSnapshot] = await Promise.all([
         db.collection('monthly_profits').orderBy('id', 'desc').get(),
-        db.collection('manual_monthly_profits').get()
+        db.collection('manual_monthly_profits').orderBy('toDate', 'desc').get()
     ]);
     
     const systemProfits = systemSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MonthlyProfit));
@@ -52,7 +52,12 @@ export async function getMonthlyProfits(): Promise<MonthlyProfit[]> {
     });
 
     const allProfits = [...systemProfits, ...manualProfits];
-    allProfits.sort((a,b) => b.id.localeCompare(a.id));
+    // A more robust sort that handles both "YYYY-MM" and full ISO dates
+    allProfits.sort((a,b) => {
+        const dateA = a.id.length === 7 ? parseISO(`${a.id}-01`) : parseISO(a.createdAt);
+        const dateB = b.id.length === 7 ? parseISO(`${b.id}-01`) : parseISO(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+    });
 
     return allProfits;
   } catch (e) {
@@ -95,6 +100,27 @@ export async function saveProfitShare(data: Omit<ProfitShare, 'id'>): Promise<{ 
   } catch (e: any) {
     return { success: false, error: e.message };
   }
+}
+
+export async function saveManualProfitDistribution(data: {
+    fromDate: string;
+    toDate: string;
+    profit: number;
+    currency: Currency;
+    partners: Omit<ProfitShare, 'id' | 'profitMonthId'>[];
+}): Promise<{ success: boolean; error?: string; }> {
+     const db = await getDb();
+    if (!db) return { success: false, error: 'Database not available' };
+    try {
+        await db.collection('manual_monthly_profits').add({
+            ...data,
+            createdAt: new Date().toISOString(),
+        });
+        revalidatePath('/profit-sharing');
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
 }
 
 export async function updateProfitShare(id: string, data: Partial<ProfitShare>): Promise<{ success: boolean; error?: string }> {
