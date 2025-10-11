@@ -27,7 +27,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { updateManualDiscount } from '../actions';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ChevronDown, Edit, MoreHorizontal, AlertTriangle, Download, FileText as InvoiceIcon, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Repeat, Repeat1, XCircle, FileWarning, Briefcase, User, Plane, Calendar as CalendarIcon, Clock, Users, DollarSign, ShieldCheck, UserSquare, Baby, UserRound, Passport } from 'lucide-react';
 import { Badge as BadgeComponent } from '@/components/ui/badge';
@@ -48,6 +47,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 
 /**
@@ -431,8 +431,9 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     onDeleteReport: (id: string) => void; onUpdateReport: (updatedReport: FlightReportWithId) => void;
 }) => {
     const { toast } = useToast();
-    const [showPnrIssues, setShowPnrIssues] = useState(false);
-    const [showFileIssues, setShowFileIssues] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+    const [showPnrIssues, setShowFileIssues] = useState(false);
+    const [showFileIssues, setShowPnrIssues] = useState(false);
     
     const handleDelete = async () => {
         const result = await deleteFlightReport(report.id);
@@ -455,9 +456,9 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     const hasReturnTripIssues = (report.issues?.tripAnalysis?.length || 0) > 0;
 
     return (
-        <Collapsible asChild>
-            <>
-                <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
+        <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
+            <tbody className="border-b">
+                 <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
                     <TableCell className="text-center">{index + 1}</TableCell>
                     <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
                     <TableCell>
@@ -563,7 +564,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                 </CollapsibleContent>
                  {report.issues && <IssueDetailsDialog issues={report.issues.duplicatePnr} open={showPnrIssues} onOpenChange={setShowPnrIssues} title="مشاكل تكرار مرجع الحجز" />}
                 {report.issues && <IssueDetailsDialog issues={report.issues.fileAnalysis} open={showFileIssues} onOpenChange={setShowFileIssues} title="مشاكل تكرار ملف الرحلة" />}
-            </>
+            </tbody>
         </Collapsible>
     );
 };
@@ -581,7 +582,7 @@ const SortableHeader = ({ column, sortDescriptor, setSortDescriptor, children }:
     const direction = isSorted ? sortDescriptor.direction : 'descending';
     const newDirection = direction === 'ascending' ? 'descending' : 'ascending';
     return (
-        <Button variant="ghost" className="px-2 py-1 h-auto" onClick={() => setSortDescriptor({ column, direction: newDirection })}>
+        <Button variant="ghost" className="px-2 py-1 h-auto font-bold" onClick={() => setSortDescriptor({ column, direction: newDirection })}>
             {children}
             {isSorted && (direction === 'ascending' ? <ArrowUp className="ms-2 h-4 w-4" /> : <ArrowDown className="ms-2 h-4 w-4" />)}
         </Button>
@@ -640,13 +641,15 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
                         <TableHead>الإجراءات</TableHead>
                     </TableRow>
                 </TableHeader>
-                <TableBody>
+                
                     {reports.length === 0 ? (
-                        <TableRow><TableCell colSpan={17} className="h-24 text-center">لا توجد تقارير محفوظة.</TableCell></TableRow>
+                        <TableBody>
+                            <TableRow><TableCell colSpan={17} className="h-24 text-center">لا توجد تقارير محفوظة.</TableCell></TableRow>
+                        </TableBody>
                     ) : reports.map((report: FlightReportWithId, index: number) => (
                         <ReportRow key={report.id} report={report} index={index} onDeleteReport={onDeleteReport} onSelectionChange={handleSelectRow} onUpdateReport={onUpdateReport}/>
                     ))}
-                </TableBody>
+                
             </Table>
         </div>
     );
