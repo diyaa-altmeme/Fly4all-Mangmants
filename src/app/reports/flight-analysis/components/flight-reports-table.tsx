@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/collapsible';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -529,7 +529,6 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                       <TableCell className="text-center">{hasFileIssues ? <Button variant="destructive" size="sm" onClick={() => setIsFileAnalysisOpen(true)}>مكرر ({fileAnalysisIssues.length})</Button> : <div className="flex items-center justify-center gap-2 font-semibold text-green-600"><CheckCircle className="h-4 w-4" /><span>سليم</span></div>}</TableCell>
                       <TableCell className="text-center">{hasTripIssues ? <Button variant="secondary" size="sm" onClick={() => setIsTripAnalysisOpen(true)}>ذهاب وعودة ({tripAnalysisIssues.length})</Button> : <div className="flex items-center justify-center gap-2 font-semibold text-green-600"><CheckCircle className="h-4 w-4" /><span>سليم</span></div>}</TableCell>
                       <TableCell className="text-center">{hasPnrIssues ? <Button variant="destructive" size="sm" onClick={() => setIsDuplicatePnrIssuesOpen(true)}>تكرار ({duplicatePnrIssues.length})</Button> : <div className="flex items-center justify-center gap-2 font-semibold text-green-600"><CheckCircle className="h-4 w-4" /><span>سليم</span></div>}</TableCell>
-                      <TableCell className="text-center"><div className="flex items-center justify-center gap-2 font-semibold text-green-600"><CheckCircle className="h-4 w-4" /><span>سليم</span></div></TableCell>
                       <TableCell className="text-center">
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4"/></Button></DropdownMenuTrigger>
@@ -558,7 +557,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                   </TableRow>
                   <CollapsibleContent asChild>
                       <TableRow>
-                          <TableCell colSpan={17} className="p-0">
+                          <TableCell colSpan={16} className="p-0">
                               <div className="p-4 bg-muted/50">
                                   <h4 className="font-bold mb-2">تفاصيل المسافرين:</h4>
                                   <div className="border rounded-lg overflow-hidden">
@@ -683,7 +682,6 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
                         <TableHead className="text-center">تحليل الملف</TableHead>
                         <TableHead className="text-center">تحليل الرحلة</TableHead>
                         <TableHead className="text-center">تكرار الحجز</TableHead>
-                        <TableHead className="text-center">تطابق الكلفة</TableHead>
                         <TableHead className="text-center">الإجراءات</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -709,5 +707,3 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
         </div>
     );
 }
-
-    
