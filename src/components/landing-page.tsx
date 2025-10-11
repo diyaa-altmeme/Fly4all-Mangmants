@@ -44,12 +44,12 @@ export const LandingHeader = ({ showTitle, isScrolled, settings }: { showTitle: 
         <header className={cn(
             "fixed top-0 left-0 right-0 z-50 p-4 border-b transition-colors duration-300",
             isScrolled 
-                ? "bg-primary text-primary-foreground border-transparent" 
-                : "bg-background/80 backdrop-blur-sm text-foreground border-border"
+                ? "bg-background/80 backdrop-blur-sm text-foreground border-border" 
+                : "bg-transparent text-foreground border-transparent"
         )}>
             <div className="container mx-auto flex items-center justify-between relative z-10">
                  <div className="flex items-center gap-2">
-                     <Button asChild size="lg" className="hidden sm:inline-flex text-base lg:text-lg" variant={isScrolled ? "accent" : "default"}>
+                     <Button asChild size="lg" className="hidden sm:inline-flex text-base lg:text-lg">
                         <Link href="/auth/login">الدخول للنظام</Link>
                     </Button>
                      <div className="md:hidden">
@@ -234,7 +234,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                         className="w-full"
                     >
                         <CarouselContent>
-                            {settings.partnersSection?.partners.map((partner, index) => (
+                            {(settings.partnersSection?.partners || []).map((partner, index) => (
                                 <CarouselItem key={index} className="md:basis-1/3 lg:basis-1/5">
                                     <div className="p-1">
                                         <Card className="flex items-center justify-center p-6 h-32 bg-background">
