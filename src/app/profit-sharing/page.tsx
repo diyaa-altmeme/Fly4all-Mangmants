@@ -1,9 +1,7 @@
 
-
 import React from 'react';
 import { getMonthlyProfits, getProfitSharesForMonth } from './actions';
 import { getClients } from '@/app/relations/actions';
-import { getSuppliers } from '../suppliers/actions';
 import ProfitSharingContent from './components/profit-sharing-content';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { format } from 'date-fns';
@@ -11,13 +9,12 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 
 export default async function ProfitSharingPage() {
-    const [monthlyProfits, clientsResponse, suppliers, error] = await Promise.all([
+    const [monthlyProfits, clientsResponse, error] = await Promise.all([
         getMonthlyProfits(),
         getClients({ all: true }),
-        getSuppliers({ all: true })
-    ]).then(res => [...res, null]).catch(e => [null, null, null, e.message]);
+    ]).then(res => [...res, null]).catch(e => [null, null, e.message]);
     
-    if (error || !monthlyProfits || !clientsResponse || !suppliers) {
+    if (error || !monthlyProfits || !clientsResponse) {
          return (
              <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
@@ -27,10 +24,11 @@ export default async function ProfitSharingPage() {
         )
     }
 
-    const partners = [
-        ...clientsResponse.clients.map(c => ({ id: c.id, name: c.name, type: 'client' as const })),
-        ...suppliers.map(s => ({ id: s.id, name: s.name, type: 'supplier' as const }))
-    ];
+    const partners = clientsResponse.clients.map(c => ({ 
+        id: c.id, 
+        name: c.name, 
+        type: c.relationType 
+    }));
     
     const currentMonthId = format(new Date(), 'yyyy-MM');
     const initialMonthId = monthlyProfits.find(p => p.id === currentMonthId) ? currentMonthId : (monthlyProfits[0]?.id || currentMonthId);

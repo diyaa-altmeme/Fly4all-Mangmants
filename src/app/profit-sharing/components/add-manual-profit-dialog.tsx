@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { type ProfitShare, saveProfitShare, updateProfitShare } from "../actions";
+import { type ProfitShare } from "../actions";
 import { Loader2, Save, Percent, Edit, PlusCircle, Trash2, CalendarIcon, Wallet, Landmark, Users, ArrowLeft } from "lucide-react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { z } from "zod";
