@@ -167,12 +167,12 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
                  <DropdownMenuItem asChild>
                     <Link href={`/clients/${client.id}`} className="justify-end w-full flex items-center gap-2"><span>عرض البروفايل</span><FileText className="h-4 w-4"/></Link>
                 </DropdownMenuItem>
-                 <AddClientDialog isEditing initialData={client} onClientUpdated={onDataChanged}>
+                 <AddClientDialog isEditing initialData={client} onClientUpdated={onClientUpdated}>
                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="w-full flex justify-between">
                           <span>تعديل</span><Edit className="h-4 w-4"/>
                        </DropdownMenuItem>
                 </AddClientDialog>
-                <CredentialsDialog client={client} onCredentialsUpdated={onDataChanged}>
+                <CredentialsDialog client={client} onCredentialsUpdated={onClientUpdated}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-end w-full flex items-center gap-2">
                         <span>إدارة الدخول</span><KeyRound className="h-4 w-4"/>
                     </DropdownMenuItem>
@@ -251,5 +251,3 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
     </Card>
   );
 }
-
-    
