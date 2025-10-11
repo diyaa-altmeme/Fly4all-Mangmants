@@ -94,20 +94,26 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
     const isPublicPath = publicRoutes.some(route => pathname.startsWith(route) && (route === '/' ? pathname.length === 1 : true));
     
+    // While loading, show a preloader. This prevents flashes of content.
     if (loading) {
         return <Preloader />;
     }
 
-    // Always render a layout, but choose which one.
+    // If there is a user and they are not a client, show the full app layout.
     if (user && !('isClient' in user && user.isClient)) {
-        // Authenticated regular user sees the full app layout
         return <AppLayout>{children}</AppLayout>;
-    } else if (user && 'isClient' in user && user.isClient) {
-        // Authenticated client user (has their own layout defined in their page component)
-        return <>{children}</>;
-    } else {
-        // Non-authenticated user on a public path
-        // The landing page itself includes the <LandingHeader>
+    }
+    
+    // If it's a public path, show the content directly.
+    // The public pages (like Landing Page) are responsible for their own headers.
+    if (isPublicPath) {
         return <>{children}</>;
     }
+
+    // This case handles when there is no user, and it's not a public path.
+    // The useEffect in AuthProvider should have already initiated a redirect,
+    // but this acts as a final guard to prevent rendering protected content.
+    // Showing a preloader here provides a better UX than a blank screen during the redirect.
+    return <Preloader />;
 }
+
