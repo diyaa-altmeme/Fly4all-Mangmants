@@ -25,9 +25,6 @@ export function Providers({
         >
           <ThemeCustomizationProvider>
                 <VoucherNavProvider>
-                  <React.Suspense fallback={null}>
-                      <TopLoader />
-                  </React.Suspense>
                   <MainLayout>
                       {children}
                   </MainLayout>
