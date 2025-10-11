@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -21,7 +20,6 @@ import { UserNav } from "./user-nav";
 import { LandingHeader } from "@/components/landing-page";
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
-
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
@@ -97,10 +95,26 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         return <Preloader />;
     }
 
+    // If user is logged in, always show the full AppLayout.
     if (user && !('isClient' in user)) {
         return <AppLayout>{children}</AppLayout>;
     }
     
-    // For clients or non-logged-in users on public pages
+    // If user is a client, show the client-specific layout
+    if (user && 'isClient' in user) {
+        // Here you would render a specific layout for clients.
+        // For now, we render the main content directly.
+        return <>{children}</>;
+    }
+    
+    // If not logged in and on a public page (like / or /auth/login)
+    // show the content directly. For /, it will be the landing page.
+    // For /auth/login, it will be the login form, but within the context of the main app shell if we want that.
+    if(pathname === '/auth/login') {
+         // Show the main app layout but with a disabled/hidden nav for the login page
+         return <AppLayout>{children}</AppLayout>;
+    }
+
+    // For landing page and other public routes
     return <>{children}</>;
 }
