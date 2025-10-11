@@ -7,7 +7,7 @@ import { getClients } from "@/app/relations/actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal, Loader2 } from "lucide-react";
 import { getSettings } from "@/app/settings/actions";
-import ClientsContent from "./components/clients-content";
+import ClientsContent from "@/app/clients/components/clients-content";
 import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
