@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       setUser(result.user);
-      router.push('/dashboard');
+      router.replace('/dashboard'); // Use replace to avoid adding a new entry to the history stack.
       
       return { success: true };
 
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (sessionResult.error || !sessionResult.user) throw new Error(sessionResult.error || "Failed to establish session for user.");
 
             setUser(sessionResult.user);
-            router.push('/dashboard');
+            router.replace('/dashboard');
         } else {
             throw new Error(error || "Failed to get custom token.");
         }
