@@ -9,7 +9,7 @@ import type { SegmentEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
-const formatCurrency = (amount?: number) => {
+const formatCurrency = (amount?: number): string => {
     if (amount === null || amount === undefined || isNaN(amount)) {
         return '$0.00';
     }
