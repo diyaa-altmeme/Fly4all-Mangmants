@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await firebaseSignOut(auth);
     await logoutUser(); // Clears server-side cookie
     setUser(null);
-    router.push('/auth/login');
+    window.location.href = '/auth/login'; // Force a full page reload to clear session state
   };
 
   const hasPermission = (permission: keyof typeof PERMISSIONS): boolean => {
