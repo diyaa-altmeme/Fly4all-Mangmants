@@ -26,8 +26,6 @@ export default function FlightAnalysisPage() {
     const router = useRouter();
     // حالة لتخزين جميع التقارير
     const [allReports, setAllReports] = useState<FlightReportWithId[]>([]);
-    // حالة لتخزين التقارير المحددة (التي تم وضع علامة صح عليها)
-    const [selectedReports, setSelectedReports] = useState<FlightReportWithId[]>([]);
     // حالة للتحميل
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
