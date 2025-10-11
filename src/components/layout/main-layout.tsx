@@ -92,7 +92,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const isPublicPath = publicRoutes.some(route => pathname.startsWith(route) && (path === '/' ? pathname.length === 1 : true));
+    const isPublicPath = publicRoutes.some(route => pathname.startsWith(route) && (route === '/' ? pathname.length === 1 : true));
     
     if (loading) {
         return <Preloader />;
