@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, RefreshCw, Download, FileSpreadsheet, Search, Users, User, ArrowDown, ArrowUp, DollarSign, Baby, AlertTriangle, ExternalLink, Trash2, Checkbox } from 'lucide-react';
+import { PlusCircle, RefreshCw, Download, FileSpreadsheet, Search, Users, User, ArrowDown, ArrowUp, DollarSign, Baby, AlertTriangle, ExternalLink, Trash2 } from 'lucide-react';
 import type { FlightReportWithId, DataAuditIssue } from '@/lib/types';
 import FlightDataExtractorDialog from '@/app/bookings/components/flight-data-extractor-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +23,7 @@ import {
   DialogTrigger,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const StatCard = ({ title, value, subValue, icon: Icon, valueClass }: { title: string, value: string, subValue?: string, icon: React.ElementType, valueClass?: string }) => (
@@ -233,7 +234,7 @@ export default function FlightAnalysisContent({ initialReports }: { initialRepor
                                                 <span className="text-xs text-muted-foreground">({(report.passengers?.filter(p => p.passengerType === 'Adult').length || 0)} بالغ)</span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="font-mono">${report.totalRevenue?.toLocaleString()}</TableCell>
+                                        <TableCell className="font-mono">${''}${report.totalRevenue?.toLocaleString()}</TableCell>
                                         <TableCell className="font-mono text-red-500">${report.pnrGroups?.reduce((sum, g) => sum + (g.passengers.some(p => p.tripType === 'ROUND_TRIP') ? 145 : 0), 0).toLocaleString()}</TableCell>
                                         <TableCell className="font-mono text-red-500">${(report.manualDiscountValue || 0).toLocaleString()}</TableCell>
                                         <TableCell className="font-mono font-bold">${((report.totalRevenue || 0) - (report.pnrGroups?.reduce((sum, g) => sum + (g.passengers.some(p => p.tripType === 'ROUND_TRIP') ? 145 : 0), 0) || 0) - (report.manualDiscountValue || 0)).toLocaleString()}</TableCell>
