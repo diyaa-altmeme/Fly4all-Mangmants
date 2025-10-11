@@ -93,21 +93,24 @@ const NavLink = ({ href, children, active, className }: { href: string; children
 const operationsItems = [
     { href: "/bookings", label: "حجوزات الطيران", icon: Ticket, permission: 'bookings:read' },
     { href: "/visas", label: "حجوزات الفيزا", icon: CreditCard, permission: 'visas:read' },
-    { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
     { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft, permission: 'remittances:read' },
-    { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
     { href: "/bookings/fly-changes", label: "تغييرات فلاي والوزن", icon: Package, permission: 'admin' },
-    { href: "/exchanges", label: "إدارة البورصات", icon: ChevronsRightLeft, permission: 'admin' },
+];
+
+const customReportsItems = [
+    { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
+    { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
+    { href: "/exchanges", label: "البورصات", icon: ChevronsRightLeft, permission: 'admin' },
+    { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
+    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
 ];
 
 const reportsItems = [
     { href: "/reports/debts", label: "تقرير الأرصدة", icon: Wallet, permission: 'reports:debts' },
     { href: "/reports/account-statement", label: "كشف حساب", icon: FileText, permission: 'reports:account_statement' },
     { href: "/profits", label: "الأرباح الشهرية", icon: BarChart3, permission: 'reports:profits' },
-    { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
     { href: "/reconciliation", label: "التدقيق الذكي", icon: Wand2, permission: 'admin' },
     { href: "/reports/advanced", label: "تقارير متقدمة", icon: AreaChart, permission: 'reports:read:all' },
-    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
 ];
 
 const systemItems = [
@@ -279,7 +282,7 @@ const MainNavContent = () => {
           id: 'operations', 
           label: 'العمليات المحاسبية', 
           icon: Calculator, 
-          activeRoutes: ['/bookings', '/visas', '/subscriptions', '/accounts/remittances', '/segments', '/exchanges'], 
+          activeRoutes: ['/bookings', '/visas', '/accounts/remittances'], 
           children: (
            <>
              {filterItems(operationsItems).map(item => (
@@ -289,6 +292,21 @@ const MainNavContent = () => {
             ))}
           </>
       )},
+      { 
+          id: 'custom_reports', 
+          label: 'تقارير مخصصة', 
+          icon: FileSpreadsheet,
+          activeRoutes: ['/subscriptions', '/segments', '/exchanges', '/profit-sharing', '/reports/flight-analysis'],
+          children: (
+              <>
+                  {filterItems(customReportsItems).map(item => (
+                      <DropdownMenuItem asChild key={item.href}>
+                          <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
+                      </DropdownMenuItem>
+                  ))}
+              </>
+          )
+      },
       {
           id: 'vouchers', 
           label: 'السندات', 
@@ -301,7 +319,7 @@ const MainNavContent = () => {
           id: 'reports', 
           label: 'التقارير والأدوات', 
           icon: BarChart3, 
-          activeRoutes: ['/reports', '/profits', '/profit-sharing', '/reconciliation'], 
+          activeRoutes: ['/reports', '/profits', '/reconciliation'], 
           children: (
            <>
              {filterItems(reportsItems).map(item => (
@@ -330,7 +348,11 @@ const MainNavContent = () => {
       if (menu.id === 'relations') return hasPermission('relations:read') || hasPermission('relations:create');
       if (menu.id === 'vouchers') return hasPermission('vouchers:read') || hasPermission('vouchers:create');
 
-      const childItems = menu.id === 'operations' ? operationsItems : menu.id === 'reports' ? reportsItems : menu.id === 'system' ? systemItems : [];
+      const childItems = menu.id === 'operations' ? operationsItems 
+                       : menu.id === 'custom_reports' ? customReportsItems
+                       : menu.id === 'reports' ? reportsItems 
+                       : menu.id === 'system' ? systemItems 
+                       : [];
       return filterItems(childItems).length > 0;
   });
   
@@ -363,7 +385,10 @@ const MainNavContent = () => {
            )
       }
 
-      const itemsToRender = menu.id === 'operations' ? operationsItems : menu.id === 'reports' ? reportsItems : [];
+      const itemsToRender = menu.id === 'operations' ? operationsItems 
+                          : menu.id === 'custom_reports' ? customReportsItems
+                          : menu.id === 'reports' ? reportsItems 
+                          : [];
 
       if (itemsToRender.length > 0) {
            return (
