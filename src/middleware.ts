@@ -1,16 +1,14 @@
-// This file is temporarily disabled to allow developer auto-login to function correctly.
-// It was renamed to middleware.ts.ignore
-// The original content is preserved below for reference.
-/*
+
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
 export async function middleware(request: NextRequest) {
   const session = request.cookies.get('session')?.value;
   const { pathname } = request.nextUrl;
 
   const publicPaths = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
-  const isPublicPath = publicPaths.some(path => pathname === path);
+  const isPublicPath = publicPaths.some(path => pathname.startsWith(path) && (path === '/' ? pathname.length === 1 : true));
 
   if (isPublicPath) {
     if (pathname.startsWith('/auth/login') && session) {
@@ -25,11 +23,6 @@ export async function middleware(request: NextRequest) {
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
-
-  // Verification of the cookie is now implicitly handled by server actions and pages
-  // that use `getCurrentUserFromSession`. If the cookie is invalid, they will return null,
-  // and the client-side AuthProvider will redirect to login. This prevents middleware
-  // from needing to import the admin SDK, which can cause bundling issues.
   
   return NextResponse.next();
 }
@@ -38,12 +31,4 @@ export const config = {
   matcher: [
     '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)',
   ],
-};
-*/
-
-// To re-enable, rename this file back to `middleware.ts`
-export default function middleware() {}
-
-export const config = {
-  matcher: [],
 };
