@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
@@ -11,9 +10,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Upload, FileText, AlertTriangle, Wand2, Download, Loader2, Save, X, PlusCircle, Route as RouteIcon, Calendar as CalendarIcon, Clock, Users, DollarSign, ChevronDown, Plane, User, ArrowRight, Repeat } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { addMultipleBookings } from '@/app/bookings/actions';
+import { saveFlightReport } from '@/app/reports/flight-analysis/actions';
 import { Badge } from '@/components/ui/badge';
-import type { ExtractedPassenger, FlightReport, BookingEntry, Client, Supplier } from '@/lib/types';
+import type { ExtractedPassenger, FlightReport, Client, Supplier } from '@/lib/types';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Autocomplete } from '@/components/ui/autocomplete';
 
@@ -40,11 +39,8 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
   const { toast } = useToast();
   const { data: navData, loaded: navDataLoaded } = useVoucherNav();
   const [defaultSupplier, setDefaultSupplier] = useState('');
-  const [defaultClient, setDefaultClient] = useState('');
 
   const supplierOptions = React.useMemo(() => (navData?.suppliers || []).map(s => ({ value: s.id, label: s.name })), [navData?.suppliers]);
-  const clientOptions = React.useMemo(() => (navData?.clients || []).map(c => ({ value: c.id, label: c.name })), [navData?.clients]);
-
 
   const parseExcelDate = (excelDate: number | string): Date | null => {
     if (typeof excelDate === 'number' && excelDate > 1) {
@@ -72,7 +68,7 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
              const totalSeconds = Math.round(value * 86400);
              const hours = Math.floor(totalSeconds / 3600);
              const minutes = Math.floor((totalSeconds % 3600) / 60);
-             return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+             return `${''}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
         }
         if (date.toTimeString() !== '00:00:00 GMT+0000 (Coordinated Universal Time)') {
              return date.toTimeString().split(' ')[0].substring(0, 5);
@@ -171,7 +167,7 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
             const pnrGroups: { [key: string]: PnrDetail } = {};
             allPassengers.forEach(p => {
                 const pnrKey = p.bookingReference || p.pnrClass;
-                const passengerKey = `${pnrKey}-${p.name.toLowerCase().trim()}`;
+                const passengerKey = `${''}${pnrKey}-${p.name.toLowerCase().trim()}`;
                 
                 if (!pnrKey) return;
 
@@ -206,7 +202,7 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
 
     extractedData.forEach(pnrGroup => {
         pnrGroup.passengers.forEach(pax => {
-            const passengerKey = `${pax.pnrClass}-${pax.name.toLowerCase().trim()}`;
+            const passengerKey = `${''}${pax.pnrClass}-${pax.name.toLowerCase().trim()}`;
             passengerTripCount[passengerKey] = (passengerTripCount[passengerKey] || 0) + 1;
             
              // Only add payable amount for the first instance of a passenger within a PNR
@@ -248,41 +244,37 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
   }, [extractedData]);
 
   const handleSave = async () => {
+    if (!defaultSupplier) {
+        toast({ title: "مطلوب", description: "الرجاء اختيار مصدر للتقرير.", variant: "destructive" });
+        return;
+    }
       setIsSaving(true);
-      const allBookingsToSave: Omit<BookingEntry, 'id' | 'invoiceNumber' | 'enteredBy' | 'enteredAt' | 'isEntered' | 'isAudited' | 'isDeleted'>[] = extractedData.map(pnrGroup => ({
-          pnr: pnrGroup.pnr,
+      const supplierInfo = supplierOptions.find(s => s.value === defaultSupplier);
+      
+      const reportToSave: Omit<FlightReport, 'id'> = {
+          fileName,
+          flightDate: flightInfo.date,
+          flightTime: flightInfo.time,
           route: flightInfo.route,
-          issueDate: flightInfo.date,
-          travelDate: flightInfo.date,
-          supplierId: 'default_supplier_for_analysis',
-          clientId: 'default_client_for_analysis',
-          boxId: 'default_box', // Placeholder
-          currency: 'USD',
-          notes: `تم الاستيراد من ملف: ${fileName}`,
-          passengers: pnrGroup.passengers.map(p => ({
-            id: `temp-${Math.random()}`,
-            name: p.name,
-            passportNumber: '',
-            ticketNumber: '',
-            purchasePrice: 0, // Needs to be filled in later
-            salePrice: p.payable,
-            passengerType: 'Adult', // Defaulting, needs logic if available in excel
-            ticketType: 'Issue',
-            currency: 'USD',
-            clientStatement: '',
-          })),
-      }));
+          supplierName: supplierInfo?.label || 'Unknown',
+          paxCount,
+          totalRevenue,
+          pnrGroups: extractedData,
+          passengers: extractedData.flatMap(pnrGroup => pnrGroup.passengers),
+          payDistribution,
+          tripTypeCounts,
+          filteredRevenue: 0, // This will be calculated on the backend/analysis
+          totalDiscount: 0, // This will be calculated on the backend/analysis
+      };
 
-      const result = await addMultipleBookings(allBookingsToSave);
+      const result = await saveFlightReport(reportToSave);
 
-      if (result.success && result.count > 0) {
-          toast({ title: "تم حفظ الحجوزات بنجاح", description: `تم حفظ ${result.count} حجز.`});
+      if (result.success) {
+          toast({ title: "تم حفظ التقرير بنجاح" });
           onSaveSuccess();
           setOpen(false);
       } else if (result.error) {
           toast({ title: "خطأ", description: result.error, variant: "destructive" });
-      } else {
-          toast({ title: "لا توجد حجوزات جديدة للحفظ", description: "قد تكون جميع الحجوزات في الملف موجودة مسبقًا.", variant: "default" });
       }
       setIsSaving(false);
   }
@@ -430,6 +422,15 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
             )}
         </div>
          <DialogFooter>
+            <div className="flex items-center gap-2">
+                <Label>مصدر التقرير:</Label>
+                <Autocomplete
+                    options={supplierOptions}
+                    value={defaultSupplier}
+                    onValueChange={setDefaultSupplier}
+                    placeholder="اختر المورد..."
+                />
+            </div>
           <DialogClose asChild>
             <Button variant="ghost">إلغاء</Button>
           </DialogClose>
@@ -441,3 +442,5 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
     </Dialog>
   );
 }
+
+    
