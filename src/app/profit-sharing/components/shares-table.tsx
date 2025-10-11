@@ -22,9 +22,10 @@ interface SharesTableProps {
   onDataChange: () => void;
   currency: Currency;
   isManual: boolean;
+  monthId: string;
 }
 
-export default function SharesTable({ shares, partners, totalProfit, onDataChange, currency, isManual }: SharesTableProps) {
+export default function SharesTable({ shares, partners, totalProfit, onDataChange, currency, isManual, monthId }: SharesTableProps) {
   const { toast } = useToast();
 
   const handleDelete = async (id: string) => {
@@ -33,12 +34,12 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
           toast({ title: "تم حذف الحصة بنجاح" });
           onDataChange();
       } else {
-          toast({ title: "خطأ", description: result.error, variant: 'destructive' });
+          toast({ title: "خطأ", description: result.error, variant: "destructive" });
       }
   };
 
   return (
-    <div className="border rounded-lg overflow-x-auto">
+    <div className="border rounded-lg overflow-x-auto bg-background">
       <Table>
         <TableHeader>
           <TableRow>
@@ -46,7 +47,17 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
             <TableHead className="text-center font-bold">النسبة</TableHead>
             <TableHead className="text-center font-bold">المبلغ</TableHead>
             <TableHead className="font-bold text-center">ملاحظات</TableHead>
-            <TableHead className="text-center font-bold">الإجراءات</TableHead>
+            <TableHead className="text-center font-bold">
+                 <AddEditShareDialog 
+                    monthId={monthId} 
+                    totalProfit={totalProfit}
+                    partners={partners}
+                    onSuccess={onDataChange}
+                    disabled={isManual}
+                >
+                    <Button variant="ghost" size="sm" disabled={isManual}>إضافة</Button>
+                </AddEditShareDialog>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
