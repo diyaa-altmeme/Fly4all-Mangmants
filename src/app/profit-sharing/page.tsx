@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { format } from 'date-fns';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
+import type { Client, MonthlyProfit } from '@/lib/types';
+import { produce } from 'immer';
 
 export default async function ProfitSharingPage() {
     const [monthlyProfits, clientsResponse, error] = await Promise.all([
@@ -30,16 +32,42 @@ export default async function ProfitSharingPage() {
         type: c.relationType 
     }));
     
+    // Enrich shares with partner names for manual entries
+    const enrichedMonthlyProfits = produce(monthlyProfits, draft => {
+        draft.forEach(period => {
+            if (!period.fromSystem && period.partners) {
+                period.partners.forEach(share => {
+                    const partner = partners.find(p => p.id === share.partnerId);
+                    if (partner) {
+                        share.partnerName = partner.name;
+                    }
+                });
+            }
+        });
+    });
+
     const currentMonthId = format(new Date(), 'yyyy-MM');
-    const initialMonthId = monthlyProfits.find(p => p.id === currentMonthId) ? currentMonthId : (monthlyProfits[0]?.id || '');
-    const initialShares = initialMonthId ? await getProfitSharesForMonth(initialMonthId) : [];
+    const initialMonthId = enrichedMonthlyProfits.find(p => p.id === currentMonthId) ? currentMonthId : (enrichedMonthlyProfits[0]?.id || '');
+    
+    const initialSharesData = initialMonthId ? await getProfitSharesForMonth(initialMonthId) : [];
+    
+    // Enrich shares fetched for the initial month
+    const enrichedInitialShares = produce(initialSharesData, draft => {
+        draft.forEach(share => {
+            if (!share.partnerName) {
+                const partner = partners.find(p => p.id === share.partnerId);
+                if (partner) {
+                    share.partnerName = partner.name;
+                }
+            }
+        });
+    });
+
 
     return (
         <ProfitSharingContent
-            initialMonthlyProfits={monthlyProfits}
-            initialShares={initialShares}
+            initialMonthlyProfits={enrichedMonthlyProfits}
             partners={partners}
-            initialMonthId={initialMonthId}
         />
     );
 }
