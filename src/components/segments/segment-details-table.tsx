@@ -39,7 +39,6 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
           <TableHead>الإجمالي</TableHead>
           <TableHead>حصة الروضتين</TableHead>
           <TableHead>حصة الشريك</TableHead>
-          <TableHead className="w-[50px] text-center">حذف</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -51,17 +50,7 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
             <TableCell className="font-mono">{formatCurrency(entry.otherProfits)}</TableCell>
             <TableCell className="font-mono font-bold">{formatCurrency(entry.total)}</TableCell>
             <TableCell className="font-mono text-green-600">{formatCurrency(entry.alrawdatainShare)}</TableCell>
-            <TableCell className="font-mono text-green-600">{formatCurrency(entry.partnerShare)}</TableCell>
-            <TableCell className="text-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive"
-                onClick={() => onDeleteEntry(entry.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </TableCell>
+            <TableCell className="font-mono text-blue-600">{formatCurrency(entry.partnerShare)}</TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -72,8 +61,7 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
           <TableCell>{formatCurrency(period.totalOther)}</TableCell>
           <TableCell>{formatCurrency(period.totalProfit)}</TableCell>
           <TableCell className="text-green-600">{formatCurrency(period.totalAlrawdatainShare)}</TableCell>
-          <TableCell className="text-green-600">{formatCurrency(period.totalPartnerShare)}</TableCell>
-          <TableCell></TableCell>
+          <TableCell className="text-blue-600">{formatCurrency(period.totalPartnerShare)}</TableCell>
         </TableRow>
       </TableFooter>
     </Table>
