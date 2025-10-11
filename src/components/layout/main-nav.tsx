@@ -59,10 +59,10 @@ import {
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
-import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
-import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
-import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
-import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
+import NewDistributedReceiptDialog from "@/app/accounts/vouchers/components/new-distributed-receipt-dialog";
+import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-payment-voucher-dialog";
+import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
+import NewJournalVoucherDialog from "@/app/accounts/vouchers/components/new-journal-voucher-dialog";
 import AddClientDialog from "@/app/clients/components/add-client-dialog";
 import { DropdownMenuSeparator, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
@@ -439,5 +439,3 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
-
-    
