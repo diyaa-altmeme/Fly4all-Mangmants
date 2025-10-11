@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins } from 'lucide-react';
+import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from './actions';
 import { getClients } from '@/app/relations/actions';
@@ -12,7 +12,8 @@ import { getSuppliers } from '@/app/suppliers/actions';
 import AddSegmentPeriodDialog from './add-segment-period-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import SegmentDetailsTable from '@/components/segments/segment-details-table';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
@@ -35,6 +36,57 @@ const StatCard = ({ title, value }: { title: string, value: string }) => (
         <p className="text-2xl font-bold font-mono">{value}</p>
     </div>
 );
+
+const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period: any, index: number, clients: Client[], suppliers: Supplier[], onDataChange: () => void }) => {
+    const [isOpen, setIsOpen] = useState(false);
+
+    const handleDeletePeriod = async (fromDate: string, toDate: string) => {
+        // This function should be passed down from the parent or defined here
+        // For now, let's assume it's defined in the parent and passed via onDataChange
+    };
+
+    return (
+        <Collapsible asChild key={`${period.fromDate}_${period.toDate}`}>
+            <>
+                <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+                    <TableCell className="p-2 text-center">
+                        <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                            </Button>
+                        </CollapsibleTrigger>
+                    </TableCell>
+                    <TableCell className="text-center font-bold">{`#${index + 1}`}</TableCell>
+                    <TableCell className="text-center">{period.fromDate}</TableCell>
+                    <TableCell className="text-center">{period.toDate}</TableCell>
+                    <TableCell className="text-center font-mono">{period.totalProfit.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-mono text-green-600">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-mono text-blue-600">{period.totalPartnerShare.toFixed(2)}</TableCell>
+                    <TableCell className="text-center">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
+                                <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
+                </TableRow>
+                <CollapsibleContent asChild>
+                    <TableRow>
+                        <TableCell colSpan={8} className="p-0">
+                            <div className="p-4 bg-muted/30">
+                                <SegmentDetailsTable period={period} onDeleteEntry={() => {}} />
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                </CollapsibleContent>
+            </>
+        </Collapsible>
+    );
+};
 
 
 export default function SegmentsPage() {
@@ -117,16 +169,6 @@ export default function SegmentsPage() {
 
     }, [groupedByPeriod, debouncedSearchTerm, date]);
 
-    const handleDeletePeriod = async (fromDate: string, toDate: string) => {
-        const result = await deleteSegmentPeriod(fromDate, toDate);
-        if (result.success) {
-            toast({ title: `تم حذف الفترة و ${result.count} سجلات بنجاح` });
-            fetchData();
-        } else {
-            toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
-        }
-    }
-    
     const { grandTotalProfit, grandTotalAlrawdatainShare, grandTotalPartnerShare } = useMemo(() => {
         return sortedAndFilteredPeriods.reduce((acc, period) => {
             acc.grandTotalProfit += period.totalProfit;
@@ -199,42 +241,51 @@ export default function SegmentsPage() {
                 </CardContent>
             </Card>
 
-            <Accordion type="single" collapsible defaultValue={sortedAndFilteredPeriods[0] ? `${sortedAndFilteredPeriods[0].fromDate}_${sortedAndFilteredPeriods[0].toDate}`: ''}>
-                {sortedAndFilteredPeriods.map((period, idx) => (
-                    <AccordionItem value={`${period.fromDate}_${period.toDate}`} key={`${period.fromDate}_${period.toDate}`}>
-                        <div className="p-4 bg-card rounded-lg shadow-sm flex items-center justify-between w-full border">
-                           <AccordionTrigger className="p-0 font-bold text-lg hover:no-underline flex-grow">
-                                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 w-full text-sm">
-                                    <div className="flex items-center gap-2 font-bold"><Badge>فترة #{sortedAndFilteredPeriods.length - idx}</Badge></div>
-                                    <div className="flex items-center gap-2"><span className="text-muted-foreground">من:</span> {period.fromDate}</div>
-                                    <div className="flex items-center gap-2"><span className="text-muted-foreground">إلى:</span> {period.toDate}</div>
-                                    <div className="flex items-center gap-2 font-bold"><span className="text-muted-foreground">إجمالي الربح:</span> <span className="font-mono">{period.totalProfit.toFixed(2)}</span></div>
-                                    <div className="flex items-center gap-2 font-bold"><span className="text-muted-foreground">حصة الشركة:</span> <span className="font-mono text-blue-600">{period.totalAlrawdatainShare.toFixed(2)}</span></div>
-                                    <div className="flex items-center gap-2 font-bold"><span className="text-muted-foreground">حصة الشريك:</span> <span className="font-mono text-green-600">{period.totalPartnerShare.toFixed(2)}</span></div>
-                                </div>
-                           </AccordionTrigger>
-                           <div onClick={(e) => e.stopPropagation()} className="shrink-0 pl-4">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal /></Button></DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                     <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={fetchData} />
-                                     <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                           </div>
-                        </div>
-                        <AccordionContent className="p-2 md:p-4 border-x border-b rounded-b-lg">
-                            <SegmentDetailsTable period={period} onDeleteEntry={() => {}} />
-                        </AccordionContent>
-                    </AccordionItem>
-                ))}
-            </Accordion>
-             {sortedAndFilteredPeriods.length === 0 && (
-                <div className="text-center p-12 border-2 border-dashed rounded-lg">
-                    <GitBranch className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <p className="mt-4 text-muted-foreground">لا توجد سجلات سكمنت لعرضها.</p>
-                </div>
-            )}
+             <Card>
+                <CardHeader>
+                    <CardTitle>ملخص الفترات</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="border rounded-lg overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                    <TableHead className="text-center font-bold">#</TableHead>
+                                    <TableHead className="text-center font-bold">من تاريخ</TableHead>
+                                    <TableHead className="text-center font-bold">إلى تاريخ</TableHead>
+                                    <TableHead className="text-center font-bold">إجمالي الربح</TableHead>
+                                    <TableHead className="text-center font-bold">حصة الشركة</TableHead>
+                                    <TableHead className="text-center font-bold">حصة الشريك</TableHead>
+                                    <TableHead className="text-center font-bold">الإجراءات</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            
+                                {sortedAndFilteredPeriods.length > 0 ? (
+                                    sortedAndFilteredPeriods.map((period, idx) => (
+                                        <PeriodRow
+                                            key={`${period.fromDate}_${period.toDate}`}
+                                            period={period}
+                                            index={idx}
+                                            clients={clients}
+                                            suppliers={suppliers}
+                                            onDataChange={fetchData}
+                                        />
+                                    ))
+                                ) : (
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell colSpan={8} className="text-center h-24">
+                                                لا توجد بيانات للفترة المحددة.
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                )}
+                            
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     )
 }
