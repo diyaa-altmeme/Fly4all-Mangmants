@@ -204,20 +204,18 @@ export default function SegmentsPage() {
                     <AccordionItem value={`${period.fromDate}_${period.toDate}`} key={`${period.fromDate}_${period.toDate}`}>
                         <div className="p-4 bg-card rounded-lg shadow-sm flex items-center justify-between w-full border">
                            <AccordionTrigger className="p-0 font-bold text-lg hover:no-underline flex-grow">
-                             <div className="grid grid-cols-1 md:grid-cols-6 gap-4 w-full text-sm">
-                                <div className="flex items-center gap-2 font-bold"><Badge>فترة #{sortedAndFilteredPeriods.length - idx}</Badge></div>
-                                <div className="flex items-center gap-2"><span className="text-muted-foreground">من تاريخ:</span> {period.fromDate}</div>
-                                <div className="flex items-center gap-2"><span className="text-muted-foreground">الى تاريخ:</span> {period.toDate}</div>
-                                <div className="flex items-center gap-2"><span className="text-muted-foreground">أرباح التذاكر:</span> <span className="font-mono">{period.totalTickets.toFixed(2)}</span></div>
-                                <div className="flex items-center gap-2"><span className="text-muted-foreground">أرباح أخرى:</span> <span className="font-mono">{period.totalOther.toFixed(2)}</span></div>
-                                <div className="flex items-center gap-2"><span className="text-muted-foreground">حصة الشريك:</span> <span className="font-mono text-green-600">{period.totalPartnerShare.toFixed(2)}</span></div>
-                             </div>
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 w-full text-sm">
+                                    <div className="flex items-center gap-2 font-bold"><Badge>فترة #{sortedAndFilteredPeriods.length - idx}</Badge></div>
+                                    <div className="flex items-center gap-2"><span className="text-muted-foreground">من:</span> {period.fromDate}</div>
+                                    <div className="flex items-center gap-2"><span className="text-muted-foreground">إلى:</span> {period.toDate}</div>
+                                    <div className="flex items-center gap-2 font-bold"><span className="text-muted-foreground">إجمالي الربح:</span> <span className="font-mono">{period.totalProfit.toFixed(2)}</span></div>
+                                    <div className="flex items-center gap-2 font-bold"><span className="text-muted-foreground">حصة الشركة:</span> <span className="font-mono text-blue-600">{period.totalAlrawdatainShare.toFixed(2)}</span></div>
+                                    <div className="flex items-center gap-2 font-bold"><span className="text-muted-foreground">حصة الشريك:</span> <span className="font-mono text-green-600">{period.totalPartnerShare.toFixed(2)}</span></div>
+                                </div>
                            </AccordionTrigger>
                            <div onClick={(e) => e.stopPropagation()} className="shrink-0 pl-4">
                               <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon"><MoreHorizontal /></Button>
-                                </DropdownMenuTrigger>
+                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal /></Button></DropdownMenuTrigger>
                                 <DropdownMenuContent>
                                      <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={fetchData} />
                                      <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
