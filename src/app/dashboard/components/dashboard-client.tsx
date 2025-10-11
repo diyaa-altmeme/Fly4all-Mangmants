@@ -133,8 +133,8 @@ export default function DashboardClient({
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {recentBookings.map(booking => (
-                                <div key={booking.id} className="flex items-center justify-between">
+                            {recentBookings.map((booking, index) => (
+                                <div key={booking.id || index} className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="p-2 bg-blue-100 rounded-md"><Ticket className="h-5 w-5 text-blue-500" /></div>
                                         <div>
@@ -160,8 +160,8 @@ export default function DashboardClient({
                     </CardHeader>
                      <CardContent>
                         <div className="space-y-4">
-                            {upcomingInstallments.map(inst => (
-                                <div key={inst.id} className="flex items-center justify-between">
+                            {upcomingInstallments.map((inst, index) => (
+                                <div key={inst.id || index} className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
                                         <div className="p-2 bg-orange-100 rounded-md"><Repeat className="h-5 w-5 text-orange-500" /></div>
                                         <div>
