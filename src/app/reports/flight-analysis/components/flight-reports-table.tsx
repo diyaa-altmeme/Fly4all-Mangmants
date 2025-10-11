@@ -4,7 +4,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import type { FlightReportWithId, DataAuditIssue, ExtractedPassenger, ManualDiscount } from '@/lib/types';
 import { BadgePercent, Save, Trash2, AlertTriangle, Repeat, Repeat1, FileWarning, CheckCircle, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, FileText as InvoiceIcon } from 'lucide-react';
 import { format, parseISO, isValid } from 'date-fns';
@@ -48,7 +47,7 @@ import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge as BadgeComponent } from '@/components/ui/badge';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
-
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 
 /**
  * =================================================================================
@@ -520,6 +519,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
             <IssueDetailsDialog issues={duplicatePnrIssues} open={isDuplicatePnrIssuesOpen} onOpenChange={setIsDuplicatePnrIssuesOpen} title="تفاصيل الـ Booking References المكررة" />
             <IssueDetailsDialog issues={fileAnalysisIssues} open={isFileAnalysisOpen} onOpenChange={setIsFileAnalysisOpen} title="تفاصيل الملفات المكررة" />
             
+            <Collapsible asChild>
             <tbody className="border-b">
                 <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
                     <TableCell className="text-center">{index + 1}</TableCell>
@@ -596,7 +596,8 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                     </TableRow>
                 </CollapsibleContent>
             </tbody>
-       </React.Fragment>
+            </Collapsible>
+        </React.Fragment>
     );
 };
 
@@ -606,6 +607,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
  * 6. الجدول الرئيسي للتقارير (FlightReportsTable)
  * =================================================================================
  */
+
 type SortKey = keyof FlightReport | 'totalRevenue' | 'paxCount' | 'filteredRevenue' | 'supplierName' | 'totalDiscount' | 'manualDiscountValue';
 type SortDirection = 'ascending' | 'descending';
 
