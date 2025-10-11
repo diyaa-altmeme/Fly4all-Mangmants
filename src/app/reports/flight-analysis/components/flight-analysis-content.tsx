@@ -1,9 +1,10 @@
+
 "use client";
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import FlightDataExtractorDialog from '@/app/bookings/components/flight-data-extractor-dialog';
-import FlightReportsTable from '@/app/reports/flight-analysis/components/flight-reports-table';
+import FlightReportsTable from './flight-reports-table';
 import { useRouter } from 'next/navigation';
 import { PlusCircle, Wand2, Search, DollarSign, RefreshCw, Loader2, FileSpreadsheet, Users, User, Baby, UserSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,9 +17,10 @@ import { produce } from 'immer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDebounce } from '@/hooks/use-debounce';
 import { DataTablePagination } from '@/components/ui/data-table-pagination';
-// import * as XLSX from 'xlsx'; // Temporarily disabled
 import { isValid, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 // تعريف أنواع الفرز
 type SortKey = keyof FlightReport | 'totalRevenue' | 'paxCount' | 'filteredRevenue' | 'supplierName' | 'totalDiscount' | 'manualDiscountValue';
@@ -65,46 +67,25 @@ const FinancialSummaryCard = ({ title, summary, currency, className }: { title: 
     </Card>
 );
 
-export default function FlightAnalysisPage() {
-    const router = useRouter();
-    // حالة لتخزين جميع التقارير
-    const [allReports, setAllReports] = useState<FlightReportWithId[]>([]);
-    // حالة لتخزين التقارير المحددة (التي تم وضع علامة صح عليها)
+interface FlightAnalysisContentProps {
+    initialReports: FlightReportWithId[];
+    onRefresh: () => void;
+}
+
+export default function FlightAnalysisContent({ initialReports, onRefresh }: FlightAnalysisContentProps) {
+    const [allReports, setAllReports] = useState(initialReports);
     const [selectedReports, setSelectedReports] = useState<FlightReportWithId[]>([]);
-    // حالة للتحميل
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
-    
-    // حالات لفرز الجدول والبحث
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
-    const [pagination, setPagination] = React.useState({ pageIndex: 0, pageSize: 5 });
+    const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 5 });
     const [sortDescriptor, setSortDescriptor] = useState<{ column: SortKey, direction: SortDirection }>({ column: 'flightDate', direction: 'descending' });
 
-
-    // دالة لجلب وتدقيق البيانات من الخادم
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const reportsData = await runAdvancedFlightAudit();
-            setAllReports(reportsData as FlightReportWithId[]);
-        } catch (error) {
-            toast({
-                title: "خطأ",
-                description: "فشل في تحميل بيانات تحليل الرحلات.",
-                variant: "destructive"
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    }, [toast]);
-    
-    // جلب البيانات عند تحميل الصفحة لأول مرة
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
-
-    // دالة لتحديث تقرير معين في القائمة (بعد تعديل الخصم مثلاً)
+        setAllReports(initialReports);
+    }, [initialReports]);
+    
     const handleUpdateReport = (updatedReport: FlightReportWithId) => {
         setAllReports(produce(draft => {
             const index = draft.findIndex(r => r.id === updatedReport.id);
@@ -114,18 +95,15 @@ export default function FlightAnalysisPage() {
         }));
     };
 
-    // دالة لحذف تقرير من القائمة
     const handleDeleteReport = (reportId: string) => {
         setAllReports(produce(draft => {
             return draft.filter(r => r.id !== reportId);
         }));
     };
 
-    // دوال للتصدير (معطلة حاليًا)
-    const handleExport = () => { toast({ title: "وظيفة معطلة", description: "تم تعطيل تصدير الملخص مؤقتًا.", variant: "destructive" }); };
-    const handleComprehensiveExport = () => { toast({ title: "وظيفة معطلة", description: "تم تعطيل التصدير الشامل مؤقتًا.", variant: "destructive" }); };
-    
-    // فرز البيانات بناءً على اختيار المستخدم
+    const handleExport = () => toast({ title: "وظيفة معطلة", description: "تم تعطيل تصدير الملخص مؤقتًا.", variant: "destructive" });
+    const handleComprehensiveExport = () => toast({ title: "وظيفة معطلة", description: "تم تعطيل التصدير الشامل مؤقتًا.", variant: "destructive" });
+
     const sortedReports = useMemo(() => {
         return [...allReports].sort((a, b) => {
             let first: any, second: any;
@@ -151,8 +129,7 @@ export default function FlightAnalysisPage() {
             return sortDescriptor.direction === 'descending' ? -cmp : cmp;
         });
     }, [allReports, sortDescriptor]);
-    
-    // فلترة البيانات بناءً على مصطلح البحث
+
     const filteredReports = useMemo(() => {
         if (!debouncedSearchTerm) return sortedReports;
         const lowercasedTerm = debouncedSearchTerm.toLowerCase();
@@ -168,7 +145,6 @@ export default function FlightAnalysisPage() {
         );
     }, [sortedReports, debouncedSearchTerm]);
 
-    // تطبيق التقسيم على الصفحات
     const paginatedReports = useMemo(() => {
         const { pageIndex, pageSize } = pagination;
         const start = pageIndex * pageSize;
@@ -176,7 +152,6 @@ export default function FlightAnalysisPage() {
         return filteredReports.slice(start, end);
     }, [filteredReports, pagination]);
 
-    // دالة لحساب الملخصات المالية
     const calculateSummary = (reports: FlightReportWithId[]) => {
       return reports.reduce((acc, report) => {
         acc.totalRevenue += report.totalRevenue || 0;
@@ -220,8 +195,8 @@ export default function FlightAnalysisPage() {
                          <div className="flex items-center gap-2">
                             <Button onClick={handleComprehensiveExport} variant="outline" disabled={allReports.length === 0}><FileSpreadsheet className="me-2 h-4 w-4"/>تصدير شامل</Button>
                             <Button onClick={handleExport} variant="outline" disabled={allReports.length === 0}><FileSpreadsheet className="me-2 h-4 w-4"/>تصدير الملخص</Button>
-                            <Button onClick={fetchData} variant="outline" disabled={isLoading}>{isLoading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث البيانات</Button>
-                            <FlightDataExtractorDialog onSaveSuccess={fetchData}>
+                            <Button onClick={onRefresh} variant="outline" disabled={isLoading}>{isLoading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث البيانات</Button>
+                            <FlightDataExtractorDialog onSaveSuccess={onRefresh}>
                                 <Button><PlusCircle className="h-4 w-4 me-2" />رفع وتحليل ملف جديد</Button>
                             </FlightDataExtractorDialog>
                         </div>
