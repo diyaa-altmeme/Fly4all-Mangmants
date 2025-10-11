@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -111,22 +110,23 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
         const alrawdatainShare = total * (effectiveSettings.alrawdatainSharePercentage / 100);
-        const mateenShare = total * ((100 - effectiveSettings.alrawdatainSharePercentage) / 100);
+        const partnerShare = total - alrawdatainShare;
         
         const client = clients.find(c => c.id === data.clientId);
-        const partner = [...clients, ...suppliers].find(p => p.id === data.partnerId);
+        const selectedPartnerOption = partnerOptions.find(p => p.value === data.partnerId);
+
         
         return { 
             ...data, 
-            companyName: client?.name || data.clientId,
+            companyName: client?.name || '',
             clientId: client?.id || '',
-            partnerId: partner?.id || '',
-            partnerName: partner?.name || '',
+            partnerId: selectedPartnerOption?.value.split('-')[1] || '',
+            partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
             total, 
             alrawdatainShare, 
-            mateenShare 
+            partnerShare 
         };
     }
 
@@ -256,7 +256,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                      <TableCell>{entry.partnerName}</TableCell>
                                                     <TableCell className="font-mono">{entry.total.toFixed(2)}</TableCell>
                                                     <TableCell className="font-mono text-green-600">{entry.alrawdatainShare.toFixed(2)}</TableCell>
-                                                    <TableCell className="font-mono text-green-600">{entry.mateenShare.toFixed(2)}</TableCell>
+                                                    <TableCell className="font-mono text-green-600">{entry.partnerShare.toFixed(2)}</TableCell>
                                                     <TableCell className='text-center'>
                                                         <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button>
                                                     </TableCell>
