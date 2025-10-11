@@ -16,23 +16,25 @@ export function Providers({
   children: React.ReactNode,
 }) {
     return (
-      <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-      >
-        <ThemeCustomizationProvider>
-              <VoucherNavProvider>
-                <React.Suspense fallback={null}>
-                    <TopLoader />
-                </React.Suspense>
-                <MainLayout>
-                    {children}
-                </MainLayout>
-                <Toaster />
-              </VoucherNavProvider>
-        </ThemeCustomizationProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+        >
+          <ThemeCustomizationProvider>
+                <VoucherNavProvider>
+                  <React.Suspense fallback={null}>
+                      <TopLoader />
+                  </React.Suspense>
+                  <MainLayout>
+                      {children}
+                  </MainLayout>
+                  <Toaster />
+                </VoucherNavProvider>
+          </ThemeCustomizationProvider>
+        </ThemeProvider>
+      </AuthProvider>
     )
 }
