@@ -400,7 +400,7 @@ export default function FlightDataExtractorDialog({ onSaveSuccess, children }: F
                                             <Table>
                                                 <TableHeader><TableRow><TableHead>السعر</TableHead><TableHead>العدد</TableHead><TableHead className="text-right">الإجمالي</TableHead></TableRow></TableHeader>
                                                 <TableBody>{payDistribution.map(p => (<TableRow key={p.amount}><TableCell>{p.amount} USD</TableCell><TableCell>{p.count}</TableCell><TableCell className="font-mono text-right">{p.subtotal.toFixed(2)} USD</TableCell></TableRow>))}</TableBody>
-                                                <TableFooter><TableRow><TableCell className="font-bold">المجموع</TableCell><TableCell className="font-bold font-mono">{totalPax}</TableCell><TableCell className="font-bold font-mono text-right">{totalRevenue.toFixed(2)} USD</TableCell></TableRow></TableFooter>
+                                                <TableFooter><TableRow><TableCell className="font-bold">المجموع</TableCell><TableCell className="font-bold font-mono">{paxCount}</TableCell><TableCell className="font-bold font-mono text-right">{totalRevenue.toFixed(2)} USD</TableCell></TableRow></TableFooter>
                                             </Table>
                                         </div>
                                     </div>
