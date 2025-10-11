@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import type { FlightReportWithId, ManualDiscount, Passenger, DataAuditIssue } from '@/lib/types';
 import { BadgePercent, Save, Trash2, ArrowUpRight, ArrowDownLeft, FilePenLine } from 'lucide-react';
@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { updateManualDiscount } from '../actions';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ChevronDown, Edit, MoreHorizontal, AlertTriangle, Download, FileText as InvoiceIcon, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle, Repeat, Repeat1, XCircle, FileWarning, Briefcase, User, Plane, Calendar as CalendarIcon, Clock, Users, DollarSign, ShieldCheck, UserSquare, Baby, UserRound, Passport } from 'lucide-react';
 import { Badge as BadgeComponent } from '@/components/ui/badge';
@@ -47,7 +48,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import Image from 'next/image';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 
 /**
@@ -381,6 +381,7 @@ const ManualDiscountDialog = ({ report, onSaveSuccess }: { report: FlightReportW
     );
 };
 
+
 const getTripDirection = (route: string) => {
     if (!route) return '';
     const parts = route.split('-');
@@ -416,7 +417,7 @@ const IssueDetailsDialog = ({ open, onOpenChange, issues, title }: { open: boole
                     {issues.map((issue, index) => (
                         <Alert key={index} variant="destructive">
                             <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>مشكلة في: {issue.pnr || 'ملف مكرر'}</AlertTitle>
+                            <AlertDialogTitleComponent>مشكلة في: {issue.pnr || 'ملف مكرر'}</AlertDialogTitleComponent>
                             <AlertDescription>{issue.description}</AlertDescription>
                         </Alert>
                     ))}
@@ -432,8 +433,8 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
 }) => {
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
-    const [showPnrIssues, setShowFileIssues] = useState(false);
-    const [showFileIssues, setShowPnrIssues] = useState(false);
+    const [showPnrIssues, setShowPnrIssues] = useState(false);
+    const [showFileIssues, setShowFileIssues] = useState(false);
     
     const handleDelete = async () => {
         const result = await deleteFlightReport(report.id);
@@ -488,7 +489,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                     <TableCell className="text-center">{hasFileIssues ? <Button variant="destructive" size="sm" onClick={() => setShowFileIssues(true)}>مكرر ({report.issues?.fileAnalysis.length})</Button> : <BadgeComponent variant="outline">سليم</BadgeComponent>}</TableCell>
                     <TableCell className="text-center">{hasReturnTripIssues ? <BadgeComponent variant="secondary">ذهاب وعودة ({report.issues?.tripAnalysis.length})</BadgeComponent> : <BadgeComponent variant="outline">سليم</BadgeComponent>}</TableCell>
                     <TableCell className="text-center">{hasPnrIssues ? <Button variant="destructive" size="sm" onClick={() => setShowPnrIssues(true)}>تكرار ({report.issues?.duplicatePnr.length})</Button> : <BadgeComponent variant="outline">سليم</BadgeComponent>}</TableCell>
-                    <TableCell className="text-center"><BadgeComponent variant="outline">سليم</BadgeComponent></TableCell>
+                    <TableCell className="text-center"><BadgeComponent variant="outline">سليم</BadgeComponent}</TableCell>
                     <TableCell className="text-center">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal /></Button></DropdownMenuTrigger>
@@ -502,7 +503,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
-                                            <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                            <AlertDialogTitleComponent>هل أنت متأكد؟</AlertDialogTitleComponent>
                                             <AlertDialogDescription>سيتم حذف هذا التقرير بشكل دائم.</AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -627,11 +628,11 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
                         <TableHead className="w-[50px]"></TableHead>
                         <TableHead><SortableHeader column="supplierName" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>المصدر</SortableHeader></TableHead>
                         <TableHead><SortableHeader column="route" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الوجهة</SortableHeader></TableHead>
-                        <TableHead><SortableHeader column="flightDate" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>تاريخ الرحلة</SortableHeader></TableHead>
+                        <TableHead><SortableHeader column="flightDate" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>تاريخ الرحلة</TableHead></TableHead>
                         <TableHead className="text-center">الوقت</TableHead>
-                        <TableHead><SortableHeader column="paxCount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>المسافرون</SortableHeader></TableHead>
+                        <TableHead><SortableHeader column="paxCount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>المسافرون</TableHead></TableHead>
                         <TableHead><SortableHeader column="totalRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الإجمالي</SortableHeader></TableHead>
-                        <TableHead><SortableHeader column="totalDiscount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم تلقائي</SortableHeader></TableHead>
+                        <TableHead><SortableHeader column="totalDiscount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم تلقائي</TableHead></TableHead>
                         <TableHead><SortableHeader column="manualDiscountValue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم يدوي</SortableHeader></TableHead>
                         <TableHead><SortableHeader column="filteredRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الصافي</SortableHeader></TableHead>
                         <TableHead>تحليل الملف</TableHead>
