@@ -1,7 +1,6 @@
 
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import FlyChangesContent from './components/fly-changes-content';
+import FlightChangesContent from './components/fly-changes-content';
 import { getFlyChangesAndBaggage } from './actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
@@ -36,7 +35,7 @@ export default async function FlyChangesPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <FlyChangesContent 
+                    <FlightChangesContent 
                         initialData={data || []}
                         clients={clientsResponse.clients}
                         suppliers={suppliers}
@@ -46,3 +45,4 @@ export default async function FlyChangesPage() {
         </div>
     );
 }
+

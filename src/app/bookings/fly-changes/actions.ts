@@ -1,6 +1,5 @@
 
-
-"use server";
+'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import type { FlyChangeEntry, BaggagePurchaseEntry } from '@/lib/types';
@@ -122,16 +121,3 @@ export const getFlyChangesAndBaggage = cache(async (): Promise<FlyChangeOrBaggag
         throw new Error("Failed to fetch data.");
     }
 });
-
-// Deprecated
-export async function saveFlightReport(report: FlightReport): Promise<{ success: boolean; error?: string }> {
-    const db = await getDb();
-    if (!db) return { success: false, error: "Database not available." };
-    try {
-        const docRef = db.collection('flight_reports').doc(report.flightInfo.date);
-        await docRef.set(report, { merge: true });
-        return { success: true };
-    } catch (e: any) {
-        return { success: false, error: e.message };
-    }
-}
