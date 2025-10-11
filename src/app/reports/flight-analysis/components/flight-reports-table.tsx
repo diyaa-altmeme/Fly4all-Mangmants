@@ -20,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { deleteFlightReport, updateFlightReportSelection, updateManualDiscount } from '../actions';
-import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipContent } from '@/components/ui/tooltip';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -28,8 +28,6 @@ import { NumericInput } from '@/components/ui/numeric-input';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { produce } from 'immer';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // --- Helper Components ---
 const formatCurrency = (amount?: number): string => {
@@ -178,97 +176,93 @@ const ReportRow = ({ report, index, onDeleteReport, onSelectionChange, onUpdateR
 
 
     return (
-        <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
-            <tbody className="border-b">
-                 <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
-                    <TableCell className="text-center">{index + 1}</TableCell>
-                    <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
-                    <TableCell>
-                        <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <ChevronDown className="h-4 w-4" />
-                            </Button>
-                        </CollapsibleTrigger>
-                    </TableCell>
-                    <TableCell>{report.supplierName}</TableCell>
-                    <TableCell className="font-semibold">{report.route}{tripDirection && <Badge variant="outline" className="ms-2">{tripDirection}</Badge>}</TableCell>
-                    <TableCell>{isValid(parseISO(report.flightDate)) ? format(parseISO(report.flightDate), 'yyyy-MM-dd') : report.flightDate}</TableCell>
-                    <TableCell className="text-center">{report.flightTime}</TableCell>
-                    <TableCell className="text-center">{report.paxCount}</TableCell>
-                    <TableCell className="font-mono text-center">{formatCurrency(report.totalRevenue)}</TableCell>
-                    <TableCell className="font-mono text-center text-red-600">{formatCurrency(report.totalDiscount)}</TableCell>
-                    <TableCell className="font-mono text-center text-orange-600">{formatCurrency(report.manualDiscountValue)}</TableCell>
-                    <TableCell className="font-mono text-center font-bold text-green-600">{formatCurrency(report.filteredRevenue)}</TableCell>
-                    <TableCell className="text-center"><Badge variant="default">سليم</Badge></TableCell>
-                    <TableCell className="text-center">{hasReturnTripIssues ? <Badge variant="secondary">ذهاب وعودة ({report.issues?.tripAnalysis.length})</Badge> : <Badge variant="outline">سليم</Badge>}</TableCell>
-                    <TableCell className="text-center">{hasPnrIssues ? <Badge variant="destructive">تكرار ({report.issues?.duplicatePnr.length})</Badge> : <Badge variant="outline">سليم</Badge>}</TableCell>
-                    <TableCell className="text-center"><Badge variant="outline">سليم</Badge></TableCell>
-                    <TableCell className="text-center">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal /></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <ManualDiscountDialog report={report} onSaveSuccess={onUpdateReport} />
-                                <DropdownMenuItem><InvoiceIcon className="me-2 h-4 w-4" /> عرض فاتورة</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <AlertDialog><AlertDialogTrigger asChild><DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-500"><Trash2 className="me-2 h-4 w-4" />حذف التقرير</DropdownMenuItem></AlertDialogTrigger>
-                                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذا التقرير بشكل دائم.</AlertDialogDescription></AlertDialogHeader>
-                                    <AlertDialogFooter><AlertDialogCancel>إلغاء</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({variant:'destructive'}))}>نعم، احذف</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-                                </AlertDialog>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+        <>
+            <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
+                <TableCell className="text-center">{index + 1}</TableCell>
+                <TableCell className="text-center"><Checkbox onCheckedChange={(c) => handleSelectChange(!!c)} checked={report.isSelectedForReconciliation} /></TableCell>
+                <TableCell>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(prev => !prev)}>
+                        <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                    </Button>
+                </TableCell>
+                <TableCell>{report.supplierName}</TableCell>
+                <TableCell className="font-semibold">{report.route}{tripDirection && <Badge variant="outline" className="ms-2">{tripDirection}</Badge>}</TableCell>
+                <TableCell>{isValid(parseISO(report.flightDate)) ? format(parseISO(report.flightDate), 'yyyy-MM-dd') : report.flightDate}</TableCell>
+                <TableCell className="text-center">{report.flightTime}</TableCell>
+                <TableCell className="text-center">{report.paxCount}</TableCell>
+                <TableCell className="font-mono text-center">{formatCurrency(report.totalRevenue)}</TableCell>
+                <TableCell className="font-mono text-center text-red-600">{formatCurrency(report.totalDiscount)}</TableCell>
+                <TableCell className="font-mono text-center text-orange-600">{formatCurrency(report.manualDiscountValue)}</TableCell>
+                <TableCell className="font-mono text-center font-bold text-green-600">{formatCurrency(report.filteredRevenue)}</TableCell>
+                <TableCell className="text-center">{hasFileIssues ? <Button variant="destructive" size="sm" onClick={() => setShowFileIssues(true)}>مكرر ({report.issues?.fileAnalysis.length})</Button> : <Badge variant="outline">سليم</Badge>}</TableCell>
+                <TableCell className="text-center">{hasReturnTripIssues ? <Badge variant="secondary">ذهاب وعودة ({report.issues?.tripAnalysis.length})</Badge> : <Badge variant="outline">سليم</Badge>}</TableCell>
+                <TableCell className="text-center">{hasPnrIssues ? <Button variant="destructive" size="sm" onClick={() => setShowPnrIssues(true)}>تكرار ({report.issues?.duplicatePnr.length})</Button> : <Badge variant="outline">سليم</Badge>}</TableCell>
+                <TableCell className="text-center"><Badge variant="outline">سليم</Badge></TableCell>
+                <TableCell className="text-center">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <ManualDiscountDialog report={report} onSaveSuccess={onUpdateReport} />
+                            <DropdownMenuItem><InvoiceIcon className="me-2 h-4 w-4" /> عرض فاتورة</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <AlertDialog><AlertDialogTrigger asChild><DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-500"><Trash2 className="me-2 h-4 w-4" />حذف التقرير</DropdownMenuItem></AlertDialogTrigger>
+                                <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذا التقرير بشكل دائم.</AlertDialogDescription></AlertDialogHeader>
+                                <AlertDialogFooter><AlertDialogCancel>إلغاء</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({variant:'destructive'}))}>نعم، احذف</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                            </AlertDialog>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </TableCell>
+            </TableRow>
+            {isOpen && (
+                <TableRow>
+                    <TableCell colSpan={17} className="p-0">
+                        <div className="p-4 bg-muted/50">
+                            <h4 className="font-bold mb-2">تفاصيل المسافرين:</h4>
+                            <div className="border rounded-lg overflow-hidden">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="bg-background">
+                                            <TableHead className="font-semibold">المسافر</TableHead>
+                                            <TableHead className="font-semibold">الجواز</TableHead>
+                                            <TableHead className="font-semibold">PNR / مرجع الحجز</TableHead>
+                                            <TableHead className="text-center font-semibold">نوع الرحلة</TableHead>
+                                            <TableHead className="text-center font-semibold">السعر المدفوع</TableHead>
+                                            <TableHead className="text-center font-semibold">السعر الفعلي</TableHead>
+                                            <TableHead className="text-center font-semibold">الحالة</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(report.passengers || []).map((p, i) => (
+                                            <TableRow key={`${p.name}-${i}`}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <PassengerTypeIcon type={p.passengerType} />
+                                                        <span className="font-medium">{p.name}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="font-mono">{p.passportNumber || '-'}</TableCell>
+                                                <TableCell className="font-mono">{p.pnrClass} / {p.bookingReference}</TableCell>
+                                                <TableCell className="text-center"><TripTypeBadge type={p.tripType} /></TableCell>
+                                                <TableCell className="text-center font-mono">{formatCurrency(p.payable)}</TableCell>
+                                                <TableCell className="text-center font-mono font-bold text-primary">{formatCurrency(p.actualPrice)}</TableCell>
+                                                <TableCell className="text-center">
+                                                    {(report.issues?.tripAnalysis || []).find(issue => issue.details?.some((d: any) => d.bookingReference === p.bookingReference)) 
+                                                        ? <Badge variant="secondary">ذهاب وعودة</Badge>
+                                                        : <Badge variant="outline">ذهاب فقط</Badge>
+                                                    }
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </div>
                     </TableCell>
                 </TableRow>
-                <CollapsibleContent asChild>
-                     <TableRow>
-                        <TableCell colSpan={17} className="p-0">
-                            <div className="p-4 bg-muted/50">
-                                <h4 className="font-bold mb-2">تفاصيل المسافرين:</h4>
-                                <div className="border rounded-lg overflow-hidden">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-background">
-                                                <TableHead className="font-semibold">المسافر</TableHead>
-                                                <TableHead className="font-semibold">الجواز</TableHead>
-                                                <TableHead className="font-semibold">PNR / مرجع الحجز</TableHead>
-                                                <TableHead className="text-center font-semibold">نوع الرحلة</TableHead>
-                                                <TableHead className="text-center font-semibold">السعر المدفوع</TableHead>
-                                                <TableHead className="text-center font-semibold">السعر الفعلي</TableHead>
-                                                <TableHead className="text-center font-semibold">الحالة</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {(report.passengers || []).map((p, i) => (
-                                                <TableRow key={`${p.name}-${i}`}>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <PassengerTypeIcon type={p.passengerType} />
-                                                            <span className="font-medium">{p.name}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="font-mono">{p.passportNumber || '-'}</TableCell>
-                                                    <TableCell className="font-mono">{p.pnrClass} / {p.bookingReference}</TableCell>
-                                                    <TableCell className="text-center"><TripTypeBadge type={p.tripType} /></TableCell>
-                                                    <TableCell className="text-center font-mono">{formatCurrency(p.payable)}</TableCell>
-                                                    <TableCell className="text-center font-mono font-bold text-primary">{formatCurrency(p.actualPrice)}</TableCell>
-                                                    <TableCell className="text-center">
-                                                        {(report.issues?.tripAnalysis || []).find(issue => issue.details?.some((d: any) => d.bookingReference === p.bookingReference)) 
-                                                            ? <Badge variant="secondary">ذهاب وعودة</Badge>
-                                                            : <Badge variant="outline">ذهاب فقط</Badge>
-                                                        }
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                </CollapsibleContent>
-                 {report.issues && <IssueDetailsDialog issues={report.issues.duplicatePnr} open={showPnrIssues} onOpenChange={setShowPnrIssues} title="مشاكل تكرار مرجع الحجز" />}
-                {report.issues && <IssueDetailsDialog issues={report.issues.fileAnalysis} open={showFileIssues} onOpenChange={setShowFileIssues} title="مشاكل تكرار ملف الرحلة" />}
-            </tbody>
-        </Collapsible>
+            )}
+             {report.issues && <IssueDetailsDialog issues={report.issues.duplicatePnr} open={showPnrIssues} onOpenChange={setShowPnrIssues} title="مشاكل تكرار مرجع الحجز" />}
+            {report.issues && <IssueDetailsDialog issues={report.issues.fileAnalysis} open={showFileIssues} onOpenChange={setShowFileIssues} title="مشاكل تكرار ملف الرحلة" />}
+        </>
     );
 };
 
