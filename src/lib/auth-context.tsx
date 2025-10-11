@@ -42,6 +42,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const sessionUser = await getCurrentUserFromSession();
             if (sessionUser) {
                 setUser(sessionUser);
+                 // If user is on a public page (including login page after a refresh) but has a session, redirect to dashboard.
+                if (isPublicRoute && pathname !== '/dashboard') {
+                    router.replace('/dashboard');
+                }
             } else if (!isPublicRoute) {
                 router.replace('/auth/login');
             }
