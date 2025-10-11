@@ -103,7 +103,7 @@ const reportsItems = [
     { href: "/reports/debts", label: "تقرير الأرصدة", icon: Wallet, permission: 'reports:debts' },
     { href: "/reports/account-statement", label: "كشف حساب", icon: FileText, permission: 'reports:account_statement' },
     { href: "/profits", label: "الأرباح الشهرية", icon: BarChart3, permission: 'reports:profits' },
-    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
+    { href: "/system/data-audit", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
     { href: "/boxes", label: "تقرير الصناديق", icon: Boxes, permission: 'admin' },
     { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
     { href: "/reconciliation", label: "التدقيق الذكي", icon: Wand2, permission: 'admin' },
