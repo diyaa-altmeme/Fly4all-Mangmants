@@ -42,17 +42,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const sessionUser = await getCurrentUserFromSession();
             if (sessionUser) {
                 setUser(sessionUser);
-                 // If user is on a public page (including login page after a refresh) but has a session, redirect to dashboard.
-                if (isPublicRoute && pathname !== '/dashboard') {
-                    router.replace('/dashboard');
-                }
-            } else if (!isPublicRoute) {
-                router.replace('/auth/login');
             }
         } catch (error) {
             console.error("Auth initialization error:", error);
             setUser(null);
-            if (!isPublicRoute) router.replace('/auth/login');
         } finally {
             setLoading(false);
         }
@@ -60,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
+  }, []);
 
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
@@ -74,7 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       setUser(result.user);
-      router.replace('/dashboard'); // Use replace to avoid adding a new entry to the history stack.
+      // The redirect is now handled by the MainLayout component based on the user state.
+      // This ensures a seamless transition without a full page reload.
       
       return { success: true };
 
@@ -111,7 +105,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (sessionResult.error || !sessionResult.user) throw new Error(sessionResult.error || "Failed to establish session for user.");
 
             setUser(sessionResult.user);
-            router.replace('/dashboard');
+            // Redirect is handled by MainLayout
         } else {
             throw new Error(error || "Failed to get custom token.");
         }
@@ -138,17 +132,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   if (loading) {
     return <Preloader />;
   }
-  
-  if (isPublicRoute || user) {
-     return (
-        <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser }}>
-        {children}
-        </AuthContext.Provider>
-    );
+
+  // If there's no user and we are on a protected route, show preloader while redirecting.
+  if (!user && !isPublicRoute) {
+      // The redirect should be happening in the layout, but this is a safeguard.
+      if (typeof window !== 'undefined') {
+        router.replace('/auth/login');
+      }
+      return <Preloader />;
   }
-  
-  // This should theoretically not be reached often if redirects are working
-  return <Preloader />;
+
+  return (
+      <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser }}>
+      {children}
+      </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

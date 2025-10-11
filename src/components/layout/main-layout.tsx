@@ -93,27 +93,33 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
 
     const isPublicPath = publicRoutes.some(route => pathname.startsWith(route) && (route === '/' ? pathname.length === 1 : true));
-    
-    // While loading, show a preloader. This prevents flashes of content.
+
+    React.useEffect(() => {
+        if (loading) return; // Don't do anything while loading
+
+        if (!user && !isPublicPath) {
+            router.replace('/auth/login');
+        } else if (user && isPublicPath && pathname !== '/') {
+            router.replace('/dashboard');
+        }
+    }, [user, loading, isPublicPath, pathname, router]);
+
     if (loading) {
         return <Preloader />;
     }
-
-    // If there is a user and they are not a client, show the full app layout.
-    if (user && !('isClient' in user && user.isClient)) {
+    
+    // If we have a user and we are NOT on a public path, show the main app layout.
+    // Or if we are on the dashboard, it should also be within the app layout.
+    if (user && (!isPublicPath || pathname === '/dashboard')) {
         return <AppLayout>{children}</AppLayout>;
     }
     
-    // If it's a public path, show the content directly.
-    // The public pages (like Landing Page) are responsible for their own headers.
+    // If it's a public path (and the user is not logged in, or it's the root page),
+    // render the children directly. These pages (like login, landing) manage their own layout.
     if (isPublicPath) {
         return <>{children}</>;
     }
 
-    // This case handles when there is no user, and it's not a public path.
-    // The useEffect in AuthProvider should have already initiated a redirect,
-    // but this acts as a final guard to prevent rendering protected content.
-    // Showing a preloader here provides a better UX than a blank screen during the redirect.
+    // Fallback for edge cases, e.g. user is null but path is not public yet.
     return <Preloader />;
 }
-
