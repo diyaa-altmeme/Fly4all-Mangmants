@@ -9,12 +9,59 @@ import type { SegmentEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
-const formatCurrency = (amount: number) => {
+const formatCurrency = (amount?: number) => {
     if (amount === null || amount === undefined || isNaN(amount)) {
         return '$0.00';
     }
     return `$${amount.toFixed(2)}`;
 };
+
+interface CalculationPopoverProps {
+  title: string;
+  items: { label: string; count?: number | string; rate?: number | string; total: number }[];
+  totalLabel: string;
+  totalValue: number;
+}
+
+const CalculationPopover = ({ title, items, totalLabel, totalValue }: CalculationPopoverProps) => (
+    <Popover>
+        <PopoverTrigger asChild>
+            <Button variant="link" className="p-0 h-auto font-mono hover:underline">{formatCurrency(totalValue)}</Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80">
+            <div className="space-y-3">
+                <h4 className="font-medium leading-none">{title}</h4>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="text-right">البند</TableHead>
+                            <TableHead className="text-center">العدد</TableHead>
+                            <TableHead className="text-center">الربح/النسبة</TableHead>
+                            <TableHead className="text-right">الإجمالي</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {items.map((item, index) => (
+                            <TableRow key={index}>
+                                <TableCell className="font-medium">{item.label}</TableCell>
+                                <TableCell className="text-center">{item.count ?? '-'}</TableCell>
+                                <TableCell className="text-center font-mono">{item.rate ?? '-'}</TableCell>
+                                <TableCell className="text-right font-mono">{formatCurrency(item.total)}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                    <TableFooter>
+                         <TableRow>
+                            <TableCell colSpan={3} className="font-bold">{totalLabel}</TableCell>
+                            <TableCell className="text-right font-bold font-mono">{formatCurrency(totalValue)}</TableCell>
+                        </TableRow>
+                    </TableFooter>
+                </Table>
+            </div>
+        </PopoverContent>
+    </Popover>
+);
+
 
 interface SegmentDetailsTableProps {
   period: {
@@ -27,28 +74,6 @@ interface SegmentDetailsTableProps {
   };
   onDeleteEntry: (id: string) => void;
 }
-
-const CalculationPopover = ({ title, calculations }: { title: string, calculations: { label: string, value: string }[] }) => (
-    <Popover>
-        <PopoverTrigger asChild>
-            <Button variant="link" className="p-0 h-auto font-mono hover:underline">{formatCurrency(parseFloat(calculations.find(c => c.label === 'الإجمالي')?.value.replace(/[^0-9.-]+/g,"") || '0'))}</Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-60">
-            <div className="space-y-2">
-                <h4 className="font-medium leading-none">{title}</h4>
-                <div className="text-sm text-muted-foreground space-y-1">
-                    {calculations.map((calc, i) => (
-                        <div key={i} className="flex justify-between items-center">
-                            <span>{calc.label}:</span>
-                            <span className="font-mono">{calc.value}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </PopoverContent>
-    </Popover>
-);
-
 
 export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDetailsTableProps) {
   return (
@@ -66,17 +91,17 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
       </TableHeader>
       <TableBody>
         {period.entries.map((entry) => {
-            const ticketCalcs = [
-                { label: 'عدد التذاكر', value: `${entry.tickets}` },
-                { label: 'الربح للقطعة', value: `${entry.clientSettingsUsed?.tickets?.value || 'N/A'}${entry.clientSettingsUsed?.tickets?.type === 'percentage' ? '%' : ''}` },
-                { label: 'الإجمالي', value: formatCurrency(entry.ticketProfits) }
-            ];
+            const ticketCalcs = [{
+                label: 'التذاكر',
+                count: entry.tickets,
+                rate: `${entry.clientSettingsUsed?.ticketProfitPercentage || 'N/A'}%`,
+                total: entry.ticketProfits
+            }];
             
             const otherCalcs = [
-                { label: 'أرباح الفيزا', value: formatCurrency(entry.visas * (entry.clientSettingsUsed?.visas?.value || 0)) },
-                { label: 'أرباح الفنادق', value: formatCurrency(entry.hotels * (entry.clientSettingsUsed?.hotels?.value || 0)) },
-                { label: 'أرباح الكروبات', value: formatCurrency(entry.groups * (entry.clientSettingsUsed?.groups?.value || 0)) },
-                { label: 'الإجمالي', value: formatCurrency(entry.otherProfits) }
+                { label: 'الفيزا', count: entry.visas, rate: formatCurrency(entry.clientSettingsUsed?.visas?.value || 0), total: entry.visas * (entry.clientSettingsUsed?.visas?.value || 0) },
+                { label: 'الفنادق', count: entry.hotels, rate: formatCurrency(entry.clientSettingsUsed?.hotels?.value || 0), total: entry.hotels * (entry.clientSettingsUsed?.hotels?.value || 0) },
+                { label: 'الكروبات', count: entry.groups, rate: formatCurrency(entry.clientSettingsUsed?.groups?.value || 0), total: entry.groups * (entry.clientSettingsUsed?.groups?.value || 0) },
             ];
 
             return (
@@ -84,10 +109,10 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
                 <TableCell className="font-semibold">{entry.companyName}</TableCell>
                 <TableCell>{entry.partnerName}</TableCell>
                 <TableCell className="font-mono">
-                    <CalculationPopover title="تفاصيل أرباح التذاكر" calculations={ticketCalcs} />
+                    <CalculationPopover title="تفاصيل أرباح التذاكر" items={ticketCalcs} totalLabel="إجمالي ربح التذاكر" totalValue={entry.ticketProfits} />
                 </TableCell>
                 <TableCell className="font-mono">
-                     <CalculationPopover title="تفاصيل الأرباح الأخرى" calculations={otherCalcs} />
+                     <CalculationPopover title="تفاصيل الأرباح الأخرى" items={otherCalcs} totalLabel="إجمالي الأرباح الأخرى" totalValue={entry.otherProfits} />
                 </TableCell>
                 <TableCell className="font-mono font-bold">{formatCurrency(entry.total)}</TableCell>
                 <TableCell className="font-mono text-green-600">{formatCurrency(entry.alrawdatainShare)}</TableCell>
