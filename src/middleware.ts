@@ -12,8 +12,7 @@ export async function middleware(request: NextRequest) {
 
   if (isPublicPath) {
     if (pathname.startsWith('/auth/login') && session) {
-      // If there's a session, we'll let the client-side AuthProvider handle the redirect to dashboard
-      // to avoid middleware-hydration mismatches. The client will see the login page for a split second.
+      // Allow client-side to handle redirect to dashboard.
     }
     return NextResponse.next();
   }

@@ -18,6 +18,7 @@ import Preloader from './preloader';
 import { usePathname, useRouter } from 'next/navigation';
 import type { User, Client } from "@/lib/types";
 import { UserNav } from "./user-nav";
+import { LandingHeader } from "@/components/landing-page";
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
 
@@ -91,31 +92,22 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const isPublicPath = publicRoutes.some(route => pathname.startsWith(route));
+    const isPublicPath = publicRoutes.some(route => pathname.startsWith(route) && (path === '/' ? pathname.length === 1 : true));
     
-    // In all environments, if we are on a public path, just show the children without the main layout
-    if (isPublicPath) {
-        return <>{children}</>;
-    }
-    
-    // If we are not on a public path, we check for loading state.
     if (loading) {
         return <Preloader />;
     }
 
-    // If not loading and no user, we redirect. This should be handled by AuthProvider, but it's a safeguard.
-    if (!user) {
-        if (typeof window !== 'undefined') {
-            router.replace('/auth/login');
-        }
-        return <Preloader />;
-    }
-    
-    if (user && 'isClient' in user && user.isClient) {
-        // This is a client, client-specific layout is handled by the page for now.
+    // Always render a layout, but choose which one.
+    if (user && !('isClient' in user && user.isClient)) {
+        // Authenticated regular user sees the full app layout
+        return <AppLayout>{children}</AppLayout>;
+    } else if (user && 'isClient' in user && user.isClient) {
+        // Authenticated client user (has their own layout defined in their page component)
+        return <>{children}</>;
+    } else {
+        // Non-authenticated user on a public path
+        // The landing page itself includes the <LandingHeader>
         return <>{children}</>;
     }
-
-    // If we have a regular user and it's not a public path, show the full AppLayout.
-    return <AppLayout>{children}</AppLayout>;
 }

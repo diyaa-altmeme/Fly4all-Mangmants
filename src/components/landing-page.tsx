@@ -45,7 +45,7 @@ export const LandingHeader = ({ showTitle, isScrolled, settings }: { showTitle: 
             "fixed top-0 left-0 right-0 z-50 p-4 border-b transition-colors duration-300",
             isScrolled 
                 ? "bg-primary text-primary-foreground border-transparent" 
-                : "bg-background text-foreground border-transparent"
+                : "bg-background/80 backdrop-blur-sm text-foreground border-border"
         )}>
             <div className="container mx-auto flex items-center justify-between relative z-10">
                  <div className="flex items-center gap-2">

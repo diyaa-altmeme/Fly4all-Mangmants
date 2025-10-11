@@ -1,4 +1,5 @@
 
+
 import { LandingPage } from "@/components/landing-page";
 import { getSettings } from "@/app/settings/actions";
 import { defaultSettingsData } from "@/lib/defaults";
