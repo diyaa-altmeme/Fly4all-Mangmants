@@ -1,9 +1,13 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { useToast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import type { FlightReportWithId, DataAuditIssue, ExtractedPassenger, ManualDiscount } from '@/lib/types';
+import { BadgePercent, Save, Trash2, AlertTriangle, Repeat, Repeat1, FileWarning, CheckCircle, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, FileText as InvoiceIcon } from 'lucide-react';
+import { format, parseISO, isValid } from 'date-fns';
 import {
   Dialog,
   DialogContent,
@@ -33,18 +37,17 @@ import { NumericInput } from '@/components/ui/numeric-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Badge } from '@/components/ui/badge';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, parseISO, isValid } from 'date-fns';
-import { PlusCircle, RefreshCw, FileSpreadsheet, Loader2, Users, MoreHorizontal, Trash2, Repeat, Repeat1, FileWarning, CheckCircle, ArrowUpDown, ArrowUp, ArrowDown, ExternalLink, FileText as InvoiceIcon, BadgePercent, Save, Edit, ChevronDown, UserSquare, Baby, User as UserIcon, Passport, AlertTriangle } from 'lucide-react';
-import type { FlightReportWithId, DataAuditIssue, ExtractedPassenger, ManualDiscount } from '@/lib/types';
-import { deleteFlightReport, updateManualDiscount, updateFlightReportSelection } from '../actions';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { updateManualDiscount, deleteFlightReport, updateFlightReportSelection } from '../actions';
+import { produce } from 'immer';
 import { Checkbox } from '@/components/ui/checkbox';
-import Image from 'next/image';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown, Edit, ExternalLink, Passport, User as UserIcon, UserSquare, Baby } from 'lucide-react';
+import Image from 'next/image';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge as BadgeComponent } from '@/components/ui/badge';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 
 /**
@@ -436,12 +439,12 @@ const IssueDetailsDialog = ({ issues, open, onOpenChange, title }: { issues: Dat
                                                     const tripDirection = getTripDirection(detail.route)
                                                     return (
                                                         <TableRow key={idx}>
-                                                            <TableCell><Badge variant="secondary">{detail.fileName}</Badge></TableCell>
+                                                            <TableCell><BadgeComponent variant="secondary">{detail.fileName}</BadgeComponent></TableCell>
                                                             <TableCell className="font-mono">{detail.bookingReference}</TableCell>
                                                             <TableCell className="font-mono">{detail.pnr}</TableCell>
                                                             <TableCell className="font-bold text-center">{detail.paxCount}</TableCell>
                                                             <TableCell>{detail.route}</TableCell>
-                                                            <TableCell><Badge variant={tripDirection === 'مغادرة من العراق' ? 'default' : 'outline'}>{tripDirection}</Badge></TableCell>
+                                                            <TableCell><BadgeComponent variant={tripDirection === 'مغادرة من العراق' ? 'default' : 'outline'}>{tripDirection}</BadgeComponent></TableCell>
                                                             <TableCell>{formattedDate}</TableCell>
                                                             <TableCell>{detail.time}</TableCell>
                                                         </TableRow>
@@ -461,20 +464,15 @@ const IssueDetailsDialog = ({ issues, open, onOpenChange, title }: { issues: Dat
 };
 
 
-const BadgeComponent = React.forwardRef<HTMLDivElement, React.ComponentProps<typeof Badge>>(({...props}, ref) => {
-    return <Badge {...props} ref={ref} />
-});
-BadgeComponent.displayName = 'BadgeComponent';
-
 /**
  * =================================================================================
- * 5. مكون صف التقرير (ReportRow)
+ * 5. مكون صف التقرير والأزرار الخاصة به (ReportRow)
  * =================================================================================
  */
 const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateReport }: {
     report: FlightReportWithId;
     index: number;
-    onSelectionChange: (id: string, checked: boolean) => void;
+    onSelectionChange: (id: string, isSelected: boolean) => void;
     onDeleteReport: (id: string) => void;
     onUpdateReport: (updatedReport: FlightReportWithId) => void;
 }) => {
@@ -492,31 +490,32 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     const hasPnrIssues = duplicatePnrIssues.length > 0;
     const hasFileIssues = fileAnalysisIssues.length > 0;
 
-
     const handleDelete = async () => {
-        onDeleteReport(report.id); // Optimistic update
+        onDeleteReport(report.id);
         const result = await deleteFlightReport(report.id);
         if (!result.success) {
             toast({ title: "خطأ", description: result.error, variant: "destructive" });
         } else {
-            toast({ title: "تم الحذف بنجاح" });
+             toast({ title: "تم الحذف بنجاح" });
         }
     };
     
     const handleSelectChange = async (checked: boolean) => {
         const updatedReport = produce(report, draft => { draft.isSelectedForReconciliation = checked; });
-        onUpdateReport(updatedReport); // Optimistic UI update
+        onUpdateReport(updatedReport);
+        onSelectionChange(report.id, checked);
 
         const result = await updateFlightReportSelection(report.id, checked);
          if (!result.success) {
             toast({ title: "خطأ", description: "فشل تحديث حالة التحديد.", variant: "destructive" });
              const revertedReport = produce(report, draft => { draft.isSelectedForReconciliation = !checked; });
              onUpdateReport(revertedReport);
+             onSelectionChange(report.id, !checked);
         }
     }
 
     return (
-        <React.Fragment>
+       <React.Fragment>
             <IssueDetailsDialog issues={tripAnalysisIssues} open={isTripAnalysisOpen} onOpenChange={setIsTripAnalysisOpen} title="تفاصيل رحلات الذهاب والعودة" />
             <IssueDetailsDialog issues={duplicatePnrIssues} open={isDuplicatePnrIssuesOpen} onOpenChange={setIsDuplicatePnrIssuesOpen} title="تفاصيل الـ Booking References المكررة" />
             <IssueDetailsDialog issues={fileAnalysisIssues} open={isFileAnalysisOpen} onOpenChange={setIsFileAnalysisOpen} title="تفاصيل الملفات المكررة" />
@@ -560,7 +559,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                                 <ManualDiscountDialog report={report} onSaveSuccess={onUpdateReport} />
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="me-2 h-4 w-4" />حذف التقرير</DropdownMenuItem>
+                                        <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="me-2 h-4 w-4"/>حذف التقرير</DropdownMenuItem>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذا التقرير بشكل دائم.</AlertDialogDescription></AlertDialogHeader>
@@ -580,15 +579,15 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                                     <Table>
                                         <TableHeader><TableRow><TableHead>اسم المسافر</TableHead><TableHead>رقم الجواز</TableHead><TableHead>نوع المسافر</TableHead><TableHead>نوع الرحلة</TableHead><TableHead className="text-right">السعر</TableHead></TableRow></TableHeader>
                                         <TableBody>
-                                            {(report.passengers || []).map((p, i) => (
-                                                <TableRow key={`${p.name}-${i}`}>
-                                                    <TableCell>{p.name}</TableCell>
-                                                    <TableCell>{p.passportNumber || '-'}</TableCell>
-                                                    <TableCell><Badge variant="outline">{p.passengerType || 'Adult'}</Badge></TableCell>
-                                                    <TableCell>{p.tripType}</TableCell>
-                                                    <TableCell className="text-right font-mono">{p.payable}</TableCell>
-                                                </TableRow>
-                                            ))}
+                                            {(report.passengers || []).map((p: ExtractedPassenger, i: number) => (
+                                            <TableRow key={p.name + i}>
+                                                <TableCell>{p.name}</TableCell>
+                                                <TableCell>{p.passportNumber || '-'}</TableCell>
+                                                <TableCell><BadgeComponent variant="outline">{p.passengerType || 'Adult'}</BadgeComponent></TableCell>
+                                                <TableCell>{p.tripType}</TableCell>
+                                                <TableCell className="text-right font-mono">{p.payable}</TableCell>
+                                            </TableRow>
+                                        ))}
                                         </TableBody>
                                     </Table>
                                 </div>
@@ -601,7 +600,21 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     );
 };
 
-const SortableHeader = ({ column, sortDescriptor, setSortDescriptor, children }: { column: SortKey, sortDescriptor: { column: SortKey, direction: SortDirection }, setSortDescriptor: (descriptor: { column: SortKey, direction: SortDirection }) => void, children: React.ReactNode }) => {
+
+/**
+ * =================================================================================
+ * 6. الجدول الرئيسي للتقارير (FlightReportsTable)
+ * =================================================================================
+ */
+type SortKey = keyof FlightReport | 'totalRevenue' | 'paxCount' | 'filteredRevenue' | 'supplierName' | 'totalDiscount' | 'manualDiscountValue';
+type SortDirection = 'ascending' | 'descending';
+
+const SortableHeader: React.FC<{
+  column: SortKey;
+  sortDescriptor: { column: SortKey, direction: SortDirection };
+  setSortDescriptor: (descriptor: { column: SortKey, direction: SortDirection }) => void;
+  children: React.ReactNode;
+}> = ({ column, sortDescriptor, setSortDescriptor, children }) => {
     const isSorted = sortDescriptor.column === column;
     const isAscending = sortDescriptor.direction === 'ascending';
     
@@ -622,14 +635,6 @@ const SortableHeader = ({ column, sortDescriptor, setSortDescriptor, children }:
     )
 };
 
-
-/**
- * =================================================================================
- * 6. الجدول الرئيسي للتقارير (FlightReportsTable)
- * =================================================================================
- */
-type SortKey = keyof FlightReport | 'totalRevenue' | 'paxCount' | 'filteredRevenue' | 'supplierName' | 'totalDiscount' | 'manualDiscountValue';
-type SortDirection = 'ascending' | 'descending';
 
 interface FlightReportsTableProps {
   reports: FlightReportWithId[];
@@ -708,4 +713,3 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
         </div>
     );
 }
-```
