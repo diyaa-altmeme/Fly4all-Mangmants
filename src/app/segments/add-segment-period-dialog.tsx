@@ -65,10 +65,17 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name }));
     }, [clients]);
 
-     const partnerOptions = useMemo(() => {
-        const clientPartners = clients.filter(c => c.type === 'company').map(c => ({ value: `client-${c.id}`, label: `شركة: ${c.name}` }));
-        const supplierPartners = suppliers.map(s => ({ value: `supplier-${s.id}`, label: `مورد: ${s.name}` }));
-        return [...clientPartners, ...supplierPartners];
+    const partnerOptions = useMemo(() => {
+        const allRelations = [...clients, ...suppliers];
+        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+
+        return uniqueRelations.map(r => {
+            let labelPrefix = '';
+            if (r.relationType === 'client') labelPrefix = 'عميل: ';
+            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
+            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
+            return { value: r.id, label: `${labelPrefix}${r.name}` };
+        });
     }, [clients, suppliers]);
 
 
@@ -121,7 +128,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             ...data, 
             companyName: client?.name || '',
             clientId: client?.id || '',
-            partnerId: selectedPartnerOption?.value.split('-')[1] || '',
+            partnerId: selectedPartnerOption?.value || '',
             partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
@@ -295,3 +302,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
