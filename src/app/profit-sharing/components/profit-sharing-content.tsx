@@ -45,7 +45,6 @@ const PeriodRow = ({ period, partners, onDataChange }: PeriodRowProps) => {
         if (isOpen) { // fetch only when opening
             setIsLoading(true);
             const fetchedShares = await getProfitSharesForMonth(period.id);
-            // Enrich shares with partner names if they are missing
             const enrichedShares = produce(fetchedShares, draft => {
                 draft.forEach(share => {
                     if (!share.partnerName) {
@@ -235,11 +234,12 @@ export default function ProfitSharingContent({ initialMonthlyProfits, partners, 
                                 <TableHead className="text-center p-2">الإجراءات</TableHead>
                             </TableRow>
                         </TableHeader>
-                        {filteredMonthlyProfits.map((p) => (
+                        {filteredMonthlyProfits.map((p, idx) => (
                             <PeriodRow
                                 key={p.id}
                                 period={p}
                                 partners={partners}
+                                index={idx}
                                 onDataChange={onDataChange}
                             />
                         ))}
