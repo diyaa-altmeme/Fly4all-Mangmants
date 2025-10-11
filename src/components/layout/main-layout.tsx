@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -14,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from '@/lib/auth-context';
 import Preloader from './preloader';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import type { User, Client } from "@/lib/types";
 import { UserNav } from "./user-nav";
 import { LandingHeader } from "@/components/landing-page";
@@ -87,34 +88,40 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
+    const router = useRouter();
     const pathname = usePathname();
 
     const isPublicPath = publicRoutes.some(route => pathname.startsWith(route) && (route === '/' ? pathname.length === 1 : true));
 
+    React.useEffect(() => {
+        // If auth check is done, user is not logged in, and it's not a public path, redirect to login.
+        if (!loading && !user && !isPublicPath) {
+            router.replace('/auth/login');
+        }
+    }, [user, loading, isPublicPath, router]);
+    
+    // While loading, show a preloader.
     if (loading) {
         return <Preloader />;
     }
 
-    // If user is logged in, always show the full AppLayout.
-    if (user && !('isClient' in user)) {
+    // If user is logged in (and not a client), show the main app layout.
+    if (user && 'role' in user) {
         return <AppLayout>{children}</AppLayout>;
     }
     
-    // If user is a client, show the client-specific layout
+    // If user is a client, show the client-specific layout (or just children for now)
     if (user && 'isClient' in user) {
-        // Here you would render a specific layout for clients.
-        // For now, we render the main content directly.
+        // This is where a dedicated client layout would go.
         return <>{children}</>;
     }
     
-    // If not logged in and on a public page (like / or /auth/login)
-    // show the content directly. For /, it will be the landing page.
-    // For /auth/login, it will be the login form, but within the context of the main app shell if we want that.
-    if(pathname === '/auth/login') {
-         // Show the main app layout but with a disabled/hidden nav for the login page
-         return <AppLayout>{children}</AppLayout>;
+    // If not logged in but on a public page, show the page content.
+    if (isPublicPath) {
+        return <>{children}</>;
     }
-
-    // For landing page and other public routes
-    return <>{children}</>;
+    
+    // In the brief moment between the auth check finishing and the redirect effect running,
+    // show a preloader to prevent flashing protected content.
+    return <Preloader />;
 }
