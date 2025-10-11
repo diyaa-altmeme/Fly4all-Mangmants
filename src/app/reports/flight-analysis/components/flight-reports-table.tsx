@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import type { FlightReportWithId, ManualDiscount, Passenger, DataAuditIssue } from '@/lib/types';
 import { BadgePercent, Save, Trash2, ArrowUpRight, ArrowDownLeft, FilePenLine } from 'lucide-react';
@@ -39,8 +39,6 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle as AlertDialogTitleComponent,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { deleteFlightReport, updateFlightReportSelection } from '../actions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -382,6 +380,7 @@ const ManualDiscountDialog = ({ report, onSaveSuccess }: { report: FlightReportW
 };
 
 
+
 const getTripDirection = (route: string) => {
     if (!route) return '';
     const parts = route.split('-');
@@ -417,7 +416,7 @@ const IssueDetailsDialog = ({ open, onOpenChange, issues, title }: { open: boole
                     {issues.map((issue, index) => (
                         <Alert key={index} variant="destructive">
                             <AlertTriangle className="h-4 w-4" />
-                            <AlertDialogTitleComponent>مشكلة في: {issue.pnr || 'ملف مكرر'}</AlertDialogTitleComponent>
+                            <AlertTitle>مشكلة في: {issue.pnr || 'ملف مكرر'}</AlertTitle>
                             <AlertDescription>{issue.description}</AlertDescription>
                         </Alert>
                     ))}
@@ -432,7 +431,6 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     onDeleteReport: (id: string) => void; onUpdateReport: (updatedReport: FlightReportWithId) => void;
 }) => {
     const { toast } = useToast();
-    const [isOpen, setIsOpen] = useState(false);
     const [showPnrIssues, setShowPnrIssues] = useState(false);
     const [showFileIssues, setShowFileIssues] = useState(false);
     
@@ -457,7 +455,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
     const hasReturnTripIssues = (report.issues?.tripAnalysis?.length || 0) > 0;
 
     return (
-        <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
+        <Collapsible asChild>
             <tbody className="border-b">
                  <TableRow className={cn(report.isSelectedForReconciliation ? 'bg-blue-50 dark:bg-blue-900/20' : '')}>
                     <TableCell className="text-center">{index + 1}</TableCell>
@@ -465,7 +463,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                     <TableCell>
                         <CollapsibleTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <ChevronDown className="h-4 w-4" />
+                                <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
@@ -503,7 +501,7 @@ const ReportRow = ({ report, index, onSelectionChange, onDeleteReport, onUpdateR
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
-                                            <AlertDialogTitleComponent>هل أنت متأكد؟</AlertDialogTitleComponent>
+                                            <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
                                             <AlertDialogDescription>سيتم حذف هذا التقرير بشكل دائم.</AlertDialogDescription>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -631,10 +629,10 @@ export default function FlightReportsTable({ reports, sortDescriptor, setSortDes
                         <TableHead><SortableHeader column="flightDate" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>تاريخ الرحلة</TableHead></TableHead>
                         <TableHead className="text-center">الوقت</TableHead>
                         <TableHead><SortableHeader column="paxCount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>المسافرون</TableHead></TableHead>
-                        <TableHead><SortableHeader column="totalRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الإجمالي</SortableHeader></TableHead>
+                        <TableHead><SortableHeader column="totalRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الإجمالي</TableHead></TableHead>
                         <TableHead><SortableHeader column="totalDiscount" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم تلقائي</TableHead></TableHead>
-                        <TableHead><SortableHeader column="manualDiscountValue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم يدوي</SortableHeader></TableHead>
-                        <TableHead><SortableHeader column="filteredRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الصافي</SortableHeader></TableHead>
+                        <TableHead><SortableHeader column="manualDiscountValue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>خصم يدوي</TableHead></TableHead>
+                        <TableHead><SortableHeader column="filteredRevenue" sortDescriptor={sortDescriptor} setSortDescriptor={setSortDescriptor}>الصافي</TableHead></TableHead>
                         <TableHead>تحليل الملف</TableHead>
                         <TableHead>تحليل الرحلة</TableHead>
                         <TableHead>الـ B.R المكررة</TableHead>
