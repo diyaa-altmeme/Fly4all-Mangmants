@@ -85,41 +85,44 @@ export const ExchangeCard = ({ exchange, exchanges, onRefresh }: { exchange: Exc
                  </div>
             </CardHeader>
             <CardContent className="flex-grow space-y-1 p-2">
-                 <div className="px-2 py-1 flex justify-between items-center text-xs font-semibold text-muted-foreground">
-                    <span>آخر الحركات</span>
-                    <div className="flex items-center gap-3 font-mono">
-                        <span className="flex items-center gap-1 text-green-600">$0.00 <ArrowUp className="h-3 w-3"/></span>
-                        <span className="flex items-center gap-1 text-red-600">$0.00 <ArrowDown className="h-3 w-3"/></span>
-                    </div>
+                 <div className="px-2 py-1">
+                    <p className="font-bold text-sm text-right">آخر الحركات</p>
                 </div>
                 {exchange.lastTransactions.length === 0 ? (
                     <div className="text-center h-24 flex items-center justify-center text-muted-foreground">
                         لا توجد حركات حديثة.
                     </div>
-                ) : exchange.lastTransactions.map((tx, index) => {
-                    const isDebit = tx.entryType === 'transaction' || tx.totalAmount! < 0;
-                    const amount = tx.totalAmount || 0;
-
-                    return (
-                        <React.Fragment key={tx.id}>
-                            <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted">
-                                 <div className={cn("flex-shrink-0 size-8 rounded-full flex items-center justify-center", isDebit ? "bg-red-100" : "bg-green-100")}>
-                                    {isDebit ? <ArrowDown className="h-5 w-5 text-red-500" /> : <ArrowUp className="h-5 w-5 text-green-500" />}
-                                </div>
-                                <div className="flex-grow text-right space-y-0.5 overflow-hidden">
-                                    <p className="text-sm font-semibold truncate" title={tx.description}>{tx.description}</p>
-                                    <div className="flex items-center justify-end gap-3 text-xs text-muted-foreground">
-                                        <Badge variant="outline">{tx.entryType === 'transaction' ? 'معاملة' : 'تسديد'}</Badge>
-                                        <span>{format(parseISO(tx.date), 'MMM d, yyyy')}</span>
-                                    </div>
-                                </div>
-                                <div className={cn("font-mono font-bold text-sm text-nowrap", isDebit ? 'text-red-600' : 'text-green-600')}>
-                                    {formatCurrency(amount, true)}
-                                </div>
-                            </div>
-                        </React.Fragment>
-                    )
-                })}
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="text-right p-1 h-8">البيان</TableHead>
+                                <TableHead className="text-center p-1 h-8">المبلغ</TableHead>
+                                <TableHead className="text-center p-1 h-8">الرصيد</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {exchange.lastTransactions.map((tx) => {
+                            const isDebit = tx.entryType === 'transaction' || tx.totalAmount! < 0;
+                            const amount = tx.totalAmount || 0;
+                            return (
+                                <TableRow key={tx.id}>
+                                    <TableCell className="p-1 text-xs text-right truncate font-semibold" title={tx.description}>
+                                        {tx.description}
+                                        <div className="text-muted-foreground font-mono">{format(parseISO(tx.date), 'yyyy-MM-dd')}</div>
+                                    </TableCell>
+                                    <TableCell className={cn("p-1 text-center font-mono font-bold text-xs", isDebit ? "text-red-500" : "text-green-500")}>
+                                        {formatCurrency(amount, true)}
+                                    </TableCell>
+                                    <TableCell className={cn("p-1 text-center font-mono text-xs", (tx.balance || 0) < 0 ? 'text-red-600' : 'text-green-600')}>
+                                        {formatCurrency(tx.balance)}
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                        </TableBody>
+                    </Table>
+                )}
             </CardContent>
             <CardFooter className="p-2 border-t bg-muted/20 grid grid-cols-2 gap-2">
                 <Button asChild className="w-full bg-accent text-accent-foreground hover:bg-accent/90">
