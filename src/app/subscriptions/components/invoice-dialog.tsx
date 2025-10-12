@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import type { Subscription, AppSettings, SubscriptionInstallment } from '@/lib/types';
 import InvoiceTemplate from './invoice-template';
 import { useVoucherNav } from '@/context/voucher-nav-context';
@@ -23,13 +23,23 @@ import { getSubscriptionInstallments } from '@/app/subscriptions/actions';
 
 interface InvoiceDialogProps {
   subscription: Subscription;
-  installments: SubscriptionInstallment[];
 }
 
-export default function InvoiceDialog({ subscription, installments }: InvoiceDialogProps) {
+export default function InvoiceDialog({ subscription }: InvoiceDialogProps) {
   const [open, setOpen] = useState(false);
   const { data: navData, loaded: isDataLoaded } = useVoucherNav();
   const settings = navData?.settings;
+  const [installments, setInstallments] = useState<SubscriptionInstallment[]>([]);
+  const [isLoadingInstallments, setIsLoadingInstallments] = useState(false);
+  
+  useEffect(() => {
+    if (open) {
+        setIsLoadingInstallments(true);
+        getSubscriptionInstallments(subscription.id)
+            .then(setInstallments)
+            .finally(() => setIsLoadingInstallments(false));
+    }
+  }, [open, subscription.id]);
 
 
   const handlePrint = () => {
@@ -57,7 +67,7 @@ export default function InvoiceDialog({ subscription, installments }: InvoiceDia
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[70vh] overflow-y-auto bg-muted/40 p-4" id={`invoice-print-area-${subscription.id}`}>
-          {!isDataLoaded || !settings ? (
+          {!isDataLoaded || !settings || isLoadingInstallments ? (
             <div className="flex justify-center items-center h-96">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
@@ -66,7 +76,7 @@ export default function InvoiceDialog({ subscription, installments }: InvoiceDia
           )}
         </div>
         <DialogFooter className="p-4 border-t">
-          <Button onClick={handlePrint} disabled={!isDataLoaded}>
+          <Button onClick={handlePrint} disabled={!isDataLoaded || isLoadingInstallments}>
             <Printer className="me-2 h-4 w-4" />
             طباعة
           </Button>
@@ -75,3 +85,5 @@ export default function InvoiceDialog({ subscription, installments }: InvoiceDia
     </Dialog>
   );
 }
+
+    

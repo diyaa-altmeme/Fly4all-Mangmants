@@ -15,7 +15,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { SubscriptionInstallment, Box, Currency, User, Subscription } from '@/lib/types';
 import { Loader2, WalletCards, Save, User as UserIcon, Hash, CircleDollarSign, Coins, Wallet } from 'lucide-react';
-import { paySubscriptionInstallment } from '@/app/subscriptions/actions';
+import { paySubscriptionInstallment, getSubscriptionById } from '@/app/subscriptions/actions';
 import { Label } from '@/components/ui/label';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { useAuth } from '@/lib/auth-context';
@@ -58,12 +58,14 @@ interface ReceiveInstallmentPaymentDialogProps {
     children: React.ReactNode;
 }
 
-export default function ReceiveInstallmentPaymentDialog({ installment, subscription, onPaymentSuccess, children }: ReceiveInstallmentPaymentDialogProps) {
+export default function ReceiveInstallmentPaymentDialog({ installment: initialInstallment, subscription: initialSubscription, onPaymentSuccess, children }: ReceiveInstallmentPaymentDialogProps) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const { data: navData, loaded } = useVoucherNav();
     const { user: currentUser } = useAuth();
-    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
+    const [installment, setInstallment] = useState(initialInstallment);
+    const [subscription, setSubscription] = useState(initialSubscription);
 
     const remainingAmountOnInstallment = useMemo(() => 
       (installment.amount || 0) - ((installment.paidAmount || 0) + (installment.discount || 0)),
@@ -77,23 +79,37 @@ export default function ReceiveInstallmentPaymentDialog({ installment, subscript
     const form = useForm<FormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            paymentAmount: remainingAmountOnInstallment,
+            paymentAmount: remainingAmountOnInstallment > 0 ? remainingAmountOnInstallment : 0,
             paymentCurrency: installment.currency,
             exchangeRate: navData?.settings?.currencySettings?.exchangeRates['USD_IQD'] || 1480,
             discount: 0,
         }
     });
+
+    const refreshData = React.useCallback(async () => {
+        if (!subscription.id) return;
+        const updatedSub = await getSubscriptionById(subscription.id);
+         if (updatedSub) {
+             setSubscription(updatedSub);
+             const updatedInst = updatedSub.installments?.find(i => i.id === installment.id);
+             if (updatedInst) {
+                 setInstallment(updatedInst);
+             }
+         }
+    }, [subscription.id, installment.id]);
     
     useEffect(() => {
         if(open) {
+            setInstallment(initialInstallment);
+            setSubscription(initialSubscription);
             form.reset({
-                paymentAmount: remainingAmountOnInstallment,
-                paymentCurrency: installment.currency,
+                paymentAmount: remainingAmountOnInstallment > 0 ? remainingAmountOnInstallment : 0,
+                paymentCurrency: initialInstallment.currency,
                 exchangeRate: navData?.settings?.currencySettings?.exchangeRates['USD_IQD'] || 1480,
                 discount: 0,
             });
         }
-    }, [open, installment, form, navData, remainingAmountOnInstallment]);
+    }, [open, initialInstallment, initialSubscription, form, navData, remainingAmountOnInstallment]);
 
     const { isSubmitting, watch, control, handleSubmit: handleFormSubmit } = form;
     const watchedPaymentCurrency = watch('paymentCurrency');
@@ -124,14 +140,14 @@ export default function ReceiveInstallmentPaymentDialog({ installment, subscript
             return;
         }
 
-        onPaymentSuccess();
-        setOpen(false);
         toast({ title: "جاري تسجيل الدفعة..." });
         
         const result = await paySubscriptionInstallment(installment.id, currentUser.boxId, data.paymentAmount, data.paymentCurrency, data.exchangeRate, data.discount);
         
         if (result.success) {
             toast({ title: "تم تسجيل الدفعة بنجاح" });
+            onPaymentSuccess();
+            setOpen(false);
         } else {
             toast({ title: "خطأ", description: result.error, variant: "destructive" });
         }
@@ -243,3 +259,5 @@ export default function ReceiveInstallmentPaymentDialog({ installment, subscript
         </Dialog>
     );
 }
+
+    
