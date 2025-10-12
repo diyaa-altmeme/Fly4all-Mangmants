@@ -300,11 +300,9 @@ export async function paySubscriptionInstallment(
     const installmentDocRef = db.collection('subscription_installments').doc(installmentId);
     
     try {
-        // IMPORTANT: Get any data needed for writes *before* the transaction starts.
         const nextReceiptVoucherNumber = await getNextVoucherNumber('SUBP');
 
         return await db.runTransaction(async (transaction) => {
-            // --- All reads must happen first ---
             const installmentDoc = await transaction.get(installmentDocRef);
             if (!installmentDoc.exists) throw new Error("Installment not found!");
             
@@ -317,8 +315,6 @@ export async function paySubscriptionInstallment(
 
             const allInstallmentsSnapshot = await transaction.get(db.collection('subscription_installments').where('subscriptionId', '==', installment.subscriptionId));
             
-            // --- All writes happen after all reads ---
-
             const discountAmount = discount || 0;
             const totalAmountToCreditToClient = paymentAmount + discountAmount;
             
@@ -343,7 +339,6 @@ export async function paySubscriptionInstallment(
                 originalData: { ...installment, paymentAmount, boxId, discount: discountAmount }
             });
             
-            // --- Logic to apply payment and discount across installments ---
             let remainingPaymentToApply = paymentAmount;
             let remainingDiscountToApply = discountAmount;
 
@@ -395,14 +390,13 @@ export async function paySubscriptionInstallment(
                 }
             }
 
-            // Update main subscription `paidAmount` with the total credited amount
             transaction.update(subscriptionRef, { paidAmount: FieldValue.increment(totalAmountToCreditToClient) });
 
-            // Overpayment logic
             if (remainingPaymentToApply > 0.01) {
                 const creditVoucherRef = db.collection("journal-vouchers").doc();
+                const overpaymentInvoiceNumber = await getNextVoucherNumber('RC');
                  transaction.set(creditVoucherRef, {
-                    invoiceNumber: await getNextVoucherNumber('RC'), date: new Date().toISOString(), currency: paymentCurrency,
+                    invoiceNumber: overpaymentInvoiceNumber, date: new Date().toISOString(), currency: paymentCurrency,
                     notes: `رصيد إضافي بعد سداد كل الأقساط لـ ${subscriptionData.clientName}`, createdBy: user.uid, officer: user.name,
                     createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), voucherType: "journal_from_standard_receipt",
                     debitEntries: [{ accountId: boxId, amount: remainingPaymentToApply, description: 'إيداع رصيد إضافي' }],
@@ -411,11 +405,8 @@ export async function paySubscriptionInstallment(
                 });
             }
             
-             // Re-evaluate subscription status after all updates
-            const finalSubscriptionDoc = await transaction.get(subscriptionRef);
-            const finalSubscriptionData = finalSubscriptionDoc.data() as Subscription;
-
-            if (finalSubscriptionData.paidAmount >= finalSubscriptionData.salePrice - 0.01) {
+            const finalSubscriptionPaidAmount = (subscriptionData.paidAmount || 0) + totalAmountToCreditToClient;
+            if (finalSubscriptionPaidAmount >= subscriptionData.salePrice - 0.01) {
                  transaction.update(subscriptionRef, { status: 'Paid' });
             }
 
@@ -456,8 +447,10 @@ export async function deletePayment(paymentId: string) {
             if (!originalJournalDoc.exists) throw new Error("Original journal voucher not found.");
             const originalJournal = originalJournalDoc.data() as any;
 
+            const reversalInvoiceNumber = await getNextVoucherNumber('REV');
+
             transaction.set(reversalJournalRef, {
-                invoiceNumber: await getNextVoucherNumber('REV'),
+                invoiceNumber: reversalInvoiceNumber,
                 date: new Date().toISOString(),
                 currency: originalJournal.currency,
                 notes: `عكس قيد سداد قسط رقم: ${originalJournal.invoiceNumber}`,
@@ -520,12 +513,13 @@ export async function updatePayment(paymentId: string, newData: { amount?: numbe
                 const adjustmentJournalRef = db.collection('journal-vouchers').doc();
                 const originalJournalDoc = await transaction.get(originalJournalRef);
                 const originalJournal = originalJournalDoc.data() as JournalVoucher;
+                const adjustmentInvoiceNumber = await getNextVoucherNumber('ADJ');
                 const notes = amountDifference > 0 ? `زيادة دفعة قسط: ${oldPayment.id}` : `تخفيض دفعة قسط: ${oldPayment.id}`;
                 const debitAccount = amountDifference > 0 ? (originalJournal?.debitEntries[0].accountId) : originalJournal?.creditEntries[0].accountId;
                 const creditAccount = amountDifference > 0 ? originalJournal?.creditEntries[0].accountId : (originalJournal?.debitEntries[0].accountId);
 
                  transaction.set(adjustmentJournalRef, {
-                    invoiceNumber: await getNextVoucherNumber('ADJ'),
+                    invoiceNumber: adjustmentInvoiceNumber,
                     date: newData.date || new Date().toISOString(),
                     currency: oldPayment.currency,
                     notes: notes,
