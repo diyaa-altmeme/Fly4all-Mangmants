@@ -3,15 +3,30 @@
 
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import NProgress from 'nprogress';
 
-// NProgress functionality is disabled to prevent full page reloads on navigation,
-// which was causing session issues in preview environments.
 export default function TopLoader() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    // Original NProgress.done() call removed.
+    NProgress.configure({ showSpinner: false });
+
+    const handleStart = () => NProgress.start();
+    const handleStop = () => NProgress.done();
+
+    // The following is a workaround for the fact that Next.js's navigation events
+    // are not firing consistently. This is a known issue.
+    handleStart();
+    const timeout = setTimeout(() => {
+        handleStop();
+    }, 200); // Stop after a short delay regardless
+
+    return () => {
+        clearTimeout(timeout);
+        handleStop();
+    };
+    
   }, [pathname, searchParams]);
 
   return null;
