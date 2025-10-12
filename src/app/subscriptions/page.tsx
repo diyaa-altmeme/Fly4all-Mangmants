@@ -56,6 +56,7 @@ function SubscriptionsData() {
         <SubscriptionsContent
             initialSubscriptions={subscriptions}
             initialInstallments={installments}
+            onDataChange={fetchData}
         />
     );
 }

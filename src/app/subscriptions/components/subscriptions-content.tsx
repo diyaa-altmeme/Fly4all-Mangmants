@@ -16,37 +16,33 @@ import SubscriptionsSettingsDialog from './subscriptions-settings-dialog';
 interface SubscriptionsContentProps {
     initialSubscriptions: Subscription[];
     initialInstallments: SubscriptionInstallment[];
+    onDataChange: () => void;
 }
 
-export default function SubscriptionsContent({ initialSubscriptions, initialInstallments }: SubscriptionsContentProps) {
+export default function SubscriptionsContent({ initialSubscriptions, initialInstallments, onDataChange }: SubscriptionsContentProps) {
     const [subscriptions, setSubscriptions] = useState<Subscription[]>(initialSubscriptions);
     const [installments, setInstallments] = useState<SubscriptionInstallment[]>(initialInstallments);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
 
-    const refreshData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const [refreshedSubscriptions, refreshedInstallments] = await Promise.all([
-                getSubscriptions(),
-                getSubscriptionInstallmentsForAll(),
-            ]);
-            setSubscriptions(refreshedSubscriptions);
-            setInstallments(refreshedInstallments);
-        } catch (error) {
-            toast({
-                title: "فشل تحديث البيانات",
-                variant: "destructive"
-            });
-        } finally {
-            setLoading(false);
-        }
-    }, [toast]);
+    useEffect(() => {
+        setSubscriptions(initialSubscriptions);
+    }, [initialSubscriptions]);
+
+    useEffect(() => {
+        setInstallments(initialInstallments);
+    }, [initialInstallments]);
+
+    const handleSuccess = () => {
+        // Instead of full refresh, we could optimistically update,
+        // but a targeted refetch is safer for now.
+        onDataChange();
+    };
   
     return (
         <>
             <div className="flex items-center justify-end gap-2 mb-4">
-                <SubscriptionsSettingsDialog onSettingsChanged={refreshData}>
+                <SubscriptionsSettingsDialog onSettingsChanged={handleSuccess}>
                     <Button variant="outline"><Settings className="me-2 h-4 w-4"/> الإعدادات</Button>
                 </SubscriptionsSettingsDialog>
                 <Button asChild variant="outline">
@@ -55,7 +51,7 @@ export default function SubscriptionsContent({ initialSubscriptions, initialInst
                 <Button asChild variant="outline">
                     <Link href="/subscriptions/deleted-subscriptions"><Trash2 className="me-2 h-4 w-4"/> سجل المحذوفات</Link>
                 </Button>
-                <AddSubscriptionDialog onSubscriptionAdded={refreshData}>
+                <AddSubscriptionDialog onSubscriptionAdded={handleSuccess}>
                     <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة اشتراك</Button>
                 </AddSubscriptionDialog>
             </div>
@@ -68,7 +64,7 @@ export default function SubscriptionsContent({ initialSubscriptions, initialInst
                 <SubscriptionsListView 
                     subscriptions={subscriptions} 
                     allInstallments={installments}
-                    onDataChange={refreshData} 
+                    onDataChange={handleSuccess} 
                 />
             )}
         </>
