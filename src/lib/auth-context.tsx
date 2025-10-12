@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError('');
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await getIdToken(userCredential.user);
+      const idToken = await getIdToken(userCredential.user, true); // Force refresh
       
       const result = await loginUser(idToken);
        if (result.error || !result.success || !result.user) {
