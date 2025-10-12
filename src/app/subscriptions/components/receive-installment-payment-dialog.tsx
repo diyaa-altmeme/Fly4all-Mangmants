@@ -243,5 +243,3 @@ export default function ReceiveInstallmentPaymentDialog({ installment, subscript
         </Dialog>
     );
 }
-
-    
