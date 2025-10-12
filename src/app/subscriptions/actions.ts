@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -102,11 +103,12 @@ export const getSubscriptionById = cache(async (id: string): Promise<Subscriptio
 export async function addSubscription(subscriptionData: Omit<Subscription, 'id' | 'profit' | 'paidAmount' | 'status'>) {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
+    
+    const user = await getCurrentUserFromSession();
+    if (!user) return { success: false, error: "User not authenticated" };
 
     const batch = db.batch();
     const subscriptionRef = db.collection('subscriptions').doc();
-    const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated" };
 
     try {
         const totalPurchase = (subscriptionData.quantity || 1) * (subscriptionData.purchasePrice || 0);
@@ -193,6 +195,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             action: 'CREATE',
             targetType: 'SUBSCRIPTION',
             description: `أنشأ اشتراكًا جديدًا: "${subscriptionData.serviceName}" للعميل ${subscriptionData.clientName}.`,
+            targetId: subscriptionRef.id,
         });
 
         await createNotification({

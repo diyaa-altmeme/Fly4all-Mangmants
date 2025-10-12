@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
@@ -105,15 +106,14 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
     const authAdmin = await getAuthAdmin();
     
     try {
-        const decodedToken = await authAdmin.verifyIdToken(idToken);
-        const userInAuth = await authAdmin.getUser(decodedToken.uid);
+        const decodedToken = await authAdmin.verifyIdToken(idToken, true); // Check if revoked
         
         const userInDb = await getUserById(decodedToken.uid);
         if (!userInDb) {
             throw new Error("User not found in database.");
         }
 
-        const currentClaims = userInAuth.customClaims || {};
+        const currentClaims = decodedToken;
         if (currentClaims.role !== userInDb?.role) {
             await authAdmin.setCustomUserClaims(decodedToken.uid, { role: userInDb?.role || 'viewer' });
         }
@@ -122,7 +122,7 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
         
         const cookieStore = await cookies();
         cookieStore.set('session', sessionCookie, {
-            maxAge: expiresIn,
+            maxAge: expiresIn / 1000,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             path: '/',
@@ -191,4 +191,6 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
 export async function logoutUser() {
     const cookieStore = await cookies();
     cookieStore.delete('session');
+    // The redirect will now be handled client-side in the useAuth hook
+    // for a full page reload.
 }
