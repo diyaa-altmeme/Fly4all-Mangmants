@@ -74,7 +74,7 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
     const cookieStore = cookies();
     const sessionCookie = cookieStore.get('session');
 
-    if (!sessionCookie) return null;
+    if (!sessionCookie?.value) return null;
 
     try {
         const authAdmin = await getAuthAdmin();
@@ -95,6 +95,7 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
         return null;
 
     } catch (error) {
+        console.warn("Session verification failed, logging out user.", error);
         cookies().delete('session');
         return null;
     }
@@ -120,7 +121,7 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 
         const sessionCookie = await authAdmin.createSessionCookie(idToken, { expiresIn });
         
-        const cookieStore = await cookies();
+        const cookieStore = cookies();
         cookieStore.set('session', sessionCookie, {
             maxAge: expiresIn / 1000,
             httpOnly: true,
@@ -138,7 +139,7 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 
 export async function createOtpSessionCookie(sessionPayload: any): Promise<void> {
     const expiresIn = 60 * 60 * 24 * 7; // 7 days in seconds
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     cookieStore.set('session', JSON.stringify(sessionPayload), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -189,7 +190,7 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
 
 
 export async function logoutUser() {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     cookieStore.delete('session');
     // The redirect will now be handled client-side in the useAuth hook
     // for a full page reload.
