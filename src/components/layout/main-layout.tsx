@@ -21,6 +21,7 @@ import { UserNav } from "./user-nav";
 import { LandingPage } from "@/components/landing-page";
 import { defaultSettingsData } from "@/lib/defaults";
 import "@/app/globals.css";
+import TopLoader from '@/components/ui/top-loader';
 
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
@@ -83,6 +84,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <UserNav />
             </div>
             </header>
+            <TopLoader />
         <main className="flex-1 p-2 sm:p-4 md:p-6 bg-muted/40">{children}</main>
         </div>
     );
