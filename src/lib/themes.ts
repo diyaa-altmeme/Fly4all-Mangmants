@@ -16,33 +16,33 @@ export const THEMES: ThemeSettings[] = [
         description: 'الثيم الافتراضي الحديث بألوان زرقاء وبرتقالية.',
         config: {
             light: {
-                background: '220 100% 97%', // Light Blue
+                background: '220 100% 97%',
                 foreground: '220 13% 20%',
                 card: '0 0% 100%',
-                primary: '217 100% 73%', // Soft Blue
-                primaryForeground: '220 13% 10%',
+                primary: '217 90% 60%',
+                primaryForeground: '210 40% 98%',
                 secondary: '210 40% 96.1%',
-                accent: '30 100% 60%', // Orange
+                accent: '30 100% 60%',
                 border: '220 13% 91%',
                 input: '220 13% 91%',
-                ring: '217 100% 73%',
+                ring: '217 90% 60%',
                 radius: '12px',
             },
             dark: {
                 background: '222 47% 11%',
                 foreground: '210 40% 98%',
                 card: '222 47% 15%',
-                primary: '217 100% 73%',
+                primary: '217 90% 68%',
                 primaryForeground: '210 40% 98%',
                 secondary: '217 33% 17%',
-                accent: '30 100% 60%',
+                accent: '30 100% 65%',
                 border: '217 33% 25%',
                 input: '217 33% 25%',
-                ring: '217 100% 73%',
+                ring: '217 90% 68%',
                 radius: '12px',
             },
             loader: {
-                color: '#73A2FF', // Soft Blue
+                color: 'hsl(217, 90%, 60%)',
                 height: 3,
                 showShadow: true,
             },
@@ -62,23 +62,23 @@ export const THEMES: ThemeSettings[] = [
         description: 'ألوان ترابية دافئة مع لمسات ذهبية.',
         config: {
             light: {
-                background: '39 31% 94%', // Papaya Whip
-                foreground: '39 44% 20%', // Dark Brown
+                background: '39 31% 94%',
+                foreground: '39 44% 20%',
                 card: '0 0% 100%',
-                primary: '39 84% 52%', // Gold
+                primary: '39 84% 52%',
                 primaryForeground: '39 44% 15%',
                 secondary: '39 25% 90%',
-                accent: '25 80% 50%', // Sienna
+                accent: '25 80% 50%',
                 border: '39 20% 85%',
                 input: '39 20% 85%',
                 ring: '39 84% 52%',
                 radius: '8px',
             },
             dark: {
-                background: '39 44% 10%', // Dark brown bg
+                background: '39 44% 10%',
                 foreground: '39 31% 94%',
                 card: '39 44% 15%',
-                primary: '39 84% 62%', // Brighter Gold
+                primary: '39 84% 62%',
                 primaryForeground: '39 31% 94%',
                 secondary: '39 44% 20%',
                 accent: '25 80% 60%',
@@ -88,7 +88,7 @@ export const THEMES: ThemeSettings[] = [
                 radius: '8px',
             },
             loader: {
-                color: '#DAA520', // Gold
+                color: '#DAA520',
                 height: 3,
                 showShadow: true,
             },
@@ -108,13 +108,13 @@ export const THEMES: ThemeSettings[] = [
         description: 'درجات من الأخضر البحري والأزرق السماوي.',
         config: {
             light: {
-                background: '180 35% 96%', // Very light cyan
+                background: '180 35% 96%',
                 foreground: '180 25% 20%',
                 card: '0 0% 100%',
-                primary: '170 80% 40%', // Teal
+                primary: '170 80% 40%',
                 primaryForeground: '0 0% 100%',
                 secondary: '180 25% 92%',
-                accent: '190 85% 55%', // Sky Blue
+                accent: '190 85% 55%',
                 border: '180 25% 88%',
                 input: '180 25% 88%',
                 ring: '170 80% 40%',
@@ -134,7 +134,7 @@ export const THEMES: ThemeSettings[] = [
                 radius: '16px',
             },
             loader: {
-                color: '#20C997', // Teal
+                color: '#20C997',
                 height: 4,
                 showShadow: false,
             },
@@ -157,10 +157,10 @@ export const THEMES: ThemeSettings[] = [
                 background: '0 0% 98%',
                 foreground: '0 0% 10%',
                 card: '0 0% 100%',
-                primary: '340 82% 52%', // Ruby Red
+                primary: '340 82% 52%',
                 primaryForeground: '0 0% 100%',
                 secondary: '0 0% 95%',
-                accent: '240 5% 50%', // Slate Gray
+                accent: '240 5% 50%',
                 border: '0 0% 90%',
                 input: '0 0% 90%',
                 ring: '340 82% 52%',
@@ -180,7 +180,7 @@ export const THEMES: ThemeSettings[] = [
                 radius: '4px',
             },
             loader: {
-                color: '#E0115F', // Ruby Red
+                color: '#E0115F',
                 height: 2,
                 showShadow: false,
             },
@@ -203,10 +203,10 @@ export const THEMES: ThemeSettings[] = [
                 background: '145 25% 97%',
                 foreground: '145 20% 15%',
                 card: '0 0% 100%',
-                primary: '145 63% 42%', // Emerald Green
+                primary: '145 63% 42%',
                 primaryForeground: '0 0% 100%',
                 secondary: '145 15% 94%',
-                accent: '45 74% 47%', // Gold Accent
+                accent: '45 74% 47%',
                 border: '145 15% 88%',
                 input: '145 15% 88%',
                 ring: '145 63% 42%',
@@ -226,7 +226,7 @@ export const THEMES: ThemeSettings[] = [
                 radius: '8px',
             },
             loader: {
-                color: '#009B77', // Emerald
+                color: '#009B77',
                 height: 3,
                 showShadow: true,
             },
@@ -272,7 +272,7 @@ export const THEMES: ThemeSettings[] = [
                 radius: '10px',
             },
             loader: {
-                color: '#FFB7C5', // Light Pink
+                color: '#FFB7C5',
                 height: 3,
                 showShadow: false,
             },
@@ -295,7 +295,7 @@ export const THEMES: ThemeSettings[] = [
                 background: '215 20% 97%',
                 foreground: '215 28% 17%',
                 card: '0 0% 100%',
-                primary: '220 15% 45%', // Slate Gray
+                primary: '220 15% 45%',
                 primaryForeground: '0 0% 100%',
                 secondary: '215 20% 92%',
                 accent: '220 15% 65%',
@@ -318,7 +318,7 @@ export const THEMES: ThemeSettings[] = [
                 radius: '6px',
             },
             loader: {
-                color: '#708090', // Slate Gray
+                color: '#708090',
                 height: 3,
                 showShadow: false,
             },
@@ -337,14 +337,14 @@ export const THEMES: ThemeSettings[] = [
         name: 'النيون المستقبلي',
         description: 'ألوان زاهية وداكنة مستوحاة من عالم السايبربنك.',
         config: {
-            light: { // Light mode is intentionally dark for this theme
+            light: { 
                 background: '240 10% 10%',
                 foreground: '270 80% 90%',
                 card: '240 10% 15%',
-                primary: '290 100% 65%', // Magenta
+                primary: '290 100% 65%',
                 primaryForeground: '0 0% 100%',
                 secondary: '240 10% 20%',
-                accent: '180 100% 50%', // Cyan
+                accent: '180 100% 50%',
                 border: '240 10% 25%',
                 input: '240 10% 25%',
                 ring: '290 100% 65%',
@@ -364,7 +364,7 @@ export const THEMES: ThemeSettings[] = [
                 radius: '2px',
             },
             loader: {
-                color: '#FF00FF', // Magenta
+                color: '#FF00FF',
                 height: 2,
                 showShadow: true,
             },
@@ -387,10 +387,10 @@ export const THEMES: ThemeSettings[] = [
                 background: '120 15% 98%',
                 foreground: '120 25% 15%',
                 card: '0 0% 100%',
-                primary: '120 40% 45%', // Forest Green
+                primary: '120 40% 45%',
                 primaryForeground: '0 0% 100%',
                 secondary: '120 10% 94%',
-                accent: '90 35% 55%', // Moss Green
+                accent: '90 35% 55%',
                 border: '120 10% 88%',
                 input: '120 10% 88%',
                 ring: '120 40% 45%',
@@ -410,7 +410,7 @@ export const THEMES: ThemeSettings[] = [
                 radius: '12px',
             },
             loader: {
-                color: '#556B2F', // Forest Green
+                color: '#556B2F',
                 height: 3,
                 showShadow: false,
             },
@@ -433,10 +433,10 @@ export const THEMES: ThemeSettings[] = [
                 background: '270 50% 97%',
                 foreground: '270 30% 20%',
                 card: '0 0% 100%',
-                primary: '270 70% 60%', // Amethyst Purple
+                primary: '270 70% 60%',
                 primaryForeground: '0 0% 100%',
                 secondary: '270 40% 94%',
-                accent: '300 75% 70%', // Light Magenta
+                accent: '300 75% 70%',
                 border: '270 40% 88%',
                 input: '270 40% 88%',
                 ring: '270 70% 60%',
@@ -456,7 +456,7 @@ export const THEMES: ThemeSettings[] = [
                 radius: '20px',
             },
             loader: {
-                color: '#9966CC', // Amethyst
+                color: '#9966CC',
                 height: 4,
                 showShadow: true,
             },
@@ -586,4 +586,5 @@ export const THEMES: ThemeSettings[] = [
 export const getThemeFromId = (themeId: string): ThemeSettings => {
     return THEMES.find(t => t.id === themeId) || THEMES[0];
 };
+
 
