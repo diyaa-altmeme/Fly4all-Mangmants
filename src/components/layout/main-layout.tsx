@@ -25,6 +25,7 @@ import TopLoader from '@/components/ui/top-loader';
 
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
+const landingPageRoute = '/';
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { themeSettings } = useThemeCustomization();
@@ -96,33 +97,26 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
 
-    const isPublicPath = publicRoutes.some(route => pathname.startsWith(route));
-    const isLandingPage = pathname === '/';
+    const isPublicPath = publicRoutes.includes(pathname);
+    const isLandingPage = pathname === landingPageRoute;
 
     React.useEffect(() => {
         if (!loading && !user && !isPublicPath && !isLandingPage) {
-            router.replace('/');
+            router.replace(landingPageRoute);
         }
          if (!loading && user && (isPublicPath || isLandingPage)) {
             router.replace('/dashboard');
         }
-    }, [user, loading, isPublicPath, isLandingPage, router]);
+    }, [user, loading, isPublicPath, isLandingPage, router, pathname]);
     
     if (loading) {
         return <Preloader />;
     }
 
-    if (!user && isLandingPage) {
-        return <>{children}</>;
-    }
-
-    if (user && !isPublicPath) {
-        return <AppLayout>{children}</AppLayout>;
-    }
-    
-    if (isPublicPath && !user) {
-        return (
-             <div className="flex min-h-screen w-full flex-col bg-muted/40">
+    // Render children for public routes or landing page if no user
+    if (!user && (isPublicPath || isLandingPage)) {
+         return (
+            <div className="flex min-h-screen w-full flex-col bg-muted/40">
                 <main className="flex-1">
                     {children}
                 </main>
@@ -130,5 +124,11 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         );
     }
     
+    // Render app layout for authenticated users on protected routes
+    if (user && !isPublicPath && !isLandingPage) {
+        return <AppLayout>{children}</AppLayout>;
+    }
+    
+    // Fallback to preloader during route transitions
     return <Preloader />;
 }
