@@ -18,6 +18,7 @@ type ThemeCustomizationContextType = {
     sidebarSettings: Partial<SidebarThemeSettings>;
     cardSettings: Partial<CardThemeSettings>;
     themeSettings: ThemeConfig | null;
+    refreshData?: () => Promise<void>;
 };
 
 const defaultTheme = getThemeFromId('mudarib-modern');
@@ -35,7 +36,7 @@ export const ThemeCustomizationProvider = ({
     const [isSaving, setIsSaving] = useState(false);
     const [loading, setLoading] = useState(true);
     const { theme: mode, setTheme } = useTheme();
-    const { user } = useAuth();
+    const { user, revalidateUser } = useAuth();
     
     const activeThemeId = useMemo(() => {
         if (user && 'role' in user && user.preferences?.themeId) {
@@ -44,12 +45,17 @@ export const ThemeCustomizationProvider = ({
         return 'mudarib-modern'; // Fallback default
     }, [user]);
 
-    useEffect(() => {
-        getSettings().then(s => {
+    const refreshData = useCallback(async () => {
+        setLoading(true);
+         getSettings().then(s => {
             setThemeSettings(s.theme || null);
             setLoading(false);
         });
     }, []);
+
+    useEffect(() => {
+        refreshData();
+    }, [refreshData]);
 
     const activeTheme = useMemo(() => {
       if (loading || !themeSettings) return defaultTheme;
@@ -84,13 +90,14 @@ export const ThemeCustomizationProvider = ({
         setIsSaving(true);
         try {
             await updateUser(user.uid, { preferences: { ...user.preferences, themeId } });
+            await revalidateUser(); // Re-fetch user data to update the UI
         } catch (error) {
             console.error("Failed to save active theme to user profile", error);
             throw error;
         } finally {
             setIsSaving(false);
         }
-    }, [user]);
+    }, [user, revalidateUser]);
     
     useEffect(() => {
         if (typeof window === 'undefined' || !isMounted || !activeTheme) return;
@@ -134,6 +141,7 @@ export const ThemeCustomizationProvider = ({
             sidebarSettings,
             cardSettings,
             themeSettings,
+            refreshData
         }}>
              {children}
         </ThemeCustomizationContext.Provider>
