@@ -2,11 +2,10 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { updateSettings, getSettings } from '@/app/settings/actions';
+import { getSettings } from '@/app/settings/actions';
 import type { AppSettings, ThemeSettings, SidebarThemeSettings, CardThemeSettings, LoaderSettings, ThemeCustomizationSettings as ThemeConfig, User } from '@/lib/types';
 import { THEMES, getThemeFromId } from '@/lib/themes';
 import { produce } from 'immer';
-import { useTheme } from 'next-themes';
 import { useAuth } from '@/lib/auth-context';
 import { updateUser } from '@/app/users/actions';
 
@@ -35,7 +34,6 @@ export const ThemeCustomizationProvider = ({
     const [themeSettings, setThemeSettings] = useState<ThemeConfig | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [loading, setLoading] = useState(true);
-    const { theme: mode, setTheme } = useTheme();
     const { user, revalidateUser } = useAuth();
     
     const activeThemeId = useMemo(() => {
@@ -99,35 +97,6 @@ export const ThemeCustomizationProvider = ({
         }
     }, [user, revalidateUser]);
     
-    useEffect(() => {
-        if (typeof window === 'undefined' || !isMounted || !activeTheme) return;
-
-        const { light, dark, loader } = activeTheme.config;
-        const root = document.documentElement;
-
-        const applyColors = (config: any, prefix = '') => {
-             if (!config) return;
-            for (const [key, value] of Object.entries(config)) {
-                 if (value && typeof value !== 'object') {
-                    const cssVar = `--${prefix}${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
-                    root.style.setProperty(cssVar, String(value));
-                }
-            }
-        };
-        
-        const colors = mode === 'dark' ? dark : light;
-        applyColors(colors);
-        
-        if (loader) {
-            const barColor = loader.color || 'hsl(var(--primary))';
-            const shadow = loader.showShadow ? `0 0 10px ${barColor}, 0 0 5px ${barColor}` : 'none';
-            
-            root.style.setProperty('--loader-color', barColor);
-            root.style.setProperty('--loader-shadow', shadow);
-            root.style.setProperty('--loader-height', `${loader.height || 3}px`);
-        }
-        
-    }, [activeTheme, isMounted, mode]);
 
     const sidebarSettings = useMemo(() => activeTheme?.config?.sidebar || {}, [activeTheme]);
     const cardSettings = useMemo(() => activeTheme?.config?.card || {}, [activeTheme]);

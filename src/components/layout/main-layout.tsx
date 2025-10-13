@@ -22,13 +22,46 @@ import { LandingPage } from "@/components/landing-page";
 import { defaultSettingsData } from "@/lib/defaults";
 import "@/app/globals.css";
 import TopLoader from '@/components/ui/top-loader';
+import { useTheme } from "next-themes";
 
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
 const landingPageRoute = '/';
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
-    const { themeSettings } = useThemeCustomization();
+    const { activeTheme } = useThemeCustomization();
+    const { theme: mode } = useTheme();
+
+    React.useEffect(() => {
+        if (typeof window === 'undefined' || !activeTheme) return;
+
+        const { light, dark, loader } = activeTheme.config;
+        const root = document.documentElement;
+
+        const applyColors = (config: any, prefix = '') => {
+             if (!config) return;
+            for (const [key, value] of Object.entries(config)) {
+                 if (value && typeof value !== 'object') {
+                    const cssVar = `--${prefix}${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
+                    root.style.setProperty(cssVar, String(value));
+                }
+            }
+        };
+        
+        const colors = mode === 'dark' ? dark : light;
+        applyColors(colors);
+        
+        if (loader) {
+            const barColor = loader.color || 'hsl(var(--primary))';
+            const shadow = loader.showShadow ? `0 0 10px ${barColor}, 0 0 5px ${barColor}` : 'none';
+            
+            root.style.setProperty('--loader-color', barColor);
+            root.style.setProperty('--loader-shadow', shadow);
+            root.style.setProperty('--loader-height', `${loader.height || 3}px`);
+        }
+        
+    }, [activeTheme, mode]);
+
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-background">
@@ -60,16 +93,16 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     </Sheet>
                     </div>
                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-                    {themeSettings?.assets?.sidebar_logo ? (
+                    {activeTheme.config.sidebar?.logoUrl ? (
                     <Image
-                        src={themeSettings.assets.sidebar_logo}
+                        src={activeTheme.config.sidebar.logoUrl}
                         alt="Logo"
                         width={32}
                         height={32}
                         className="size-8"
                     />
                     ) : ( <Plane className="h-6 w-6 text-primary" />)}
-                    <h1 className="text-xl hidden sm:block">{themeSettings?.general?.appName || "Mudarib"}</h1>
+                    <h1 className="text-xl hidden sm:block">{activeTheme.config.general?.appName || "Mudarib"}</h1>
                 </Link>
             </div>
 
