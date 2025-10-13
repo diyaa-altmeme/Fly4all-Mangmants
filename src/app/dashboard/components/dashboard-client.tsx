@@ -18,6 +18,7 @@ import AnalogClock from './analog-clock';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import Image from 'next/image';
 
 interface DashboardClientProps {
   stats: DashboardStats;
@@ -169,4 +170,3 @@ export default function DashboardClient({
     </motion.div>
   );
 }
-    
