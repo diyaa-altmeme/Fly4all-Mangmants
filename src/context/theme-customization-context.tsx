@@ -2,12 +2,12 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { getSettings, updateSettings } from '@/app/settings/actions';
 import type { AppSettings, ThemeSettings as TThemeSettings, SidebarThemeSettings, CardThemeSettings, LoaderSettings, ThemeCustomizationSettings as ThemeConfig, User } from '@/lib/types';
 import { THEMES, getThemeFromId } from '@/lib/themes';
 import { produce } from 'immer';
 import { useAuth } from '@/lib/auth-context';
 import { updateUser } from '@/app/users/actions';
+import { getSettings } from '@/app/settings/actions';
 
 
 type ThemeCustomizationContextType = {
@@ -57,12 +57,14 @@ export const ThemeCustomizationProvider = ({
     }, [refreshData]);
 
      const activeTheme = useMemo(() => {
+      // Don't compute theme until user and settings are loaded
       if (!user || loading || !themeSettings) return defaultTheme;
       
       const baseTheme = getThemeFromId(activeThemeId);
       
+      // Deep merge saved settings into the base theme configuration
       const mergedConfig = produce(baseTheme.config, draft => {
-        if(themeSettings) {
+        if (themeSettings) {
             draft.light = { ...draft.light, ...themeSettings.light };
             draft.dark = { ...draft.dark, ...themeSettings.dark };
             draft.sidebar = { ...draft.sidebar, ...themeSettings.sidebar };
@@ -92,7 +94,10 @@ export const ThemeCustomizationProvider = ({
         try {
             const currentPreferences = user.preferences || {};
             await updateUser(user.uid, { preferences: { ...currentPreferences, themeId } });
-            await revalidateUser(); // This will re-fetch user and trigger all dependent effects
+            // This is the crucial step: re-fetch the user data in the AuthContext.
+            // This will cause the `user` object to update, which in turn updates `activeThemeId`
+            // and triggers the re-computation of `activeTheme`.
+            await revalidateUser(); 
         } catch (error) {
             console.error("Failed to save active theme to user profile", error);
             throw error;
@@ -128,4 +133,3 @@ export const useThemeCustomization = () => {
     }
     return context;
 };
-
