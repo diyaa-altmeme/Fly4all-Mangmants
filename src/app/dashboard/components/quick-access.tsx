@@ -24,7 +24,7 @@ const actionItems = [
 ];
 
 export default function QuickAccess() {
-    const { loaded: navDataLoaded } = useVoucherNav();
+    const { data: navData, loaded: isDataLoaded } = useVoucherNav();
     
     const onActionSuccess = () => {
         // In a real app, you might revalidate data here
@@ -50,7 +50,7 @@ export default function QuickAccess() {
                             </div>
                         );
 
-                        if (!navDataLoaded && item.DialogComponent) {
+                        if (!isDataLoaded && item.DialogComponent) {
                             return <div key={item.id} className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg flex flex-col items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>
                         }
                         
@@ -80,5 +80,3 @@ export default function QuickAccess() {
         </Card>
     );
 }
-
-    
