@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
 import type { LandingPageSettings } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 
 
 const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
@@ -205,7 +206,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                             <FeatureCard icon={Zap} title="إدخال ذكي للبيانات" description="استيراد تلقائي لبيانات التذاكر والفيزا والفواتير من ملفات PDF بضغطة زر واحدة." />
                             <FeatureCard icon={LineChart} title="تقارير وتحليلات" description="كشوفات حسابات مفصلة وتقارير أرباح متقدمة لدعم اتخاذ القرارات." />
-                            <FeatureCard icon={ShieldCheck} title="تدقيق ومطابقة" description="أدوات ذكية لمقارنة كشوفات حسابك مع كشف حساب الموردين وكشف الفروقات والاختلافات تلقائيًا بدقة تصل إلى 99%." />
+                            <FeatureCard icon={ShieldCheck} title="تدقيق ومطابقة" description="أدوات ذكية لمقارنة كشف حسابك مع كشف حساب الموردين وكشف الفروقات والاختلافات تلقائيًا بدقة تصل إلى 99%." />
                             <FeatureCard icon={Repeat} title="مزامنة فورية" description="تحديث البيانات تلقائيًا بين الفروع والمستخدمين في الوقت الفعلي." />
                             <FeatureCard icon={Smartphone} title="تطبيق متنقل" description="إدارة عملك من أي مكان عبر تطبيق الهاتف مع إشعارات فورية." />
                             <FeatureCard icon={HelpCircle} title="دعم فني 24/7" description="فريق دعم فني متاح على مدار الساعة لمساعدتك في أي استفسار." />
