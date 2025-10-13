@@ -36,42 +36,28 @@ const SectionCard = ({ title, description, children, footer }: { title: string, 
 );
 
 
-export default function AppearanceSettings({ settings, onSettingsChanged }: AppearanceSettingsProps) {
-    const { activeTheme, setActiveTheme, isSaving: isSavingTheme } = useThemeCustomization();
+export default function AppearancePage() {
+    const { activeTheme, setActiveTheme, isSaving: isSavingTheme, themeSettings, refreshData } = useThemeCustomization();
     const [selectedThemeForEdit, setSelectedThemeForEdit] = useState<ThemeSettings | null>(null);
     const { toast } = useToast();
     const [isClient, setIsClient] = React.useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [generalSettings, setGeneralSettings] = useState(settings.theme?.general || { appName: '', appDescription: '' });
     
     useEffect(() => {
         setIsClient(true);
-        setGeneralSettings(settings.theme?.general || { appName: 'Mudarib', appDescription: 'Accounting System' });
-    }, [settings]);
+    }, []);
 
     const handleThemeConfigSave = async (updatedTheme: ThemeSettings) => {
-        const result = await updateSettings({ theme: { ...settings.theme, [updatedTheme.id]: updatedTheme.config } });
+        const result = await updateSettings({ theme: { ...themeSettings, [updatedTheme.id]: updatedTheme.config } });
         if (result.success) {
             toast({ title: "تم حفظ إعدادات الثيم" });
-            onSettingsChanged();
+            if (refreshData) refreshData();
             setSelectedThemeForEdit(null); // Close editor on save
         } else {
             toast({ title: "خطأ", description: "لم يتم حفظ الإعدادات", variant: 'destructive' });
         }
     }
     
-    const handleGeneralSettingsSave = async () => {
-        setIsSaving(true);
-        const result = await updateSettings({ theme: { ...settings.theme, general: generalSettings } });
-        if(result.success) {
-            toast({ title: 'تم حفظ الإعدادات العامة بنجاح' });
-            onSettingsChanged();
-        } else {
-            toast({ title: 'خطأ', description: 'فشل حفظ الإعدادات العامة', variant: 'destructive'});
-        }
-        setIsSaving(false);
-    }
-
     if (selectedThemeForEdit) {
         return (
             <ThemeEditor
@@ -84,35 +70,15 @@ export default function AppearanceSettings({ settings, onSettingsChanged }: Appe
     
     return (
         <div className="space-y-6">
-             <SectionCard title="الإعدادات العامة للتطبيق" description="تعديل الاسم والوصف الذي يظهر في النظام.">
-                 <div className="grid md:grid-cols-2 gap-4">
-                     <div className="space-y-1.5">
-                        <Label>اسم التطبيق</Label>
-                        <Input 
-                            value={generalSettings.appName || ''}
-                            onChange={(e) => setGeneralSettings(s => ({...s, appName: e.target.value}))}
-                        />
-                     </div>
-                      <div className="space-y-1.5">
-                        <Label>وصف التطبيق</Label>
-                        <Input 
-                            value={generalSettings.appDescription || ''}
-                             onChange={(e) => setGeneralSettings(s => ({...s, appDescription: e.target.value}))}
-                        />
-                     </div>
-                 </div>
-                 <div className="flex justify-end">
-                    <Button onClick={handleGeneralSettingsSave} disabled={isSaving}>
-                        {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin"/>}
-                        حفظ الإعدادات العامة
-                    </Button>
-                </div>
-            </SectionCard>
-            
-            <Card>
+             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Paintbrush className="h-5 w-5"/> اختيار الثيم العام</CardTitle>
-                    <CardDescription>اختر الهوية البصرية التي تناسب علامتك التجارية. سيتم تطبيق الثيم على مستوى النظام.</CardDescription>
+                     <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="flex items-center gap-2"><Paintbrush className="h-5 w-5"/> اختيار الثيم العام</CardTitle>
+                            <CardDescription>اختر الهوية البصرية التي تناسب علامتك التجارية. سيتم تطبيق الثيم على حسابك الشخصي.</CardDescription>
+                        </div>
+                        {isSavingTheme && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>جاري حفظ اختيارك...</div>}
+                    </div>
                 </CardHeader>
                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {THEMES.map(theme => {
