@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X, Sun, Moon, Zap, Smartphone, HelpCircle, User, Users, Store, Check, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
@@ -155,20 +155,18 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                     
                     <div className="container mx-auto px-4 relative z-10">
                         <div className="max-w-4xl mx-auto text-center">
-                            <div className="inline-block px-4 py-2 bg-accent text-accent-foreground rounded-full mb-6 animate-pulse">
+                            <div className="inline-block px-4 py-2 bg-accent text-accent-foreground rounded-full mb-6">
                                 <span className="font-bold flex items-center gap-2"> <Zap className="h-4 w-4" /> الإصدار الجديد متاح الآن!</span>
                             </div>
                             
-                            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+                             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
                                 <span className="animated-gradient-text">
                                     {heroSettings.heroTitle}
                                 </span>
-                                <br />
-                                <span>{heroSettings.heroSubtitle}</span>
                             </h1>
                             
                             <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto">
-                                حلول متكاملة لإدارة الحسابات المالية، تذاكر الطيران، الفيزا، والفواتير بكل ذكاء وسهولة
+                                الحلول المتكاملة لإدارة الحسابات المالية، تذاكر الطيران، الفيزا، والفواتير بكل ذكاء وسهولة
                             </p>
                             
                             <div className="flex flex-col sm:flex-row justify-center gap-4">
