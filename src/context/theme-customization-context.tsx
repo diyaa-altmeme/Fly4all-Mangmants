@@ -89,7 +89,7 @@ export const ThemeCustomizationProvider = ({
         if (typeof window === 'undefined' || !isMounted) return;
 
         const themeToApply = activeTheme;
-        const { light, dark, loader, sidebar, card } = themeToApply.config;
+        const { light, dark, loader } = themeToApply.config;
         const root = document.documentElement;
 
         const applyVariables = (config: any, prefix = '') => {
@@ -110,20 +110,16 @@ export const ThemeCustomizationProvider = ({
                 root.style.setProperty(cssVar, value);
             }
         });
-        
-        if(sidebar) applyVariables(sidebar, 'sidebar-');
-        if(card) applyVariables(card, 'card-');
-        
-        const nprogressEl = document.getElementById('nprogress');
-        if (nprogressEl && loader) {
-            const bar = nprogressEl.querySelector('.bar') as HTMLElement;
-            if (bar) {
-                bar.style.background = loader.color || '#29d';
-                bar.style.height = `${loader.height || 3}px`;
-                bar.style.boxShadow = loader.showShadow ? `0 0 10px ${loader.color}, 0 0 5px ${loader.color}` : 'none';
-            }
-        }
 
+        if (loader) {
+            const barColor = loader.color || 'hsl(var(--primary))';
+            const shadow = loader.showShadow ? `0 0 10px ${barColor}, 0 0 5px ${barColor}` : 'none';
+            
+            root.style.setProperty('--loader-color', barColor);
+            root.style.setProperty('--loader-shadow', shadow);
+            root.style.setProperty('--loader-height', `${loader.height || 3}px`);
+        }
+        
     }, [activeTheme, isMounted, mode]);
 
     const sidebarSettings = useMemo(() => activeTheme.config.sidebar || {}, [activeTheme]);

@@ -605,6 +605,12 @@ export type InvoiceThemeSettings = {
     footerText?: string;
 };
 
+export type LoaderSettings = {
+    color?: string;
+    height?: number;
+    showShadow?: boolean;
+};
+
 export type ThemeCustomizationSettings = ThemeConfig & {
   activeThemeId?: string;
   general?: GeneralThemeSettings;
@@ -612,6 +618,7 @@ export type ThemeCustomizationSettings = ThemeConfig & {
   card?: Partial<CardThemeSettings>;
   invoice?: Partial<InvoiceThemeSettings>;
   landingPage?: Partial<LandingPageSettings>;
+  loader?: Partial<LoaderSettings>;
   assets?: {
       [key: string]: string | null;
   };
