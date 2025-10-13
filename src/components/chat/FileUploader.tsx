@@ -1,5 +1,5 @@
 
-'use client';
+"use client";
 import React, { useState } from 'react';
 import { getStorage, ref as sRef, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { v4 as uuidv4 } from 'uuid';
@@ -11,16 +11,17 @@ import { Loader2 } from 'lucide-react';
 interface FileUploaderProps {
     onUpload: (attachments: any[]) => void;
     children: React.ReactNode;
+    chatId: string; // Add chatId to construct the correct storage path
 }
 
-export default function FileUploader({ onUpload, children }: FileUploaderProps) {
+export default function FileUploader({ onUpload, children, chatId }: FileUploaderProps) {
     const [uploading, setUploading] = useState(false);
     const { toast } = useToast();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files;
-        if (!files?.length) return;
+        if (!files?.length || !chatId) return;
         setUploading(true);
         toast({ title: 'جاري رفع الملفات...' });
         
@@ -29,7 +30,7 @@ export default function FileUploader({ onUpload, children }: FileUploaderProps) 
         
         try {
             for (const f of Array.from(files)) {
-                const path = `chat_attachments/${Date.now()}_${uuidv4()}_${f.name}`;
+                const path = `chat_attachments/${chatId}/${Date.now()}_${uuidv4()}_${f.name}`;
                 const fileRef = sRef(storage, path);
                 await uploadBytesResumable(fileRef, f);
                 const url = await getDownloadURL(fileRef);

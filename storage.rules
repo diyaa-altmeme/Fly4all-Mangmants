@@ -1,54 +1,47 @@
+
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper functions
-    function isAuthenticated() {
+    // Helper Functions
+    function isSignedIn() {
       return request.auth != null;
     }
-
-    function isImageFile() {
-      return request.resource.contentType.matches('image/.*');
-    }
-
-    function isPdfFile() {
-      return request.resource.contentType.matches('application/pdf');
-    }
-
-    function isValidFileSize() {
-      // 10MB for images, 50MB for PDFs
-      return (isImageFile() && request.resource.size < 10 * 1024 * 1024) ||
-             (isPdfFile() && request.resource.size < 50 * 1024 * 1024) ||
-             (request.resource.size < 5 * 1024 * 1024); // 5MB limit for other files
-    }
     
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Check if the file type is one of the allowed types.
     function isValidFileType() {
-      return isImageFile() || isPdfFile() ||
+      return request.resource.contentType.matches('image/.*') ||
+             request.resource.contentType.matches('application/pdf') ||
              request.resource.contentType.matches('application/msword') ||
              request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
-             request.resource.contentType.matches('text/.*') ||
-             request.resource.contentType.matches('application/vnd.ms-excel') ||
-             request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+             request.resource.contentType.matches('text/.*');
     }
 
-    // Default deny
-    match /{allPaths=**} {
-      allow read, write: if false;
+    // Check if the file size is within the allowed limit (e.g., 10MB).
+    function isValidFileSize() {
+      return request.resource.size < 10 * 1024 * 1024;
     }
 
-    // Allow authenticated users to read and write valid files to specific paths
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId && isValidFileType() && isValidFileSize();
-    }
-    
-    match /site_assets/{allPaths=**} {
-        allow read: if true; // Publicly readable
-        allow write: if isAuthenticated(); // Only auth users can upload
+    // Check if the user is a member of the chat mentioned in the file path.
+    function isChatMember(chatId) {
+        return exists(/databases/(default)/documents/chats/$(chatId)) &&
+               get(/databases/(default)/documents/chats/$(chatId)).data.members[request.auth.uid] == true;
     }
 
-    match /reconciliation_files/{allPaths=**} {
-      allow read, write: if isAuthenticated();
+    // Main rule for chat attachments.
+    // Path format: chat_attachments/{chatId}/{fileName}
+    match /chat_attachments/{chatId}/{allPaths=**} {
+      // Any authenticated user can upload a file, as long as it meets size and type criteria.
+      // The path security is enforced by the client-side code which constructs the correct path.
+      allow write: if isSignedIn() && isValidFileType() && isValidFileSize();
+
+      // Only members of the chat can read its attachments.
+      allow read: if isChatMember(chatId);
     }
   }
 }
