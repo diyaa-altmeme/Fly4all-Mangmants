@@ -9,9 +9,9 @@ import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X,
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
-import { LoginForm } from './auth/login-form';
+import { LoginForm } from '../auth/login-form';
 import type { LandingPageSettings } from '@/lib/types';
 
 
@@ -299,7 +299,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                                 </ul>
                             </div>
                         </div>
-                         <div class="pt-8 border-t border-gray-800 text-center">
+                         <div className="pt-8 border-t border-gray-800 text-center">
                             <p>&copy; {new Date().getFullYear()} Mudarib. جميع الحقوق محفوظة.</p>
                         </div>
                     </div>
@@ -308,3 +308,5 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
         </div>
     );
 }
+
+    
