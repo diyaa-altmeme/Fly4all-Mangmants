@@ -2,8 +2,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
-import { getSettings } from '@/app/settings/actions';
-import type { AppSettings, ThemeSettings, SidebarThemeSettings, CardThemeSettings, LoaderSettings, ThemeCustomizationSettings as ThemeConfig, User } from '@/lib/types';
+import { getSettings, updateSettings } from '@/app/settings/actions';
+import type { AppSettings, ThemeSettings as TThemeSettings, SidebarThemeSettings, CardThemeSettings, LoaderSettings, ThemeCustomizationSettings as ThemeConfig, User } from '@/lib/types';
 import { THEMES, getThemeFromId } from '@/lib/themes';
 import { produce } from 'immer';
 import { useAuth } from '@/lib/auth-context';
@@ -11,7 +11,7 @@ import { updateUser } from '@/app/users/actions';
 
 
 type ThemeCustomizationContextType = {
-    activeTheme: ThemeSettings;
+    activeTheme: TThemeSettings;
     setActiveTheme: (themeId: string) => Promise<void>;
     isSaving: boolean;
     sidebarSettings: Partial<SidebarThemeSettings>;
@@ -55,24 +55,27 @@ export const ThemeCustomizationProvider = ({
         refreshData();
     }, [refreshData]);
 
-    const activeTheme = useMemo(() => {
+     const activeTheme = useMemo(() => {
       if (loading || !themeSettings) return defaultTheme;
       
       const baseTheme = getThemeFromId(activeThemeId);
       
-      return produce(baseTheme, draft => {
-          if (themeSettings) {
-              draft.config = {
-                  ...draft.config,
-                  ...themeSettings,
-                  sidebar: { ...draft.config.sidebar, ...themeSettings.sidebar },
-                  card: { ...draft.config.card, ...themeSettings.card },
-                  loader: { ...draft.config.loader, ...themeSettings.loader },
-                  light: { ...draft.config.light, ...themeSettings.light },
-                  dark: { ...draft.config.dark, ...themeSettings.dark },
-              };
-          }
+      // Deep merge with settings from DB
+      const mergedConfig = produce(baseTheme.config, draft => {
+        if(themeSettings) {
+            draft.light = { ...draft.light, ...themeSettings.light };
+            draft.dark = { ...draft.dark, ...themeSettings.dark };
+            draft.sidebar = { ...draft.sidebar, ...themeSettings.sidebar };
+            draft.card = { ...draft.card, ...themeSettings.card };
+            draft.loader = { ...draft.loader, ...themeSettings.loader };
+        }
       });
+
+      return {
+        ...baseTheme,
+        config: mergedConfig
+      };
+
     }, [themeSettings, loading, activeThemeId]);
 
 
@@ -87,7 +90,8 @@ export const ThemeCustomizationProvider = ({
         }
         setIsSaving(true);
         try {
-            await updateUser(user.uid, { preferences: { ...user.preferences, themeId } });
+            const currentPreferences = user.preferences || {};
+            await updateUser(user.uid, { preferences: { ...currentPreferences, themeId } });
             await revalidateUser(); // Re-fetch user data to update the UI
         } catch (error) {
             console.error("Failed to save active theme to user profile", error);
