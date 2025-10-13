@@ -1,46 +1,38 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if the user is authenticated
-    function isAuthenticated() {
+    
+    // Check if the user is a member of the chat
+    function isMember(chatId) {
+      return request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.members[request.auth.uid] == true;
+    }
+    
+    // Check if the user is authenticated
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is a member of a chat
-    function isMember(chatId) {
-      return isAuthenticated() && get(/databases/$(database)/documents/chats/$(chatId)).data.members[request.auth.uid] == true;
-    }
-    
-    // Allow users to read/write their own user document
+    // Users can only read/write their own document
+    // But other signed-in users can read public profile info
     match /users/{userId} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if request.auth.uid == userId;
+      allow read: if isSignedIn();
     }
 
-    // Rules for the chats collection
     match /chats/{chatId} {
-      // Any member of the chat can read or update it (e.g., to change title or last message)
       allow read, update: if isMember(chatId);
-      // Only authenticated users can create new chats
-      allow create: if isAuthenticated();
-      // Deleting chats should be handled by a secure function
-      allow delete: if false;
+      // Any signed-in user can create a chat
+      allow create: if isSignedIn();
+      allow delete: if false; // Deletions should be handled by a function
 
-      // Rules for messages within a chat
       match /messages/{messageId} {
-        // Any member can read messages
         allow read: if isMember(chatId);
-        // Only a member can create a message, and they must be the sender
-        allow create: if isMember(chatId) && request.resource.data.senderId == request.auth.uid;
-        // Only the original sender can update (edit) or "delete" (mark as deleted) their own message
-        allow update: if isMember(chatId) && resource.data.senderId == request.auth.uid;
-        // Disallow permanent deletion from client
-        allow delete: if false;
+        // Only a member can create a message
+        allow create: if isMember(chatId) && request.auth.uid == request.resource.data.senderId;
+        // Updates/deletes are safer via functions to handle logic like "deleted for me/all"
+        allow update, delete: if false;
       }
-    }
-    
-    // User-specific chat summaries can only be accessed by the user themselves
-    match /userChats/{userId}/{document=**} {
-      allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
   }
 }
