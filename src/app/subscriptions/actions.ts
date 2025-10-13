@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -118,6 +117,9 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         
         const finalSubscriptionData: Omit<Subscription, 'id'> = {
             ...subscriptionData,
+            purchaseDate: new Date(subscriptionData.purchaseDate).toISOString(),
+            startDate: new Date(subscriptionData.startDate).toISOString(),
+            deferredDueDate: subscriptionData.deferredDueDate ? new Date(subscriptionData.deferredDueDate).toISOString() : undefined,
             invoiceNumber: newInvoiceNumber,
             purchasePrice: totalPurchase,
             salePrice: totalSale,
@@ -176,7 +178,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
 
         batch.set(journalVoucherRef, {
             invoiceNumber: newInvoiceNumber,
-            date: subscriptionData.purchaseDate,
+            date: new Date(subscriptionData.purchaseDate).toISOString(),
             currency: subscriptionData.currency,
             exchangeRate: null,
             notes: subscriptionData.notes || `تسجيل اشتراك خدمة ${subscriptionData.serviceName}`,
@@ -686,3 +688,6 @@ export async function revalidateSubscriptionsPath() {
 
 
 
+
+
+    
