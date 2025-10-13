@@ -10,34 +10,45 @@ export default function LoginPage() {
     const { theme } = useTheme();
 
     useEffect(() => {
-        const script = document.createElement('script');
-        script.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
-        script.onload = () => {
+        // Ensure particles.js script is loaded
+        const scriptId = 'particles-js-script';
+        let script = document.getElementById(scriptId) as HTMLScriptElement;
+
+        const initializeParticles = () => {
             if (window.particlesJS) {
                 const particleColor = theme === 'dark' ? '#4f46e5' : '#7c3aed';
                 window.particlesJS("particles-js", {
                     "particles": {
-                        "number": { "value": 50, "density": { "enable": true, "value_area": 800 } },
+                        "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
                         "color": { "value": particleColor },
                         "shape": { "type": "circle" },
-                        "opacity": { "value": 0.3, "random": true },
+                        "opacity": { "value": 0.5, "random": false },
                         "size": { "value": 3, "random": true },
                         "line_linked": { "enable": true, "distance": 150, "color": particleColor, "opacity": 0.2, "width": 1 },
-                        "move": { "enable": true, "speed": 1, "direction": "none", "out_mode": "out" }
+                        "move": { "enable": true, "speed": 2, "direction": "none", "random": false, "straight": false, "out_mode": "out" }
                     },
                     "interactivity": { 
                         "events": { "onhover": { "enable": true, "mode": "grab" }, "onclick": { "enable": false } },
-                        "modes": { "grab": { "distance": 140, "line_linked": { "opacity": 0.5 } } }
-                    }
+                        "modes": { "grab": { "distance": 140, "line_linked": { "opacity": 1 } } }
+                    },
+                     "retina_detect": true
                 });
             }
         };
-        document.body.appendChild(script);
+
+        if (!script) {
+            script = document.createElement('script');
+            script.id = scriptId;
+            script.src = "https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js";
+            script.onload = initializeParticles;
+            document.body.appendChild(script);
+        } else {
+            initializeParticles();
+        }
 
         return () => {
             const pjsDiv = document.getElementById('particles-js');
             if (pjsDiv) pjsDiv.innerHTML = '';
-            document.body.removeChild(script);
         }
     }, [theme]);
 
@@ -47,9 +58,9 @@ export default function LoginPage() {
             <div className="particles" id="particles-js"></div>
             <div className="gradient-bg absolute inset-0 z-0"></div>
             
-            <div className="orb orb-1 floating pulse" style={{ top: '10%', left: '15%', width: '150px', height: '150px', backgroundColor: 'hsl(var(--primary))' }}></div>
-            <div className="orb orb-2 floating pulse" style={{ top: '60%', left: '70%', width: '200px', height: '200px', animationDelay: '2s', backgroundColor: 'hsl(var(--accent))' }}></div>
-            <div className="orb orb-3 floating pulse" style={{ top: '30%', left: '90%', width: '100px', height: '100px', animationDelay: '4s', backgroundColor: 'hsl(var(--secondary))' }}></div>
+            <div className="orb orb-1 floating pulse"></div>
+            <div className="orb orb-2 floating pulse" style={{ animationDelay: '1s' }}></div>
+            <div className="orb orb-3 floating pulse" style={{ animationDelay: '2s' }}></div>
 
             <div className="z-10 w-full max-w-md">
                 <LoginForm />
