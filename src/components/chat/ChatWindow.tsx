@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
-import { collection, query, orderBy, limit, startAfter, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, limit, startAfter, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import MessageItem from './MessageItem';
 import FileUploader from './FileUploader';
@@ -10,6 +10,44 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import { Send, Paperclip } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Skeleton } from '../ui/skeleton';
+
+const ChatHeader = ({ chatId }: { chatId: string }) => {
+    const [chatInfo, setChatInfo] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
+
+    useEffect(() => {
+        if (!user || !chatId) return;
+        const summaryRef = doc(db, `userChats/${user.uid}/summaries/${chatId}`);
+        const unsubscribe = onSnapshot(summaryRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setChatInfo(docSnap.data());
+            }
+            setLoading(false);
+        });
+        return () => unsubscribe();
+    }, [chatId, user]);
+
+    if (loading) {
+        return <div className="p-3 border-b flex items-center gap-3"><Skeleton className="h-10 w-10 rounded-full" /><Skeleton className="h-6 w-32" /></div>;
+    }
+
+    return (
+        <div className="p-3 border-b flex items-center gap-3 bg-card sticky top-0 z-10">
+            <Avatar>
+                <AvatarImage src={chatInfo?.otherMemberAvatar} />
+                <AvatarFallback>{chatInfo?.otherMemberName?.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div>
+                <p className="font-bold">{chatInfo?.otherMemberName}</p>
+                <p className="text-xs text-muted-foreground">متصل</p>
+            </div>
+        </div>
+    );
+};
+
 
 export default function ChatWindow({ chatId }: { chatId: string }) {
   const [messages, setMessages] = useState<any[]>([]);
@@ -42,7 +80,8 @@ export default function ChatWindow({ chatId }: { chatId: string }) {
     const mRef = collection(db, `chats/${chatId}/messages`);
     const data: any = { 
         senderId: user.uid, 
-        senderName: user.name, 
+        senderName: user.name,
+        senderAvatarUrl: user.avatarUrl || null, 
         createdAt: serverTimestamp() 
     };
     if (content.trim()) data.text = content.trim();
@@ -59,12 +98,13 @@ export default function ChatWindow({ chatId }: { chatId: string }) {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-background">
+      <ChatHeader chatId={chatId} />
       <ScrollArea className="flex-grow p-4">
         {messages.map(m => <MessageItem key={m.id} chatId={chatId} msg={m} />)}
         <div ref={messagesEndRef} />
       </ScrollArea>
-      <div className="p-4 border-t flex items-center gap-2">
+      <div className="p-4 border-t flex items-center gap-2 bg-card">
          <FileUploader chatId={chatId} onUpload={(attachments) => handleSend(undefined, attachments)}>
             <Button variant="ghost" size="icon"><Paperclip /></Button>
          </FileUploader>
@@ -73,6 +113,7 @@ export default function ChatWindow({ chatId }: { chatId: string }) {
             onChange={(e) => setInputText(e.target.value)}
             placeholder="اكتب رسالتك..."
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            className="bg-muted border-muted-foreground/20 focus-visible:ring-primary"
          />
          <Button onClick={() => handleSend()} disabled={!inputText.trim()}>
             <Send />

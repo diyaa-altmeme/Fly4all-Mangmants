@@ -7,12 +7,13 @@ import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { useAuth } from '@/lib/auth-context';
 
 export default function MessageItem({ chatId, msg }: { chatId: string, msg: any }) {
     const [editing, setEditing] = useState(false);
     const [text, setText] = useState(msg.text || '');
-    const me = auth.currentUser?.uid;
-    const isMyMessage = msg.senderId === me;
+    const { user } = useAuth();
+    const isMyMessage = msg.senderId === user?.uid;
 
     async function saveEdit() {
         if (!text) return;
@@ -40,16 +41,29 @@ export default function MessageItem({ chatId, msg }: { chatId: string, msg: any 
                 </Avatar>
             )}
             <div className={cn(
-                "p-3 rounded-lg max-w-lg",
-                isMyMessage ? "bg-primary text-primary-foreground" : "bg-muted"
+                "p-3 rounded-2xl max-w-lg shadow-sm",
+                isMyMessage 
+                    ? "bg-primary text-primary-foreground rounded-br-none" 
+                    : "bg-muted rounded-bl-none"
             )}>
                  {!isMyMessage && <p className="text-xs font-bold mb-1">{msg.senderName}</p>}
-                <p className="whitespace-pre-wrap">{msg.deleted ? <i>تم حذف هذه الرسالة</i> : msg.text}</p>
-                 <p className={cn("text-xs mt-1", isMyMessage ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                <p className="whitespace-pre-wrap text-sm">
+                    {msg.deleted ? <i>تم حذف هذه الرسالة</i> : msg.text}
+                </p>
+                 <p className={cn(
+                     "text-xs mt-1 text-right", 
+                     isMyMessage ? "text-primary-foreground/70" : "text-muted-foreground"
+                )}>
                     {msg.createdAt?.toDate() ? format(msg.createdAt.toDate(), 'p', { locale: ar }) : ''}
                     {msg.editedAt && ' (تم التعديل)'}
                 </p>
             </div>
+             {isMyMessage && (
+                <Avatar className="h-8 w-8">
+                    <AvatarImage src={msg.senderAvatarUrl} />
+                    <AvatarFallback>{msg.senderName?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
+            )}
         </div>
     );
 }
