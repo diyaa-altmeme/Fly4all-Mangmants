@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -30,13 +31,14 @@ import { useAuth } from '@/lib/auth-context';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, addDays } from 'date-fns';
+import { format, addMonths, endOfDay } from 'date-fns';
 import { useForm, Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { cn } from '@/lib/utils';
 import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const step1Schema = z.object({
   supplierId: z.string().min(1, "الرجاء اختيار مورد."),
@@ -53,6 +55,7 @@ const step2Schema = z.object({
   discount: z.coerce.number().min(0, "الخصم لا يمكن أن يكون سالبًا.").default(0).optional(),
   startDate: z.date({ required_error: "تاريخ بدء الاشتراك مطلوب." }),
   numberOfInstallments: z.coerce.number().int().min(1, "عدد الدفعات يجب أن يكون 1 على الأقل."),
+  installmentMethod: z.enum(['upfront', 'deferred', 'installments']).default('installments'),
   boxId: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -98,6 +101,7 @@ function Step2Fields() {
      const purchaseUnitPrice = watch('purchasePrice');
      const saleUnitPrice = watch('unitPrice');
      const discount = watch('discount');
+     const installmentMethod = watch('installmentMethod');
 
      const totalPurchase = (quantity || 0) * (purchaseUnitPrice || 0);
      const totalSale = ((quantity || 0) * (saleUnitPrice || 0)) - (discount || 0);
@@ -114,7 +118,53 @@ function Step2Fields() {
                 <Card className="bg-muted/50"><CardContent className="pt-6"><Label>إجمالي البيع (بعد الخصم)</Label><p className="font-bold text-lg">{totalSale.toLocaleString()} {currency}</p></CardContent></Card>
                 
                 <FormField control={control} name="startDate" render={({ field }) => (<FormItem><FormLabel>تاريخ بدء الاشتراك</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={control} name="numberOfInstallments" render={({ field }) => (<FormItem><FormLabel>عدد الدفعات</FormLabel><FormControl><NumericInput onValueChange={(val) => field.onChange(val || 0)} value={field.value} /></FormControl><FormMessage /></FormItem>)}/>
+                
+                 <FormField
+                    name="installmentMethod"
+                    control={control}
+                    render={({ field }) => (
+                      <FormItem className="space-y-3 md:col-span-2">
+                        <FormLabel>طريقة السداد</FormLabel>
+                        <FormControl>
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            className="grid grid-cols-1 md:grid-cols-3 gap-2"
+                          >
+                            <FormItem>
+                                <FormControl>
+                                    <RadioGroupItem value="upfront" id="upfront" className="sr-only"/>
+                                </FormControl>
+                                <Label htmlFor="upfront" className={cn("flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground", field.value === 'upfront' && "border-primary")}>
+                                    دفعة واحدة مقدمًا
+                                </Label>
+                            </FormItem>
+                            <FormItem>
+                                <FormControl>
+                                    <RadioGroupItem value="deferred" id="deferred" className="sr-only"/>
+                                </FormControl>
+                                <Label htmlFor="deferred" className={cn("flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground", field.value === 'deferred' && "border-primary")}>
+                                   دفعة واحدة مؤجلة
+                                </Label>
+                            </FormItem>
+                             <FormItem>
+                                <FormControl>
+                                    <RadioGroupItem value="installments" id="installments" className="sr-only"/>
+                                </FormControl>
+                                <Label htmlFor="installments" className={cn("flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground", field.value === 'installments' && "border-primary")}>
+                                    على شكل أقساط
+                                </Label>
+                            </FormItem>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                {installmentMethod === 'installments' && (
+                    <FormField control={control} name="numberOfInstallments" render={({ field }) => (<FormItem><FormLabel>عدد الدفعات</FormLabel><FormControl><NumericInput onValueChange={(val) => field.onChange(val || 0)} value={field.value} /></FormControl><FormMessage /></FormItem>)}/>
+                )}
             </div>
              <FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel>ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)}/>
         </div>
@@ -142,34 +192,34 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      currency: defaultCurrency as 'USD' | 'IQD',
-      purchaseDate: new Date(),
-      clientId: '',
-      supplierId: subscriptionSettings?.defaultSupplier || '',
-      serviceName: '',
-      purchasePrice: 0,
-      quantity: subscriptionSettings?.defaultQuantity || 1,
-      unitPrice: 0,
-      discount: 0,
-      startDate: addDays(new Date(), subscriptionSettings?.firstInstallmentAfterDays || 30),
-      numberOfInstallments: subscriptionSettings?.defaultInstallments || 12,
-      notes: '',
-      boxId: '',
-    }
   });
-
-  useEffect(() => {
-    if (currentUser && 'role' in currentUser && currentUser.boxId) {
-        form.setValue('boxId', currentUser.boxId);
-      }
-  }, [currentUser, form]);
   
+  useEffect(() => {
+    if (open) {
+      resetSteps();
+      form.reset({
+        currency: defaultCurrency as 'USD' | 'IQD',
+        purchaseDate: new Date(),
+        clientId: '',
+        supplierId: subscriptionSettings?.defaultSupplier || '',
+        serviceName: '',
+        purchasePrice: 0,
+        quantity: subscriptionSettings?.defaultQuantity || 1,
+        unitPrice: 0,
+        discount: 0,
+        startDate: addMonths(new Date(), 1),
+        numberOfInstallments: subscriptionSettings?.defaultInstallments || 12,
+        installmentMethod: 'installments',
+        notes: '',
+        boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
+      });
+    }
+  }, [open, resetSteps, form, currentUser, navData, defaultCurrency, subscriptionSettings]);
+
   const { control, trigger, handleSubmit, watch, reset: resetForm, setValue, getValues, formState } = form;
   const { isSubmitting } = formState;
 
   const watchedCurrency = watch('currency');
-
   const headerColor = watchedCurrency === 'USD' ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
   
   const boxName = useMemo(() => {
@@ -183,30 +233,6 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
       const isValid = await trigger(step1Fields);
       if(isValid) goToNextStep();
   }
-  
-  React.useEffect(() => {
-    if (!open) {
-        resetSteps();
-        resetForm();
-    } else {
-        const subSettings = navData?.settings?.subscriptionSettings;
-        form.reset({
-            currency: defaultCurrency as 'USD' | 'IQD',
-            purchaseDate: new Date(),
-            clientId: '',
-            supplierId: subSettings?.defaultSupplier || '',
-            serviceName: '',
-            purchasePrice: 0,
-            quantity: subSettings?.defaultQuantity || 1,
-            unitPrice: 0,
-            discount: 0,
-            startDate: addDays(new Date(), subSettings?.firstInstallmentAfterDays || 30),
-            numberOfInstallments: subSettings?.defaultInstallments || 12,
-            notes: '',
-            boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
-        });
-    }
-  }, [open, resetSteps, resetForm, setValue, currentUser, navData, defaultCurrency]);
 
   const onFinalSubmit = async (data: FormValues) => {
     setIsSaving(true);
@@ -252,10 +278,11 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
     }
   }
 
-  const { purchasePrice, unitPrice, numberOfInstallments, startDate, quantity } = watch();
   const isStep2Valid = useMemo(() => {
-    return (purchasePrice ?? 0) >= 0 && (unitPrice ?? 0) > 0 && (numberOfInstallments ?? 0) > 0 && !!startDate;
-  }, [purchasePrice, unitPrice, numberOfInstallments, startDate]);
+    const { purchasePrice, unitPrice, numberOfInstallments, startDate, installmentMethod } = getValues();
+    const installmentsValid = installmentMethod === 'installments' ? (numberOfInstallments ?? 0) > 0 : true;
+    return (purchasePrice ?? 0) >= 0 && (unitPrice ?? 0) > 0 && !!startDate && installmentsValid;
+  }, [getValues]);
 
 
   return (

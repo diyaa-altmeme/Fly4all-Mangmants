@@ -5,7 +5,7 @@
 import { getDb } from '@/lib/firebase-admin';
 import type { Subscription, SubscriptionInstallment, Payment, SubscriptionStatus, JournalEntry, Client, Supplier } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { addMonths, format, parseISO } from 'date-fns';
+import { addMonths, format, parseISO, endOfDay } from 'date-fns';
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import { getSettings } from '@/app/settings/actions';
 import { createNotification } from '../notifications/actions';
@@ -129,26 +129,36 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         };
         batch.set(subscriptionRef, finalSubscriptionData);
 
-        // Generate installments
-        const installmentAmount = parseFloat((totalSale / subscriptionData.numberOfInstallments).toFixed(2));
+        // Generate installments based on payment method
         const startDate = new Date(subscriptionData.startDate);
-
-        for (let i = 0; i < subscriptionData.numberOfInstallments; i++) {
+        if (subscriptionData.installmentMethod === 'installments') {
+            const installmentAmount = parseFloat((totalSale / subscriptionData.numberOfInstallments).toFixed(2));
+            for (let i = 0; i < subscriptionData.numberOfInstallments; i++) {
+                const installmentRef = db.collection('subscription_installments').doc();
+                const dueDate = addMonths(startDate, i);
+                const installmentData: Omit<SubscriptionInstallment, 'id'> = {
+                    subscriptionId: subscriptionRef.id, clientName: subscriptionData.clientName, serviceName: subscriptionData.serviceName,
+                    amount: installmentAmount, currency: subscriptionData.currency, dueDate: dueDate.toISOString(),
+                    status: 'Unpaid', paidAmount: 0, discount: 0,
+                };
+                batch.set(installmentRef, installmentData);
+            }
+        } else { // Single payment (upfront or deferred)
             const installmentRef = db.collection('subscription_installments').doc();
-            const dueDate = addMonths(startDate, i);
+            let dueDate: Date;
+            if (subscriptionData.installmentMethod === 'upfront') {
+                dueDate = startDate; // Due at the beginning
+            } else { // 'deferred'
+                dueDate = endOfDay(addMonths(startDate, subscriptionData.numberOfInstallments)); // Due at the end
+            }
             const installmentData: Omit<SubscriptionInstallment, 'id'> = {
-                subscriptionId: subscriptionRef.id,
-                clientName: subscriptionData.clientName,
-                serviceName: subscriptionData.serviceName,
-                amount: installmentAmount,
-                currency: subscriptionData.currency,
-                dueDate: dueDate.toISOString(),
-                status: 'Unpaid',
-                paidAmount: 0,
-                discount: 0,
+                subscriptionId: subscriptionRef.id, clientName: subscriptionData.clientName, serviceName: subscriptionData.serviceName,
+                amount: totalSale, currency: subscriptionData.currency, dueDate: dueDate.toISOString(),
+                status: 'Unpaid', paidAmount: 0, discount: 0,
             };
             batch.set(installmentRef, installmentData);
         }
+        
         
         // Create initial journal entry for the subscription sale
         const journalVoucherRef = db.collection('journal-vouchers').doc();
