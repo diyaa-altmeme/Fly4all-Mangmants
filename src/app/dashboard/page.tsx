@@ -4,13 +4,17 @@ import { getDashboardStats, getRecentBookings, getUpcomingInstallments, getReven
 import DashboardClient from './components/dashboard-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
+import { getUsers } from '@/app/users/actions';
+import type { User, HrData } from '@/lib/types';
+
 
 async function DashboardDataContainer() {
-  const [stats, recentBookings, upcomingInstallments, chartData] = await Promise.all([
+  const [stats, recentBookings, upcomingInstallments, chartData, users] = await Promise.all([
     getDashboardStats(),
     getRecentBookings(),
     getUpcomingInstallments(),
     getRevenueChartData(),
+    getUsers(),
   ]);
 
   return (
@@ -19,6 +23,7 @@ async function DashboardDataContainer() {
       recentBookings={recentBookings}
       upcomingInstallments={upcomingInstallments}
       chartData={chartData}
+      users={users as HrData[]}
     />
   );
 }
@@ -45,5 +50,3 @@ export default async function DashboardPage() {
     </div>
   );
 }
-
-    
