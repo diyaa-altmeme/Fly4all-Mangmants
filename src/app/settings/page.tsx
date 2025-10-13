@@ -5,10 +5,61 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getSettings } from './actions';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal } from 'lucide-react';
+import { Terminal, Users, SlidersHorizontal, Upload, MessageSquareQuote, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, Shield, FileText, GitBranch, Briefcase } from 'lucide-react';
 import type { AppSettings } from '@/lib/types';
-import SettingsPageContent from './components/settings-page-content';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import AccountingSettings from "@/app/settings/sections/accounting-settings";
+import ApiSettings from "@/app/settings/sections/api-settings";
+import SystemStatusSettings from "@/app/settings/sections/system-status-settings";
+import RelationsSettings from '@/app/relations/settings/page';
+import AppearanceSettings from './themes/page';
+
+const sections = [
+    { id: 'appearance', name: 'المظهر', icon: Palette, component: AppearanceSettings },
+    { id: 'accounting', name: 'المحاسبة', icon: GitBranch, component: AccountingSettings },
+    { id: 'relations', name: 'العلاقات', icon: Users, component: RelationsSettings },
+    { id: 'hr', name: 'الموظفين', icon: Briefcase, href: '/users' },
+    { id: 'integrations', name: 'الربط الخارجي', icon: Link2, component: ApiSettings },
+    { id: 'system', name: 'النظام والحالة', icon: Database, component: SystemStatusSettings },
+];
+
+function SettingsPageContent({ initialSettings, onSettingsChanged }: { initialSettings: AppSettings, onSettingsChanged: () => void }) {
+    
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>الإعدادات العامة</CardTitle>
+                <CardDescription>
+                    تحكم في جميع جوانب النظام من هذه الواجهة المركزية.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Tabs defaultValue="appearance" className="w-full">
+                    <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-6">
+                        {sections.map(section => (
+                            <TabsTrigger key={section.id} value={section.id} asChild={!!section.href}>
+                                {section.href ? (
+                                    <Link href={section.href}><section.icon className="me-2 h-4 w-4"/>{section.name}</Link>
+                                ) : (
+                                    <><section.icon className="me-2 h-4 w-4"/>{section.name}</>
+                                )}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+                    {sections.filter(s => s.component).map(section => {
+                         const Component = section.component!;
+                         return (
+                            <TabsContent value={section.id} className="mt-6" key={section.id}>
+                                <Component settings={initialSettings} onSettingsChanged={onSettingsChanged} />
+                            </TabsContent>
+                         )
+                    })}
+                </Tabs>
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function SettingsPage() {
     const [settings, setSettings] = React.useState<AppSettings | null>(null);
@@ -27,7 +78,7 @@ export default function SettingsPage() {
         }
     }, []);
 
-    useEffect(() => {
+    React.useEffect(() => {
         fetchData();
     }, [fetchData]);
 
@@ -41,9 +92,8 @@ export default function SettingsPage() {
                 </p>
             </div>
              {loading ? (
-                <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start p-4">
-                    <Skeleton className="h-[600px] w-full rounded-lg" />
-                    <Skeleton className="h-[600px] w-full rounded-lg" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start p-4">
+                    <Skeleton className="h-[600px] w-full lg:col-span-2" />
                 </div>
             ) : error ? (
                 <Alert variant="destructive">
