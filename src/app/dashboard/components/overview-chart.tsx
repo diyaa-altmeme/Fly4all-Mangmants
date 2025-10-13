@@ -41,5 +41,3 @@ export default function OverviewChart({ data }: OverviewChartProps) {
     </Card>
   );
 }
-
-    
