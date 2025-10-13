@@ -87,7 +87,7 @@ export default function ChatList({ onSelectChat, selectedChatId }: ChatListProps
                     </CreateChatModal>
                 </div>
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
                         placeholder="بحث..." 
                         className="ps-10"
@@ -113,7 +113,7 @@ export default function ChatList({ onSelectChat, selectedChatId }: ChatListProps
                                     key={chat.id} 
                                     className={cn(
                                         "w-full text-right p-3 rounded-lg hover:bg-muted transition-colors flex items-center gap-3",
-                                        isSelected && "bg-muted"
+                                        isSelected && "bg-primary/10"
                                     )}
                                     onClick={() => onSelectChat(chat.id)}
                                 >
