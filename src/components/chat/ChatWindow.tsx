@@ -65,7 +65,7 @@ export default function ChatWindow({ chatId }: { chatId: string }) {
         <div ref={messagesEndRef} />
       </ScrollArea>
       <div className="p-4 border-t flex items-center gap-2">
-         <FileUploader onUpload={(attachments) => handleSend(undefined, attachments)}>
+         <FileUploader chatId={chatId} onUpload={(attachments) => handleSend(undefined, attachments)}>
             <Button variant="ghost" size="icon"><Paperclip /></Button>
          </FileUploader>
          <Input
