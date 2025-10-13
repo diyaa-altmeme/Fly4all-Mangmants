@@ -3,26 +3,13 @@
 
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import {
-    ArrowRightLeft,
-    BarChart3,
-    Calculator,
-    CreditCard,
-    FileText,
-    PlusCircle,
-    Repeat,
-    Ticket,
-    UserPlus,
-} from 'lucide-react';
 import AddBookingDialog from '@/app/bookings/components/add-booking-dialog';
 import AddVisaDialog from '@/app/visas/components/add-visa-dialog';
 import AddSubscriptionDialog from '@/app/subscriptions/components/add-subscription-dialog';
 import AddClientDialog from '@/app/clients/components/add-client-dialog';
-import Link from 'next/link';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { Loader2 } from 'lucide-react';
-
+import { Loader2, Ticket, CreditCard, Repeat, ArrowRightLeft, UserPlus, FileText, BarChart3, Calculator } from 'lucide-react';
+import Link from 'next/link';
 
 const actionItems = [
     { id: 'add_booking', label: "حجز جديد", icon: Ticket, DialogComponent: AddBookingDialog },
@@ -33,7 +20,6 @@ const actionItems = [
     { id: 'new_invoice', href: "/accounts/vouchers", label: "فاتورة جديدة", icon: FileText },
     { id: 'new_report', href: "/reports", label: "تقرير جديد", icon: BarChart3 },
 ];
-
 
 export default function QuickAccess() {
     const { data: navData, loaded: isDataLoaded } = useVoucherNav();
@@ -92,3 +78,5 @@ export default function QuickAccess() {
         </Card>
     );
 }
+
+    
