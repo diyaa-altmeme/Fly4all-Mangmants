@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -60,7 +59,7 @@ const sendInstallmentReminderFlow = ai.defineFlow(
     const message = `
 مرحباً ${input.clientName}،
 
-نود تذكيركم بموعد استحقاق القسط الخاص باشتراككم في خدمة "${input.serviceName}".
+نود تذكيركم بموعد استحقاق الدفعة الخاصة باشتراككم في خدمة "${input.serviceName}".
 
 - المبلغ المستحق: *${formattedAmount}*
 - تاريخ الاستحقاق: *${formattedDueDate}*
@@ -99,3 +98,4 @@ const sendInstallmentReminderFlow = ai.defineFlow(
     }
   }
 );
+
