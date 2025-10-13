@@ -29,7 +29,7 @@ export default function QuickAccess() {
     }
 
     return (
-        <Card className="h-full bg-white/80 dark:bg-dark-800/80 backdrop-blur-md glass-effect glass-effect-dark">
+        <Card className="h-full shadow-sm">
             <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                     <span>إجراءات سريعة</span>
@@ -40,9 +40,9 @@ export default function QuickAccess() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {actionItems.map(item => {
                         const content = (
-                            <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg flex flex-col items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors card-hover-effect tilt-effect">
-                                <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 bg-primary-100 dark:bg-primary-900/30`}>
-                                    <item.icon className="h-6 w-6 text-primary-500" />
+                            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg flex flex-col items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors card-hover-effect">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 bg-primary/10`}>
+                                    <item.icon className="h-6 w-6 text-primary" />
                                 </div>
                                 <span className="text-sm font-medium text-center">{item.label}</span>
                             </div>
