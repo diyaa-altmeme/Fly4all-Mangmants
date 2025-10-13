@@ -14,6 +14,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import CreateChatModal from './CreateChatModal';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface ChatListProps {
     onSelectChat: (chatId: string) => void;
