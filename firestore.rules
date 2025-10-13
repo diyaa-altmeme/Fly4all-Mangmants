@@ -1,90 +1,46 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    // Helper function to check if the user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    // Helper function to check if the user is a member of a chat
+    function isMember(chatId) {
+      return isAuthenticated() && get(/databases/$(database)/documents/chats/$(chatId)).data.members[request.auth.uid] == true;
     }
-
-    function hasPermission(permission) {
-      let userData = getUserData();
-      return userData.role == 'admin' || permission in userData.permissions;
-    }
-
-    // --- Users Collection ---
-    // Allow unauthenticated read access to list users on the login page.
-    // Write access is still protected.
+    
+    // Allow users to read/write their own user document
     match /users/{userId} {
-      allow read: if true; 
-      allow create: if hasPermission('users:create');
-      allow update: if hasPermission('users:update');
-      allow delete: if false; // Deletion should be handled server-side for safety
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
 
-    // --- Roles Collection ---
-    match /roles/{roleId} {
-      allow read, write: if hasPermission('users:permissions');
-    }
-
-    // --- Journal Vouchers (Central Ledger) ---
-    match /journal-vouchers/{voucherId} {
-      allow read: if hasPermission('vouchers:read');
-      allow create: if hasPermission('vouchers:create');
-      allow update: if hasPermission('vouchers:update');
-      allow delete: if hasPermission('vouchers:delete');
-    }
-
-    // --- Subscriptions and Installments ---
-    match /subscriptions/{subId} {
-      allow read: if hasPermission('subscriptions:read');
-      allow create: if hasPermission('subscriptions:create');
-      allow update: if hasPermission('subscriptions:update');
-      allow delete: if hasPermission('subscriptions:delete');
-    }
-    match /subscription_installments/{installmentId} {
-      allow read, write: if hasPermission('subscriptions:payments');
-    }
-    match /payments/{paymentId} {
-       allow read, create, update, delete: if hasPermission('subscriptions:payments');
-    }
-
-    // --- Remittances ---
-    match /remittances/{remittanceId} {
-      allow read: if hasPermission('remittances:read');
-      allow create: if hasPermission('remittances:create');
-      allow update: if hasPermission('remittances:audit') || hasPermission('remittances:receive');
+    // Rules for the chats collection
+    match /chats/{chatId} {
+      // Any member of the chat can read or update it (e.g., to change title or last message)
+      allow read, update: if isMember(chatId);
+      // Only authenticated users can create new chats
+      allow create: if isAuthenticated();
+      // Deleting chats should be handled by a secure function
       allow delete: if false;
-    }
 
-    // --- Relations (Clients/Suppliers) ---
-    match /clients/{relationId} {
-      allow read: if isAuthenticated(); // All authenticated users can see clients/suppliers
-      allow create: if hasPermission('relations:create');
-      allow update: if hasPermission('relations:update');
-      allow delete: if hasPermission('relations:delete');
+      // Rules for messages within a chat
+      match /messages/{messageId} {
+        // Any member can read messages
+        allow read: if isMember(chatId);
+        // Only a member can create a message, and they must be the sender
+        allow create: if isMember(chatId) && request.resource.data.senderId == request.auth.uid;
+        // Only the original sender can update (edit) or "delete" (mark as deleted) their own message
+        allow update: if isMember(chatId) && resource.data.senderId == request.auth.uid;
+        // Disallow permanent deletion from client
+        allow delete: if false;
+      }
     }
     
-    // --- Settings, Sequences, and Logs ---
-    match /settings/{settingId} {
-      allow read: if isAuthenticated();
-      allow write: if hasPermission('settings:update');
-    }
-    match /sequences/{seqId} {
-        allow read, write: if isAuthenticated(); // Allow server-side functions to update sequences
-    }
-    match /audit_logs/{logId} {
-        allow read: if hasPermission('system:audit_log:read');
-        allow create: if isAuthenticated(); // Allow server actions to create logs
-    }
-    
-    // --- Fallback rule to deny all other access ---
-    match /{path=**} {
-      allow read, write: if false;
+    // User-specific chat summaries can only be accessed by the user themselves
+    match /userChats/{userId}/{document=**} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
   }
 }
