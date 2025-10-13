@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getAuth } from 'firebase-admin/auth';
@@ -164,21 +165,34 @@ export async function updateUser(uid: string, data: Partial<User>) {
     const auth = await getAuth();
     const db = await getDb();
     
-    const { email, name, phone, password, status, ...firestoreData } = data;
+    // Separate data for Auth and Firestore
+    const { 
+        email, name, phone, password, status, avatarUrl, 
+        ...firestoreData 
+    } = data;
     
     const authUpdatePayload: any = {};
     if (email) authUpdatePayload.email = email;
     if (name) authUpdatePayload.displayName = name;
     if (phone) authUpdatePayload.phoneNumber = phone;
-    if (password && password.length >=6) authUpdatePayload.password = password;
+    if (avatarUrl) authUpdatePayload.photoURL = avatarUrl;
+    if (password && password.length >= 6) authUpdatePayload.password = password;
     if (status) authUpdatePayload.disabled = status === 'blocked';
 
+    // Update Firebase Auth if there are relevant changes
     if (Object.keys(authUpdatePayload).length > 0) {
         await auth.updateUser(uid, authUpdatePayload);
     }
 
-    if (Object.keys(firestoreData).length > 0) {
-        await db.collection('users').doc(uid).set(firestoreData, { merge: true });
+    // Always update Firestore with all fields (auth and custom)
+    // to ensure they are in sync.
+    const firestoreUpdatePayload = { ...firestoreData, email, name, phone, status, avatarUrl };
+    // Remove undefined values so Firestore doesn't overwrite fields with undefined
+    Object.keys(firestoreUpdatePayload).forEach(key => (firestoreUpdatePayload as any)[key] === undefined && delete (firestoreUpdatePayload as any)[key]);
+
+
+    if (Object.keys(firestoreUpdatePayload).length > 0) {
+        await db.collection('users').doc(uid).set(firestoreUpdatePayload, { merge: true });
     }
      
     revalidatePath('/users');
