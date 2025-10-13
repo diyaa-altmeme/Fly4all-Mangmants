@@ -1,125 +1,162 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, Palette, Paintbrush } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { updateSettings } from '@/app/settings/actions';
-import type { AppSettings, ThemeSettings } from '@/lib/types';
-import { THEMES, getThemeFromId } from '@/lib/themes';
-import { useThemeCustomization } from '@/context/theme-customization-context';
+import { Search } from 'lucide-react';
+import type { AppSettings } from '@/lib/types';
+import { getSettings } from '@/app/settings/actions';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
-import Image from 'next/image';
-import ThemeEditor from '@/components/settings/theme-editor';
+import { useRouter }from 'next/navigation';
+import { appearanceSections } from './sections.config';
+import ThemeSelector from './components/theme-selector';
+import InvoiceSettings from '@/components/settings/invoice-settings';
+import AssetManagementSettings from '@/app/settings/sections/asset-management';
+import LandingPageSettingsComponent from '@/app/settings/sections/landing-page-settings';
 
-interface AppearanceSettingsProps {
-    settings: AppSettings;
-    onSettingsChanged: () => void;
+
+function AppearancePageContent({ initialSettings, onSettingsChanged }: { initialSettings: AppSettings, onSettingsChanged: () => void }) {
+    const [searchTerm, setSearchTerm] = useState("");
+    const [activeSection, setActiveSection] = useState("themes_general");
+    const router = useRouter();
+
+    const filteredSections = useMemo(() => {
+        if (!searchTerm) return appearanceSections;
+
+        return appearanceSections.map(section => {
+            const filteredSubItems = section.subItems.filter(sub =>
+                sub.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                section.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            return { ...section, subItems: filteredSubItems };
+        }).filter(section => section.subItems.length > 0);
+        
+    }, [searchTerm]);
+    
+    const ActiveComponent = useMemo(() => {
+        for (const section of appearanceSections) {
+            const subItem = section.subItems.find(sub => sub.id === activeSection);
+            if (subItem) return subItem.component;
+        }
+        return ThemeSelector; // Default component
+    }, [activeSection]);
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start">
+        <aside className="border-e bg-card p-4 space-y-4 rounded-lg h-full sticky top-20">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="بحث في إعدادات المظهر..." 
+                    className="ps-10" 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <Accordion type="multiple" className="w-full" defaultValue={appearanceSections.map(s => s.id)}>
+                {filteredSections.map(section => {
+                    const MainIcon = section.icon;
+                    return(
+                    <AccordionItem value={section.id} key={section.id} className="border-b-0">
+                        <AccordionTrigger className="py-3 px-2 font-bold text-base hover:no-underline rounded-md data-[state=open]:text-primary justify-between">
+                             <div className="flex items-center gap-3 justify-start w-full">
+                                <MainIcon className="h-5 w-5" />
+                                <span>{section.name}</span>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pr-4 border-r-2 border-primary/50 mr-4">
+                            <nav dir="rtl" className="flex flex-col gap-1 mt-2">
+                                {section.subItems.map(subItem => {
+                                    const SubIcon = subItem.icon;
+                                    return (
+                                        <Button
+                                            key={subItem.id}
+                                            variant="ghost"
+                                            onClick={() => setActiveSection(subItem.id)}
+                                            className={cn(
+                                                "justify-start gap-3 font-semibold",
+                                                activeSection === subItem.id && "bg-primary/10 text-primary"
+                                            )}
+                                        >
+                                            <SubIcon className="h-4 w-4"/>
+                                            {subItem.name}
+                                        </Button>
+                                    )
+                                })}
+                           </nav>
+                        </AccordionContent>
+                    </AccordionItem>
+                )})}
+            </Accordion>
+        </aside>
+        <main className="space-y-6">
+            <Card>
+                <CardContent className="pt-6">
+                     <ActiveComponent settings={initialSettings} onSettingsChanged={onSettingsChanged} />
+                </CardContent>
+            </Card>
+        </main>
+      </div>
+  );
 }
-
-const SectionCard = ({ title, description, children, footer }: { title: string, description?: string, children: React.ReactNode, footer?: React.ReactNode }) => (
-    <Card className="shadow-sm hover:shadow-md transition-shadow">
-        <CardHeader>
-            <CardTitle className="flex items-center gap-2">{title}</CardTitle>
-            {description && <CardDescription>{description}</CardDescription>}
-        </CardHeader>
-        <CardContent className="space-y-4">
-            {children}
-        </CardContent>
-        {footer && <CardFooter>{footer}</CardFooter>}
-    </Card>
-);
 
 
 export default function AppearancePage() {
-    const { activeTheme, setActiveTheme, isSaving: isSavingTheme, themeSettings, refreshData } = useThemeCustomization();
-    const [selectedThemeForEdit, setSelectedThemeForEdit] = useState<ThemeSettings | null>(null);
-    const { toast } = useToast();
-    const [isClient, setIsClient] = React.useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    
-    useEffect(() => {
-        setIsClient(true);
+    const [settings, setSettings] = React.useState<AppSettings | null>(null);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await getSettings();
+            setSettings(data);
+        } catch (e: any) {
+            setError(e.message || "Failed to load settings.");
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    const handleThemeConfigSave = async (updatedTheme: ThemeSettings) => {
-        const result = await updateSettings({ theme: { ...themeSettings, [updatedTheme.id]: updatedTheme.config } });
-        if (result.success) {
-            toast({ title: "تم حفظ إعدادات الثيم" });
-            if (refreshData) refreshData();
-            setSelectedThemeForEdit(null); // Close editor on save
-        } else {
-            toast({ title: "خطأ", description: "لم يتم حفظ الإعدادات", variant: 'destructive' });
-        }
-    }
-    
-    if (selectedThemeForEdit) {
+    React.useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    if (loading) {
         return (
-            <ThemeEditor
-                theme={selectedThemeForEdit}
-                onBack={() => setSelectedThemeForEdit(null)}
-                onSave={handleThemeConfigSave}
-            />
-        )
+            <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start p-4">
+                <Skeleton className="h-[600px] w-full" />
+                <Skeleton className="h-[600px] w-full" />
+            </div>
+        );
     }
     
+     if (error || !settings) {
+        return (
+            <Alert variant="destructive">
+                <Terminal className="h-4 w-4" />
+                <AlertTitle>حدث خطأ!</AlertTitle>
+                <AlertDescription>{error || "فشل تحميل الإعدادات."}</AlertDescription>
+            </Alert>
+        );
+    }
+
     return (
         <div className="space-y-6">
-             <Card>
-                <CardHeader>
-                     <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle className="flex items-center gap-2"><Paintbrush className="h-5 w-5"/> اختيار الثيم العام</CardTitle>
-                            <CardDescription>اختر الهوية البصرية التي تناسب علامتك التجارية. سيتم تطبيق الثيم على حسابك الشخصي.</CardDescription>
-                        </div>
-                        {isSavingTheme && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin"/>جاري حفظ اختيارك...</div>}
-                    </div>
-                </CardHeader>
-                 <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {THEMES.map(theme => {
-                        const { primary, secondary, accent, background } = theme.config.light;
-                        const colors = [primary, secondary, accent, background].filter(Boolean) as string[];
-                        const isActive = isClient && theme.id === activeTheme.id;
-
-                        return (
-                            <Card 
-                                key={theme.id}
-                                className={cn(
-                                    "cursor-pointer transition-all flex flex-col hover:shadow-lg",
-                                    isActive ? 'border-primary ring-2 ring-primary/50' : 'hover:border-primary/50'
-                                )}
-                                onClick={() => setActiveTheme(theme.id)}
-                            >
-                                <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-base">{theme.name}</CardTitle>
-                                        {isActive && <Check className="h-5 w-5 text-primary" />}
-                                    </div>
-                                    <CardDescription className="text-xs">{theme.description}</CardDescription>
-                                </CardHeader>
-                                <CardContent className="flex-grow space-y-3">
-                                    <div className="flex h-8 w-full gap-1">
-                                        {colors.map((color, i) => (
-                                            <div key={i} className="h-full w-full rounded" style={{ backgroundColor: `hsl(${color})` }} />
-                                        ))}
-                                    </div>
-                                </CardContent>
-                                <CardFooter className="p-3">
-                                    <Button variant="secondary" size="sm" className="w-full" onClick={(e) => { e.stopPropagation(); setSelectedThemeForEdit(theme); }}>
-                                         <Palette className="me-2 h-4 w-4"/>
-                                         تخصيص
-                                    </Button>
-                                </CardFooter>
-                            </Card>
-                        )
-                    })}
-                </CardContent>
-            </Card>
+             <div className="px-0 sm:px-6">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إعدادات المظهر</h1>
+                <p className="text-muted-foreground">
+                    تخصيص الهوية البصرية الكاملة للنظام، من الألوان والثيمات إلى الشعارات وتصميم الفواتير.
+                </p>
+            </div>
+             <AppearancePageContent initialSettings={settings} onSettingsChanged={fetchData} />
         </div>
-    )
+    );
 }
+

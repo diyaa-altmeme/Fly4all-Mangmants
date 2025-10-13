@@ -10,7 +10,7 @@ import AccountingSettings from "@/app/settings/sections/accounting-settings";
 import ApiSettings from "@/app/settings/sections/api-settings";
 import SystemStatusSettings from "@/app/settings/sections/system-status-settings";
 import RelationsSettingsPage from '@/app/relations/settings/page';
-import AppearanceSettingsPage from '@/app/settings/themes/page';
+import AppearancePage from '@/app/settings/themes/page';
 import CurrencySettings from '@/components/settings/currency-settings';
 import SubscriptionsSettings from '@/components/settings/subscriptions-settings';
 import ExchangeSettings from '@/app/settings/sections/exchange-settings';
@@ -21,23 +21,12 @@ import InvoiceSequencesPage from '@/app/settings/invoice-sequences/page';
 
 export const settingSections = [
     { 
-        id: 'appearance', 
-        name: 'المظهر والأصول', 
-        icon: Palette,
-        subItems: [
-            { id: 'appearance_general', name: 'الثيمات العامة', icon: Paintbrush, component: AppearanceSettingsPage },
-            { id: 'appearance_invoice', name: 'الفواتير والتقارير', icon: FileText, component: InvoiceSettings },
-            { id: 'appearance_assets', name: 'إدارة الأصول', icon: ImageIcon, component: AssetManagementSettings },
-            { id: 'appearance_landing', name: 'صفحة الهبوط', icon: Presentation, component: LandingPageSettingsComponent },
-        ],
-    },
-    { 
         id: 'accounting', 
-        name: 'الإعدادات المحاسبية', 
+        name: 'الإعدادات المحاسبية والمالية', 
         icon: GitBranch,
         subItems: [
             { id: 'accounting_chart', name: 'شجرة الحسابات', icon: GitBranch, component: AccountingSettings },
-            { id: 'accounting_sequences', name: 'تسلسل الفواتير', icon: ListOrdered, component: InvoiceSequencesPage },
+            { id: 'accounting_sequences', name: 'تسلسل الفواتير', icon: FileBarChart, component: InvoiceSequencesPage },
             { id: 'accounting_currencies', name: 'العملات', icon: Banknote, component: CurrencySettings },
         ],
     },
@@ -46,7 +35,7 @@ export const settingSections = [
         name: 'إعدادات العلاقات', 
         icon: Users,
         subItems: [
-            { id: 'relations_fields', name: 'إدارة الحقول', icon: SlidersHorizontal, component: RelationsSettingsPage },
+            { id: 'relations_fields', name: 'إدارة الحقول والاستيراد', icon: SlidersHorizontal, component: RelationsSettingsPage },
         ],
     },
     { 
@@ -66,3 +55,32 @@ export const settingSections = [
         ]
     },
 ];
+
+export const appearanceSections = [
+    {
+        id: 'themes',
+        name: 'الثيمات والألوان',
+        icon: Palette,
+        subItems: [
+            { id: 'themes_general', name: 'الثيمات العامة', icon: Paintbrush, component: AppearancePage },
+        ]
+    },
+    {
+        id: 'branding',
+        name: 'العلامة التجارية والأصول',
+        icon: ImageIcon,
+        subItems: [
+             { id: 'assets_management', name: 'إدارة الأصول', icon: ImageIcon, component: AssetManagementSettings },
+             { id: 'invoice_design', name: 'تصميم الفاتورة', icon: FileText, component: InvoiceSettings },
+        ]
+    },
+    {
+        id: 'landing_page',
+        name: 'صفحة الهبوط',
+        icon: Presentation,
+        subItems: [
+            { id: 'landing_page_settings', name: 'إعدادات المحتوى', icon: SlidersHorizontal, component: LandingPageSettingsComponent },
+        ]
+    }
+];
+
