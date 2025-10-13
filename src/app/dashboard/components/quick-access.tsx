@@ -4,7 +4,7 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
+import {
     ArrowRightLeft,
     BarChart3,
     Calculator,
@@ -37,6 +37,7 @@ const actionItems = [
     { id: 'new_invoice', href: "/accounts/vouchers", label: "فاتورة جديدة", icon: FileInvoiceDollar },
     { id: 'new_report', href: "/reports", label: "تقرير جديد", icon: ChartPie },
 ];
+
 
 export default function QuickAccess() {
     const { data: navData, loaded: isDataLoaded } = useVoucherNav();
@@ -73,17 +74,17 @@ export default function QuickAccess() {
                              return <Link key={item.id} href={item.href} className="block h-full">{content}</Link>;
                         }
                         
-                        const ItemComponent = item.DialogComponent;
-                        if (ItemComponent) {
+                        const DialogComponent = item.DialogComponent;
+                        if (DialogComponent) {
                             return (
-                                <ItemComponent
+                                <DialogComponent
                                     key={item.id}
                                     onBookingAdded={onActionSuccess}
                                     onClientAdded={onActionSuccess}
                                     onSubscriptionAdded={onActionSuccess}
                                 >
                                     <div className="w-full h-full text-right cursor-pointer">{content}</div>
-                                </ItemComponent>
+                                </DialogComponent>
                             )
                         }
 
