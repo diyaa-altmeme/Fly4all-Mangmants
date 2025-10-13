@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Plane, Menu, Bell, MessageSquare, Sun, Moon, Rocket, X } from "lucide-react";
+import { Plane, Menu, Bell, MessageSquare, Sun, Moon, Rocket, X, Send } from "lucide-react";
 import { MainNav } from "@/components/layout/main-nav";
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import Image from 'next/image';
@@ -24,7 +24,7 @@ import "@/app/globals.css";
 import TopLoader from '@/components/ui/top-loader';
 import { useTheme } from "next-themes";
 import { getSettings } from "@/app/settings/actions";
-import { Input } from "@/components/ui/input";
+import { GlobalSearch } from "./global-search";
 
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
@@ -107,17 +107,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     </div>
 
                     <div className="flex items-center space-x-4 space-x-reverse">
-                        <div className="relative hidden md:block">
-                            <Input type="text" placeholder="بحث..." 
-                                   className="pl-10 pr-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary w-64 transition-all" />
-                            <i className="fas fa-search absolute right-3 top-2.5 text-gray-500"></i>
-                        </div>
+                         <GlobalSearch />
                         <NotificationCenter />
                          <div className="relative">
                             <Button asChild variant="ghost" size="icon" className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative group">
                                 <Link href="/chat">
                                     <MessageSquare className="text-xl" />
-                                    <span className="notification-badge">5</span>
                                 </Link>
                             </Button>
                         </div>
