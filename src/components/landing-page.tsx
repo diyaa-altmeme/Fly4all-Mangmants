@@ -11,7 +11,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
-import { LoginForm } from '../auth/login-form';
+import { LoginForm } from './auth/login-form';
 import type { LandingPageSettings } from '@/lib/types';
 
 
@@ -59,7 +59,7 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
                 </nav>
                 
                  <div className="flex items-center gap-2">
-                    <Button asChild className="hidden md:inline-flex">
+                    <Button asChild>
                         <Link href="/auth/login">
                            تسجيل الدخول
                         </Link>
@@ -162,7 +162,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                             </div>
                             
                             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-                                <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                                <span style={{ color: heroSettings.heroTitleColor }}>
                                     {heroSettings.heroTitle}
                                 </span>
                                 <br />
