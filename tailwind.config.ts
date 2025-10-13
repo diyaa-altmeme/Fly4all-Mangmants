@@ -31,10 +31,13 @@ export default {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          '500': 'hsl(var(--primary))', // For landing page compatibility
+          '600': 'hsl(var(--primary))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
+          '500': 'hsl(var(--secondary))',
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
@@ -100,10 +103,20 @@ export default {
             height: '0',
           },
         },
+        float: {
+            '0%, 100%': { transform: 'translateY(0)' },
+            '50%': { transform: 'translateY(-20px)' }
+        },
+        gradient: {
+            '0%, 100%': { 'background-position': '0% 50%' },
+            '50%': { 'background-position': '100% 50%' }
+        }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'float': 'float 6s ease-in-out infinite',
+        'gradient': 'gradient 8s ease infinite',
       },
     },
   },
