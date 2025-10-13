@@ -9,7 +9,7 @@ import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X,
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
 import { LoginForm } from '../auth/login-form';
 import type { LandingPageSettings } from '@/lib/types';
@@ -59,7 +59,7 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
                 </nav>
                 
                  <div className="flex items-center gap-2">
-                    <Button asChild>
+                    <Button asChild className="hidden md:inline-flex">
                         <Link href="/auth/login">
                            تسجيل الدخول
                         </Link>
@@ -133,6 +133,8 @@ const StepCard = ({ number, title, description, imageUrl }: { number: number, ti
 
 export function LandingPage({ settings }: { settings: LandingPageSettings }) {
     const [isScrolled, setIsScrolled] = useState(false);
+    const [isLoginOpen, setIsLoginOpen] = useState(false);
+
 
     useEffect(() => {
         const handleScroll = () => {
@@ -308,5 +310,3 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
         </div>
     );
 }
-
-    
