@@ -4,20 +4,21 @@ import { LoginForm } from '@/components/auth/login-form';
 import { useAuth } from '@/lib/auth-context';
 import Preloader from '@/components/layout/preloader';
 import { useRouter } from 'next/navigation';
-import React from 'react';
+import React, { useEffect } from 'react';
 
 export default function LoginPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
-  if (loading) {
-    return <Preloader />;
-  }
+  useEffect(() => {
+    // If user is already logged in, redirect them.
+    // This check is important on the client side.
+    if (!loading && user) {
+      router.replace('/dashboard');
+    }
+  }, [user, loading, router]);
   
-  // If user is already logged in, redirect them.
-  // This check is important on the client side.
-  if (user) {
-    router.replace('/dashboard');
+  if (loading || user) {
     return <Preloader />;
   }
   
