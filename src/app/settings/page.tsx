@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { getSettings } from './actions';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, Users, SlidersHorizontal, Upload, MessageSquareQuote, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, Shield, FileText, GitBranch, Briefcase } from 'lucide-react';
+import { Terminal, Users, SlidersHorizontal, Upload, MessageSquareQuote, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, Shield, FileText, GitBranch, Briefcase, Search } from 'lucide-react';
 import type { AppSettings } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,75 +15,110 @@ import ApiSettings from "@/app/settings/sections/api-settings";
 import SystemStatusSettings from "@/app/settings/sections/system-status-settings";
 import RelationsSettings from '@/app/relations/settings/page';
 import AppearanceSettings from './themes/page';
+import { settingSections } from './sections.config';
+import { Input } from '@/components/ui/input';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
-const sections = [
-    { 
-        id: 'relations', 
-        name: 'العلاقات', 
-        icon: Users,
-        component: RelationsSettings,
-    },
-    { 
-        id: 'accounting', 
-        name: 'المحاسبة', 
-        icon: GitBranch,
-        component: AccountingSettings,
-    },
-    { 
-        id: 'hr', 
-        name: 'الموظفين', 
-        icon: Briefcase,
-        href: '/users'
-    },
-    { 
-        id: 'external_integrations', 
-        name: 'الربط الخارجي', 
-        icon: Link2,
-        component: ApiSettings,
-    },
-    { 
-        id: 'system_status', 
-        name: 'النظام والحالة', 
-        icon: Database,
-        component: SystemStatusSettings,
-    },
-];
 
 function SettingsPageContent({ initialSettings, onSettingsChanged }: { initialSettings: AppSettings, onSettingsChanged: () => void }) {
+    const [searchTerm, setSearchTerm] = useState("");
+    const [activeSection, setActiveSection] = useState("appearance_general");
+    const router = useRouter();
+
+    const filteredSections = useMemo(() => {
+        if (!searchTerm) return settingSections;
+
+        return settingSections.map(section => {
+            const filteredSubItems = section.subItems.filter(sub =>
+                sub.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                section.name.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            return { ...section, subItems: filteredSubItems };
+        }).filter(section => section.subItems.length > 0);
+        
+    }, [searchTerm]);
     
+    const ActiveComponent = useMemo(() => {
+        for (const section of settingSections) {
+            const subItem = section.subItems.find(sub => sub.id === activeSection);
+            if (subItem) return subItem.component;
+        }
+        return null; // Default or fallback component
+    }, [activeSection]);
+
+
+    const handleDataChange = useCallback(() => {
+        // This will re-fetch data on the server for the current route
+        router.refresh();
+    }, [router]);
+
+
+    if (!initialSettings) {
+        return null;
+    }
+
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>الإعدادات العامة</CardTitle>
-                <CardDescription>
-                    تحكم في جميع جوانب النظام من هذه الواجهة المركزية.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Tabs defaultValue="relations" className="w-full">
-                    <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
-                        {sections.map(section => (
-                            <TabsTrigger key={section.id} value={section.id} asChild={!!section.href}>
-                                {section.href ? (
-                                    <Link href={section.href}><section.icon className="me-2 h-4 w-4"/>{section.name}</Link>
-                                ) : (
-                                    <><section.icon className="me-2 h-4 w-4"/>{section.name}</>
-                                )}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-                    {sections.filter(s => s.component).map(section => {
-                         const Component = section.component!;
-                         return (
-                            <TabsContent value={section.id} className="mt-6" key={section.id}>
-                                <Component settings={initialSettings} onSettingsChanged={onSettingsChanged} />
-                            </TabsContent>
-                         )
-                    })}
-                </Tabs>
-            </CardContent>
-        </Card>
-    );
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
+        <aside className="border-e bg-card p-4 space-y-4 rounded-lg h-full sticky top-20">
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                    placeholder="بحث في الإعدادات..." 
+                    className="ps-10" 
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <Accordion type="multiple" className="w-full" defaultValue={settingSections.map(s => s.id)}>
+                {filteredSections.map(section => {
+                    const MainIcon = section.icon;
+                    return(
+                    <AccordionItem value={section.id} key={section.id} className="border-b-0">
+                        <AccordionTrigger className="py-3 px-2 font-bold text-base hover:no-underline rounded-md data-[state=open]:text-primary justify-between">
+                             <div className="flex items-center gap-3 justify-start w-full">
+                                <MainIcon className="h-5 w-5" />
+                                <span>{section.name}</span>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pr-4 border-r-2 border-primary/50 mr-4">
+                            <nav dir="rtl" className="flex flex-col gap-1 mt-2">
+                                {section.subItems.map(subItem => {
+                                    const SubIcon = subItem.icon;
+                                    return (
+                                        <Button
+                                            key={subItem.id}
+                                            variant="ghost"
+                                            onClick={() => setActiveSection(subItem.id)}
+                                            className={cn(
+                                                "justify-start gap-3 font-semibold",
+                                                activeSection === subItem.id && "bg-primary/10 text-primary"
+                                            )}
+                                        >
+                                            <SubIcon className="h-4 w-4"/>
+                                            {subItem.name}
+                                        </Button>
+                                    )
+                                })}
+                           </nav>
+                        </AccordionContent>
+                    </AccordionItem>
+                )})}
+            </Accordion>
+        </aside>
+        <main className="space-y-6">
+            <Card>
+                <CardContent className="pt-6">
+                     {ActiveComponent ? <ActiveComponent settings={initialSettings} onSettingsChanged={handleDataChange} /> : (
+                        <div>الرجاء اختيار قسم من القائمة.</div>
+                     )}
+                </CardContent>
+            </Card>
+        </main>
+      </div>
+  );
 }
 
 export default function SettingsPage() {
