@@ -5,6 +5,8 @@ import { LoginForm } from "@/components/auth/login-form";
 import Script from 'next/script';
 import { useEffect } from 'react';
 import { useTheme } from 'next-themes';
+import { ThemeToggle } from '@/components/theme-toggle';
+
 
 declare global {
     interface Window {
@@ -22,23 +24,23 @@ export default function LoginPage() {
 
         const initializeParticles = () => {
             if (window.particlesJS) {
-                const particleColor = theme === 'dark' ? '#4f46e5' : '#a855f7';
+                const particleColor = theme === 'dark' ? '#4f46e5' : '#7c3aed';
                 const lineColor = theme === 'dark' ? '#4f46e5' : '#9333ea';
                 
                 window.particlesJS("particles-js", {
                     "particles": {
-                        "number": { "value": 100, "density": { "enable": true, "value_area": 800 } },
+                        "number": { "value": 120, "density": { "enable": true, "value_area": 900 } },
                         "color": { "value": particleColor },
                         "shape": { "type": "circle" },
-                        "opacity": { "value": 0.7, "random": true, "anim": { "enable": true, "speed": 1, "opacity_min": 0.1, "sync": false } },
+                        "opacity": { "value": 0.8, "random": true, "anim": { "enable": true, "speed": 1, "opacity_min": 0.2, "sync": false } },
                         "size": { "value": 2.5, "random": true, "anim": { "enable": false } },
-                        "line_linked": { "enable": true, "distance": 150, "color": lineColor, "opacity": 0.3, "width": 1 },
+                        "line_linked": { "enable": true, "distance": 150, "color": lineColor, "opacity": 0.4, "width": 1 },
                         "move": { "enable": true, "speed": 2, "direction": "none", "random": false, "straight": false, "out_mode": "out" }
                     },
                     "interactivity": { 
                         "detect_on": "canvas",
                         "events": { "onhover": { "enable": true, "mode": "grab" }, "onclick": { "enable": false } },
-                        "modes": { "grab": { "distance": 150, "line_linked": { "opacity": 0.8 } } }
+                        "modes": { "grab": { "distance": 150, "line_linked": { "opacity": 1 } } }
                     },
                      "retina_detect": true
                 });
@@ -66,8 +68,11 @@ export default function LoginPage() {
 
     return (
         <div className="login-page-body w-full min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+            <div className="absolute top-4 left-4 z-50">
+                <ThemeToggle />
+            </div>
             <div className="particles" id="particles-js"></div>
-            <div className="gradient-bg absolute inset-0 z-0 opacity-5"></div>
+            <div className="gradient-bg absolute inset-0 z-0 opacity-[0.07] dark:opacity-[0.15]"></div>
             
             <div className="orb orb-1 floating pulse"></div>
             <div className="orb orb-2 floating pulse" style={{ animationDelay: '1s' }}></div>
