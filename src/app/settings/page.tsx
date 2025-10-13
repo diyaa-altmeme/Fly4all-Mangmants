@@ -18,22 +18,16 @@ import AppearanceSettings from './themes/page';
 
 const sections = [
     { 
-        id: 'appearance', 
-        name: 'المظهر', 
-        icon: Palette,
-        component: AppearanceSettings,
+        id: 'relations', 
+        name: 'العلاقات', 
+        icon: Users,
+        component: RelationsSettings,
     },
     { 
         id: 'accounting', 
         name: 'المحاسبة', 
         icon: GitBranch,
         component: AccountingSettings,
-    },
-    { 
-        id: 'relations', 
-        name: 'العلاقات', 
-        icon: Users,
-        component: RelationsSettings,
     },
     { 
         id: 'hr', 
@@ -66,8 +60,8 @@ function SettingsPageContent({ initialSettings, onSettingsChanged }: { initialSe
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <Tabs defaultValue="appearance" className="w-full">
-                    <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-6">
+                <Tabs defaultValue="relations" className="w-full">
+                    <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
                         {sections.map(section => (
                             <TabsTrigger key={section.id} value={section.id} asChild={!!section.href}>
                                 {section.href ? (
