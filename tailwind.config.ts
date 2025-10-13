@@ -31,13 +31,10 @@ export default {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
-          '500': 'hsl(var(--primary))', // For landing page compatibility
-          '600': 'hsl(var(--primary))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
-          '500': 'hsl(var(--secondary))',
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
