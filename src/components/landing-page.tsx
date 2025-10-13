@@ -155,7 +155,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                     
                     <div className="container mx-auto px-4 relative z-10">
                         <div className="max-w-4xl mx-auto text-center">
-                            <div className="inline-block px-4 py-2 bg-primary/10 text-primary rounded-full mb-6 animate-pulse">
+                            <div className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-full mb-6 animate-pulse">
                                 <span className="font-bold flex items-center gap-2"> <Zap className="h-4 w-4" /> الإصدار الجديد متاح الآن!</span>
                             </div>
                             
