@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { getSettings } from './actions';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -16,12 +17,42 @@ import RelationsSettings from '@/app/relations/settings/page';
 import AppearanceSettings from './themes/page';
 
 const sections = [
-    { id: 'appearance', name: 'المظهر', icon: Palette, component: AppearanceSettings },
-    { id: 'accounting', name: 'المحاسبة', icon: GitBranch, component: AccountingSettings },
-    { id: 'relations', name: 'العلاقات', icon: Users, component: RelationsSettings },
-    { id: 'hr', name: 'الموظفين', icon: Briefcase, href: '/users' },
-    { id: 'integrations', name: 'الربط الخارجي', icon: Link2, component: ApiSettings },
-    { id: 'system', name: 'النظام والحالة', icon: Database, component: SystemStatusSettings },
+    { 
+        id: 'appearance', 
+        name: 'المظهر', 
+        icon: Palette,
+        component: AppearanceSettings,
+    },
+    { 
+        id: 'accounting', 
+        name: 'المحاسبة', 
+        icon: GitBranch,
+        component: AccountingSettings,
+    },
+    { 
+        id: 'relations', 
+        name: 'العلاقات', 
+        icon: Users,
+        component: RelationsSettings,
+    },
+    { 
+        id: 'hr', 
+        name: 'الموظفين', 
+        icon: Briefcase,
+        href: '/users'
+    },
+    { 
+        id: 'external_integrations', 
+        name: 'الربط الخارجي', 
+        icon: Link2,
+        component: ApiSettings,
+    },
+    { 
+        id: 'system_status', 
+        name: 'النظام والحالة', 
+        icon: Database,
+        component: SystemStatusSettings,
+    },
 ];
 
 function SettingsPageContent({ initialSettings, onSettingsChanged }: { initialSettings: AppSettings, onSettingsChanged: () => void }) {
@@ -81,7 +112,6 @@ export default function SettingsPage() {
     React.useEffect(() => {
         fetchData();
     }, [fetchData]);
-
 
     return (
         <div className="space-y-6">
