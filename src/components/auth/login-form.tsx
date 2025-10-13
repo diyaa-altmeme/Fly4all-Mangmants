@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Loader2, AlertCircle, Eye, EyeOff, Rocket } from 'lucide-react';
 import Link from 'next/link';
 
 export function LoginForm() {
@@ -38,12 +38,12 @@ export function LoginForm() {
       
       <div className="flex justify-center mb-6">
         <div className="floating glow relative">
-          <i className="fas fa-rocket text-5xl text-indigo-500"></i>
+          <Rocket className="h-12 w-12 text-indigo-500" />
           <div className="absolute -inset-2 rounded-full bg-indigo-500 opacity-20 blur-md"></div>
         </div>
       </div>
       
-      <h1 className="text-3xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500">
+      <h1 className="text-3xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-600">
         مرحباً بك
       </h1>
       <p className="text-center text-gray-500 dark:text-gray-300 mb-8 transition-colors duration-500">
@@ -105,18 +105,18 @@ export function LoginForm() {
             <div className="w-full border-t border-gray-300 dark:border-gray-700 transition-colors duration-500"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-background text-gray-500 dark:text-gray-400 transition-colors duration-500">أو سجل الدخول باستخدام</span>
+            <span className="px-2 bg-background text-muted-foreground">أو سجل الدخول باستخدام</span>
           </div>
         </div>
         
         <div className="mt-6 grid grid-cols-3 gap-3">
-          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg transition-all duration-300">
+          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg">
             <i className="fab fa-google text-red-500"></i>
           </a>
-          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg transition-all duration-300">
+          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg">
             <i className="fab fa-twitter text-blue-400"></i>
           </a>
-          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg transition-all duration-300">
+          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg">
             <i className="fab fa-apple text-gray-700 dark:text-gray-300"></i>
           </a>
         </div>
