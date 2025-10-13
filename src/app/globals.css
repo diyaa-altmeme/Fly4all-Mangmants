@@ -117,7 +117,7 @@
 }
 
 #nprogress .bar {
-  background: var(--loader-color, linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent))));
+  background: var(--loader-color, hsl(var(--primary)));
   box-shadow: var(--loader-shadow, none);
   position: fixed;
   z-index: 1031;
