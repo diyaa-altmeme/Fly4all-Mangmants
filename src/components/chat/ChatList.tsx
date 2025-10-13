@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useState, useMemo } from 'react';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, writeBatch, doc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
 import { Loader2, Search, PlusCircle, User, Users } from 'lucide-react';
@@ -50,6 +50,20 @@ export default function ChatList({ onSelectChat, selectedChatId }: ChatListProps
 
         return () => unsubscribe();
     }, [user]);
+
+    const handleSelectChat = async (chatId: string) => {
+        onSelectChat(chatId);
+        if(user) {
+            const chatSummaryRef = doc(db, `userChats/${user.uid}/summaries/${chatId}`);
+            const chatDoc = await getDocs(query(collection(db, `userChats/${user.uid}/summaries`), where('__name__', '==', chatId)));
+
+            if (!chatDoc.empty && chatDoc.docs[0].data().unreadCount > 0) {
+                 const batch = writeBatch(db);
+                 batch.update(chatSummaryRef, { unreadCount: 0 });
+                 await batch.commit();
+            }
+        }
+    };
     
     const filteredChats = useMemo(() => {
         if (!debouncedSearch) return chats;
@@ -115,7 +129,7 @@ export default function ChatList({ onSelectChat, selectedChatId }: ChatListProps
                                         "w-full text-right p-3 rounded-lg hover:bg-muted transition-colors flex items-center gap-3",
                                         isSelected && "bg-primary/10"
                                     )}
-                                    onClick={() => onSelectChat(chat.id)}
+                                    onClick={() => handleSelectChat(chat.id)}
                                 >
                                     <Avatar className="h-12 w-12 border">
                                         <AvatarImage src={avatarUrl} />

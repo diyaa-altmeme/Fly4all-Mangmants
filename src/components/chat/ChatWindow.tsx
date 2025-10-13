@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
-import { collection, query, orderBy, limit, startAfter, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, startAfter, onSnapshot, addDoc, serverTimestamp, updateDoc, doc, getDoc, writeBatch, increment } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import MessageItem from './MessageItem';
 import FileUploader from './FileUploader';
@@ -89,10 +89,34 @@ export default function ChatWindow({ chatId }: { chatId: string }) {
     await addDoc(mRef, data);
 
     const chatRef = doc(db, `chats/${chatId}`);
-    await updateDoc(chatRef, { 
-        lastMessage: { text: content.trim() || 'ملف مرفق', senderId: user.uid, createdAt: serverTimestamp() },
+    const batch = writeBatch(db);
+
+    const lastMessagePayload = { text: content.trim() || 'ملف مرفق', senderId: user.uid, createdAt: serverTimestamp() };
+    
+    batch.update(chatRef, { 
+        lastMessage: lastMessagePayload,
         updatedAt: serverTimestamp()
     });
+
+    const chatDoc = await getDoc(chatRef);
+    if(chatDoc.exists()) {
+        const chatData = chatDoc.data();
+        const members = Object.keys(chatData.members);
+        
+        members.forEach(memberId => {
+            const summaryRef = doc(db, `userChats/${memberId}/summaries/${chatId}`);
+            const updatePayload: any = {
+                lastMessage: lastMessagePayload,
+                updatedAt: serverTimestamp()
+            };
+            if(memberId !== user.uid) {
+                updatePayload.unreadCount = increment(1);
+            }
+            batch.update(summaryRef, updatePayload);
+        });
+    }
+
+    await batch.commit();
 
     setInputText('');
   };

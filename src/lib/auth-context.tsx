@@ -8,13 +8,15 @@ import {
   getIdToken,
   signInWithCustomToken,
 } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { collection, query, where, onSnapshot, doc, getDocs } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
 import { getCurrentUserFromSession, loginUser, logoutUser, signInAsUser as signInAsUserAction } from '@/lib/auth/actions';
 import { useRouter, usePathname } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/permissions';
 import { PERMISSIONS } from './auth/permissions';
 import Preloader from '@/components/layout/preloader';
+import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
   user: (User & { permissions?: string[] }) | (Client & { isClient: true }) | null;
@@ -24,6 +26,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   hasPermission: (permission: keyof typeof PERMISSIONS) => boolean;
   revalidateUser: () => Promise<void>;
+  unreadChatCount: number;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +39,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState('');
   const router = useRouter();
   const pathname = usePathname();
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const { toast } = useToast();
+  const lastNotificationTimestamp = React.useRef(Date.now());
+
 
   const revalidateUser = useCallback(async () => {
     try {
@@ -64,6 +71,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
   }, []);
+  
+  useEffect(() => {
+    if (!user || !('uid' in user)) {
+        setUnreadChatCount(0);
+        return;
+    };
+    
+    const q = query(collection(db, `userChats/${user.uid}/summaries`));
+
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        let totalUnread = 0;
+        const now = Date.now();
+        querySnapshot.docChanges().forEach((change) => {
+            if (change.type === "modified") {
+                const chatData = change.doc.data();
+                if (chatData.lastMessage && chatData.lastMessage.senderId !== user.uid) {
+                     if (now - lastNotificationTimestamp.current > 3000) {
+                        toast({
+                            title: `رسالة جديدة من ${chatData.otherMemberName}`,
+                            description: chatData.lastMessage.text,
+                        });
+                        lastNotificationTimestamp.current = now;
+                    }
+                }
+            }
+        });
+        
+        querySnapshot.forEach((doc) => {
+            totalUnread += doc.data().unreadCount || 0;
+        });
+        setUnreadChatCount(totalUnread);
+    });
+
+    return () => unsubscribe();
+}, [user, toast]);
 
 
   const signIn = async (email: string, password: string): Promise<{ success: boolean, error?: string}> => {
@@ -140,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
   
   return (
-      <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser, revalidateUser }}>
+      <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser, revalidateUser, unreadChatCount }}>
       {children}
       </AuthContext.Provider>
   );
