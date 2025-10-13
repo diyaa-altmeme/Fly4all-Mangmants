@@ -25,7 +25,7 @@ export default function LoginPage() {
   
   // If no user and not loading, show the login form.
   return (
-      <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
+      <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 bg-background">
         <div className="hidden bg-muted lg:block">
           <Image
             src="https://images.unsplash.com/photo-1542314831-068cd1dbb5ed?q=80&w=2070&auto=format&fit=crop"
@@ -38,7 +38,7 @@ export default function LoginPage() {
         <div className="flex items-center justify-center py-12">
             <div className="mx-auto grid w-[350px] gap-6">
                 <div className="grid gap-2 text-center">
-                    <Plane className="h-10 w-10 mx-auto text-primary" />
+                    <Plane className="mx-auto h-10 w-10 text-primary" />
                     <h1 className="text-3xl font-bold">تسجيل الدخول</h1>
                     <p className="text-balance text-muted-foreground">
                         أدخل بياناتك للوصول إلى لوحة التحكم الخاصة بك
