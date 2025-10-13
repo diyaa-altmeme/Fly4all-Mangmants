@@ -83,6 +83,7 @@ export async function getUsers({ includeHrData = false, all = false, from, to }:
                 groupProfit: firestoreData.groupProfit,
                 changeProfit: firestoreData.changeProfit,
                 segmentProfit: firestoreData.segmentProfit,
+                preferences: firestoreData.preferences || {},
                 calculatedTotalProfit: 0,
                 calculatedNetSalary: 0,
             };
@@ -165,7 +166,6 @@ export async function updateUser(uid: string, data: Partial<User>) {
     const auth = await getAuth();
     const db = await getDb();
     
-    // Separate data for Auth and Firestore
     const { 
         email, name, phone, password, status, avatarUrl, 
         ...firestoreData 
@@ -179,15 +179,11 @@ export async function updateUser(uid: string, data: Partial<User>) {
     if (password && password.length >= 6) authUpdatePayload.password = password;
     if (status) authUpdatePayload.disabled = status === 'blocked';
 
-    // Update Firebase Auth if there are relevant changes
     if (Object.keys(authUpdatePayload).length > 0) {
         await auth.updateUser(uid, authUpdatePayload);
     }
 
-    // Always update Firestore with all fields (auth and custom)
-    // to ensure they are in sync.
     const firestoreUpdatePayload = { ...firestoreData, email, name, phone, status, avatarUrl };
-    // Remove undefined values so Firestore doesn't overwrite fields with undefined
     Object.keys(firestoreUpdatePayload).forEach(key => (firestoreUpdatePayload as any)[key] === undefined && delete (firestoreUpdatePayload as any)[key]);
 
 

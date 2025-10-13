@@ -3,10 +3,12 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { updateSettings, getSettings } from '@/app/settings/actions';
-import type { AppSettings, ThemeSettings, SidebarThemeSettings, CardThemeSettings, LoaderSettings, ThemeCustomizationSettings as ThemeConfig } from '@/lib/themes';
+import type { AppSettings, ThemeSettings, SidebarThemeSettings, CardThemeSettings, LoaderSettings, ThemeCustomizationSettings as ThemeConfig, User } from '@/lib/types';
 import { THEMES, getThemeFromId } from '@/lib/themes';
 import { produce } from 'immer';
 import { useTheme } from 'next-themes';
+import { useAuth } from '@/lib/auth-context';
+import { updateUser } from '@/app/users/actions';
 
 
 type ThemeCustomizationContextType = {
@@ -33,6 +35,14 @@ export const ThemeCustomizationProvider = ({
     const [isSaving, setIsSaving] = useState(false);
     const [loading, setLoading] = useState(true);
     const { theme: mode, setTheme } = useTheme();
+    const { user } = useAuth();
+    
+    const activeThemeId = useMemo(() => {
+        if (user && 'role' in user && user.preferences?.themeId) {
+            return user.preferences.themeId;
+        }
+        return 'mudarib-modern'; // Fallback default
+    }, [user]);
 
     useEffect(() => {
         getSettings().then(s => {
@@ -43,8 +53,9 @@ export const ThemeCustomizationProvider = ({
 
     const activeTheme = useMemo(() => {
       if (loading || !themeSettings) return defaultTheme;
-      const baseTheme = getThemeFromId(themeSettings?.activeThemeId || 'mudarib-modern');
-      // Deep merge with customizations from settings
+      
+      const baseTheme = getThemeFromId(activeThemeId);
+      
       return produce(baseTheme, draft => {
           if (themeSettings) {
               draft.config = {
@@ -58,7 +69,7 @@ export const ThemeCustomizationProvider = ({
               };
           }
       });
-    }, [themeSettings, loading]);
+    }, [themeSettings, loading, activeThemeId]);
 
 
      useEffect(() => {
@@ -66,34 +77,29 @@ export const ThemeCustomizationProvider = ({
     }, []);
     
     const setActiveTheme = useCallback(async (themeId: string): Promise<void> => {
+        if (!user || !('role' in user)) {
+            console.warn("Cannot set theme, no authenticated user found.");
+            return;
+        }
         setIsSaving(true);
         try {
-            const settings = await getSettings();
-            const themeToSet = getThemeFromId(themeId);
-            const newSettings: AppSettings['theme'] = { 
-                ...(settings.theme || {}), 
-                ...themeToSet.config, 
-                activeThemeId: themeId 
-            };
-            await updateSettings({ theme: newSettings });
-            setThemeSettings(newSettings);
+            await updateUser(user.uid, { preferences: { ...user.preferences, themeId } });
         } catch (error) {
-            console.error("Failed to save active theme", error);
+            console.error("Failed to save active theme to user profile", error);
             throw error;
         } finally {
             setIsSaving(false);
         }
-    }, []);
+    }, [user]);
     
     useEffect(() => {
-        if (typeof window === 'undefined' || !isMounted) return;
+        if (typeof window === 'undefined' || !isMounted || !activeTheme) return;
 
-        const themeToApply = activeTheme;
-        const { light, dark, loader } = themeToApply.config;
+        const { light, dark, loader } = activeTheme.config;
         const root = document.documentElement;
 
-        const applyVariables = (config: any, prefix = '') => {
-            if (!config) return;
+        const applyColors = (config: any, prefix = '') => {
+             if (!config) return;
             for (const [key, value] of Object.entries(config)) {
                  if (value && typeof value !== 'object') {
                     const cssVar = `--${prefix}${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
@@ -103,14 +109,8 @@ export const ThemeCustomizationProvider = ({
         };
         
         const colors = mode === 'dark' ? dark : light;
+        applyColors(colors);
         
-        Object.entries(colors).forEach(([key, value]) => {
-            if (typeof value === 'string') {
-                const cssVar = `--${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
-                root.style.setProperty(cssVar, value);
-            }
-        });
-
         if (loader) {
             const barColor = loader.color || 'hsl(var(--primary))';
             const shadow = loader.showShadow ? `0 0 10px ${barColor}, 0 0 5px ${barColor}` : 'none';
@@ -122,13 +122,13 @@ export const ThemeCustomizationProvider = ({
         
     }, [activeTheme, isMounted, mode]);
 
-    const sidebarSettings = useMemo(() => activeTheme.config.sidebar || {}, [activeTheme]);
-    const cardSettings = useMemo(() => activeTheme.config.card || {}, [activeTheme]);
+    const sidebarSettings = useMemo(() => activeTheme?.config?.sidebar || {}, [activeTheme]);
+    const cardSettings = useMemo(() => activeTheme?.config?.card || {}, [activeTheme]);
 
 
     return (
         <ThemeCustomizationContext.Provider value={{ 
-            activeTheme,
+            activeTheme: activeTheme,
             setActiveTheme,
             isSaving,
             sidebarSettings,
