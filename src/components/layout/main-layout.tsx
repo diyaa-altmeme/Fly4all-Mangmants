@@ -114,9 +114,11 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                         </div>
                         <NotificationCenter />
                          <div className="relative">
-                            <Button variant="ghost" size="icon" className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative group">
-                                <MessageSquare className="text-xl" />
-                                <span className="notification-badge">5</span>
+                            <Button asChild variant="ghost" size="icon" className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative group">
+                                <Link href="/chat">
+                                    <MessageSquare className="text-xl" />
+                                    <span className="notification-badge">5</span>
+                                </Link>
                             </Button>
                         </div>
                         <UserNav />

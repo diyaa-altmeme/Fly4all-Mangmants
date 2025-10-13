@@ -58,6 +58,7 @@ import {
     FileWarning,
     ScanSearch,
     Paintbrush,
+    Send,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
@@ -457,6 +458,10 @@ const MainNavContent = () => {
                 المحادثات
                 <MessageSquare className="h-4 w-4" />
             </NavLink>
+             <NavLink href="/campaigns" active={pathname.startsWith('/campaigns')} className="justify-end">
+                الحملات
+                <Send className="h-4 w-4" />
+            </NavLink>
         </nav>
     </div>
   );
@@ -466,5 +471,3 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
-
-    
