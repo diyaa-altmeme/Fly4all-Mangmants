@@ -1,6 +1,5 @@
 
 
-
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
@@ -687,20 +686,20 @@ export type Subscription = {
     supplierId: string;
     supplierName: string;
     serviceName: string;
-    purchaseDate: string;
+    purchaseDate: string; // ISO Date String
     purchasePrice: number;
     clientId: string;
     clientName: string;
     client?: Client;
-    salePrice: number;
-    quantity: number;
     unitPrice: number;
-    discount?: number;
-    startDate: string;
+    quantity: number;
+    salePrice: number; // This is now calculated: (unitPrice * quantity) - discount
+    discount: number;
+    startDate: string; // ISO Date String
     numberOfInstallments: number;
     currency: Currency;
     notes: string;
-    profit: number;
+    profit: number; // This is now calculated: salePrice - purchasePrice
     paidAmount: number;
     status: SubscriptionStatus;
     cancellationDate?: string | null;
@@ -709,6 +708,7 @@ export type Subscription = {
     updatedAt?: string;
     isDeleted?: boolean;
     deletedAt?: string;
+    installments?: SubscriptionInstallment[]; // For client-side joining
 };
 
 export type ReconciliationLog = {
