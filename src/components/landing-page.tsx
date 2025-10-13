@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X, Sun, Moon } from 'lucide-react';
+import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X, Sun, Moon, Zap, Smartphone, HelpCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -127,7 +127,7 @@ const StepCard = ({ number, title, description, imageUrl }: { number: number, ti
 );
 
 
-export function LandingPage() {
+export function LandingPage({ settings }: { settings: LandingPageSettings }) {
     const [isScrolled, setIsScrolled] = useState(false);
     const [showLogin, setShowLogin] = useState(false);
 
@@ -139,10 +139,7 @@ export function LandingPage() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
-    const heroSettings = {
-        heroTitle: "نظام المحاسبة الذكية",
-        heroSubtitle: "لشركات السياحة والسفر"
-    };
+    const heroSettings = settings || {};
 
     return (
         <div className="bg-background text-foreground">
