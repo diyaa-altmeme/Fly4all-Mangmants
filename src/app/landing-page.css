@@ -1,99 +1,24 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap');
 
-:root {
-    --lp-primary-bg: hsl(var(--background));
-    --lp-card-bg: hsla(var(--card), 0.8);
-    --lp-text-color: hsl(var(--foreground));
-    --lp-input-bg: hsla(var(--card), 0.5);
-    --lp-border-color: hsla(var(--border), 0.5);
-}
-
-.dark {
-    --lp-card-bg: rgba(17, 24, 39, 0.6); /* gray-900 with opacity */
-    --lp-input-bg: rgba(31, 41, 55, 0.5); /* gray-800 with opacity */
-}
-
-
 body {
     font-family: 'Tajawal', sans-serif;
-    background-color: var(--lp-primary-bg);
-    color: var(--lp-text-color);
-    transition: background-color 0.5s ease, color 0.5s ease;
 }
 
-.futuristic-card {
+.gradient-bg {
+    background: linear-gradient(-45deg, hsl(var(--primary)), hsl(var(--secondary)), hsl(var(--primary)), hsl(var(--secondary)));
+    background-size: 300% 300%;
+    animation: gradient 8s ease infinite;
+}
+
+.glass-effect {
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    background-color: var(--lp-card-bg);
-    border: 1px solid var(--lp-border-color);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    transition: all 0.5s ease;
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
-.input-futuristic {
-    background-color: var(--lp-input-bg);
-    border: 1px solid var(--lp-border-color);
-    color: var(--lp-text-color);
-    transition: all 0.3s ease;
-}
-
-.input-futuristic:focus {
-    border-color: hsl(var(--primary));
-    box-shadow: 0 0 0 2px hsla(var(--primary), 0.3);
-}
-
-.btn-futuristic {
-    background: linear-gradient(45deg, hsl(var(--primary)), hsl(var(--secondary)));
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
-
-.btn-futuristic:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 20px hsla(var(--primary), 0.4);
-}
-
-.particles {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-}
-
-.neon-text {
-    text-shadow: 0 0 8px hsla(var(--primary), 0.7);
-}
-
-@keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-
-@keyframes gradientBG {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
-.floating {
-    animation: float 6s ease-in-out infinite;
-}
-
-.pulse {
-    animation: pulse 3s ease-in-out infinite;
-}
-
-.glow {
-    filter: drop-shadow(0 0 8px hsla(var(--primary), 0.5));
+.dark .glass-effect {
+    background-color: rgba(0, 0, 0, 0.2);
 }
 
 .feature-card:hover .feature-icon {
@@ -102,8 +27,4 @@ body {
 
 .feature-icon {
     transition: transform 0.6s ease;
-}
-
-.social-btn {
-    background-color: var(--lp-input-bg);
 }
