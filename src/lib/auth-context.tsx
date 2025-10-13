@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -24,6 +23,7 @@ interface AuthContextType {
   signInAsUser: (userId: string) => Promise<void>;
   signOut: () => Promise<void>;
   hasPermission: (permission: keyof typeof PERMISSIONS) => boolean;
+  revalidateUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +36,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState('');
   const router = useRouter();
   const pathname = usePathname();
+
+  const revalidateUser = useCallback(async () => {
+    try {
+        const sessionUser = await getCurrentUserFromSession();
+        setUser(sessionUser);
+    } catch (error) {
+        console.error("Failed to revalidate user session:", error);
+        setUser(null); // Clear user on error
+    }
+  }, []);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -130,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
   
   return (
-      <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser }}>
+      <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser, revalidateUser }}>
       {children}
       </AuthContext.Provider>
   );
