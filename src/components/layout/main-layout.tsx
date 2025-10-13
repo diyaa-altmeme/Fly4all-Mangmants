@@ -113,22 +113,14 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         return <Preloader />;
     }
 
-    // Render children for public routes or landing page if no user
-    if (!user && (isPublicPath || isLandingPage)) {
+    if (!user) {
          return (
-            <div className="flex min-h-screen w-full flex-col bg-muted/40">
-                <main className="flex-1">
-                    {children}
-                </main>
-            </div>
+            <>
+                <TopLoader />
+                {children}
+            </>
         );
     }
     
-    // Render app layout for authenticated users on protected routes
-    if (user && !isPublicPath && !isLandingPage) {
-        return <AppLayout>{children}</AppLayout>;
-    }
-    
-    // Fallback to preloader during route transitions
-    return <Preloader />;
+    return <AppLayout>{children}</AppLayout>;
 }

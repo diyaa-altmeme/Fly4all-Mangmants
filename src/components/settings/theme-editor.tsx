@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, ArrowRight, Palette } from 'lucide-react';
+import { Loader2, Save, ArrowRight, Palette, Paintbrush } from 'lucide-react';
 import { type ThemeSettings, type ThemeConfig } from '@/lib/themes';
 import { produce } from 'immer';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import type { LoaderSettings } from '@/lib/types';
+import { Switch } from '../ui/switch';
 
 const ColorInput = ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => (
     <div className="space-y-1.5">
@@ -44,6 +46,29 @@ const ColorSection = ({ title, config, onConfigChange }: { title: string; config
         ))}
     </div>
 );
+
+const LoaderSettingsEditor = ({ loaderConfig, onLoaderChange }: { loaderConfig: Partial<LoaderSettings>, onLoaderChange: (config: Partial<LoaderSettings>) => void }) => {
+    return (
+        <div className="space-y-4">
+            <div className="space-y-1.5">
+                <Label>لون الشريط</Label>
+                <Input value={loaderConfig.color || ''} onChange={e => onLoaderChange({ ...loaderConfig, color: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+                <Label>ارتفاع الشريط (px)</Label>
+                <Input type="number" value={loaderConfig.height || 3} onChange={e => onLoaderChange({ ...loaderConfig, height: Number(e.target.value) })} />
+            </div>
+            <div className="flex items-center space-x-2 space-x-reverse">
+                <Switch 
+                    id="loader-shadow" 
+                    checked={loaderConfig.showShadow}
+                    onCheckedChange={c => onLoaderChange({...loaderConfig, showShadow: c})}
+                />
+                <Label htmlFor="loader-shadow">تفعيل تأثير التوهج</Label>
+            </div>
+        </div>
+    )
+}
 
 interface ThemeEditorProps {
     theme: ThemeSettings;
@@ -116,6 +141,15 @@ export default function ThemeEditor({ theme, onBack, onSave }: ThemeEditorProps)
                             title="Card Colors"
                             config={editedTheme.config.card || {}}
                             onConfigChange={(key, value) => handleConfigChange('card', key, value)}
+                        />
+                    </AccordionContent>
+                </AccordionItem>
+                 <AccordionItem value="loader">
+                    <AccordionTrigger className="font-bold text-base">إعدادات شريط التقدم (Loader)</AccordionTrigger>
+                    <AccordionContent>
+                        <LoaderSettingsEditor
+                            loaderConfig={editedTheme.config.loader || {}}
+                            onLoaderChange={(config) => setEditedTheme(produce(editedTheme, draft => {draft.config.loader = config}))}
                         />
                     </AccordionContent>
                 </AccordionItem>
