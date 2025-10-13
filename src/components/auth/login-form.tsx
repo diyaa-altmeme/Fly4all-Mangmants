@@ -43,7 +43,7 @@ export function LoginForm() {
         </div>
       </div>
       
-      <h1 className="text-3xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-600">
+      <h1 className="text-3xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500">
         مرحباً بك
       </h1>
       <p className="text-center text-gray-500 dark:text-gray-300 mb-8 transition-colors duration-500">
@@ -59,7 +59,7 @@ export function LoginForm() {
             </Alert>
           )}
         <div>
-          <Label htmlFor="email" className="block text-sm font-medium text-gray-500 dark:text-gray-300 mb-2 transition-colors duration-500">البريد الإلكتروني</Label>
+          <Label htmlFor="email" className="block text-sm font-medium text-gray-400 dark:text-gray-300 mb-2 transition-colors duration-500">البريد الإلكتروني</Label>
           <div className="relative">
             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
               <i className="fas fa-envelope text-gray-400 transition-colors duration-500"></i>
@@ -69,7 +69,7 @@ export function LoginForm() {
         </div>
         
         <div>
-          <Label htmlFor="password" className="block text-sm font-medium text-gray-500 dark:text-gray-300 mb-2 transition-colors duration-500">كلمة المرور</Label>
+          <Label htmlFor="password" className="block text-sm font-medium text-gray-400 dark:text-gray-300 mb-2 transition-colors duration-500">كلمة المرور</Label>
           <div className="relative">
             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
               <i className="fas fa-lock text-gray-400 transition-colors duration-500"></i>
@@ -87,8 +87,8 @@ export function LoginForm() {
         
         <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <input id="remember-me" type="checkbox" className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-            <label htmlFor="remember-me" className="mr-2 block text-sm text-gray-500 dark:text-gray-300 transition-colors duration-500">تذكرني</label>
+            <input id="remember-me" type="checkbox" className="h-4 w-4 rounded border-gray-500 text-indigo-600 focus:ring-indigo-500 bg-transparent" />
+            <label htmlFor="remember-me" className="mr-2 block text-sm text-gray-400 dark:text-gray-300 transition-colors duration-500">تذكرني</label>
           </div>
           <Link href="/auth/forgot-password" className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors duration-300">نسيت كلمة المرور؟</Link>
         </div>
@@ -102,27 +102,27 @@ export function LoginForm() {
       <div className="mt-6">
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300 dark:border-gray-700 transition-colors duration-500"></div>
+            <div className="w-full border-t border-gray-700"></div>
           </div>
           <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-gray-100 dark:bg-gray-900 text-gray-500 dark:text-gray-400 transition-colors duration-500">أو سجل الدخول باستخدام</span>
+            <span className="px-2 bg-[var(--card-bg)] text-gray-400">أو سجل الدخول باستخدام</span>
           </div>
         </div>
         
         <div className="mt-6 grid grid-cols-3 gap-3">
-          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition-all duration-300">
+          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg hover:bg-gray-700/50 transition-all duration-300">
             <i className="fab fa-google text-red-500"></i>
           </a>
-          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition-all duration-300">
+          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg hover:bg-gray-700/50 transition-all duration-300">
             <i className="fab fa-twitter text-blue-400"></i>
           </a>
-          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 transition-all duration-300">
-            <i className="fab fa-apple text-gray-700 dark:text-gray-300"></i>
+          <a href="#" className="social-btn flex items-center justify-center py-2 px-4 rounded-lg hover:bg-gray-700/50 transition-all duration-300">
+            <i className="fab fa-apple text-gray-300"></i>
           </a>
         </div>
       </div>
       
-      <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400 transition-colors duration-500">
+      <div className="mt-6 text-center text-sm text-gray-400 transition-colors duration-500">
         ليس لديك حساب؟ <a href="#" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors duration-300">سجل الآن</a>
       </div>
     </div>

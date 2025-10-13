@@ -131,40 +131,29 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
-    const [landingPageSettings, setLandingPageSettings] = React.useState<LandingPageSettings | null>(null);
 
     const isPublicPath = publicRoutes.includes(pathname);
     const isLandingPage = pathname === landingPageRoute;
-
-    React.useEffect(() => {
-        if (!loading && user && (isPublicPath || isLandingPage)) {
-            router.replace('/dashboard');
-        }
-    }, [user, loading, isPublicPath, isLandingPage, router, pathname]);
     
-    React.useEffect(() => {
-      async function fetchLandingPageSettings() {
-        if (!loading && !user) { // Only fetch for logged-out users
-            try {
-                const settings = await getSettings();
-                setLandingPageSettings(settings.theme?.landingPage || defaultSettingsData.theme.landingPage);
-            } catch (error) {
-                console.error("Failed to fetch landing page settings:", error);
-                setLandingPageSettings(defaultSettingsData.theme.landingPage);
+    // Redirect logic
+    useEffect(() => {
+        if (!loading) {
+            if (user && isPublicPath) {
+                router.replace('/dashboard');
+            } else if (!user && !isPublicPath && !isLandingPage) {
+                router.replace('/');
             }
         }
-      }
-      if(!user) { // Fetch settings if there's no user, regardless of path
-        fetchLandingPageSettings();
-      }
-    }, [loading, user]);
+    }, [user, loading, isPublicPath, isLandingPage, router, pathname]);
 
-    if (loading || (!user && !isPublicPath && !landingPageSettings)) {
+    if (loading) {
         return <Preloader />;
     }
 
     if (!user) {
-        if (isPublicPath) {
+        // If not logged in, only render public pages.
+        // The landing page component is now rendered by the root page itself.
+        if (isPublicPath || isLandingPage) {
              return (
                 <>
                     <TopLoader />
@@ -172,18 +161,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 </>
             );
         }
-        // If not a public path and no user, show landing page
-        if(landingPageSettings) {
-             return (
-                 <>
-                    <TopLoader />
-                    <LandingPage settings={landingPageSettings} />
-                 </>
-            );
-        }
-        // Fallback preloader while settings load
-        return <Preloader />;
+        return <Preloader />; // Or a redirect to login, but the useEffect handles that
     }
     
+    // If user is logged in, show the app layout
     return <AppLayout>{children}</AppLayout>;
 }

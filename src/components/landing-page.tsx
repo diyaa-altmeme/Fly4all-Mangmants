@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X, Sun, Moon, Zap, Smartphone, HelpCircle } from 'lucide-react';
+import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X, Sun, Moon, Zap, Smartphone, HelpCircle, User, Users, Store } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -43,12 +43,12 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
             isScrolled ? "bg-background/80 dark:bg-gray-900/80 backdrop-blur-sm shadow-sm" : "bg-transparent"
         )} id="header">
             <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-                 <a href="#" className="flex items-center gap-2">
+                 <Link href="/" className="flex items-center gap-2">
                     <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
                         <Rocket/>
                     </div>
                     <span className="text-xl font-bold">Mudarib</span>
-                </a>
+                </Link>
                 
                 <nav className="hidden md:flex items-center gap-8">
                     {menuItems.map(item => (
@@ -59,7 +59,7 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
                 </nav>
                 
                  <div className="flex items-center gap-2">
-                    <Button asChild className="hidden md:inline-flex">
+                    <Button asChild>
                         <Link href="/auth/login">
                            تسجيل الدخول
                         </Link>
@@ -232,7 +232,74 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                 
                  <footer className="bg-gray-900 text-gray-300 py-12">
                     <div className="container mx-auto px-4">
-                        <div className="text-center">
+                        <div className="grid md:grid-cols-4 gap-8 mb-12">
+                             <div>
+                                <div className="flex items-center space-x-2 space-x-reverse mb-4">
+                                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
+                                        <Rocket/>
+                                    </div>
+                                    <span className="text-xl font-bold text-white">Mudarib</span>
+                                </div>
+                                <p className="mb-4">
+                                    نظام محاسبة متكامل لشركات السياحة والسفر لإدارة التذاكر، الفيزا، والفواتير بكل سهولة.
+                                </p>
+                                <div className="flex space-x-4 space-x-reverse">
+                                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors">
+                                        <i className="fab fa-twitter"></i>
+                                    </a>
+                                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors">
+                                        <i className="fab fa-facebook-f"></i>
+                                    </a>
+                                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors">
+                                        <i className="fab fa-linkedin-in"></i>
+                                    </a>
+                                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors">
+                                        <i className="fab fa-instagram"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 className="text-lg font-bold text-white mb-4">روابط سريعة</h4>
+                                <ul className="space-y-3">
+                                    <li><a href="#" className="hover:text-white transition-colors">الصفحة الرئيسية</a></li>
+                                    <li><a href="#features" className="hover:text-white transition-colors">المميزات</a></li>
+                                    <li><a href="#how-it-works" className="hover:text-white transition-colors">كيف يعمل</a></li>
+                                    <li><a href="#pricing" className="hover:text-white transition-colors">الأسعار</a></li>
+                                    <li><a href="/auth/login" className="hover:text-white transition-colors">تسجيل الدخول</a></li>
+                                </ul>
+                            </div>
+                            
+                            <div>
+                                <h4 className="text-lg font-bold text-white mb-4">الشركة</h4>
+                                <ul className="space-y-3">
+                                    <li><a href="#" className="hover:text-white transition-colors">من نحن</a></li>
+                                    <li><a href="#" className="hover:text-white transition-colors">الأسئلة الشائعة</a></li>
+                                    <li><a href="#" className="hover:text-white transition-colors">سياسة الخصوصية</a></li>
+                                    <li><a href="#" className="hover:text-white transition-colors">شروط الاستخدام</a></li>
+                                    <li><a href="#" className="hover:text-white transition-colors">اتصل بنا</a></li>
+                                </ul>
+                            </div>
+                            
+                            <div>
+                                <h4 className="text-lg font-bold text-white mb-4">اتصل بنا</h4>
+                                <ul className="space-y-3">
+                                    <li className="flex items-start">
+                                        <i className="fas fa-map-marker-alt mt-1 mr-3 text-primary"></i>
+                                        <span>الرياض، المملكة العربية السعودية</span>
+                                    </li>
+                                    <li className="flex items-center">
+                                        <i className="fas fa-phone-alt mr-3 text-primary"></i>
+                                        <span>+966 12 345 6789</span>
+                                    </li>
+                                    <li className="flex items-center">
+                                        <i className="fas fa-envelope mr-3 text-primary"></i>
+                                        <span>info@mudarib.com</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                         <div class="pt-8 border-t border-gray-800 text-center">
                             <p>&copy; {new Date().getFullYear()} Mudarib. جميع الحقوق محفوظة.</p>
                         </div>
                     </div>
