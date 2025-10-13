@@ -89,6 +89,14 @@
         animation: text-glow 5s linear infinite;
     }
 
+    .notification-badge {
+        @apply absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white;
+    }
+
+    .ping-element {
+        @apply animate-pulse;
+    }
+
     @keyframes text-glow {
         to {
             background-position: 200% center;
