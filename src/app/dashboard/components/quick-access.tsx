@@ -2,23 +2,18 @@
 "use client";
 
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
     ArrowRightLeft,
     BarChart3,
     Calculator,
-    ChartPie,
     CreditCard,
-    FileInvoiceDollar,
     FileText,
     PlusCircle,
     Repeat,
-    Settings,
     Ticket,
     UserPlus,
-    Users,
-    Wand2,
 } from 'lucide-react';
 import AddBookingDialog from '@/app/bookings/components/add-booking-dialog';
 import AddVisaDialog from '@/app/visas/components/add-visa-dialog';
@@ -28,14 +23,15 @@ import Link from 'next/link';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Loader2 } from 'lucide-react';
 
+
 const actionItems = [
     { id: 'add_booking', label: "حجز جديد", icon: Ticket, DialogComponent: AddBookingDialog },
     { id: 'add_visa', label: "فيزا جديدة", icon: CreditCard, DialogComponent: AddVisaDialog },
     { id: 'add_subscription', label: "اشتراك جديد", icon: Repeat, DialogComponent: AddSubscriptionDialog },
     { id: 'add_remittance', label: "حوالة جديدة", icon: ArrowRightLeft, href: "/accounts/remittances" },
     { id: 'add_client', label: "عميل جديد", icon: UserPlus, DialogComponent: AddClientDialog },
-    { id: 'new_invoice', href: "/accounts/vouchers", label: "فاتورة جديدة", icon: FileInvoiceDollar },
-    { id: 'new_report', href: "/reports", label: "تقرير جديد", icon: ChartPie },
+    { id: 'new_invoice', href: "/accounts/vouchers", label: "فاتورة جديدة", icon: FileText },
+    { id: 'new_report', href: "/reports", label: "تقرير جديد", icon: BarChart3 },
 ];
 
 
