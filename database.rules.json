@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "presence": {
+      "$uid": {
+        // Users can only write to their own presence node.
+        ".write": "auth != null && auth.uid === $uid",
+        // Anyone authenticated can read presence data.
+        ".read": "auth != null"
+      }
+    }
+  }
+}
