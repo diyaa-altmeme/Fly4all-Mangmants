@@ -22,9 +22,9 @@ export default function ChatList({ onSelectChat }: ChatListProps) {
     useEffect(() => {
         if (!user) return;
 
+        // Query the user-specific chat summaries instead of the global chats collection
         const q = query(
-            collection(db, 'chats'),
-            where(`members.${user.uid}`, '==', true),
+            collection(db, `userChats/${user.uid}/summaries`),
             orderBy('updatedAt', 'desc')
         );
 
@@ -49,17 +49,13 @@ export default function ChatList({ onSelectChat }: ChatListProps) {
     
     const getOtherMemberName = (chat: any) => {
         if (chat.type === 'group') return chat.title || 'مجموعة';
-        if (!user || !chat.memberDetails) return 'مستخدم';
-
-        const otherMemberId = Object.keys(chat.members).find(id => id !== user.uid);
-        return chat.memberDetails?.[otherMemberId!]?.displayName || 'مستخدم';
+        // The summary now contains the other member's details
+        return chat.otherMemberName || 'مستخدم';
     }
     
     const getOtherMemberAvatar = (chat: any) => {
-        if (chat.type === 'group') return chat.avatarUrl; // Assuming groups can have avatars
-        if (!user || !chat.memberDetails) return '';
-        const otherMemberId = Object.keys(chat.members).find(id => id !== user.uid);
-        return chat.memberDetails?.[otherMemberId!]?.avatarUrl || '';
+        if (chat.type === 'group') return chat.avatarUrl;
+        return chat.otherMemberAvatar || '';
     }
 
     return (
