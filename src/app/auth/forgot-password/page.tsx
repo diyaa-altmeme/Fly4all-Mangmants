@@ -5,9 +5,8 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, AlertCircle, ArrowRight } from 'lucide-react';
+import { Loader2, Mail, AlertCircle, ArrowRight, Plane } from 'lucide-react';
 import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
 import app from '@/lib/firebase';
 import Link from 'next/link';
@@ -46,17 +45,17 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <Card className="w-full max-w-md mx-auto shadow-lg">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-3xl font-bold">إعادة تعيين كلمة المرور</CardTitle>
-          <CardDescription>
-            أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة مرورك.
-          </CardDescription>
-        </CardHeader>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="mx-auto grid w-[350px] gap-6">
+        <div className="grid gap-2 text-center">
+            <Plane className="h-10 w-10 mx-auto text-primary" />
+            <h1 className="text-3xl font-bold">إعادة تعيين كلمة المرور</h1>
+            <p className="text-balance text-muted-foreground">
+                أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة مرورك.
+            </p>
+        </div>
         
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="grid gap-4">
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -74,8 +73,7 @@ export default function ForgotPasswordPage() {
                 </Alert>
             )}
             {!success && (
-                <>
-                <div className="space-y-2">
+                <div className="grid gap-2">
                     <Label htmlFor="email">البريد الإلكتروني</Label>
                     <div className="relative">
                         <Mail className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -91,7 +89,9 @@ export default function ForgotPasswordPage() {
                         />
                     </div>
                 </div>
+            )}
 
+            {!success && (
                 <Button 
                     type="submit" 
                     className="w-full" 
@@ -107,7 +107,6 @@ export default function ForgotPasswordPage() {
                     'إرسال رابط إعادة التعيين'
                     )}
                 </Button>
-                </>
             )}
              <Button variant="link" asChild className="w-full">
                 <Link href="/auth/login">
@@ -115,8 +114,7 @@ export default function ForgotPasswordPage() {
                 </Link>
             </Button>
           </form>
-        </CardContent>
-      </Card>
+      </div>
     </div>
   );
 }
