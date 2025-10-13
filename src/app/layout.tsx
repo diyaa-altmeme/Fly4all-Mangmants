@@ -1,11 +1,15 @@
 
 import { Toaster } from "@/components/ui/toaster";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Tajawal } from "next/font/google";
 // Removed global CSS import from here
 import { Providers } from "@/components/layout/providers";
 
-const inter = Inter({ subsets: ["latin"] });
+const tajawal = Tajawal({ 
+  subsets: ["arabic"],
+  weight: ["400", "700", "900"],
+  variable: '--font-tajawal'
+});
 
 export const metadata: Metadata = {
   title: "نظام الإدارة",
@@ -19,7 +23,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning={true}>
-      <body className={inter.className}>
+      <body className={tajawal.variable}>
         <Providers>
           {children}
         </Providers>
