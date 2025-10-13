@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X, Sun, Moon, Zap, Smartphone, HelpCircle, User, Users, Store } from 'lucide-react';
+import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X, Sun, Moon, Zap, Smartphone, HelpCircle, User, Users, Store, Check, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -229,6 +229,131 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                     </div>
                 </section>
                 
+                <section id="testimonials" className="py-20 bg-muted/50">
+                    <div className="container mx-auto px-4">
+                         <div className="text-center mb-16">
+                            <h2 className="text-3xl md:text-5xl font-bold mb-4">يثق بنا <span className="text-primary">الخبراء</span></h2>
+                            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                                آراء بعض عملائنا الذين يستخدمون النظام يوميًا لتحسين أعمالهم
+                            </p>
+                        </div>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                             <Card className="bg-card text-card-foreground">
+                                <CardContent className="p-8">
+                                    <div className="flex items-center mb-4">
+                                        <Image src="https://picsum.photos/seed/1/40/40" alt="User" width={40} height={40} className="rounded-full" />
+                                        <div className="mr-4">
+                                            <h4 className="font-bold">أحمد علي</h4>
+                                            <p className="text-sm text-muted-foreground">مدير، شركة النور للسفر</p>
+                                        </div>
+                                    </div>
+                                    <p className="mb-4">"النظام غيّر طريقة عملنا بالكامل. أصبحنا نوفر ساعات يوميًا بفضل الإدخال الذكي."</p>
+                                    <div className="flex items-center text-yellow-500">
+                                       <Star/><Star/><Star/><Star/><Star/>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                             <Card className="bg-card text-card-foreground">
+                                <CardContent className="p-8">
+                                    <div className="flex items-center mb-4">
+                                        <Image src="https://picsum.photos/seed/2/40/40" alt="User" width={40} height={40} className="rounded-full" />
+                                        <div className="mr-4">
+                                            <h4 className="font-bold">فاطمة حسن</h4>
+                                            <p className="text-sm text-muted-foreground">محاسبة، شركة الأفق للسياحة</p>
+                                        </div>
+                                    </div>
+                                    <p className="mb-4">"أداة التدقيق والمطابقة رائعة! كشفت لنا عن فروقات لم نكن لنلاحظها بالطرق التقليدية."</p>
+                                    <div className="flex items-center text-yellow-500">
+                                       <Star/><Star/><Star/><Star/><Star/>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                             <Card className="bg-card text-card-foreground">
+                                <CardContent className="p-8">
+                                    <div className="flex items-center mb-4">
+                                        <Image src="https://picsum.photos/seed/3/40/40" alt="User" width={40} height={40} className="rounded-full" />
+                                        <div className="mr-4">
+                                            <h4 className="font-bold">علي محمد</h4>
+                                            <p className="text-sm text-muted-foreground">صاحب، شركة البراق للسياحة</p>
+                                        </div>
+                                    </div>
+                                    <p className="mb-4">"الدعم الفني سريع ومتجاوب. التقارير المالية أصبحت واضحة ومفصلة أكثر من أي وقت مضى."</p>
+                                    <div className="flex items-center text-yellow-500">
+                                       <Star/><Star/><Star/><Star/><Star/>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="pricing" className="py-20">
+                    <div className="container mx-auto px-4">
+                        <div className="text-center mb-16">
+                            <h2 className="text-3xl md:text-5xl font-bold mb-4">خطط <span className="text-primary">أسعار</span> مرنة</h2>
+                            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                                اختر الخطة التي تناسب حجم أعمالك واحتياجات فريقك
+                            </p>
+                        </div>
+                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 items-center">
+                            <Card className="rounded-2xl border-2">
+                                <CardHeader className="text-center">
+                                    <CardTitle className="text-2xl">الخطة الأساسية</CardTitle>
+                                    <CardDescription>مثالية للشركات الصغيرة والناشئة</CardDescription>
+                                </CardHeader>
+                                <CardContent className="text-center">
+                                    <p className="text-5xl font-bold mb-4">$29<span className="text-lg font-normal text-muted-foreground">/شهر</span></p>
+                                    <ul className="space-y-4 text-right">
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> حتى 3 مستخدمين</li>
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> إدخال 500 تذكرة شهريًا</li>
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> دعم فني عبر البريد الإلكتروني</li>
+                                    </ul>
+                                </CardContent>
+                                <CardFooter>
+                                    <Button className="w-full" variant="outline">اختر الخطة</Button>
+                                </CardFooter>
+                            </Card>
+                            <Card className="rounded-2xl border-2 border-primary shadow-lg scale-105">
+                                 <CardHeader className="text-center">
+                                    <div className="flex justify-center"><Badge>الأكثر شيوعًا</Badge></div>
+                                    <CardTitle className="text-3xl text-primary">الخطة الاحترافية</CardTitle>
+                                    <CardDescription>للشركات المتوسطة والمتنامية</CardDescription>
+                                </CardHeader>
+                                <CardContent className="text-center">
+                                    <p className="text-6xl font-bold mb-4">$79<span className="text-lg font-normal text-muted-foreground">/شهر</span></p>
+                                    <ul className="space-y-4 text-right">
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> حتى 10 مستخدمين</li>
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> إدخال 2000 تذكرة شهريًا</li>
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> أداة التدقيق والمطابقة</li>
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> دعم فني عبر الدردشة</li>
+                                    </ul>
+                                </CardContent>
+                                <CardFooter>
+                                    <Button className="w-full">اختر الخطة</Button>
+                                </CardFooter>
+                            </Card>
+                            <Card className="rounded-2xl border-2">
+                                 <CardHeader className="text-center">
+                                    <CardTitle className="text-2xl">خطة الشركات</CardTitle>
+                                    <CardDescription>حلول مخصصة للشركات الكبيرة</CardDescription>
+                                </CardHeader>
+                                <CardContent className="text-center">
+                                    <p className="text-4xl font-bold my-8">تواصل معنا</p>
+                                    <ul className="space-y-4 text-right">
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> عدد مستخدمين غير محدود</li>
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> عدد تذاكر غير محدود</li>
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> تقارير وتحليلات مخصصة</li>
+                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> دعم فني مخصص ومدير حساب</li>
+                                    </ul>
+                                </CardContent>
+                                <CardFooter>
+                                    <Button className="w-full" variant="outline">تواصل مع المبيعات</Button>
+                                </CardFooter>
+                            </Card>
+                        </div>
+                    </div>
+                </section>
+                
                  <footer className="bg-gray-900 text-gray-300 py-12">
                     <div className="container mx-auto px-4">
                         <div className="grid md:grid-cols-4 gap-8 mb-12">
@@ -307,3 +432,5 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
         </div>
     );
 }
+
+    
