@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { getSettings } from './actions';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,7 +26,6 @@ import { settingSections } from './sections.config';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 
@@ -56,6 +55,17 @@ function SettingsPageContent({ initialSettings, onSettingsChanged }: { initialSe
         }
         return AccountingSettings; // Default component
     }, [activeSection]);
+
+
+    const handleDataChange = useCallback(() => {
+        // This will re-fetch data on the server for the current route
+        router.refresh();
+    }, [router]);
+
+
+    if (!initialSettings) {
+        return null;
+    }
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start">
