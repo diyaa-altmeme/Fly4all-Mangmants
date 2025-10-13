@@ -122,12 +122,14 @@ export default function ChatWindow({ chatId }: { chatId: string }) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="flex flex-col h-full bg-background overflow-hidden">
       <ChatHeader chatId={chatId} />
-      <ScrollArea className="flex-grow p-4">
-        {messages.map(m => <MessageItem key={m.id} chatId={chatId} msg={m} />)}
-        <div ref={messagesEndRef} />
-      </ScrollArea>
+      <div className="flex-1 overflow-y-auto">
+        <ScrollArea className="h-full p-4">
+            {messages.map(m => <MessageItem key={m.id} chatId={chatId} msg={m} />)}
+            <div ref={messagesEndRef} />
+        </ScrollArea>
+      </div>
       <div className="p-4 border-t flex items-center gap-2 bg-card">
          <FileUploader chatId={chatId} onUpload={(attachments) => handleSend(undefined, attachments)}>
             <Button variant="ghost" size="icon"><Paperclip /></Button>
