@@ -6,7 +6,6 @@ import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
@@ -34,16 +33,7 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto shadow-lg">
-      <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-3xl font-bold">تسجيل الدخول</CardTitle>
-        <CardDescription>
-          أدخل بريدك الإلكتروني وكلمة المرور للوصول إلى نظام Mudarib Accounting
-        </CardDescription>
-      </CardHeader>
-      
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="grid gap-4">
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -52,7 +42,7 @@ export function LoginForm() {
             </Alert>
           )}
           
-          <div className="space-y-2">
+          <div className="grid gap-2">
             <Label htmlFor="email">البريد الإلكتروني</Label>
             <div className="relative">
               <Mail className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -70,8 +60,13 @@ export function LoginForm() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">كلمة المرور</Label>
+          <div className="grid gap-2">
+             <div className="flex items-center">
+                 <Label htmlFor="password">كلمة المرور</Label>
+                 <Link href="/auth/forgot-password" className="ml-auto inline-block text-sm underline" passHref>
+                    نسيت كلمة المرور؟
+                </Link>
+             </div>
             <div className="relative">
               <Lock className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -100,33 +95,15 @@ export function LoginForm() {
             </div>
           </div>
           
-           <div className="flex items-center justify-between text-sm">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">تذكرني</span>
-                </label>
-                <Link href="/auth/forgot-password" passHref>
-                    <span className="text-blue-600 hover:text-blue-700 font-medium hover:underline cursor-pointer">
-                    نسيت كلمة المرور؟
-                    </span>
-                </Link>
-              </div>
-            <div className="flex flex-col gap-2">
-                <Button
-                    type="submit"
-                    className="w-full"
-                    size="lg"
-                    disabled={internalLoading}
-                    >
-                    {internalLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                    تسجيل الدخول
-                </Button>
-            </div>
+            <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={internalLoading}
+                >
+                {internalLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                تسجيل الدخول
+            </Button>
         </form>
-      </CardContent>
-    </Card>
   );
 }
