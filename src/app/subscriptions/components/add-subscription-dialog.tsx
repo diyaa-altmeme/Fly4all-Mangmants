@@ -54,11 +54,29 @@ const step2Schema = z.object({
   unitPrice: z.coerce.number().min(0, "سعر بيع الوحدة يجب أن يكون أكبر من صفر"),
   discount: z.coerce.number().min(0, "الخصم لا يمكن أن يكون سالبًا.").default(0).optional(),
   startDate: z.date({ required_error: "تاريخ بدء الاشتراك مطلوب." }),
-  numberOfInstallments: z.coerce.number().int().min(1, "عدد الدفعات يجب أن يكون 1 على الأقل."),
+  numberOfInstallments: z.coerce.number().int().min(1, "عدد الدفعات يجب أن يكون 1 على الأقل.").optional(),
   installmentMethod: z.enum(['upfront', 'deferred', 'installments']).default('installments'),
+  deferredDueDate: z.date().optional(),
   boxId: z.string().optional(),
   notes: z.string().optional(),
+}).refine(data => {
+    if (data.installmentMethod === 'installments') {
+        return data.numberOfInstallments && data.numberOfInstallments > 0;
+    }
+    return true;
+}, {
+    message: "عدد الدفعات مطلوب عند اختيار طريقة الأقساط.",
+    path: ['numberOfInstallments'],
+}).refine(data => {
+    if (data.installmentMethod === 'deferred') {
+        return !!data.deferredDueDate;
+    }
+    return true;
+}, {
+    message: "تاريخ الاستحقاق مطلوب للدفعات المؤجلة.",
+    path: ['deferredDueDate'],
 });
+
 
 const formSchema = z.object({...step1Schema.shape, ...step2Schema.shape});
 type FormValues = z.infer<typeof formSchema>;
@@ -135,7 +153,7 @@ function Step2Fields() {
                                 <FormControl>
                                     <RadioGroupItem value="upfront" id="upfront" className="sr-only"/>
                                 </FormControl>
-                                <Label htmlFor="upfront" className={cn("flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground", field.value === 'upfront' && "border-primary")}>
+                                <Label htmlFor="upfront" className={cn("flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer", field.value === 'upfront' && "border-primary ring-2 ring-primary")}>
                                     دفعة واحدة مقدمًا
                                 </Label>
                             </FormItem>
@@ -143,7 +161,7 @@ function Step2Fields() {
                                 <FormControl>
                                     <RadioGroupItem value="deferred" id="deferred" className="sr-only"/>
                                 </FormControl>
-                                <Label htmlFor="deferred" className={cn("flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground", field.value === 'deferred' && "border-primary")}>
+                                <Label htmlFor="deferred" className={cn("flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer", field.value === 'deferred' && "border-primary ring-2 ring-primary")}>
                                    دفعة واحدة مؤجلة
                                 </Label>
                             </FormItem>
@@ -151,8 +169,8 @@ function Step2Fields() {
                                 <FormControl>
                                     <RadioGroupItem value="installments" id="installments" className="sr-only"/>
                                 </FormControl>
-                                <Label htmlFor="installments" className={cn("flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground", field.value === 'installments' && "border-primary")}>
-                                    على شكل أقساط
+                                <Label htmlFor="installments" className={cn("flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer", field.value === 'installments' && "border-primary ring-2 ring-primary")}>
+                                    على شكل دفعات
                                 </Label>
                             </FormItem>
                           </RadioGroup>
@@ -164,6 +182,9 @@ function Step2Fields() {
 
                 {installmentMethod === 'installments' && (
                     <FormField control={control} name="numberOfInstallments" render={({ field }) => (<FormItem><FormLabel>عدد الدفعات</FormLabel><FormControl><NumericInput onValueChange={(val) => field.onChange(val || 0)} value={field.value} /></FormControl><FormMessage /></FormItem>)}/>
+                )}
+                 {installmentMethod === 'deferred' && (
+                    <FormField control={control} name="deferredDueDate" render={({ field }) => (<FormItem><FormLabel>تاريخ استحقاق الدفعة المؤجلة</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)}/>
                 )}
             </div>
              <FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel>ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)}/>
@@ -256,6 +277,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
         quantity: data.quantity,
         unitPrice: data.unitPrice,
         discount: data.discount || 0,
+        numberOfInstallments: data.numberOfInstallments || 1, // Default to 1 for non-installment methods
       };
       
       const result = await addSubscriptionAction(newSubscriptionData as any);
@@ -278,11 +300,11 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
     }
   }
 
+  const step2Fields = watch(['purchasePrice', 'unitPrice', 'numberOfInstallments', 'startDate', 'installmentMethod', 'deferredDueDate']);
   const isStep2Valid = useMemo(() => {
-    const { purchasePrice, unitPrice, numberOfInstallments, startDate, installmentMethod } = getValues();
-    const installmentsValid = installmentMethod === 'installments' ? (numberOfInstallments ?? 0) > 0 : true;
-    return (purchasePrice ?? 0) >= 0 && (unitPrice ?? 0) > 0 && !!startDate && installmentsValid;
-  }, [getValues]);
+    const result = step2Schema.safeParse(getValues());
+    return result.success;
+  }, [getValues, step2Fields]);
 
 
   return (

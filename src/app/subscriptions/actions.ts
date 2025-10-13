@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -129,9 +130,11 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
 
         // Generate installments based on payment method
         const startDate = new Date(subscriptionData.startDate);
+        const totalInstallments = subscriptionData.numberOfInstallments || 1;
+
         if (subscriptionData.installmentMethod === 'installments') {
-            const installmentAmount = parseFloat((totalSale / subscriptionData.numberOfInstallments).toFixed(2));
-            for (let i = 0; i < subscriptionData.numberOfInstallments; i++) {
+            const installmentAmount = parseFloat((totalSale / totalInstallments).toFixed(2));
+            for (let i = 0; i < totalInstallments; i++) {
                 const installmentRef = db.collection('subscription_installments').doc();
                 const dueDate = addMonths(startDate, i);
                 const installmentData: Omit<SubscriptionInstallment, 'id'> = {
@@ -147,7 +150,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             if (subscriptionData.installmentMethod === 'upfront') {
                 dueDate = startDate; // Due at the beginning
             } else { // 'deferred'
-                dueDate = endOfDay(addMonths(startDate, subscriptionData.numberOfInstallments)); // Due at the end
+                dueDate = subscriptionData.deferredDueDate ? new Date(subscriptionData.deferredDueDate) : endOfDay(addMonths(startDate, totalInstallments));
             }
             const installmentData: Omit<SubscriptionInstallment, 'id'> = {
                 subscriptionId: subscriptionRef.id, clientName: subscriptionData.clientName, serviceName: subscriptionData.serviceName,
@@ -679,4 +682,5 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
 
