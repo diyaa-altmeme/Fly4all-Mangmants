@@ -24,6 +24,7 @@ import "@/app/globals.css";
 import TopLoader from '@/components/ui/top-loader';
 import { useTheme } from "next-themes";
 import { getSettings } from "@/app/settings/actions";
+import { Input } from "@/components/ui/input";
 
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
@@ -180,5 +181,3 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     
     return <AppLayout>{children}</AppLayout>;
 }
-
-    
