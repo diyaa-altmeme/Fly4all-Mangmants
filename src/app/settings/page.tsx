@@ -28,6 +28,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 
 function SettingsPageContent({ initialSettings, onSettingsChanged }: { initialSettings: AppSettings, onSettingsChanged: () => void }) {
