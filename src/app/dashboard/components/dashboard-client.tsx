@@ -11,7 +11,7 @@ import QuickAccess from './quick-access';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, CircleUserRound, Settings, LayoutDashboard, Ticket, Repeat } from 'lucide-react';
+import { ArrowLeft, CircleUserRound, Settings, LayoutDashboard, Ticket, Repeat, Play, Video } from 'lucide-react';
 import Link from 'next/link';
 import Announcements from './announcements';
 import AnalogClock from './analog-clock';
@@ -51,42 +51,32 @@ const itemVariants = {
 const WelcomeCard = () => {
     const { user } = useAuth();
     return (
-        <Card className="col-span-1 md:col-span-2 lg:col-span-3 bg-gradient-to-tr from-primary/80 to-accent text-primary-foreground overflow-hidden h-full flex flex-col justify-between">
-            <CardHeader>
-                <div className="flex items-center gap-4">
-                     <motion.div
-                        animate={{
-                            scale: [1, 1.2, 1],
-                            rotate: [0, -10, 10, 0],
-                        }}
-                        transition={{
-                            duration: 3,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                            repeatType: "mirror"
-                        }}
-                    >
-                        <LayoutDashboard className="h-12 w-12 text-white/80" />
-                    </motion.div>
-                    <div>
-                        <CardTitle className="text-2xl font-bold">مرحباً بعودتك، {user?.name || 'المستخدم'}!</CardTitle>
-                        <CardDescription className="text-primary-foreground/80">
-                            هنا تجد ملخصًا سريعًا لأداء شركتك ووصولاً مباشرًا لأهم العمليات.
-                        </CardDescription>
+        <div className="bg-gradient-to-r from-primary-500 to-blue-500 rounded-2xl p-6 md:p-8 text-white shadow-glow-lg relative overflow-hidden gradient-border">
+            <div className="absolute top-0 left-0 w-full h-full opacity-10">
+                <div className="absolute top-20 left-20 w-40 h-40 rounded-full bg-white/20 animate-pulse-slow"></div>
+                <div className="absolute bottom-10 right-10 w-60 h-60 rounded-full bg-white/10 animate-pulse-slow"></div>
+            </div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center justify-between">
+                <div className="md:mr-8">
+                    <h1 className="text-2xl md:text-4xl font-bold mb-2 animate__animated animate__fadeIn">مرحباً بعودتك، {user?.name || 'المستخدم'}!</h1>
+                    <p className="opacity-90 mb-6 text-lg">هنا يمكنك إدارة أعمالك ومتابعة أداء شركتك بكل سهولة</p>
+                    <div className="flex flex-wrap gap-4">
+                        <button className="bg-white text-primary-600 hover:bg-gray-100 px-6 py-3 rounded-lg font-medium transition-all hover:shadow-lg flex items-center tilt-effect">
+                            بدء الجولة <Play className="mr-2 h-4 w-4 wave-element" />
+                        </button>
+                        <button className="bg-white/10 hover:bg-white/20 px-6 py-3 rounded-lg font-medium transition-all hover:shadow-lg flex items-center border border-white/20 tilt-effect">
+                            مشاهدة الفيديو التعريفي <Video className="mr-2 h-4 w-4" />
+                        </button>
                     </div>
                 </div>
-            </CardHeader>
-            <CardContent>
-                 <div className="flex items-center gap-2">
-                    <Button asChild variant="secondary" size="sm">
-                        <Link href="/profile">الملف الشخصي</Link>
-                    </Button>
-                    <Button asChild variant="ghost" size="sm" className="hover:bg-white/20">
-                        <Link href="/settings">الإعدادات</Link>
-                    </Button>
+                <div className="mt-8 md:mt-0 floating-element">
+                    <Image src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=300&q=80" 
+                         width={256}
+                         height={256}
+                         className="w-48 h-48 md:w-64 md:h-64 object-contain" alt="رسمة لوحة تحكم" />
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     )
 }
 
@@ -98,53 +88,48 @@ export default function DashboardClient({
 }: DashboardClientProps) {
   return (
     <motion.div 
-      className="space-y-6"
+      className="space-y-8"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
-        <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <motion.section variants={itemVariants} className="slide-in-element">
             <WelcomeCard />
-            <AnalogClock />
-        </motion.div>
+        </motion.section>
         
-        <motion.div variants={itemVariants}>
+        <motion.section variants={itemVariants}>
             <StatsCards stats={stats} />
-        </motion.div>
+        </motion.section>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-             <motion.div variants={itemVariants} className="lg:col-span-2">
+        <motion.section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+             <div className="lg:col-span-2">
                 <OverviewChart data={chartData} />
-             </motion.div>
-             <motion.div variants={itemVariants}>
-                <Announcements />
-            </motion.div>
-        </div>
-        
-        <motion.div className="lg:col-span-3" variants={itemVariants}>
-            <QuickAccess />
-        </motion.div>
+             </div>
+             <div>
+                <QuickAccess />
+            </div>
+        </motion.section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-             <motion.div variants={itemVariants}>
-                 <Card className="h-full">
+        <motion.section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+             <div>
+                 <Card className="h-full bg-white/80 dark:bg-dark-800/80 backdrop-blur-md glass-effect glass-effect-dark">
                     <CardHeader>
                         <CardTitle>آخر الحجوزات</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
                             {recentBookings.map((booking, index) => (
-                                <div key={booking.id || index} className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-blue-100 rounded-md"><Ticket className="h-5 w-5 text-blue-500" /></div>
-                                        <div>
-                                            <p className="font-semibold">{booking.passengers[0]?.name} {booking.passengers.length > 1 && `و ${booking.passengers.length - 1} آخرون`}</p>
-                                            <p className="text-sm text-muted-foreground">{booking.route}</p>
-                                        </div>
+                                <div key={booking.id || index} className="flex items-center p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors card-hover-effect">
+                                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mr-3">
+                                        <Ticket className="h-5 w-5 text-blue-500" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="font-medium">{booking.passengers[0]?.name} {booking.passengers.length > 1 && `و ${booking.passengers.length - 1} آخرون`}</h4>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{booking.route}</p>
                                     </div>
                                     <div className="text-left">
-                                        <Badge variant="outline">{booking.pnr}</Badge>
-                                        <p className="text-xs text-muted-foreground">{booking.issueDate ? format(parseISO(booking.issueDate), 'yyyy-MM-dd') : '-'}</p>
+                                        <span className="text-sm font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{booking.pnr}</span>
+                                        <p className="text-xs text-gray-500 mt-1">{booking.issueDate ? format(parseISO(booking.issueDate), 'yyyy-MM-dd') : '-'}</p>
                                     </div>
                                 </div>
                             ))}
@@ -152,26 +137,26 @@ export default function DashboardClient({
                         </div>
                     </CardContent>
                 </Card>
-             </motion.div>
-              <motion.div variants={itemVariants}>
-                <Card className="h-full">
+             </div>
+              <div>
+                <Card className="h-full bg-white/80 dark:bg-dark-800/80 backdrop-blur-md glass-effect glass-effect-dark">
                     <CardHeader>
-                        <CardTitle>الأقساط القادمة</CardTitle>
+                        <CardTitle>الدفعات القادمة</CardTitle>
                     </CardHeader>
                      <CardContent>
                         <div className="space-y-4">
                             {upcomingInstallments.map((inst, index) => (
-                                <div key={inst.id || index} className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-orange-100 rounded-md"><Repeat className="h-5 w-5 text-orange-500" /></div>
-                                        <div>
-                                            <p className="font-semibold">{inst.clientName}</p>
-                                            <p className="text-sm text-muted-foreground">{inst.serviceName}</p>
-                                        </div>
+                                <div key={inst.id || index} className="flex items-center p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors card-hover-effect">
+                                    <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center mr-3">
+                                        <i className="fas fa-money-bill-wave text-orange-500"></i>
+                                    </div>
+                                    <div className="flex-1">
+                                        <h4 className="font-medium">{inst.clientName}</h4>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{inst.serviceName}</p>
                                     </div>
                                      <div className="text-left">
-                                        <p className="font-mono font-bold text-orange-600">{inst.amount.toLocaleString()} {inst.currency}</p>
-                                        <p className="text-xs text-muted-foreground">{format(parseISO(inst.dueDate), 'yyyy-MM-dd')}</p>
+                                        <span className="font-medium text-orange-600">{inst.amount.toLocaleString()} {inst.currency}</span>
+                                        <p className="text-xs text-gray-500 mt-1">{format(parseISO(inst.dueDate), 'yyyy-MM-dd')}</p>
                                     </div>
                                 </div>
                             ))}
@@ -179,8 +164,9 @@ export default function DashboardClient({
                         </div>
                     </CardContent>
                 </Card>
-             </motion.div>
-        </div>
+             </div>
+        </motion.section>
     </motion.div>
   );
 }
+    
