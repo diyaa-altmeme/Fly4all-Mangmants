@@ -6,30 +6,39 @@ import Script from 'next/script';
 import { useEffect } from 'react';
 import { useTheme } from 'next-themes';
 
+declare global {
+    interface Window {
+        particlesJS: any;
+        pJSDom: any[];
+    }
+}
+
 export default function LoginPage() {
     const { theme } = useTheme();
 
     useEffect(() => {
-        // Ensure particles.js script is loaded
         const scriptId = 'particles-js-script';
         let script = document.getElementById(scriptId) as HTMLScriptElement;
 
         const initializeParticles = () => {
             if (window.particlesJS) {
-                const particleColor = theme === 'dark' ? '#4f46e5' : '#7c3aed';
+                const particleColor = theme === 'dark' ? '#4f46e5' : '#a855f7';
+                const lineColor = theme === 'dark' ? '#4f46e5' : '#9333ea';
+                
                 window.particlesJS("particles-js", {
                     "particles": {
-                        "number": { "value": 80, "density": { "enable": true, "value_area": 800 } },
+                        "number": { "value": 100, "density": { "enable": true, "value_area": 800 } },
                         "color": { "value": particleColor },
                         "shape": { "type": "circle" },
-                        "opacity": { "value": 0.5, "random": false },
-                        "size": { "value": 3, "random": true },
-                        "line_linked": { "enable": true, "distance": 150, "color": particleColor, "opacity": 0.2, "width": 1 },
+                        "opacity": { "value": 0.7, "random": true, "anim": { "enable": true, "speed": 1, "opacity_min": 0.1, "sync": false } },
+                        "size": { "value": 2.5, "random": true, "anim": { "enable": false } },
+                        "line_linked": { "enable": true, "distance": 150, "color": lineColor, "opacity": 0.3, "width": 1 },
                         "move": { "enable": true, "speed": 2, "direction": "none", "random": false, "straight": false, "out_mode": "out" }
                     },
                     "interactivity": { 
+                        "detect_on": "canvas",
                         "events": { "onhover": { "enable": true, "mode": "grab" }, "onclick": { "enable": false } },
-                        "modes": { "grab": { "distance": 140, "line_linked": { "opacity": 1 } } }
+                        "modes": { "grab": { "distance": 150, "line_linked": { "opacity": 0.8 } } }
                     },
                      "retina_detect": true
                 });
@@ -47,8 +56,10 @@ export default function LoginPage() {
         }
 
         return () => {
-            const pjsDiv = document.getElementById('particles-js');
-            if (pjsDiv) pjsDiv.innerHTML = '';
+            if (window.pJSDom && window.pJSDom.length > 0) {
+                 window.pJSDom[0].pJS.fn.vendors.destroypJS();
+                 window.pJSDom = [];
+            }
         }
     }, [theme]);
 
@@ -56,7 +67,7 @@ export default function LoginPage() {
     return (
         <div className="login-page-body w-full min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
             <div className="particles" id="particles-js"></div>
-            <div className="gradient-bg absolute inset-0 z-0"></div>
+            <div className="gradient-bg absolute inset-0 z-0 opacity-5"></div>
             
             <div className="orb orb-1 floating pulse"></div>
             <div className="orb orb-2 floating pulse" style={{ animationDelay: '1s' }}></div>
