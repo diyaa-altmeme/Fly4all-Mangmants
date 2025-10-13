@@ -1,11 +1,11 @@
 
 "use client";
 
-import React from 'react';
+import { LandingPage } from "@/components/landing-page";
 import { useAuth } from '@/lib/auth-context';
 import Preloader from '@/components/layout/preloader';
 import { useRouter } from 'next/navigation';
-import { LandingPage } from '@/components/landing-page';
+import React from "react";
 
 export default function LoginPage() {
     const { user, loading } = useAuth();
@@ -16,11 +16,11 @@ export default function LoginPage() {
             router.replace('/dashboard');
         }
     }, [user, loading, router]);
-
-    if (loading || user) {
-        return <Preloader />;
+    
+    if(loading || user) {
+        return <Preloader />
     }
-
-    // If no user and not loading, show the landing page.
+    
     return <LandingPage />;
 }
+

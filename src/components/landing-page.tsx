@@ -5,14 +5,17 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Rocket, BarChart3, ShieldCheck, Repeat, ArrowLeft, LucideIcon, HelpCircle, BedDouble, Users, Store, CheckCircle, Smartphone, CreditCard, Ticket, MessageSquare, Target, BarChart2, Zap, Send, FileText as FileTextIcon, Wallet, Bell, LineChart, TargetIcon, FileText, GitBranch, Layers3, Network, Menu, AlignJustify, X } from 'lucide-react';
+import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X, Sun, Moon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
+import { LoginForm } from './auth/login-form';
+import type { LandingPageSettings } from '@/lib/types';
 
-const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
+
+const LandingHeader = ({ isScrolled, onLoginClick }: { isScrolled: boolean, onLoginClick: () => void }) => {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const { theme, setTheme } = useTheme();
 
@@ -40,14 +43,12 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
             isScrolled ? "bg-background/80 dark:bg-gray-900/80 backdrop-blur-sm shadow-sm" : "bg-transparent"
         )} id="header">
             <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-                 <div className="flex items-center gap-2">
-                    <a href="#" className="flex items-center gap-2">
-                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
-                            <Rocket/>
-                        </div>
-                        <span className="text-xl font-bold">Mudarib</span>
-                    </a>
-                </div>
+                 <a href="#" className="flex items-center gap-2">
+                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
+                        <Rocket/>
+                    </div>
+                    <span className="text-xl font-bold">Mudarib</span>
+                </a>
                 
                 <nav className="hidden md:flex items-center gap-8">
                     {menuItems.map(item => (
@@ -58,8 +59,8 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
                 </nav>
                 
                  <div className="flex items-center gap-2">
-                    <Button asChild className="hidden md:inline-flex">
-                        <Link href="/auth/login">تسجيل الدخول</Link>
+                    <Button onClick={onLoginClick} className="hidden md:inline-flex">
+                        تسجيل الدخول
                     </Button>
                      <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full">
                         <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -82,8 +83,8 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
                                             {item.label}
                                         </button>
                                     ))}
-                                    <Button asChild className="mt-6">
-                                        <Link href="/auth/login">تسجيل الدخول</Link>
+                                    <Button onClick={() => { setIsSheetOpen(false); onLoginClick(); }} className="mt-6">
+                                        تسجيل الدخول
                                     </Button>
                                 </nav>
                             </SheetContent>
@@ -128,6 +129,7 @@ const StepCard = ({ number, title, description, imageUrl }: { number: number, ti
 
 export function LandingPage() {
     const [isScrolled, setIsScrolled] = useState(false);
+    const [showLogin, setShowLogin] = useState(false);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -137,9 +139,22 @@ export function LandingPage() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
+    const heroSettings = {
+        heroTitle: "نظام المحاسبة الذكية",
+        heroSubtitle: "لشركات السياحة والسفر"
+    };
+
     return (
-        <div className="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
-            <LandingHeader isScrolled={isScrolled} />
+        <div className="bg-background text-foreground">
+            <LandingHeader isScrolled={isScrolled} onLoginClick={() => setShowLogin(true)} />
+            
+             {showLogin && (
+                <div className="fixed inset-0 z-[99] bg-black/60 flex items-center justify-center p-4" onClick={() => setShowLogin(false)}>
+                    <div onClick={(e) => e.stopPropagation()}>
+                        <LoginForm />
+                    </div>
+                </div>
+            )}
 
             <main>
                 <section className="min-h-screen flex items-center justify-center relative overflow-hidden pt-16">
@@ -154,22 +169,22 @@ export function LandingPage() {
                             
                             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
                                 <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-                                    نظام المحاسبة الذكية
+                                    {heroSettings.heroTitle}
                                 </span>
                                 <br />
-                                <span>لشركات السياحة والسفر</span>
+                                <span>{heroSettings.heroSubtitle}</span>
                             </h1>
                             
-                            <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-10 max-w-3xl mx-auto">
+                            <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto">
                                 حلول متكاملة لإدارة الحسابات المالية، تذاكر الطيران، الفيزا، والفواتير بكل ذكاء وسهولة
                             </p>
                             
                             <div className="flex flex-col sm:flex-row justify-center gap-4">
-                                <Button asChild size="lg" className="px-8 py-4 text-lg transition-all transform hover:scale-105 shadow-lg shadow-primary/20">
-                                    <Link href="/auth/login">ابدأ الآن مجانًا</Link>
+                                <Button onClick={() => setShowLogin(true)} size="lg" className="px-8 py-4 text-lg transition-all transform hover:scale-105 shadow-lg shadow-primary/20">
+                                    ابدأ الآن مجانًا
                                 </Button>
                                 <Button asChild variant="secondary" size="lg" className="px-8 py-4 text-lg transition-all transform hover:scale-105 shadow-lg">
-                                    <Link href="#features">اكتشف المميزات</Link>
+                                    <a href="#features">اكتشف المميزات</a>
                                 </Button>
                             </div>
                         </div>
@@ -185,11 +200,11 @@ export function LandingPage() {
                     </div>
                 </section>
                 
-                <section id="features" className="py-20 bg-gray-100 dark:bg-gray-800/50">
+                <section id="features" className="py-20 bg-muted/50">
                     <div className="container mx-auto px-4">
                         <div className="text-center mb-16">
                             <h2 className="text-3xl md:text-5xl font-bold mb-4">مميزات <span className="text-primary">استثنائية</span></h2>
-                            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+                            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                                 اكتشف الأدوات القوية التي تجعل عملك أسهل وأكثر كفاءة
                             </p>
                         </div>
@@ -200,7 +215,7 @@ export function LandingPage() {
                             <FeatureCard icon={ShieldCheck} title="تدقيق ومطابقة" description="أدوات ذكية لمطابقة الكشوفات بينك وبين الموردين وكشف الفروقات بسهولة." />
                             <FeatureCard icon={Repeat} title="مزامنة فورية" description="تحديث البيانات تلقائيًا بين الفروع والمستخدمين في الوقت الفعلي." />
                             <FeatureCard icon={Smartphone} title="تطبيق متنقل" description="إدارة عملك من أي مكان عبر تطبيق الهاتف مع إشعارات فورية." />
-                            <FeatureCard icon={MessageSquare} title="دعم فني 24/7" description="فريق دعم فني متاح على مدار الساعة لمساعدتك في أي استفسار." />
+                            <FeatureCard icon={HelpCircle} title="دعم فني 24/7" description="فريق دعم فني متاح على مدار الساعة لمساعدتك في أي استفسار." />
                         </div>
                     </div>
                 </section>
@@ -209,7 +224,7 @@ export function LandingPage() {
                      <div className="container mx-auto px-4">
                         <div className="text-center mb-16">
                             <h2 className="text-3xl md:text-5xl font-bold mb-4">كيف <span className="text-primary">يعمل</span> النظام؟</h2>
-                            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+                            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                                 ثلاث خطوات بسيطة لتحويل عملك إلى تجربة رقمية متكاملة
                             </p>
                         </div>
@@ -232,11 +247,3 @@ export function LandingPage() {
         </div>
     );
 }
-
-const Sun = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-)
-
-const Moon = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-)
