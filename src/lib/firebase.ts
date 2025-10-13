@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
+import { getDatabase, Database } from 'firebase/database';
 
 // معلومات مشروعك في Firebase
 const firebaseConfig = {
@@ -12,6 +13,8 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  // Add the databaseURL for Realtime Database
+  databaseURL: `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}.firebaseio.com`
 };
 
 // تهيئة Firebase (نتحقق إذا كان مهيأ مسبقاً لتجنب الأخطاء)
@@ -20,5 +23,6 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 // إنشاء وتصدير كائنات الخدمات
 export const auth: Auth = getAuth(app);
 export const db: Firestore = getFirestore(app);
+export const rtdb: Database = getDatabase(app);
 
 export default app;
