@@ -4,7 +4,22 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Ticket, CreditCard, Repeat, ArrowRightLeft, Users, FileText, BarChart3, Settings, Calculator, Wand2, UserPlus, FileInvoiceDollar, ChartPie } from 'lucide-react';
+import { 
+    ArrowRightLeft,
+    BarChart3,
+    Calculator,
+    ChartPie,
+    CreditCard,
+    FileInvoiceDollar,
+    FileText,
+    PlusCircle,
+    Repeat,
+    Settings,
+    Ticket,
+    UserPlus,
+    Users,
+    Wand2,
+} from 'lucide-react';
 import AddBookingDialog from '@/app/bookings/components/add-booking-dialog';
 import AddVisaDialog from '@/app/visas/components/add-visa-dialog';
 import AddSubscriptionDialog from '@/app/subscriptions/components/add-subscription-dialog';
