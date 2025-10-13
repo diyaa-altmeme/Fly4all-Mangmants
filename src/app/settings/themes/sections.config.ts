@@ -16,7 +16,7 @@ export const appearanceSections = [
         icon: Palette,
         subItems: [
             { id: 'themes_general', name: 'الثيمات العامة', icon: Paintbrush, component: ThemeSelector },
-        ],
+        ]
     },
     {
         id: 'branding',
