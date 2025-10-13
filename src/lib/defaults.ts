@@ -1,5 +1,8 @@
 
+
 import type { AppSettings, RelationSection, LandingPageSettings, CurrencySettings, VoucherSettings, InvoiceSequenceSettings, ImportFieldSettings, ImportLogicSettings, CustomRelationField, SegmentSettings, PartnerShareSetting } from './types';
+import { COUNTRIES_DATA } from './countries-data';
+import { parseISO } from 'date-fns';
 
 export const defaultRelationSections: RelationSection[] = [
     { 
@@ -59,10 +62,11 @@ export const defaultRelationSections: RelationSection[] = [
 ];
 
 const defaultLandingPageSettings: LandingPageSettings = {
-    heroTitle: 'نظام Mudarib المحاسبي',
-    heroSubtitle: 'الحل المتكامل لإدارة شركات السفر والسياحة بكفاءة ودقة.',
+    heroTitle: 'لشركات السياحة والسفر',
+    heroSubtitle: 'حلول متكاملة لإدارة الحسابات المالية، تذاكر الطيران، الفيزا، والفواتير بكل ذكاء وسهولة.',
     heroSubtitleColor: '#52525b', // zinc-600
     heroTitleColor: '#1e293b',
+    heroFontFamily: '',
     smartTickets: {
         title: 'إدخال ذكي للتذاكر والفواتير',
         description: 'وداعًا للإدخال اليدوي. نظامنا يقرأ ملفات PDF ويستخرج البيانات تلقائيًا، مما يوفر وقتك ويزيد من دقة بياناتك.',
@@ -86,11 +90,11 @@ const defaultLandingPageSettings: LandingPageSettings = {
         title: 'شركاء النجاح',
         description: 'نفخر بالتعاون مع نخبة من شركات السياحة والسفر الرائدة التي وثقت في نظامنا لتحقيق أهدافها.',
         partners: [
-            { name: 'FlyBaghdad', logoUrl: 'https://assets.sindibad.iq/logos/FQ.png' },
-            { name: 'UR Airlines', logoUrl: 'https://assets.sindibad.iq/logos/UD.png' },
-            { name: 'Iraqi Airways', logoUrl: 'https://assets.sindibad.iq/logos/IA.png' },
-            { name: 'Anadolujet', logoUrl: 'https://assets.sindibad.iq/logos/TK1.png' },
-            { name: 'Turkish Airlines', logoUrl: 'https://assets.sindibad.iq/logos/TK.png' },
+            { name: 'FlyBaghdad', logoUrl: 'https://assets.duffel.com/img/airlines/for-light-background/full-color-logo/FQ.svg' },
+            { name: 'UR Airlines', logoUrl: 'https://assets.duffel.com/img/airlines/for-light-background/full-color-logo/UD.svg' },
+            { name: 'Iraqi Airways', logoUrl: 'https://assets.duffel.com/img/airlines/for-light-background/full-color-logo/IA.svg' },
+            { name: 'Anadolujet', logoUrl: 'https://assets.duffel.com/img/airlines/for-light-background/full-color-logo/TK.svg' },
+            { name: 'Turkish Airlines', logoUrl: 'https://assets.duffel.com/img/airlines/for-light-background/full-color-logo/TK.svg' },
         ]
     },
     faqSection: {
