@@ -42,8 +42,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
              if (!config) return;
             for (const [key, value] of Object.entries(config)) {
                  if (value && typeof value !== 'object') {
-                    // Convert camelCase key to kebab-case for CSS variables
-                    const cssVar = `--${prefix}${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
+                    const cssVar = `--${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
                     root.style.setProperty(cssVar, String(value));
                 }
             }

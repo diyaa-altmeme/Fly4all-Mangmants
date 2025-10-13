@@ -10,7 +10,7 @@ import type { AppSettings } from '@/lib/types';
 import { getSettings } from '@/app/settings/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal } from 'lucide-react';
+import { Terminal, Users, SlidersHorizontal, Upload, MessageSquareQuote, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, Shield, FileText, DeveloperIcon, Paintbrush, FileBarChart, Banknote } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 import { useRouter }from 'next/navigation';
@@ -133,7 +133,7 @@ export default function AppearancePage() {
         fetchData();
     }, [fetchData]);
 
-    if (loading) {
+    if (loading || !settings) {
         return (
             <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start p-4">
                 <Skeleton className="h-[600px] w-full" />
@@ -142,12 +142,12 @@ export default function AppearancePage() {
         );
     }
     
-     if (error || !settings) {
+     if (error) {
         return (
             <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
                 <AlertTitle>حدث خطأ!</AlertTitle>
-                <AlertDescription>{error || "فشل تحميل الإعدادات."}</AlertDescription>
+                <AlertDescription>{error}</AlertDescription>
             </Alert>
         );
     }
