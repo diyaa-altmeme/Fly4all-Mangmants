@@ -11,13 +11,12 @@ import QuickAccess from './quick-access';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, CircleUserRound, Settings, LayoutDashboard, Ticket, Repeat, Play, Video } from 'lucide-react';
+import { ArrowLeft, CircleUserRound, Settings, LayoutDashboard, Ticket, Repeat, Play, Video, Rocket } from 'lucide-react';
 import Link from 'next/link';
 import Announcements from './announcements';
 import AnalogClock from './analog-clock';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import Image from 'next/image';
 
 interface DashboardClientProps {
@@ -52,17 +51,17 @@ const itemVariants = {
 const WelcomeCard = () => {
     const { user } = useAuth();
     return (
-        <div className="bg-gradient-to-r from-primary-500 to-blue-500 rounded-2xl p-6 md:p-8 text-white shadow-glow-lg relative overflow-hidden gradient-border">
+        <div className="bg-gradient-to-r from-primary to-blue-500 rounded-2xl p-6 md:p-8 text-white shadow-glow-lg relative overflow-hidden gradient-border">
             <div className="absolute top-0 left-0 w-full h-full opacity-10">
                 <div className="absolute top-20 left-20 w-40 h-40 rounded-full bg-white/20 animate-pulse-slow"></div>
                 <div className="absolute bottom-10 right-10 w-60 h-60 rounded-full bg-white/10 animate-pulse-slow"></div>
             </div>
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between">
-                <div className="md:mr-8">
-                    <h1 className="text-2xl md:text-4xl font-bold mb-2 animate__animated animate__fadeIn">مرحباً بعودتك، {user?.name || 'المستخدم'}!</h1>
+                <div className="md:mr-8 text-right">
+                    <h1 className="text-2xl md:text-4xl font-bold mb-2">مرحباً بعودتك، {user?.name || 'المستخدم'}!</h1>
                     <p className="opacity-90 mb-6 text-lg">هنا يمكنك إدارة أعمالك ومتابعة أداء شركتك بكل سهولة</p>
-                    <div className="flex flex-wrap gap-4">
-                        <button className="bg-white text-primary-600 hover:bg-gray-100 px-6 py-3 rounded-lg font-medium transition-all hover:shadow-lg flex items-center tilt-effect">
+                    <div className="flex flex-wrap gap-4 justify-end">
+                        <button className="bg-white text-primary hover:bg-gray-100 px-6 py-3 rounded-lg font-medium transition-all hover:shadow-lg flex items-center tilt-effect">
                             بدء الجولة <Play className="mr-2 h-4 w-4 wave-element" />
                         </button>
                         <button className="bg-white/10 hover:bg-white/20 px-6 py-3 rounded-lg font-medium transition-all hover:shadow-lg flex items-center border border-white/20 tilt-effect">
@@ -167,6 +166,30 @@ export default function DashboardClient({
                 </Card>
              </div>
         </motion.section>
+        <section className="mt-8">
+            <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm glass-effect glass-effect-dark">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold">فريق العمل</h2>
+                    <a href="/users" className="text-primary-600 dark:text-primary-400 text-sm flex items-center">
+                        عرض الكل <ArrowLeft className="ms-1 h-4 w-4" />
+                    </a>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors card-hover-effect tilt-effect">
+                        <div className="relative mb-3">
+                            <Image src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" width={64} height={64}
+                                 className="w-16 h-16 rounded-full border-2 border-primary-500" alt="عضو الفريق" />
+                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-700"></span>
+                        </div>
+                        <h4 className="font-medium text-center">سارة أحمد</h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مديرة المبيعات</p>
+                    </div>
+                </div>
+            </div>
+        </section>
     </motion.div>
   );
 }
+
+    

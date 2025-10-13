@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Plane, Menu, Bell, MessageSquare } from "lucide-react";
+import { Plane, Menu, Bell, MessageSquare, Sun, Moon, Rocket, X } from "lucide-react";
 import { MainNav } from "@/components/layout/main-nav";
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import Image from 'next/image';
@@ -31,7 +31,8 @@ const landingPageRoute = '/';
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { activeTheme } = useThemeCustomization();
-    const { theme: mode } = useTheme();
+    const { theme: mode, setTheme } = useTheme();
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
 
     React.useEffect(() => {
         if (typeof window === 'undefined' || !activeTheme) return;
@@ -70,16 +71,24 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 <div className="flex items-center justify-between p-4">
                     <div className="flex items-center space-x-4 space-x-reverse">
                          <div className="md:hidden">
-                            <Sheet>
+                            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                                 <SheetTrigger asChild>
-                                        <Button variant="ghost" size="icon">
+                                    <Button variant="ghost" size="icon">
                                         <Menu className="h-6 w-6"/>
                                         <span className="sr-only">Toggle Navigation</span>
                                     </Button>
                                 </SheetTrigger>
                                 <SheetContent side="right" className="w-[300px] sm:w-[340px] p-0 flex flex-col">
-                                    <SheetHeader className="p-4 border-b shrink-0 text-right">
-                                        <SheetTitle>القائمة الرئيسية</SheetTitle>
+                                    <SheetHeader className="p-4 flex flex-row items-center justify-between border-b shrink-0 text-right">
+                                        <SheetTitle className="flex items-center gap-2">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-blue-500 flex items-center justify-center">
+                                                <Rocket className="text-white"/>
+                                            </div>
+                                            <span className="gradient-text font-bold">شركتي</span>
+                                        </SheetTitle>
+                                        <Button variant="ghost" size="icon" onClick={() => setIsSheetOpen(false)}>
+                                            <X className="h-5 w-5" />
+                                        </Button>
                                     </SheetHeader>
                                     <ScrollArea className="flex-grow">
                                         <MainNav />
@@ -87,38 +96,38 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                                 </SheetContent>
                             </Sheet>
                         </div>
-                        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl gradient-text">
-                            <Plane className="h-6 w-6 text-primary-500 bounce-element" />
-                            <span className="mr-2">نظام الإدارة الذكي</span>
+                        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl">
+                            <span className="gradient-text">نظام الإدارة الذكي</span>
+                            <Rocket className="h-6 w-6 text-primary-500 bounce-element" />
                         </Link>
                         <nav className="hidden md:flex items-center space-x-6 space-x-reverse">
-                            <Link href="/dashboard" className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors relative group">
-                                <i className="fas fa-tachometer-alt ml-1"></i> لوحة التحكم
-                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary-500 group-hover:w-full transition-all duration-300"></span>
+                            <Link href="/dashboard" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-400 transition-colors relative group">
+                                لوحة التحكم
+                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-300"></span>
                             </Link>
-                             <Link href="/bookings" className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors relative group">
-                                <i className="fas fa-calendar ml-1"></i> الحجوزات
-                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary-500 group-hover:w-full transition-all duration-300"></span>
+                             <Link href="/bookings" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-400 transition-colors relative group">
+                                الحجوزات
+                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-300"></span>
                             </Link>
-                             <Link href="/clients" className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors relative group">
-                                <i className="fas fa-users ml-1"></i> العملاء
-                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary-500 group-hover:w-full transition-all duration-300"></span>
+                             <Link href="/clients" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-400 transition-colors relative group">
+                                العملاء
+                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-300"></span>
                             </Link>
-                              <Link href="/reports" className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors relative group">
-                                <i className="fas fa-chart-line ml-1"></i> التقارير
-                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary-500 group-hover:w-full transition-all duration-300"></span>
+                              <Link href="/reports" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-400 transition-colors relative group">
+                                التقارير
+                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-300"></span>
                             </Link>
                         </nav>
                     </div>
 
                     <div className="flex items-center space-x-4 space-x-reverse">
                         <div className="relative hidden md:block">
-                            <input type="text" placeholder="بحث..." 
-                                   className="pl-10 pr-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 w-64 transition-all" />
+                            <Input type="text" placeholder="بحث..." 
+                                   className="pl-10 pr-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary w-64 transition-all" />
                             <i className="fas fa-search absolute right-3 top-2.5 text-gray-500"></i>
                         </div>
                         <NotificationCenter />
-                        <div className="relative">
+                         <div className="relative">
                             <Button variant="ghost" size="icon" className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative group">
                                 <MessageSquare className="text-xl" />
                                 <span className="notification-badge">5</span>

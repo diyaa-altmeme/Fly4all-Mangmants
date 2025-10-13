@@ -9,7 +9,6 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-// Sample data, to be replaced with data from an API
 const announcements = [
     { id: 1, title: 'تحديثات النظام - إصدار 1.2.0', date: '2024-06-15', content: 'تم إضافة ميزات جديدة لتقارير الأرباح وتحسينات في الأداء.', tag: 'تحديثات', tagColor: 'bg-blue-500' },
     { id: 2, title: 'صيانة مجدولة', date: '2024-06-12', content: 'سيتم إجراء صيانة للنظام يوم الجمعة القادم من الساعة 2 صباحًا حتى 3 صباحًا.', tag: 'هام', tagColor: 'bg-red-500' },
@@ -54,3 +53,5 @@ export default function Announcements() {
     </Card>
   )
 }
+
+    
