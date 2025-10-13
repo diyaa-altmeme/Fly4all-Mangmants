@@ -35,10 +35,11 @@ export type SegmentServiceSetting = {
 };
 
 export type SegmentSettings = {
-    tickets: SegmentServiceSetting;
-    visas: SegmentServiceSetting;
-    hotels: SegmentServiceSetting;
-    groups: SegmentServiceSetting;
+    ticketProfitPercentage: number;
+    visaProfitPercentage: number;
+    hotelProfitPercentage: number;
+    groupProfitPercentage: number;
+    alrawdatainSharePercentage: number;
 };
 
 export type PartnerShareType = 'percentage' | 'fixed';
@@ -197,7 +198,8 @@ export type User = {
     preferences?: {
       dialogSettings?: {
         [key: string]: { width: string, height: string }
-      }
+      },
+      themeId?: string;
     }
 };
 
@@ -1106,6 +1108,8 @@ export interface MonthlyProfit {
   notes?: string;
   currency?: Currency;
   partners?: ProfitShare[]; // For manual entries
+  fromDate?: string;
+  toDate?: string;
 }
 
 export interface ProfitShare {

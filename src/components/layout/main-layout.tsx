@@ -16,13 +16,14 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from '@/lib/auth-context';
 import Preloader from './preloader';
 import { usePathname, useRouter } from 'next/navigation';
-import type { User, Client } from "@/lib/types";
+import type { User, Client, LandingPageSettings } from "@/lib/types";
 import { UserNav } from "./user-nav";
 import { LandingPage } from "@/components/landing-page";
 import { defaultSettingsData } from "@/lib/defaults";
 import "@/app/globals.css";
 import TopLoader from '@/components/ui/top-loader';
 import { useTheme } from "next-themes";
+import { getSettings } from "@/app/settings/actions";
 
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
@@ -35,22 +36,22 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     React.useEffect(() => {
         if (typeof window === 'undefined' || !activeTheme) return;
 
-        const { light, dark, loader } = activeTheme.config;
         const root = document.documentElement;
-
-        const applyColors = (config: any, prefix = '') => {
-             if (!config) return;
-            for (const [key, value] of Object.entries(config)) {
-                 if (value && typeof value !== 'object') {
+        
+        const applyColors = (config: any) => {
+            if (!config) return;
+            for (const key in config) {
+                if (Object.prototype.hasOwnProperty.call(config, key) && typeof config[key] === 'string') {
                     const cssVar = `--${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
-                    root.style.setProperty(cssVar, String(value));
+                    root.style.setProperty(cssVar, config[key]);
                 }
             }
         };
-        
-        const colors = mode === 'dark' ? dark : light;
+
+        const colors = mode === 'dark' ? activeTheme.config.dark : activeTheme.config.light;
         applyColors(colors);
         
+        const { loader } = activeTheme.config;
         if (loader) {
             const barColor = loader.color || 'hsl(var(--primary))';
             const shadow = loader.showShadow ? `0 0 10px ${barColor}, 0 0 5px ${barColor}` : 'none';
@@ -129,25 +130,51 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
+    const [landingPageSettings, setLandingPageSettings] = React.useState<LandingPageSettings | null>(null);
 
     const isPublicPath = publicRoutes.includes(pathname);
     const isLandingPage = pathname === landingPageRoute;
 
     React.useEffect(() => {
-        if (!loading && !user && !isPublicPath && !isLandingPage) {
+        if (!loading && !user && !isPublicPath) {
             router.replace(landingPageRoute);
         }
-         if (!loading && user && (isPublicPath || isLandingPage)) {
+        if (!loading && user && (isPublicPath || isLandingPage)) {
             router.replace('/dashboard');
         }
     }, [user, loading, isPublicPath, isLandingPage, router, pathname]);
     
-    if (loading) {
+    React.useEffect(() => {
+      async function fetchLandingPageSettings() {
+        if (!user) { // Only fetch for logged-out users on landing page
+            try {
+                const settings = await getSettings();
+                setLandingPageSettings(settings.theme?.landingPage || defaultSettingsData.theme.landingPage);
+            } catch (error) {
+                console.error("Failed to fetch landing page settings:", error);
+                setLandingPageSettings(defaultSettingsData.theme.landingPage);
+            }
+        }
+      }
+      if(isLandingPage) {
+        fetchLandingPageSettings();
+      }
+    }, [isLandingPage, user]);
+
+    if (loading || (isLandingPage && !landingPageSettings)) {
         return <Preloader />;
     }
 
     if (!user) {
-         return (
+        if (isLandingPage && landingPageSettings) {
+            return (
+                 <>
+                    <TopLoader />
+                    <LandingPage settings={landingPageSettings} />
+                 </>
+            );
+        }
+        return (
             <>
                 <TopLoader />
                 {children}
