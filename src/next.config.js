@@ -75,6 +75,18 @@ const nextConfig = {
         hostname: 'fly4all-78277122-3cbd0.appspot.com',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'assets.duffel.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
