@@ -11,19 +11,22 @@ import QuickAccess from './quick-access';
 import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, CircleUserRound, Settings, LayoutDashboard, Ticket, Repeat, Play, Video, Rocket } from 'lucide-react';
+import { ArrowLeft, CircleUserRound, Settings, LayoutDashboard, Ticket, Repeat, Play, Video, Rocket, User } from 'lucide-react';
 import Link from 'next/link';
 import Announcements from './announcements';
 import AnalogClock from './analog-clock';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
+import type { HrData } from '@/lib/types';
+
 
 interface DashboardClientProps {
   stats: DashboardStats;
   recentBookings: BookingEntry[];
   upcomingInstallments: SubscriptionInstallment[];
   chartData: { name: string; revenue: number; profit: number }[];
+  users: HrData[];
 }
 
 const containerVariants = {
@@ -85,6 +88,7 @@ export default function DashboardClient({
   recentBookings,
   upcomingInstallments,
   chartData,
+  users,
 }: DashboardClientProps) {
   return (
     <motion.div 
@@ -170,68 +174,32 @@ export default function DashboardClient({
             <div className="bg-white dark:bg-dark-800 rounded-xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold">فريق العمل</h2>
-                    <a href="/users" className="text-primary-600 dark:text-primary-400 text-sm flex items-center">
+                    <Link href="/users" className="text-primary-600 dark:text-primary-400 text-sm flex items-center">
                         عرض الكل <ArrowLeft className="ms-1 h-4 w-4" />
-                    </a>
+                    </Link>
                 </div>
                 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
-                        <div className="relative mb-3">
-                            <Image src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" width={64} height={64}
-                                 className="w-16 h-16 rounded-full border-2 border-primary-500" alt="عضو الفريق" />
-                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-700"></span>
+                    {users.slice(0, 5).map(user => (
+                        <div key={user.uid} className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
+                            <div className="relative mb-3">
+                                <Avatar className="w-16 h-16 rounded-full border-2 border-primary-500">
+                                  <AvatarImage src={user.avatarUrl} alt={user.name}/>
+                                  <AvatarFallback><CircleUserRound className="h-8 w-8"/></AvatarFallback>
+                                </Avatar>
+                                <span className={`absolute bottom-0 right-0 w-3 h-3 ${user.status === 'active' ? 'bg-green-500' : 'bg-gray-400'} rounded-full border-2 border-white dark:border-gray-700`}></span>
+                            </div>
+                            <h4 className="font-medium text-center">{user.name}</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">{user.position || 'موظف'}</p>
                         </div>
-                        <h4 className="font-medium text-center">سارة أحمد</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مديرة المبيعات</p>
-                    </div>
+                    ))}
                     
-                    <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
-                        <div className="relative mb-3">
-                            <Image src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" 
-                                 className="w-16 h-16 rounded-full border-2 border-primary-500" alt="عضو الفريق" width={64} height={64}/>
-                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-700"></span>
-                        </div>
-                        <h4 className="font-medium text-center">خالد سعيد</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مطور الويب</p>
-                    </div>
-                    
-                    <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
-                        <div className="relative mb-3">
-                            <Image src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" 
-                                 className="w-16 h-16 rounded-full border-2 border-primary-500" alt="عضو الفريق" width={64} height={64}/>
-                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white dark:border-gray-700"></span>
-                        </div>
-                        <h4 className="font-medium text-center">لمى محمد</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مصممة UI/UX</p>
-                    </div>
-                    
-                    <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
-                        <div className="relative mb-3">
-                            <Image src="https://images.unsplash.com/photo-1544725176-7c40e5a71c5e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" 
-                                 className="w-16 h-16 rounded-full border-2 border-primary-500" alt="عضو الفريق" width={64} height={64}/>
-                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-700"></span>
-                        </div>
-                        <h4 className="font-medium text-center">علي عبدالله</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مدير المشاريع</p>
-                    </div>
-                    
-                    <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
-                        <div className="relative mb-3">
-                            <Image src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" 
-                                 className="w-16 h-16 rounded-full border-2 border-primary-500" alt="عضو الفريق" width={64} height={64}/>
-                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-gray-700"></span>
-                        </div>
-                        <h4 className="font-medium text-center">هناء علي</h4>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مسؤولة الدعم</p>
-                    </div>
-                    
-                    <div className="flex flex-col items-center justify-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect border-2 border-dashed border-gray-300 dark:border-gray-600">
+                    <Link href="/users" className="flex flex-col items-center justify-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect border-2 border-dashed border-gray-300 dark:border-gray-600">
                         <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-3">
-                            <i className="fas fa-plus text-gray-400 text-xl"></i>
+                            <User className="text-gray-400 text-xl" />
                         </div>
                         <h4 className="font-medium text-center">إضافة عضو</h4>
-                    </div>
+                    </Link>
                 </div>
             </div>
         </section>
