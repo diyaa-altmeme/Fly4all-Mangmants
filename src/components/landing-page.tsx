@@ -166,7 +166,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                             </h1>
                             
                             <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto">
-                                الحلول المتكاملة لإدارة شركات السفر والسياحة بكفاءة ودقة.
+                                {heroSettings.heroSubtitle}
                             </p>
                             
                             <div className="flex flex-col sm:flex-row justify-center gap-4">
@@ -353,6 +353,47 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                     </div>
                 </section>
                 
+                <section id="partners" className="py-20 bg-muted/50">
+                    <div className="container mx-auto px-4">
+                         <div className="text-center mb-16">
+                            <h2 className="text-3xl md:text-5xl font-bold mb-4">شركاء <span className="text-primary">النجاح</span></h2>
+                            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                                نفخر بالتعاون مع نخبة من شركات السياحة والسفر الرائدة التي وثقت في نظامنا لتحقيق أهدافها.
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-8">
+                            {heroSettings.partnersSection?.partners.map((partner, index) => (
+                                <div key={index} className="relative h-16 w-32">
+                                    <Image src={partner.logoUrl} alt={partner.name} fill className="object-contain grayscale hover:grayscale-0 transition-all" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                <section id="faq" className="py-20">
+                     <div className="container mx-auto px-4">
+                        <div className="text-center mb-16">
+                             <h2 className="text-3xl md:text-5xl font-bold mb-4">الأسئلة <span className="text-primary">الشائعة</span></h2>
+                            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                                إجابات على بعض الأسئلة التي قد تخطر ببالك.
+                            </p>
+                        </div>
+                         <div className="max-w-3xl mx-auto">
+                            {heroSettings.faqSection?.faqs.map((faq, index) => (
+                                <Card key={index} className="mb-4">
+                                    <CardHeader className="cursor-pointer">
+                                        <CardTitle className="text-lg">{faq.question}</CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <p className="text-muted-foreground">{faq.answer}</p>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+                
                  <footer className="bg-gray-900 text-gray-300 py-12">
                     <div className="container mx-auto px-4">
                         <div className="grid md:grid-cols-4 gap-8 mb-12">
@@ -431,5 +472,3 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
         </div>
     );
 }
-
-    
