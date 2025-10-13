@@ -34,8 +34,9 @@ export const ThemeCustomizationProvider = ({
     const [themeSettings, setThemeSettings] = useState<ThemeConfig | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [loading, setLoading] = useState(true);
-    const { user, revalidateUser } = useAuth();
+    const { user, revalidateUser } = useAuth(); // Depend on the auth context
     
+    // Now activeThemeId is derived directly from the auth context's user state
     const activeThemeId = useMemo(() => {
         if (user && 'role' in user && user.preferences?.themeId) {
             return user.preferences.themeId;
@@ -56,11 +57,10 @@ export const ThemeCustomizationProvider = ({
     }, [refreshData]);
 
      const activeTheme = useMemo(() => {
-      if (loading || !themeSettings) return defaultTheme;
+      if (!user || loading || !themeSettings) return defaultTheme;
       
       const baseTheme = getThemeFromId(activeThemeId);
       
-      // Deep merge with settings from DB
       const mergedConfig = produce(baseTheme.config, draft => {
         if(themeSettings) {
             draft.light = { ...draft.light, ...themeSettings.light };
@@ -76,7 +76,7 @@ export const ThemeCustomizationProvider = ({
         config: mergedConfig
       };
 
-    }, [themeSettings, loading, activeThemeId]);
+    }, [themeSettings, loading, activeThemeId, user]);
 
 
      useEffect(() => {
@@ -92,7 +92,7 @@ export const ThemeCustomizationProvider = ({
         try {
             const currentPreferences = user.preferences || {};
             await updateUser(user.uid, { preferences: { ...currentPreferences, themeId } });
-            await revalidateUser(); // Re-fetch user data to update the UI
+            await revalidateUser(); // This will re-fetch user and trigger all dependent effects
         } catch (error) {
             console.error("Failed to save active theme to user profile", error);
             throw error;
@@ -128,3 +128,4 @@ export const useThemeCustomization = () => {
     }
     return context;
 };
+

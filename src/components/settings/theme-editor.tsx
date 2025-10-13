@@ -75,19 +75,18 @@ const LoaderSettingsEditor = ({ loaderConfig, onLoaderChange }: { loaderConfig: 
 interface ThemeEditorProps {
     theme: ThemeSettings;
     onBack: () => void;
+    onSave: (updatedTheme: ThemeSettings) => Promise<void>;
 }
 
-export default function ThemeEditor({ theme, onBack }: ThemeEditorProps) {
+export default function ThemeEditor({ theme, onBack, onSave }: ThemeEditorProps) {
     const { setActiveTheme } = useThemeCustomization();
     const [editedTheme, setEditedTheme] = useState(theme);
     const [isSaving, setIsSaving] = useState(false);
 
     const handleSave = async () => {
         setIsSaving(true);
-        // This is now handled by the context, but we can call it to trigger update
-        await setActiveTheme(editedTheme.id);
+        await onSave(editedTheme);
         setIsSaving(false);
-        onBack();
     };
     
     const handleConfigChange = (mode: 'light' | 'dark' | 'sidebar' | 'card' | 'loader', key: string, value: string) => {
