@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -9,7 +10,6 @@ service cloud.firestore {
     }
 
     // التحقق من أن المستخدم عضو في محادثة معينة
-    // نستخدم exists بدل get لتجنب الخطأ أثناء الإنشاء
     function isMember(chatId) {
       return isSignedIn()
         && exists(/databases/$(database)/documents/chats/$(chatId))
