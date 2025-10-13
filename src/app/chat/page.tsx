@@ -1,10 +1,10 @@
-
 "use client";
 
 import React from 'react';
 import ChatList from '@/components/chat/ChatList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import usePresence from '@/hooks/usePresence';
+import { MessageSquare } from 'lucide-react';
 
 export default function ChatPage() {
     const [selectedChatId, setSelectedChatId] = React.useState<string | null>(null);
