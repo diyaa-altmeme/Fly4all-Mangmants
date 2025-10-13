@@ -15,7 +15,7 @@ import { LoginForm } from './auth/login-form';
 import type { LandingPageSettings } from '@/lib/types';
 
 
-const LandingHeader = ({ isScrolled, onLoginClick }: { isScrolled: boolean, onLoginClick: () => void }) => {
+const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const { theme, setTheme } = useTheme();
 
@@ -59,8 +59,10 @@ const LandingHeader = ({ isScrolled, onLoginClick }: { isScrolled: boolean, onLo
                 </nav>
                 
                  <div className="flex items-center gap-2">
-                    <Button onClick={onLoginClick} className="hidden md:inline-flex">
-                        تسجيل الدخول
+                    <Button asChild className="hidden md:inline-flex">
+                        <Link href="/auth/login">
+                           تسجيل الدخول
+                        </Link>
                     </Button>
                      <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full">
                         <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
@@ -83,8 +85,10 @@ const LandingHeader = ({ isScrolled, onLoginClick }: { isScrolled: boolean, onLo
                                             {item.label}
                                         </button>
                                     ))}
-                                    <Button onClick={() => { setIsSheetOpen(false); onLoginClick(); }} className="mt-6">
-                                        تسجيل الدخول
+                                    <Button asChild className="mt-6">
+                                       <Link href="/auth/login">
+                                         تسجيل الدخول
+                                       </Link>
                                     </Button>
                                 </nav>
                             </SheetContent>
@@ -129,7 +133,6 @@ const StepCard = ({ number, title, description, imageUrl }: { number: number, ti
 
 export function LandingPage({ settings }: { settings: LandingPageSettings }) {
     const [isScrolled, setIsScrolled] = useState(false);
-    const [showLogin, setShowLogin] = useState(false);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -143,16 +146,8 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
 
     return (
         <div className="bg-background text-foreground">
-            <LandingHeader isScrolled={isScrolled} onLoginClick={() => setShowLogin(true)} />
+            <LandingHeader isScrolled={isScrolled} />
             
-             {showLogin && (
-                <div className="fixed inset-0 z-[99] bg-black/60 flex items-center justify-center p-4" onClick={() => setShowLogin(false)}>
-                    <div onClick={(e) => e.stopPropagation()}>
-                        <LoginForm />
-                    </div>
-                </div>
-            )}
-
             <main>
                 <section className="min-h-screen flex items-center justify-center relative overflow-hidden pt-16">
                     <div className="absolute inset-0 gradient-bg opacity-10"></div>
@@ -177,8 +172,10 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                             </p>
                             
                             <div className="flex flex-col sm:flex-row justify-center gap-4">
-                                <Button onClick={() => setShowLogin(true)} size="lg" className="px-8 py-4 text-lg transition-all transform hover:scale-105 shadow-lg shadow-primary/20">
-                                    ابدأ الآن مجانًا
+                                <Button asChild size="lg" className="px-8 py-4 text-lg transition-all transform hover:scale-105 shadow-lg shadow-primary/20">
+                                    <Link href="/auth/login">
+                                        ابدأ الآن مجانًا
+                                    </Link>
                                 </Button>
                                 <Button asChild variant="secondary" size="lg" className="px-8 py-4 text-lg transition-all transform hover:scale-105 shadow-lg">
                                     <a href="#features">اكتشف المميزات</a>
