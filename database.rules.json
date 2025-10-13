@@ -1,5 +1,7 @@
 {
   "rules": {
+    ".read": "false",
+    ".write": "false",
     "presence": {
       "$uid": {
         // Users can only write to their own presence node.
