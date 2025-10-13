@@ -102,22 +102,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                             <Rocket className="h-6 w-6 text-primary-500 bounce-element" />
                         </Link>
                         <nav className="hidden md:flex items-center space-x-6 space-x-reverse">
-                            <Link href="/dashboard" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-400 transition-colors relative group">
-                                لوحة التحكم
-                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-300"></span>
-                            </Link>
-                             <Link href="/bookings" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-400 transition-colors relative group">
-                                الحجوزات
-                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-300"></span>
-                            </Link>
-                             <Link href="/clients" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-400 transition-colors relative group">
-                                العملاء
-                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-300"></span>
-                            </Link>
-                              <Link href="/reports" className="text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-400 transition-colors relative group">
-                                التقارير
-                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-300"></span>
-                            </Link>
+                            <MainNav />
                         </nav>
                     </div>
 
