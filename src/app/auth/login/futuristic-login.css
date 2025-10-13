@@ -1,0 +1,135 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700&display=swap');
+
+:root {
+    --primary-bg: hsl(var(--background));
+    --card-bg: hsla(var(--card), 0.6);
+    --text-color: hsl(var(--foreground));
+    --input-bg: hsla(var(--input), 0.5);
+    --border-color: hsla(var(--border), 0.1);
+}
+
+.login-page-body {
+    font-family: 'Tajawal', sans-serif;
+    background: var(--primary-bg);
+    color: var(--text-color);
+    transition: all 0.5s ease;
+}
+
+.futuristic-card {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    transition: all 0.5s ease;
+}
+
+.input-futuristic {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    transition: all 0.3s ease;
+}
+
+.input-futuristic:focus {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 2px hsla(var(--primary), 0.3);
+}
+
+.btn-futuristic {
+    background: linear-gradient(45deg, hsl(var(--primary)), hsl(var(--accent)));
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-futuristic:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px hsla(var(--primary), 0.4);
+}
+
+.btn-futuristic::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        to bottom right,
+        rgba(255, 255, 255, 0.3) 0%,
+        rgba(255, 255, 255, 0) 60%
+    );
+    transform: rotate(30deg);
+    animation: shine 3s infinite linear;
+}
+
+.particles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.gradient-bg {
+    background: linear-gradient(-45deg, hsl(var(--primary)), hsl(var(--secondary)), hsl(var(--primary)), hsl(var(--secondary)));
+    background-size: 300% 300%;
+    animation: gradientBG 15s ease infinite;
+}
+
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(3xl);
+    opacity: 0.2;
+    z-index: 0;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.2; }
+    50% { opacity: 0.3; }
+}
+
+@keyframes shine {
+    0% { transform: rotate(30deg) translate(-150%, -50%); }
+    100% { transform: rotate(30deg) translate(150%, 50%); }
+}
+
+@keyframes gradientBG {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.floating {
+    animation: float 6s ease-in-out infinite;
+}
+
+.pulse {
+    animation: pulse 3s ease-in-out infinite alternate;
+}
+
+.glow {
+    filter: drop-shadow(0 0 8px hsla(var(--primary), 0.5));
+}
+
+.social-btn {
+    background-color: hsla(var(--muted), 0.5);
+}
+.dark .social-btn {
+    background-color: hsla(var(--muted), 0.2);
+}
+.social-btn:hover {
+     background-color: hsla(var(--muted), 1);
+}
+.dark .social-btn:hover {
+     background-color: hsla(var(--muted), 0.4);
+}
