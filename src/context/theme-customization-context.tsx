@@ -30,7 +30,6 @@ export const ThemeCustomizationProvider = ({
   children: React.ReactNode,
 }) => {
     const [isSaving, setIsSaving] = useState(false);
-    const [loading, setLoading] = useState(true);
     const { user, loading: authLoading, revalidateUser } = useAuth();
     
     const activeThemeId = useMemo(() => {
@@ -41,10 +40,13 @@ export const ThemeCustomizationProvider = ({
     }, [user]);
     
     // The active theme is now purely a result of the user's preference.
-    // No more merging with old, separate theme settings from the database.
-     const activeTheme = useMemo(() => {
+    const activeTheme = useMemo(() => {
         if (authLoading) return defaultTheme; // Return default while auth is loading
-        return getThemeFromId(activeThemeId);
+        const baseTheme = getThemeFromId(activeThemeId);
+        
+        // No longer merging with old settings. The theme is self-contained.
+        return baseTheme;
+
     }, [activeThemeId, authLoading]);
 
 

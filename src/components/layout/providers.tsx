@@ -16,21 +16,21 @@ export function Providers({
 }) {
     return (
       <AuthProvider>
-        <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-        >
-          <ThemeCustomizationProvider>
-                <VoucherNavProvider>
-                  <MainLayout>
-                      {children}
-                  </MainLayout>
-                  <Toaster />
-                </VoucherNavProvider>
-          </ThemeCustomizationProvider>
-        </ThemeProvider>
+        <VoucherNavProvider>
+            <ThemeCustomizationProvider>
+                <ThemeProvider
+                    attribute="class"
+                    defaultTheme="system"
+                    enableSystem
+                    disableTransitionOnChange
+                >
+                    <MainLayout>
+                        {children}
+                    </MainLayout>
+                    <Toaster />
+                </ThemeProvider>
+            </ThemeCustomizationProvider>
+        </VoucherNavProvider>
       </AuthProvider>
     )
 }
