@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Mail, AlertCircle, ArrowRight, Plane } from 'lucide-react';
+import { Loader2, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
 import app from '@/lib/firebase';
 import Link from 'next/link';
+import './futuristic-login.css';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -45,15 +46,24 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="mx-auto grid w-[350px] gap-6">
-        <div className="grid gap-2 text-center">
-            <Plane className="h-10 w-10 mx-auto text-primary" />
-            <h1 className="text-3xl font-bold">إعادة تعيين كلمة المرور</h1>
-            <p className="text-balance text-muted-foreground">
-                أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة مرورك.
-            </p>
+    <div className="login-page-body min-h-screen flex items-center justify-center p-4">
+      <div className="futuristic-card rounded-2xl p-8 max-w-md w-full relative overflow-hidden">
+         <div className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-purple-900 opacity-20 blur-xl"></div>
+         <div className="absolute -bottom-20 -left-20 w-60 h-60 rounded-full bg-indigo-900 opacity-20 blur-xl"></div>
+
+        <div className="flex justify-center mb-6">
+            <div className="floating glow relative">
+                <i className="fas fa-key text-5xl text-indigo-500"></i>
+                <div className="absolute -inset-2 rounded-full bg-indigo-500 opacity-20 blur-md"></div>
+            </div>
         </div>
+        
+        <h1 className="text-3xl font-bold text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-600">
+            إعادة تعيين كلمة المرور
+        </h1>
+        <p className="text-center text-gray-500 dark:text-gray-300 mb-8" style={{ color: 'var(--muted-text)'}}>
+            أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة تعيين كلمة مرورك.
+        </p>
         
         <form onSubmit={handleSubmit} className="grid gap-4">
             {error && (
@@ -64,26 +74,28 @@ export default function ForgotPasswordPage() {
               </Alert>
             )}
             {success && (
-                <Alert variant="default" className="bg-green-50 border-green-200">
-                    <AlertCircle className="h-4 w-4 text-green-600"/>
-                    <AlertTitle className="text-green-800">تم الإرسال بنجاح!</AlertTitle>
-                    <AlertDescription className="text-green-700">
+                <Alert variant="default" className="bg-green-500/10 border-green-500/30 text-green-300">
+                    <AlertCircle className="h-4 w-4 text-green-400"/>
+                    <AlertTitle className="text-green-300">تم الإرسال بنجاح!</AlertTitle>
+                    <AlertDescription className="text-green-400">
                         تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني. يرجى التحقق من صندوق الوارد.
                     </AlertDescription>
                 </Alert>
             )}
             {!success && (
                 <div className="grid gap-2">
-                    <Label htmlFor="email">البريد الإلكتروني</Label>
+                    <Label htmlFor="email" className="block text-sm font-medium mb-2" style={{ color: 'var(--muted-text)'}}>البريد الإلكتروني</Label>
                     <div className="relative">
-                        <Mail className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
-                        <Input
+                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                            <i className="fas fa-envelope text-gray-400"></i>
+                        </div>
+                        <input
                         id="email"
                         type="email"
                         placeholder="example@company.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="pr-10"
+                        className="input-futuristic w-full pr-10 py-3 px-4 rounded-lg focus:outline-none"
                         disabled={loading}
                         required
                         />
@@ -92,23 +104,19 @@ export default function ForgotPasswordPage() {
             )}
 
             {!success && (
-                <Button 
+                <button 
                     type="submit" 
-                    className="w-full" 
-                    size="lg"
+                    className="btn-futuristic w-full py-3" 
                     disabled={loading}
                 >
                     {loading ? (
-                    <>
-                        <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                        جاري الإرسال...
-                    </>
+                        <Loader2 className="inline ml-2 h-4 w-4 animate-spin" />
                     ) : (
                     'إرسال رابط إعادة التعيين'
                     )}
-                </Button>
+                </button>
             )}
-             <Button variant="link" asChild className="w-full">
+             <Button variant="link" asChild className="w-full text-indigo-400 hover:text-indigo-300">
                 <Link href="/auth/login">
                     <ArrowRight className="me-2 h-4 w-4" /> العودة لتسجيل الدخول
                 </Link>
