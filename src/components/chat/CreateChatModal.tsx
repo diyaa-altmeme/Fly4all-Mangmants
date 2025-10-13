@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +19,7 @@ import type { User } from '@/lib/types';
 import { getUsers } from '@/app/users/actions';
 import { createOrGetDirectChat } from '@/app/chat/actions';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface CreateChatModalProps {
   children: React.ReactNode;
@@ -28,25 +29,32 @@ interface CreateChatModalProps {
 export default function CreateChatModal({ children, onChatCreated }: CreateChatModalProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [users, setUsers] = useState<User[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const debouncedSearch = useDebounce(searchTerm, 300);
+  const debouncedSearch = useDebounce(searchTerm, 200);
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
-    if (debouncedSearch) {
+    if (open) {
       setLoading(true);
-      getUsers({ searchTerm: debouncedSearch }).then(fetchedUsers => {
-        // Filter out the current user from the list
+      getUsers({ all: true }).then(fetchedUsers => {
         const otherUsers = (fetchedUsers as User[]).filter(u => u.uid !== currentUser?.uid);
-        setUsers(otherUsers);
+        setAllUsers(otherUsers);
         setLoading(false);
       });
-    } else {
-      setUsers([]);
     }
-  }, [debouncedSearch, currentUser]);
+  }, [open, currentUser]);
+  
+  const filteredUsers = useMemo(() => {
+    if (!debouncedSearch) return allUsers;
+    const lowercasedSearch = debouncedSearch.toLowerCase();
+    return allUsers.filter(user => 
+        user.name.toLowerCase().includes(lowercasedSearch) ||
+        user.email.toLowerCase().includes(lowercasedSearch)
+    );
+  }, [allUsers, debouncedSearch]);
+
 
   const handleSelectUser = async (otherUser: User) => {
     if (!currentUser || !('uid' in currentUser)) return;
@@ -55,6 +63,7 @@ export default function CreateChatModal({ children, onChatCreated }: CreateChatM
         const chatId = await createOrGetDirectChat(currentUser.uid, otherUser.uid);
         onChatCreated(chatId);
         setOpen(false);
+        setSearchTerm('');
     } catch (error) {
         console.error("Failed to create or get chat", error);
     } finally {
@@ -84,9 +93,9 @@ export default function CreateChatModal({ children, onChatCreated }: CreateChatM
               onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
+          <ScrollArea className="mt-4 space-y-2 max-h-64">
             {loading && <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>}
-            {users.map(user => (
+            {!loading && filteredUsers.map(user => (
               <div
                 key={user.uid}
                 className="flex items-center justify-between p-2 rounded-lg hover:bg-muted cursor-pointer"
@@ -105,7 +114,12 @@ export default function CreateChatModal({ children, onChatCreated }: CreateChatM
                  {isCreating && <Loader2 className="animate-spin h-4 w-4"/>}
               </div>
             ))}
-          </div>
+             {!loading && filteredUsers.length === 0 && (
+                <div className="text-center p-4 text-muted-foreground">
+                    {searchTerm ? "لم يتم العثور على نتائج." : "لا يوجد مستخدمون لعرضهم."}
+                </div>
+            )}
+          </ScrollArea>
         </div>
       </DialogContent>
     </Dialog>
