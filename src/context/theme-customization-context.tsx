@@ -16,7 +16,6 @@ type ThemeCustomizationContextType = {
     isSaving: boolean;
     sidebarSettings: Partial<SidebarThemeSettings>;
     cardSettings: Partial<CardThemeSettings>;
-    themeSettings: ThemeConfig | null;
     refreshData?: () => Promise<void>;
 };
 
@@ -30,61 +29,25 @@ export const ThemeCustomizationProvider = ({
 }: { 
   children: React.ReactNode,
 }) => {
-    const [isMounted, setIsMounted] = useState(false);
-    const [themeSettings, setThemeSettings] = useState<ThemeConfig | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [loading, setLoading] = useState(true);
-    const { user, revalidateUser } = useAuth(); // Depend on the auth context
+    const { user, loading: authLoading, revalidateUser } = useAuth();
     
-    // Now activeThemeId is derived directly from the auth context's user state
     const activeThemeId = useMemo(() => {
         if (user && 'role' in user && user.preferences?.themeId) {
             return user.preferences.themeId;
         }
         return 'mudarib-modern'; // Fallback default
     }, [user]);
-
-    const refreshData = useCallback(async () => {
-        setLoading(true);
-         getSettings().then(s => {
-            setThemeSettings(s.theme || null);
-            setLoading(false);
-        });
-    }, []);
-
-    useEffect(() => {
-        refreshData();
-    }, [refreshData]);
-
-     const activeTheme = useMemo(() => {
-      // Don't compute theme until user and settings are loaded
-      if (!user || loading || !themeSettings) return defaultTheme;
-      
-      const baseTheme = getThemeFromId(activeThemeId);
-      
-      // Deep merge saved settings into the base theme configuration
-      const mergedConfig = produce(baseTheme.config, draft => {
-        if (themeSettings) {
-            draft.light = { ...draft.light, ...themeSettings.light };
-            draft.dark = { ...draft.dark, ...themeSettings.dark };
-            draft.sidebar = { ...draft.sidebar, ...themeSettings.sidebar };
-            draft.card = { ...draft.card, ...themeSettings.card };
-            draft.loader = { ...draft.loader, ...themeSettings.loader };
-        }
-      });
-
-      return {
-        ...baseTheme,
-        config: mergedConfig
-      };
-
-    }, [themeSettings, loading, activeThemeId, user]);
-
-
-     useEffect(() => {
-        setIsMounted(true);
-    }, []);
     
+    // The active theme is now purely a result of the user's preference.
+    // No more merging with old, separate theme settings from the database.
+     const activeTheme = useMemo(() => {
+        if (authLoading) return defaultTheme; // Return default while auth is loading
+        return getThemeFromId(activeThemeId);
+    }, [activeThemeId, authLoading]);
+
+
     const setActiveTheme = useCallback(async (themeId: string): Promise<void> => {
         if (!user || !('role' in user)) {
             console.warn("Cannot set theme, no authenticated user found.");
@@ -94,9 +57,6 @@ export const ThemeCustomizationProvider = ({
         try {
             const currentPreferences = user.preferences || {};
             await updateUser(user.uid, { preferences: { ...currentPreferences, themeId } });
-            // This is the crucial step: re-fetch the user data in the AuthContext.
-            // This will cause the `user` object to update, which in turn updates `activeThemeId`
-            // and triggers the re-computation of `activeTheme`.
             await revalidateUser(); 
         } catch (error) {
             console.error("Failed to save active theme to user profile", error);
@@ -118,8 +78,6 @@ export const ThemeCustomizationProvider = ({
             isSaving,
             sidebarSettings,
             cardSettings,
-            themeSettings,
-            refreshData
         }}>
              {children}
         </ThemeCustomizationContext.Provider>
