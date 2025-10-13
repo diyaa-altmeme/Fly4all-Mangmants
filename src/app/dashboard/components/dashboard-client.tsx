@@ -176,7 +176,6 @@ export default function DashboardClient({
                 </div>
                 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    <!-- Member 1 -->
                     <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
                         <div className="relative mb-3">
                             <Image src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" width={64} height={64}
@@ -187,7 +186,6 @@ export default function DashboardClient({
                         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مديرة المبيعات</p>
                     </div>
                     
-                    <!-- Member 2 -->
                     <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
                         <div className="relative mb-3">
                             <Image src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" 
@@ -198,7 +196,6 @@ export default function DashboardClient({
                         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مطور الويب</p>
                     </div>
                     
-                    <!-- Member 3 -->
                     <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
                         <div className="relative mb-3">
                             <Image src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" 
@@ -209,7 +206,6 @@ export default function DashboardClient({
                         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مصممة UI/UX</p>
                     </div>
                     
-                    <!-- Member 4 -->
                     <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
                         <div className="relative mb-3">
                             <Image src="https://images.unsplash.com/photo-1544725176-7c40e5a71c5e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" 
@@ -220,7 +216,6 @@ export default function DashboardClient({
                         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مدير المشاريع</p>
                     </div>
                     
-                    <!-- Member 5 -->
                     <div className="flex flex-col items-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect">
                         <div className="relative mb-3">
                             <Image src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80" 
@@ -231,7 +226,6 @@ export default function DashboardClient({
                         <p className="text-xs text-gray-500 dark:text-gray-400 text-center">مسؤولة الدعم</p>
                     </div>
                     
-                    <!-- Add Member -->
                     <div className="flex flex-col items-center justify-center p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors card-hover-effect border-2 border-dashed border-gray-300 dark:border-gray-600">
                         <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-3">
                             <i className="fas fa-plus text-gray-400 text-xl"></i>
@@ -244,5 +238,3 @@ export default function DashboardClient({
     </motion.div>
   );
 }
-
-    
