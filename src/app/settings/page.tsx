@@ -6,26 +6,34 @@ import Link from 'next/link';
 import { getSettings } from './actions';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, Users, SlidersHorizontal, Upload, MessageSquareQuote, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, Shield, FileText, GitBranch, Briefcase, Search } from 'lucide-react';
+import { Terminal, Users, SlidersHorizontal, Upload, MessageSquareQuote, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, Shield, FileText, Terminal as DeveloperIcon, Paintbrush, FileBarChart, Banknote } from 'lucide-react';
 import type { AppSettings } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AccountingSettings from "@/app/settings/sections/accounting-settings";
 import ApiSettings from "@/app/settings/sections/api-settings";
 import SystemStatusSettings from "@/app/settings/sections/system-status-settings";
-import RelationsSettings from '@/app/relations/settings/page';
-import AppearanceSettings from './themes/page';
+import RelationsSettingsPage from '@/app/relations/settings/page';
+import AppearancePage from '@/app/settings/themes/page';
+import CurrencySettings from '@/components/settings/currency-settings';
+import SubscriptionsSettings from '@/components/settings/subscriptions-settings';
+import ExchangeSettings from '@/app/settings/sections/exchange-settings';
+import InvoiceSettings from '@/components/settings/invoice-settings';
+import AssetManagementSettings from '@/app/settings/sections/asset-management';
+import LandingPageSettingsComponent from '@/app/settings/sections/landing-page-settings';
+import InvoiceSequencesPage from '@/app/settings/invoice-sequences/page';
 import { settingSections } from './sections.config';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { Search } from 'lucide-react';
 
 
 function SettingsPageContent({ initialSettings, onSettingsChanged }: { initialSettings: AppSettings, onSettingsChanged: () => void }) {
     const [searchTerm, setSearchTerm] = useState("");
-    const [activeSection, setActiveSection] = useState("appearance_general");
+    const [activeSection, setActiveSection] = useState("accounting_chart");
     const router = useRouter();
 
     const filteredSections = useMemo(() => {
@@ -46,22 +54,11 @@ function SettingsPageContent({ initialSettings, onSettingsChanged }: { initialSe
             const subItem = section.subItems.find(sub => sub.id === activeSection);
             if (subItem) return subItem.component;
         }
-        return null; // Default or fallback component
+        return AccountingSettings; // Default component
     }, [activeSection]);
 
-
-    const handleDataChange = useCallback(() => {
-        // This will re-fetch data on the server for the current route
-        router.refresh();
-    }, [router]);
-
-
-    if (!initialSettings) {
-        return null;
-    }
-
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start">
         <aside className="border-e bg-card p-4 space-y-4 rounded-lg h-full sticky top-20">
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -111,7 +108,7 @@ function SettingsPageContent({ initialSettings, onSettingsChanged }: { initialSe
         <main className="space-y-6">
             <Card>
                 <CardContent className="pt-6">
-                     {ActiveComponent ? <ActiveComponent settings={initialSettings} onSettingsChanged={handleDataChange} /> : (
+                     {ActiveComponent ? <ActiveComponent settings={initialSettings} onSettingsChanged={onSettingsChanged} /> : (
                         <div>الرجاء اختيار قسم من القائمة.</div>
                      )}
                 </CardContent>
@@ -126,7 +123,7 @@ export default function SettingsPage() {
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
             const data = await getSettings();
@@ -151,8 +148,9 @@ export default function SettingsPage() {
                 </p>
             </div>
              {loading ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start p-4">
-                    <Skeleton className="h-[600px] w-full lg:col-span-2" />
+                <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start p-4">
+                    <Skeleton className="h-[600px] w-full" />
+                    <Skeleton className="h-[600px] w-full" />
                 </div>
             ) : error ? (
                 <Alert variant="destructive">
