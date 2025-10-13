@@ -271,13 +271,14 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
         ...data,
         clientName: client.name,
         supplierName: supplier.name,
-        purchaseDate: format(data.purchaseDate, 'yyyy-MM-dd HH:mm:ss'),
-        startDate: format(data.startDate, 'yyyy-MM-dd HH:mm:ss'),
+        purchaseDate: data.purchaseDate.toISOString(),
+        startDate: data.startDate.toISOString(),
+        deferredDueDate: data.deferredDueDate ? data.deferredDueDate.toISOString() : undefined,
         notes: data.notes || '',
         quantity: data.quantity,
         unitPrice: data.unitPrice,
         discount: data.discount || 0,
-        numberOfInstallments: data.numberOfInstallments || 1, // Default to 1 for non-installment methods
+        numberOfInstallments: data.numberOfInstallments || 1,
       };
       
       const result = await addSubscriptionAction(newSubscriptionData as any);
