@@ -166,7 +166,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                             </h1>
                             
                             <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-3xl mx-auto">
-                                الحلول المتكاملة لإدارة الحسابات المالية، تذاكر الطيران، الفيزا، والفواتير بكل ذكاء وسهولة
+                                الحلول المتكاملة لإدارة شركات السفر والسياحة بكفاءة ودقة.
                             </p>
                             
                             <div className="flex flex-col sm:flex-row justify-center gap-4">
@@ -431,3 +431,5 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
         </div>
     );
 }
+
+    
