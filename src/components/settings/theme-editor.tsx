@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -7,11 +6,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Loader2, Save, ArrowRight, Palette, Paintbrush } from 'lucide-react';
-import { type ThemeSettings, type ThemeConfig } from '@/lib/themes';
+import { THEMES, getThemeFromId } from '@/lib/themes';
 import { produce } from 'immer';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import type { LoaderSettings } from '@/lib/types';
 import { Switch } from '../ui/switch';
+import type { ThemeSettings } from '@/lib/themes';
 
 const ColorInput = ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => (
     <div className="space-y-1.5">
