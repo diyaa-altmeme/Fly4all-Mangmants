@@ -47,6 +47,11 @@ function AppearancePageContent({ initialSettings, onSettingsChanged }: { initial
         return ThemeSelector; // Default component
     }, [activeSection]);
 
+
+    if (!initialSettings) {
+        return null;
+    }
+
     return (
       <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start">
         <aside className="border-e bg-card p-4 space-y-4 rounded-lg h-full sticky top-20">
@@ -130,7 +135,7 @@ export default function AppearancePage() {
 
     if (loading) {
         return (
-            <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start p-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start p-4">
                 <Skeleton className="h-[600px] w-full" />
                 <Skeleton className="h-[600px] w-full" />
             </div>
@@ -159,4 +164,3 @@ export default function AppearancePage() {
         </div>
     );
 }
-
