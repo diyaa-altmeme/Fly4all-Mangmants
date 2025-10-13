@@ -3,36 +3,52 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Check if the user is a member of the chat
-    function isMember(chatId) {
-      return request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.members[request.auth.uid] == true;
-    }
-    
-    // Check if the user is authenticated
+    // التحقق من أن المستخدم مسجل دخول
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Users can only read/write their own document
-    // But other signed-in users can read public profile info
+    // التحقق من أن المستخدم عضو في محادثة معينة
+    // نستخدم exists بدل get لتجنب الخطأ أثناء الإنشاء
+    function isMember(chatId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/chats/$(chatId))
+        && get(/databases/$(database)/documents/chats/$(chatId)).data.members[request.auth.uid] == true;
+    }
+
+    // 🔹 قاعدة بيانات المستخدمين
     match /users/{userId} {
+      // المستخدم يستطيع تعديل بياناته فقط
       allow write: if request.auth.uid == userId;
+      // جميع المستخدمين المصادق عليهم يمكنهم قراءة بيانات المستخدمين (مثلاً الاسم أو الصورة)
       allow read: if isSignedIn();
     }
 
+    // 🔹 قاعدة بيانات المحادثات
     match /chats/{chatId} {
-      allow read, update: if isMember(chatId);
-      // Any signed-in user can create a chat
+      // السماح بقراءة المحادثة فقط للأعضاء
+      allow read: if isMember(chatId);
+      // السماح بالتحديث فقط للأعضاء (مثلاً آخر رسالة)
+      allow update: if isMember(chatId);
+      // السماح بإنشاء محادثة لأي مستخدم مصادق عليه
       allow create: if isSignedIn();
-      allow delete: if false; // Deletions should be handled by a function
+      // لا يُسمح بالحذف من العميل
+      allow delete: if false;
 
+      // 🔹 قاعدة بيانات الرسائل داخل كل محادثة
       match /messages/{messageId} {
+        // السماح بقراءة الرسائل للأعضاء فقط
         allow read: if isMember(chatId);
-        // Only a member can create a message
-        allow create: if isMember(chatId) && request.auth.uid == request.resource.data.senderId;
-        // Updates/deletes are safer via functions to handle logic like "deleted for me/all"
+        // السماح بإنشاء رسالة فقط للأعضاء ويجب أن يكون المرسل هو نفسه المستخدم الحالي
+        allow create: if isMember(chatId) && request.resource.data.senderId == request.auth.uid;
+        // منع التعديل أو الحذف المباشر من العميل
         allow update, delete: if false;
       }
+    }
+
+    // 🔹 قاعدة بيانات الملخصات الخاصة بكل مستخدم (اختياري)
+    match /userChats/{userId}/{doc=**} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
   }
 }
