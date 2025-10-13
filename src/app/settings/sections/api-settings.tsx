@@ -3,7 +3,7 @@
 
 import React from 'react';
 import type { AppSettings } from '@/lib/types';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import CampaignSettingsDialog from '@/app/campaigns/components/campaign-settings-dialog';
 
 
@@ -20,10 +20,10 @@ export default function ApiSettings({ settings, onSettingsChanged }: ApiSettings
                     <CardTitle>الربط مع الخدمات الخارجية (API)</CardTitle>
                     <CardDescription>
                         إدارة بيانات الاتصال مع الخدمات الخارجية مثل WhatsApp.
-                        <div className="mt-4">
-                             <CampaignSettingsDialog onSaveSuccess={onSettingsChanged} />
-                        </div>
                     </CardDescription>
+                    <div className="mt-4">
+                         <CampaignSettingsDialog onSaveSuccess={onSettingsChanged} />
+                    </div>
                 </CardHeader>
             </Card>
             
