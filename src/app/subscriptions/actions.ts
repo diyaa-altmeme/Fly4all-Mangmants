@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -330,9 +328,9 @@ export async function paySubscriptionInstallment(
             
             const journalVoucherRef = db.collection('journal-vouchers').doc();
             
-            const debitEntries: JournalEntry[] = [{ accountId: boxId, amount: paymentAmount, description: `إيداع قسط من ${subscriptionData.clientName}` }];
+            const debitEntries: JournalEntry[] = [{ accountId: boxId, amount: paymentAmount, description: `إيداع دفعة من ${subscriptionData.clientName}` }];
             if (discountAmount > 0) {
-                 debitEntries.push({ accountId: 'expense_discounts', amount: discountAmount, description: `خصم مكتسب على قسط ${subscriptionData.serviceName}` });
+                 debitEntries.push({ accountId: 'expense_discounts', amount: discountAmount, description: `خصم مكتسب على دفعة اشتراك ${subscriptionData.serviceName}` });
             }
             
             transaction.set(journalVoucherRef, {
@@ -340,11 +338,11 @@ export async function paySubscriptionInstallment(
                 date: new Date().toISOString(),
                 currency: paymentCurrency,
                 exchangeRate: exchangeRate || null,
-                notes: `سداد قسط اشتراك خدمة: ${subscriptionData.serviceName}`,
+                notes: `سداد دفعة اشتراك خدمة: ${subscriptionData.serviceName}`,
                 createdBy: user.uid, officer: user.name, createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(), voucherType: "journal_from_installment",
                 debitEntries,
-                creditEntries: [{ accountId: subscriptionData.clientId, amount: totalAmountToCreditToClient, description: `تسديد دين قسط اشتراك ${subscriptionData.serviceName}` }],
+                creditEntries: [{ accountId: subscriptionData.clientId, amount: totalAmountToCreditToClient, description: `تسديد دين دفعة اشتراك ${subscriptionData.serviceName}` }],
                 isAudited: true, isConfirmed: true,
                 originalData: { ...installment, paymentAmount, boxId, discount: discountAmount }
             });
@@ -407,7 +405,7 @@ export async function paySubscriptionInstallment(
                 const overpaymentInvoiceNumber = await getNextVoucherNumber('RC');
                  transaction.set(creditVoucherRef, {
                     invoiceNumber: overpaymentInvoiceNumber, date: new Date().toISOString(), currency: paymentCurrency,
-                    notes: `رصيد إضافي بعد سداد كل الأقساط لـ ${subscriptionData.clientName}`, createdBy: user.uid, officer: user.name,
+                    notes: `رصيد إضافي بعد سداد كل الدفعات لـ ${subscriptionData.clientName}`, createdBy: user.uid, officer: user.name,
                     createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), voucherType: "journal_from_standard_receipt",
                     debitEntries: [{ accountId: boxId, amount: remainingPaymentToApply, description: 'إيداع رصيد إضافي' }],
                     creditEntries: [{ accountId: subscriptionData.clientId, amount: remainingPaymentToApply, description: 'رصيد إضافي للعميل' }],
@@ -463,7 +461,7 @@ export async function deletePayment(paymentId: string) {
                 invoiceNumber: reversalInvoiceNumber,
                 date: new Date().toISOString(),
                 currency: originalJournal.currency,
-                notes: `عكس قيد سداد قسط رقم: ${originalJournal.invoiceNumber}`,
+                notes: `عكس قيد سداد دفعة رقم: ${originalJournal.invoiceNumber}`,
                 createdBy: user.uid,
                 officer: user.name,
                 createdAt: new Date().toISOString(),
@@ -524,7 +522,7 @@ export async function updatePayment(paymentId: string, newData: { amount?: numbe
                 const originalJournalDoc = await transaction.get(originalJournalRef);
                 const originalJournal = originalJournalDoc.data() as JournalVoucher;
                 const adjustmentInvoiceNumber = await getNextVoucherNumber('ADJ');
-                const notes = amountDifference > 0 ? `زيادة دفعة قسط: ${oldPayment.id}` : `تخفيض دفعة قسط: ${oldPayment.id}`;
+                const notes = amountDifference > 0 ? `زيادة دفعة اشتراك: ${oldPayment.id}` : `تخفيض دفعة اشتراك: ${oldPayment.id}`;
                 const debitAccount = amountDifference > 0 ? (originalJournal?.debitEntries[0].accountId) : originalJournal?.creditEntries[0].accountId;
                 const creditAccount = amountDifference > 0 ? originalJournal?.creditEntries[0].accountId : (originalJournal?.debitEntries[0].accountId);
 
@@ -641,7 +639,7 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
 export async function permanentDeleteSubscription(subscriptionId: string): Promise<{ success: boolean; error?: string }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
-    const user = await getCurrentUserFromSession();
+     const user = await getCurrentUserFromSession();
     if (!user) return { success: false, error: "Unauthorized" };
 
     const batch = db.batch();
@@ -681,3 +679,4 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
