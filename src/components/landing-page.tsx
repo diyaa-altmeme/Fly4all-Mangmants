@@ -11,7 +11,6 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
-import { LoginForm } from './auth/login-form';
 import type { LandingPageSettings } from '@/lib/types';
 
 
@@ -133,8 +132,6 @@ const StepCard = ({ number, title, description, imageUrl }: { number: number, ti
 
 export function LandingPage({ settings }: { settings: LandingPageSettings }) {
     const [isScrolled, setIsScrolled] = useState(false);
-    const [isLoginOpen, setIsLoginOpen] = useState(false);
-
 
     useEffect(() => {
         const handleScroll = () => {
@@ -162,7 +159,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                             </div>
                             
                             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-                                <span style={{ color: heroSettings.heroTitleColor }}>
+                                <span className="animated-gradient-text">
                                     {heroSettings.heroTitle}
                                 </span>
                                 <br />
