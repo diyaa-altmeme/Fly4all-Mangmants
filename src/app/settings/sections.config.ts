@@ -18,6 +18,7 @@ import InvoiceSettings from '@/components/settings/invoice-settings';
 import AssetManagementSettings from '@/app/settings/sections/asset-management';
 import LandingPageSettingsComponent from '@/app/settings/sections/landing-page-settings';
 import InvoiceSequencesPage from '@/app/settings/invoice-sequences/page';
+import ClientPermissionsPage from '@/app/settings/client-permissions/page';
 
 export const settingSections = [
     { 
@@ -28,6 +29,7 @@ export const settingSections = [
             { id: 'accounting_chart', name: 'شجرة الحسابات', icon: GitBranch, component: AccountingSettings },
             { id: 'accounting_sequences', name: 'تسلسل الفواتير', icon: FileBarChart, component: InvoiceSequencesPage },
             { id: 'accounting_currencies', name: 'العملات', icon: Banknote, component: CurrencySettings },
+            { id: 'client_permissions', name: 'صلاحيات العملاء', icon: Shield, component: ClientPermissionsPage },
         ],
     },
     { 
@@ -84,3 +86,4 @@ export const appearanceSections = [
     }
 ];
 
+    

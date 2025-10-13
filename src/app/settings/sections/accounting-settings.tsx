@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { UsersIcon, ListOrdered, Settings, GitBranch, MessageSquareQuote, Loader2, Banknote, Repeat, ChevronsRightLeft } from 'lucide-react';
+import { UsersIcon, ListOrdered, Settings, GitBranch, MessageSquareQuote, Loader2, Banknote, Repeat, ChevronsRightLeft, Shield } from 'lucide-react';
 import type { AppSettings, TreeNode } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -17,6 +17,7 @@ import { Terminal } from 'lucide-react';
 import CurrencySettings from '@/components/settings/currency-settings';
 import SubscriptionsSettings from '@/components/settings/subscriptions-settings';
 import ExchangeSettings from './exchange-settings';
+import ClientPermissionsPage from '@/app/settings/client-permissions/page';
 
 
 interface AccountingSettingsProps {
@@ -87,7 +88,7 @@ export default function AccountingSettings({ settings, onSettingsChanged }: Acco
                     <TabsTrigger value="invoice_sequences">تسلسل الفواتير</TabsTrigger>
                     <TabsTrigger value="currencies">العملات</TabsTrigger>
                     <TabsTrigger value="subscriptions">الاشتراكات</TabsTrigger>
-                    <TabsTrigger value="exchanges">البورصات</TabsTrigger>
+                    <TabsTrigger value="client_permissions">صلاحيات العملاء</TabsTrigger>
                 </TabsList>
                 <TabsContent value="chart_of_accounts" className="mt-4">
                    <ChartOfAccountsTabContent />
@@ -101,10 +102,12 @@ export default function AccountingSettings({ settings, onSettingsChanged }: Acco
                  <TabsContent value="subscriptions" className="mt-4">
                     <SubscriptionsSettings settings={settings} onSettingsChanged={onSettingsChanged} />
                 </TabsContent>
-                <TabsContent value="exchanges" className="mt-4">
-                    <ExchangeSettings />
+                 <TabsContent value="client_permissions" className="mt-4">
+                    <ClientPermissionsPage />
                 </TabsContent>
            </Tabs>
         </div>
     );
 }
+
+    
