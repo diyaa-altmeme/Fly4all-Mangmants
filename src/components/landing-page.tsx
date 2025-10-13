@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X, Sun, Moon, Zap, Smartphone, HelpCircle, User, Users, Store, Check, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
@@ -205,7 +205,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                             <FeatureCard icon={Zap} title="إدخال ذكي للبيانات" description="استيراد تلقائي لبيانات التذاكر والفيزا والفواتير من ملفات PDF بضغطة زر واحدة." />
                             <FeatureCard icon={LineChart} title="تقارير وتحليلات" description="كشوفات حسابات مفصلة وتقارير أرباح متقدمة لدعم اتخاذ القرارات." />
-                            <FeatureCard icon={ShieldCheck} title="تدقيق ومطابقة" description="أدوات ذكية لمطابقة الكشوفات بينك وبين الموردين وكشف الفروقات بسهولة." />
+                            <FeatureCard icon={ShieldCheck} title="تدقيق ومطابقة" description="أدوات ذكية لمقارنة كشوفات حسابك مع كشف حساب الموردين وكشف الفروقات والاختلافات تلقائيًا بدقة تصل إلى 99%." />
                             <FeatureCard icon={Repeat} title="مزامنة فورية" description="تحديث البيانات تلقائيًا بين الفروع والمستخدمين في الوقت الفعلي." />
                             <FeatureCard icon={Smartphone} title="تطبيق متنقل" description="إدارة عملك من أي مكان عبر تطبيق الهاتف مع إشعارات فورية." />
                             <FeatureCard icon={HelpCircle} title="دعم فني 24/7" description="فريق دعم فني متاح على مدار الساعة لمساعدتك في أي استفسار." />
@@ -432,5 +432,3 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
         </div>
     );
 }
-
-    
