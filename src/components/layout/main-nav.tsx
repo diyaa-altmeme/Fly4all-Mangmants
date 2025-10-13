@@ -56,6 +56,7 @@ import {
     AlertTriangle,
     FileWarning,
     ScanSearch,
+    Paintbrush,
 } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
@@ -114,7 +115,8 @@ const reportsItems = [
 ];
 
 const systemItems = [
-    { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'settings:update' },
+    { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'settings:read' },
+    { href: "/settings/themes", label: "المظهر", icon: Paintbrush, permission: 'settings:update' },
     { href: "/users", label: "الموظفين والصلاحيات", icon: Users, permission: 'users:read' },
     { href: "/boxes", label: "الصناديق", icon: Boxes, permission: 'admin' },
     { href: "/templates", label: "قوالب الرسائل", icon: FileImage, permission: 'admin' },
