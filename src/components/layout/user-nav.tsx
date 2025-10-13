@@ -19,7 +19,6 @@ import {
 import { useAuth } from "@/lib/auth-context";
 import { LogOut, User, Settings, CircleUserRound, Mail, Phone, Calendar, Shield, LifeBuoy } from "lucide-react";
 import Link from 'next/link';
-import { getRoles } from "@/app/users/actions";
 
 export function UserNav() {
   const { user, signOut } = useAuth();
@@ -27,63 +26,43 @@ export function UserNav() {
   if (!user) return null;
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-auto px-2 flex items-center gap-2">
-           <span className="font-semibold hidden sm:inline">{user.name}</span>
-          <Avatar className="h-9 w-9 border-2 border-primary/50">
-            <AvatarImage src={user.avatarUrl} alt={user.name} />
-            <AvatarFallback><CircleUserRound className="h-6 w-6 text-muted-foreground"/></AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-80 p-0" align="end" forceMount>
-        <div className="p-4" style={{ background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%)' }}>
-            <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16 border-2 border-primary-foreground/50">
-                    <AvatarImage src={user.avatarUrl} alt={user.name} />
-                    <AvatarFallback className="text-2xl bg-primary-foreground text-primary"><CircleUserRound /></AvatarFallback>
-                </Avatar>
-                <div className="space-y-1 text-primary-foreground">
-                    <p className="text-lg font-bold">{user.name}</p>
-                    <p className="text-xs font-medium text-primary-foreground/80 flex items-center gap-2">
-                       {user.email}
-                    </p>
-                    {'role' in user && (
-                      <p className="text-xs font-semibold text-primary-foreground/80 flex items-center gap-2">
-                        {('role' in user && user.role) || 'مستخدم'}
-                      </p>
-                    )}
-                </div>
-            </div>
-        </div>
-        <DropdownMenuSeparator className="my-0"/>
-        <DropdownMenuGroup className="p-2">
+    <div className="relative">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center space-x-2 space-x-reverse group">
+              <div className="relative">
+                  <Avatar className="h-10 w-10">
+                      <AvatarImage src={user.avatarUrl} alt={user.name} />
+                      <AvatarFallback><CircleUserRound /></AvatarFallback>
+                  </Avatar>
+                  <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white dark:border-gray-700"></span>
+              </div>
+              <span className="hidden md:inline font-medium">{user.name}</span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-48" align="end" forceMount>
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <p className="font-medium">{user.name}</p>
+              {'role' in user && <p className="text-xs text-gray-500 dark:text-gray-400">{user.role}</p>}
+          </div>
           <DropdownMenuItem asChild>
-            <Link href="/profile" className="justify-end gap-2 text-base py-2">
-              <span>الملف الشخصي</span>
-              <User className="h-4 w-4" />
+            <Link href="/profile" className="flex items-center justify-end w-full">
+              الملف الشخصي <User className="ml-2 h-4 w-4" />
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/settings" className="justify-end gap-2 text-base py-2">
-              <span>الإعدادات</span>
-              <Settings className="h-4 w-4" />
+            <Link href="/settings" className="flex items-center justify-end w-full">
+              الإعدادات <Settings className="ml-2 h-4 w-4" />
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-             <Link href="/support" className="justify-end gap-2 text-base py-2">
-                <span>الدعم والمساعدة</span>
-                <LifeBuoy className="h-4 w-4" />
-             </Link>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={signOut} className="text-red-500 focus:text-red-500 flex items-center justify-end w-full">
+            تسجيل خروج <LogOut className="ml-2 h-4 w-4" />
           </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={signOut} className="text-red-500 focus:text-red-500 justify-end gap-2 m-2 text-base py-2">
-          <span>تسجيل الخروج</span>
-          <LogOut className="h-4 w-4" />
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
+
+    

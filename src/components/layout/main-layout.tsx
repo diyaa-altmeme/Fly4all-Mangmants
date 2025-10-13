@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Plane, Menu } from "lucide-react";
+import { Plane, Menu, Bell, MessageSquare } from "lucide-react";
 import { MainNav } from "@/components/layout/main-nav";
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import Image from 'next/image';
@@ -42,7 +42,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             if (!config) return;
             for (const key in config) {
                 if (Object.prototype.hasOwnProperty.call(config, key) && typeof config[key] === 'string') {
-                    // Convert camelCase to kebab-case for CSS variables
                     const cssVar = `--${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
                     root.style.setProperty(cssVar, config[key]);
                 }
@@ -67,61 +66,70 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
     return (
         <div className="flex min-h-screen w-full flex-col bg-background">
-            <header
-            className={cn(
-                "sticky top-0 z-40 flex h-16 items-center border-b bg-card px-4 sm:px-6 shadow-sm"
-            )}
-            >
-            <div className="flex flex-1 items-center justify-start gap-4">
-                    <div className="md:hidden">
-                    <Sheet>
-                        <SheetTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                <Menu className="h-6 w-6"/>
-                                <span className="sr-only">Toggle Navigation</span>
-                            </Button>
-                        </SheetTrigger>
-                        <SheetContent side="right" className="w-[300px] sm:w-[340px] p-0 flex flex-col">
-                            <SheetHeader className="p-4 border-b shrink-0 text-right">
-                                <SheetTitle>القائمة الرئيسية</SheetTitle>
-                                <SheetDescription>
-                                    تنقل بين أقسام النظام المختلفة.
-                                </SheetDescription>
-                            </SheetHeader>
-                            <ScrollArea className="flex-grow">
-                                <MainNav />
-                            </ScrollArea>
-                        </SheetContent>
-                    </Sheet>
+            <header className="bg-white/80 dark:bg-dark-800/80 backdrop-blur-md shadow-sm sticky top-0 z-40 w-full glass-effect glass-effect-dark">
+                <div className="flex items-center justify-between p-4">
+                    <div className="flex items-center space-x-4 space-x-reverse">
+                         <div className="md:hidden">
+                            <Sheet>
+                                <SheetTrigger asChild>
+                                        <Button variant="ghost" size="icon">
+                                        <Menu className="h-6 w-6"/>
+                                        <span className="sr-only">Toggle Navigation</span>
+                                    </Button>
+                                </SheetTrigger>
+                                <SheetContent side="right" className="w-[300px] sm:w-[340px] p-0 flex flex-col">
+                                    <SheetHeader className="p-4 border-b shrink-0 text-right">
+                                        <SheetTitle>القائمة الرئيسية</SheetTitle>
+                                    </SheetHeader>
+                                    <ScrollArea className="flex-grow">
+                                        <MainNav />
+                                    </ScrollArea>
+                                </SheetContent>
+                            </Sheet>
+                        </div>
+                        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl gradient-text">
+                            <Plane className="h-6 w-6 text-primary-500 bounce-element" />
+                            <span className="mr-2">نظام الإدارة الذكي</span>
+                        </Link>
+                        <nav className="hidden md:flex items-center space-x-6 space-x-reverse">
+                            <Link href="/dashboard" className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors relative group">
+                                <i className="fas fa-tachometer-alt ml-1"></i> لوحة التحكم
+                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary-500 group-hover:w-full transition-all duration-300"></span>
+                            </Link>
+                             <Link href="/bookings" className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors relative group">
+                                <i className="fas fa-calendar ml-1"></i> الحجوزات
+                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary-500 group-hover:w-full transition-all duration-300"></span>
+                            </Link>
+                             <Link href="/clients" className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors relative group">
+                                <i className="fas fa-users ml-1"></i> العملاء
+                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary-500 group-hover:w-full transition-all duration-300"></span>
+                            </Link>
+                              <Link href="/reports" className="text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 transition-colors relative group">
+                                <i className="fas fa-chart-line ml-1"></i> التقارير
+                                <span className="absolute bottom-0 right-0 w-0 h-0.5 bg-primary-500 group-hover:w-full transition-all duration-300"></span>
+                            </Link>
+                        </nav>
                     </div>
-                <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-                    {activeTheme.config.sidebar?.logoUrl ? (
-                    <Image
-                        src={activeTheme.config.sidebar.logoUrl}
-                        alt="Logo"
-                        width={32}
-                        height={32}
-                        className="size-8"
-                    />
-                    ) : ( <Plane className="h-6 w-6 text-primary" />)}
-                    <h1 className="text-xl hidden sm:block">{activeTheme.config.general?.appName || "Mudarib"}</h1>
-                </Link>
-            </div>
 
-            <div className="flex-1 flex justify-center items-center">
-                <div className="hidden md:block w-full">
-                        <MainNav />
+                    <div className="flex items-center space-x-4 space-x-reverse">
+                        <div className="relative hidden md:block">
+                            <input type="text" placeholder="بحث..." 
+                                   className="pl-10 pr-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 w-64 transition-all" />
+                            <i className="fas fa-search absolute right-3 top-2.5 text-gray-500"></i>
+                        </div>
+                        <NotificationCenter />
+                        <div className="relative">
+                            <Button variant="ghost" size="icon" className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative group">
+                                <MessageSquare className="text-xl" />
+                                <span className="notification-badge">5</span>
+                            </Button>
+                        </div>
+                        <UserNav />
+                    </div>
                 </div>
-            </div>
-
-            <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4">
-                <NotificationCenter />
-                <ThemeToggle />
-                <UserNav />
-            </div>
             </header>
             <TopLoader />
-        <main className="flex-1 p-2 sm:p-4 md:p-6 bg-muted/40">{children}</main>
+        <main className="flex-1 p-2 sm:p-4 md:p-6">{children}</main>
         </div>
     );
 };
@@ -135,10 +143,9 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const isPublicPath = publicRoutes.includes(pathname);
     const isLandingPage = pathname === landingPageRoute;
     
-    // Redirect logic
     useEffect(() => {
         if (!loading) {
-            if (user && isPublicPath) {
+            if (user && (isPublicPath || isLandingPage)) {
                 router.replace('/dashboard');
             } else if (!user && !isPublicPath && !isLandingPage) {
                 router.replace('/');
@@ -151,8 +158,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     }
 
     if (!user) {
-        // If not logged in, only render public pages.
-        // The landing page component is now rendered by the root page itself.
         if (isPublicPath || isLandingPage) {
              return (
                 <>
@@ -161,9 +166,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                 </>
             );
         }
-        return <Preloader />; // Or a redirect to login, but the useEffect handles that
+        return <Preloader />; 
     }
     
-    // If user is logged in, show the app layout
     return <AppLayout>{children}</AppLayout>;
 }
+
+    

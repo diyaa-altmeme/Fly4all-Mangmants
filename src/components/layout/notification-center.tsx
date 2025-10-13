@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -67,53 +68,60 @@ export default function NotificationCenter() {
   };
   
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative rounded-full">
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <Badge className="absolute -top-1 -right-1 h-5 w-5 justify-center p-0">{unreadCount}</Badge>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel className="flex justify-between items-center">
-           {unreadCount > 0 && (
-                <Button variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={handleMarkAllAsRead}>
-                    <CheckCheck className="me-1 h-3 w-3"/>
-                    تحديد الكل كمقروء
+    <div className="relative">
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative group">
+                    <Bell className="text-xl" />
+                    {unreadCount > 0 && <span className="notification-badge ping-element">{unreadCount}</span>}
                 </Button>
-            )}
-             <span>الإشعارات</span>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {notifications.length === 0 ? (
-           <DropdownMenuItem disabled>لا توجد إشعارات جديدة</DropdownMenuItem>
-        ) : (
-            notifications.map(n => {
-                        const Icon = notificationIcons[n.type] || Bell;
-                        const isWarning = n.type === 'warning' || n.type === 'error';
-                        return (
-                            <DropdownMenuItem key={n.id} className="flex items-start gap-3 justify-end" onSelect={(e) => { e.preventDefault(); handleMarkAsRead(n.id); }}>
-                                <div className="flex-1 space-y-1 text-right">
-                                    <Link href={n.link || '#'} className={cn("font-semibold hover:underline", isWarning && "text-yellow-600")}>{n.title}</Link>
-                                    <p className="text-xs text-muted-foreground">{n.body}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: ar })}
-                                    </p>
-                                </div>
-                                {n.isRead ? <Circle className="h-2 w-2 mt-1.5 text-muted-foreground/50"/> : <Circle className={cn("h-2 w-2 mt-1.5 fill-current", isWarning ? "text-yellow-500" : "text-primary")} />}
-                            </DropdownMenuItem>
-                        )
-                    })
-        )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="justify-center">
-             <Link href="/notifications">
-                عرض كل الإشعارات
-            </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72">
+                 <DropdownMenuLabel className="flex justify-between items-center">
+                    <span>الإشعارات ({unreadCount})</span>
+                     {unreadCount > 0 && (
+                        <Button variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={handleMarkAllAsRead}>
+                            <CheckCheck className="me-1 h-3 w-3"/>
+                            تحديد الكل كمقروء
+                        </Button>
+                    )}
+                 </DropdownMenuLabel>
+                 <DropdownMenuSeparator/>
+                 <div className="max-h-60 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                        <DropdownMenuItem disabled>لا توجد إشعارات جديدة</DropdownMenuItem>
+                    ) : (
+                        notifications.map(n => {
+                            const Icon = notificationIcons[n.type] || Bell;
+                            return(
+                                <DropdownMenuItem key={n.id} className="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700">
+                                    <div className="flex items-start">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-2 ${n.type === 'warning' ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-blue-100 dark:bg-blue-900/30'}`}>
+                                            <Icon className={`h-4 w-4 ${n.type === 'warning' ? 'text-yellow-500' : 'text-blue-500'}`} />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium">{n.title}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">{n.body}</p>
+                                             <p className="text-xs text-muted-foreground mt-1">
+                                                {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true, locale: ar })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </DropdownMenuItem>
+                            )
+                        })
+                    )}
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="p-3 border-t border-gray-200 dark:border-gray-700 text-center">
+                    <Link href="/notifications" className="text-primary-600 dark:text-primary-400 text-sm">
+                        عرض جميع الإشعارات
+                    </Link>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    </div>
   );
 }
+
+    
