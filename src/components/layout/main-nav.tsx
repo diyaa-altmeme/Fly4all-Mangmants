@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -425,9 +426,8 @@ const MainNavContent = () => {
                        </AccordionContent>
                   </AccordionItem>
               ))}
-               {/* Campaigns is public for now */}
-               <NavLink href="/campaigns" active={pathname === '/campaigns'} className="w-full justify-end text-base">
-                الحملات
+               <NavLink href="/chat" active={pathname.startsWith('/chat')} className="w-full justify-end text-base">
+                المحادثات
                 <MessageSquare className="h-5 w-5" />
               </NavLink>
           </Accordion>
@@ -453,9 +453,8 @@ const MainNavContent = () => {
                 </NavMenu>
             ))}
             
-            {/* Campaigns is public for now */}
-            <NavLink href="/campaigns" active={pathname === '/campaigns'} className="justify-end">
-                الحملات
+            <NavLink href="/chat" active={pathname.startsWith('/chat')} className="justify-end">
+                المحادثات
                 <MessageSquare className="h-4 w-4" />
             </NavLink>
         </nav>
