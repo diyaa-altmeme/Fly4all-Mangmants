@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -12,6 +13,7 @@ import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/
 import type { LoaderSettings } from '@/lib/types';
 import { Switch } from '../ui/switch';
 import type { ThemeSettings } from '@/lib/themes';
+import { useThemeCustomization } from '@/context/theme-customization-context';
 
 const ColorInput = ({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) => (
     <div className="space-y-1.5">
@@ -73,17 +75,19 @@ const LoaderSettingsEditor = ({ loaderConfig, onLoaderChange }: { loaderConfig: 
 interface ThemeEditorProps {
     theme: ThemeSettings;
     onBack: () => void;
-    onSave: (updatedTheme: ThemeSettings) => Promise<void>;
 }
 
-export default function ThemeEditor({ theme, onBack, onSave }: ThemeEditorProps) {
+export default function ThemeEditor({ theme, onBack }: ThemeEditorProps) {
+    const { setActiveTheme } = useThemeCustomization();
     const [editedTheme, setEditedTheme] = useState(theme);
     const [isSaving, setIsSaving] = useState(false);
 
     const handleSave = async () => {
         setIsSaving(true);
-        await onSave(editedTheme);
+        // This is now handled by the context, but we can call it to trigger update
+        await setActiveTheme(editedTheme.id);
         setIsSaving(false);
+        onBack();
     };
     
     const handleConfigChange = (mode: 'light' | 'dark' | 'sidebar' | 'card' | 'loader', key: string, value: string) => {
