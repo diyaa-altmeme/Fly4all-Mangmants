@@ -10,7 +10,7 @@ export default function Preloader() {
             <motion.div
                 animate={{
                     y: [0, -10, 0],
-                    rotate: [0, 5, -5, 0],
+                    rotate: [0, 5, 0, -5, 0],
                 }}
                 transition={{
                     duration: 1.5,

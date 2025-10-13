@@ -2,9 +2,9 @@
 import { Toaster } from "@/components/ui/toaster";
 import type { Metadata } from "next";
 import { Tajawal } from "next/font/google";
-// Removed global CSS import from here
 import { Providers } from "@/components/layout/providers";
 import "./globals.css";
+import "./landing-page.css";
 
 
 const tajawal = Tajawal({ 
@@ -14,8 +14,8 @@ const tajawal = Tajawal({
 });
 
 export const metadata: Metadata = {
-  title: "نظام الإدارة",
-  description: "لوحة تحكم متكاملة لإدارة النظام",
+  title: "Mudarib Accounting",
+  description: "نظام محاسبي متكامل لشركات السفر والسياحة",
 };
 
 export default function RootLayout({

@@ -42,6 +42,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             if (!config) return;
             for (const key in config) {
                 if (Object.prototype.hasOwnProperty.call(config, key) && typeof config[key] === 'string') {
+                    // Convert camelCase to kebab-case for CSS variables
                     const cssVar = `--${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`;
                     root.style.setProperty(cssVar, config[key]);
                 }
@@ -136,9 +137,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const isLandingPage = pathname === landingPageRoute;
 
     React.useEffect(() => {
-        if (!loading && !user && !isPublicPath) {
-            router.replace(landingPageRoute);
-        }
         if (!loading && user && (isPublicPath || isLandingPage)) {
             router.replace('/dashboard');
         }
@@ -146,7 +144,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     
     React.useEffect(() => {
       async function fetchLandingPageSettings() {
-        if (!user) { // Only fetch for logged-out users on landing page
+        if (!loading && !user) { // Only fetch for logged-out users
             try {
                 const settings = await getSettings();
                 setLandingPageSettings(settings.theme?.landingPage || defaultSettingsData.theme.landingPage);
@@ -156,30 +154,35 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
             }
         }
       }
-      if(isLandingPage) {
+      if(!user) { // Fetch settings if there's no user, regardless of path
         fetchLandingPageSettings();
       }
-    }, [isLandingPage, user]);
+    }, [loading, user]);
 
-    if (loading || (isLandingPage && !landingPageSettings)) {
+    if (loading || (!user && !isPublicPath && !landingPageSettings)) {
         return <Preloader />;
     }
 
     if (!user) {
-        if (isLandingPage && landingPageSettings) {
-            return (
+        if (isPublicPath) {
+             return (
+                <>
+                    <TopLoader />
+                    {children}
+                </>
+            );
+        }
+        // If not a public path and no user, show landing page
+        if(landingPageSettings) {
+             return (
                  <>
                     <TopLoader />
                     <LandingPage settings={landingPageSettings} />
                  </>
             );
         }
-        return (
-            <>
-                <TopLoader />
-                {children}
-            </>
-        );
+        // Fallback preloader while settings load
+        return <Preloader />;
     }
     
     return <AppLayout>{children}</AppLayout>;
