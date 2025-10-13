@@ -85,6 +85,8 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
             return fullUser;
         }
         
+        // This part is for potential client-side login which is not fully implemented.
+        // It checks if the decoded token has an `isClient` flag.
         if (decodedClaims.isClient) {
              const client = await getClientById(decodedClaims.uid);
              if (client) return { ...client, isClient: true };
@@ -95,7 +97,8 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
         return null;
 
     } catch (error) {
-        console.warn("Session verification failed, logging out user.", error);
+        // This will catch verification errors (expired, invalid)
+        console.warn("Session verification failed, session is likely invalid. Clearing cookie.", error);
         cookies().delete('session');
         return null;
     }
