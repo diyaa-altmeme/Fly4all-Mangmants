@@ -1,3 +1,4 @@
+
 import type { AppSettings, RelationSection, LandingPageSettings, CurrencySettings, VoucherSettings, InvoiceSequenceSettings, ImportFieldSettings, ImportLogicSettings, CustomRelationField, SegmentSettings, PartnerShareSetting } from './types';
 
 export const defaultRelationSections: RelationSection[] = [
