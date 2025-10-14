@@ -15,7 +15,6 @@ import type { Client, Supplier, Box, VisaBookingEntry, Currency, User as Current
 import { addVisaBooking, updateVisaBooking } from '@/app/visas/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
@@ -255,3 +254,5 @@ export default function NewVisaForm({
       </form>
   );
 }
+
+    
