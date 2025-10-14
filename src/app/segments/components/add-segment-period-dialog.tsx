@@ -366,20 +366,18 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     </div>
                                     <div className="flex items-center justify-between mt-3">
                                         <CollapsibleTrigger asChild>
-                                            <Button type="button" variant="outline" size="sm" className="h-9">
+                                            <Button type="button" variant="outline" size="sm" className="h-10">
                                                 <Settings2 className="me-2 h-4 w-4"/>
                                                 إعدادات العمولة
                                             </Button>
                                         </CollapsibleTrigger>
-                                        <div className="flex items-center gap-4">
-                                            <FormField control={companyForm.control} name="currency" render={({ field }) => (
-                                                <FormItem className="w-28"><FormControl><Select onValueChange={field.onChange} value={field.value}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent>{(navData?.settings.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}</SelectContent></Select></FormControl></FormItem>
-                                            )}/>
+                                        <div className="flex items-end gap-4">
+                                            <div className="space-y-1.5"><Label className="font-bold">العملة</Label><FormField control={companyForm.control} name="currency" render={({ field }) => ( <Select onValueChange={field.onChange} value={field.value}><SelectTrigger className="h-10"><SelectValue /></SelectTrigger><SelectContent>{(navData?.settings.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}</SelectContent></Select> )}/></div>
                                             <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
-                                                <FormItem className="w-48">
-                                                    <Label>نسبة الأرباح لنا</Label>
+                                                <FormItem>
+                                                    <FormLabel className="font-bold">نسبة الأرباح لنا</FormLabel>
                                                     <div className="relative">
-                                                        <FormControl><NumericInput {...field} className="pe-7 text-center h-9" onValueChange={field.onChange}/></FormControl>
+                                                        <FormControl><NumericInput {...field} className="pe-7 text-center h-10" onValueChange={field.onChange}/></FormControl>
                                                         <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                                     </div>
                                                     <FormMessage />
@@ -462,3 +460,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
