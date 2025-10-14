@@ -99,7 +99,7 @@ export const getSubscriptionById = cache(async (id: string): Promise<Subscriptio
 });
 
 
-export async function addSubscription(subscriptionData: Omit<Subscription, 'id' | 'profit' | 'paidAmount' | 'status'> & { installments?: { dueDate: string, amount: number }[] }) {
+export async function addSubscription(subscriptionData: Omit<Subscription, 'id' | 'profit' | 'paidAmount' | 'status'> & { installments?: { dueDate: string, amount: number }[], deferredDueDate?: string }) {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     
@@ -115,7 +115,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         const profit = totalSale - totalPurchase;
         const newInvoiceNumber = await getNextVoucherNumber('SUB');
         
-        const { installments, ...coreSubscriptionData } = subscriptionData;
+        const { installments, deferredDueDate, ...coreSubscriptionData } = subscriptionData;
 
         const finalSubscriptionData: Omit<Subscription, 'id'> = {
             ...coreSubscriptionData,
@@ -132,19 +132,42 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         };
         batch.set(subscriptionRef, finalSubscriptionData);
 
-        // Generate installments based on form data
-        if (installments && installments.length > 0) {
-            installments.forEach(inst => {
-                const installmentRef = db.collection('subscription_installments').doc();
-                const installmentData: Omit<SubscriptionInstallment, 'id'> = {
-                    subscriptionId: subscriptionRef.id, clientName: finalSubscriptionData.clientName, serviceName: finalSubscriptionData.serviceName,
-                    amount: inst.amount, currency: finalSubscriptionData.currency, dueDate: inst.dueDate,
-                    status: 'Unpaid', paidAmount: 0, discount: 0,
-                };
-                batch.set(installmentRef, installmentData);
-            });
-        }
+        // Generate installments based on payment method
+        const installmentsToCreate: Omit<SubscriptionInstallment, 'id'>[] = [];
         
+        switch (subscriptionData.installmentMethod) {
+            case 'upfront':
+                installmentsToCreate.push({
+                    subscriptionId: subscriptionRef.id, clientName: finalSubscriptionData.clientName, serviceName: finalSubscriptionData.serviceName,
+                    amount: totalSale, currency: finalSubscriptionData.currency, dueDate: finalSubscriptionData.startDate,
+                    status: 'Unpaid', paidAmount: 0, discount: 0,
+                });
+                break;
+            case 'deferred':
+                 if (!deferredDueDate) throw new Error("Deferred due date is required for deferred payment method.");
+                installmentsToCreate.push({
+                    subscriptionId: subscriptionRef.id, clientName: finalSubscriptionData.clientName, serviceName: finalSubscriptionData.serviceName,
+                    amount: totalSale, currency: finalSubscriptionData.currency, dueDate: new Date(deferredDueDate).toISOString(),
+                    status: 'Unpaid', paidAmount: 0, discount: 0,
+                });
+                break;
+            case 'installments':
+                if (!installments || installments.length === 0) throw new Error("Installments data is required for installments payment method.");
+                installments.forEach(inst => {
+                    installmentsToCreate.push({
+                        subscriptionId: subscriptionRef.id, clientName: finalSubscriptionData.clientName, serviceName: finalSubscriptionData.serviceName,
+                        amount: inst.amount, currency: finalSubscriptionData.currency, dueDate: inst.dueDate,
+                        status: 'Unpaid', paidAmount: 0, discount: 0,
+                    });
+                });
+                break;
+        }
+
+        installmentsToCreate.forEach(instData => {
+            const installmentRef = db.collection('subscription_installments').doc();
+            batch.set(installmentRef, instData);
+        });
+
         // Create initial journal entry for the subscription sale
         const journalVoucherRef = db.collection('journal-vouchers').doc();
         
