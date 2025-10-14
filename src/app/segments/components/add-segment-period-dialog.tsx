@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2 } from 'lucide-react';
+import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,6 +30,10 @@ import { addSegmentEntries } from '@/app/segments/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NumericInput } from '@/components/ui/numeric-input';
+import { Label } from '@/components/ui/label';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Switch } from '@/components/ui/switch';
+
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -43,33 +47,37 @@ const companyEntrySchema = z.object({
   visas: z.coerce.number().int().nonnegative().default(0),
   hotels: z.coerce.number().int().nonnegative().default(0),
   groups: z.coerce.number().int().nonnegative().default(0),
-  ticketProfitPercentage: z.coerce.number().min(0).max(100).default(50),
-  visaProfitPercentage: z.coerce.number().min(0).max(100).default(100),
-  hotelProfitPercentage: z.coerce.number().min(0).max(100).default(100),
-  groupProfitPercentage: z.coerce.number().min(0).max(100).default(100),
+  
+  ticketProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
+  ticketProfitValue: z.coerce.number().min(0).default(50),
+  visaProfitType: z.enum(['percentage', 'fixed']).default('fixed'),
+  visaProfitValue: z.coerce.number().min(0).default(1),
+  hotelProfitType: z.enum(['percentage', 'fixed']).default('fixed'),
+  hotelProfitValue: z.coerce.number().min(0).default(1),
+  groupProfitType: z.enum(['percentage', 'fixed']).default('fixed'),
+  groupProfitValue: z.coerce.number().min(0).default(1),
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
 });
 
-const InputWithPercentage = ({ field, ...props }: { field: any } & React.ComponentProps<typeof Input>) => (
-    <div className="relative">
-      <Input type="number" {...field} className="pe-7" {...props} />
-      <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-    </div>
-);
 
 const PairedInput = ({
     form,
     name,
-    percentageName,
+    profitType,
+    profitValue,
     placeholder,
     borderColorClass
 }: {
     form: ReturnType<typeof useForm<CompanyEntryFormValues>>;
     name: keyof CompanyEntryFormValues;
-    percentageName: keyof CompanyEntryFormValues;
+    profitType: keyof CompanyEntryFormValues;
+    profitValue: keyof CompanyEntryFormValues;
     placeholder: string;
     borderColorClass: string;
-}) => (
+}) => {
+    const type = form.watch(profitType);
+
+    return (
     <div className="space-y-1">
         <div className={cn("flex rounded-lg border overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
             <FormField
@@ -84,21 +92,38 @@ const PairedInput = ({
                 )}
             />
              <CollapsibleContent asChild>
-                <FormField
-                    control={form.control}
-                    name={percentageName}
-                    render={({ field }) => (
-                         <FormItem className="w-20 border-r">
-                             <FormControl>
-                                <InputWithPercentage field={field} className="h-9 border-0 rounded-none text-center"/>
-                             </FormControl>
-                         </FormItem>
-                    )}
-                />
+                <div className="flex border-r">
+                    <FormField
+                        control={form.control}
+                        name={profitType}
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormControl>
+                                    <ToggleGroup type="single" variant="outline" value={field.value} onValueChange={field.onChange} className="h-9">
+                                        <ToggleGroupItem value="percentage" className="h-full rounded-none text-xs p-1.5"><Percent className="h-3 w-3" /></ToggleGroupItem>
+                                        <ToggleGroupItem value="fixed" className="h-full rounded-none text-xs p-1.5">$</ToggleGroupItem>
+                                    </ToggleGroup>
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name={profitValue}
+                        render={({ field }) => (
+                            <FormItem className="w-20">
+                                <FormControl>
+                                    <NumericInput {...field} className="h-9 border-0 rounded-none text-center" />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
+                </div>
             </CollapsibleContent>
         </div>
     </div>
 );
+};
 
 
 type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
@@ -145,10 +170,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             visas: 0,
             hotels: 0,
             groups: 0,
-            ticketProfitPercentage: 50,
-            visaProfitPercentage: 100,
-            hotelProfitPercentage: 100,
-            groupProfitPercentage: 100,
+            ticketProfitType: 'percentage',
+            ticketProfitValue: 50,
+            visaProfitType: 'fixed',
+            visaProfitValue: 1,
+            hotelProfitType: 'fixed',
+            hotelProfitValue: 1,
+            groupProfitType: 'fixed',
+            groupProfitValue: 1,
             alrawdatainSharePercentage: 50,
         }
     });
@@ -167,10 +196,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 visas: 0,
                 hotels: 0,
                 groups: 0,
-                ticketProfitPercentage: 50,
-                visaProfitPercentage: 100,
-                hotelProfitPercentage: 100,
-                groupProfitPercentage: 100,
+                ticketProfitType: 'percentage',
+                ticketProfitValue: 50,
+                visaProfitType: 'fixed',
+                visaProfitValue: 1,
+                hotelProfitType: 'fixed',
+                hotelProfitValue: 1,
+                groupProfitType: 'fixed',
+                groupProfitValue: 1,
                 alrawdatainSharePercentage: 50,
             });
             setPeriodEntries([]);
@@ -178,12 +211,25 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     }, [open, periodForm, companyForm]);
 
      const calculateShares = (data: CompanyEntryFormValues) => {
-        const { ticketProfitPercentage, visaProfitPercentage, hotelProfitPercentage, groupProfitPercentage, alrawdatainSharePercentage, ...rest } = data;
+        const { alrawdatainSharePercentage, ...rest } = data;
 
-        const ticketProfits = data.tickets * (ticketProfitPercentage / 100);
-        const visaProfits = data.visas * (visaProfitPercentage / 100);
-        const hotelProfits = data.hotels * (hotelProfitPercentage / 100);
-        const groupProfits = data.groups * (groupProfitPercentage / 100);
+        const ticketProfits = data.ticketProfitType === 'percentage'
+            ? data.tickets * (data.ticketProfitValue / 100)
+            : data.tickets * data.ticketProfitValue;
+            
+        const visaProfits = data.visaProfitType === 'percentage'
+            ? data.visas * (data.visaProfitValue / 100)
+            : data.visas * data.visaProfitValue;
+            
+        const hotelProfits = data.hotelProfitType === 'percentage'
+            ? data.hotels * (data.hotelProfitValue / 100)
+            : data.hotels * data.hotelProfitValue;
+
+        const groupProfits = data.groupProfitType === 'percentage'
+            ? data.groups * (data.groupProfitValue / 100)
+            : data.groups * data.groupProfitValue;
+
+
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
         const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
@@ -196,26 +242,29 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             ...rest,
             companyName: client?.name || '',
             clientId: client?.id || '',
-            partnerId: selectedPartnerOption?.value.split('-')[1] || '',
+            partnerId: selectedPartnerOption?.value || '',
             partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
             total, 
             alrawdatainShare, 
             partnerShare,
-            // Store the settings used for this calculation
-            ticketProfitPercentage, visaProfitPercentage, hotelProfitPercentage, groupProfitPercentage, alrawdatainSharePercentage
+            alrawdatainSharePercentage
         };
     }
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data, company?.segmentSettings);
+        const newEntry = calculateShares(data);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
             clientId: '', partnerId: '', tickets: 0, visas: 0, hotels: 0, groups: 0,
-            ticketProfitPercentage: 50, visaProfitPercentage: 100, hotelProfitPercentage: 100, groupProfitPercentage: 100, alrawdatainSharePercentage: 50,
+            ticketProfitType: 'percentage', ticketProfitValue: 50,
+            visaProfitType: 'fixed', visaProfitValue: 1,
+            hotelProfitType: 'fixed', hotelProfitValue: 1,
+            groupProfitType: 'fixed', groupProfitValue: 1,
+            alrawdatainSharePercentage: 50,
         });
     };
 
@@ -296,10 +345,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     )}/>
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                     <PairedInput form={companyForm} name="tickets" percentageName="ticketProfitPercentage" placeholder="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" />
-                                     <PairedInput form={companyForm} name="visas" percentageName="visaProfitPercentage" placeholder="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" />
-                                     <PairedInput form={companyForm} name="hotels" percentageName="hotelProfitPercentage" placeholder="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" />
-                                     <PairedInput form={companyForm} name="groups" percentageName="groupProfitPercentage" placeholder="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" />
+                                     <PairedInput form={companyForm} name="tickets" profitType="ticketProfitType" profitValue="ticketProfitValue" placeholder="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" />
+                                     <PairedInput form={companyForm} name="visas" profitType="visaProfitType" profitValue="visaProfitValue" placeholder="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" />
+                                     <PairedInput form={companyForm} name="hotels" profitType="hotelProfitType" profitValue="hotelProfitValue" placeholder="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" />
+                                     <PairedInput form={companyForm} name="groups" profitType="groupProfitType" profitValue="groupProfitValue" placeholder="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" />
                                 </div>
 
                                 <div className="flex items-center justify-between">
@@ -313,7 +362,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                      <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
                                         <FormItem className="w-48">
                                             <div className="relative">
-                                                <FormControl><InputWithPercentage field={field} className="h-9" placeholder="حصة الروضتين"/></FormControl>
+                                                <FormControl><InputWithPercentage field={field} placeholder="حصة الروضتين"/></FormControl>
                                             </div>
                                             <FormMessage />
                                         </FormItem>
@@ -373,5 +422,4 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             </DialogContent>
         </Dialog>
     );
-
-    
+}
