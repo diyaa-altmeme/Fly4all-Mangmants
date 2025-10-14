@@ -32,6 +32,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useVoucherNav } from '@/context/voucher-nav-context';
+
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -100,31 +102,11 @@ const PairedInput = ({
                     render={({ field }) => (
                         <FormItem className="flex-grow">
                             <FormControl>
-                                <NumericInput {...field} placeholder="العدد" className="h-10 border-0 rounded-none text-center font-bold text-base" />
+                                <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center font-bold text-base" />
                             </FormControl>
                         </FormItem>
                     )}
                 />
-                 <CollapsibleContent asChild>
-                    <div className="flex border-r">
-                         <FormField
-                            control={control}
-                            name={profitValue}
-                            render={({ field }) => (
-                                <FormItem className="w-24">
-                                     <div className="relative">
-                                        <FormControl>
-                                            <NumericInput {...field} className="h-10 border-0 rounded-none text-center pe-6" />
-                                        </FormControl>
-                                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-bold">
-                                            {globalProfitType === 'percentage' ? '%' : '$'}
-                                        </span>
-                                    </div>
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                </CollapsibleContent>
             </div>
              <div className="relative">
                 <div className="flex items-center justify-center h-9 bg-muted/50 font-mono font-bold text-primary">
@@ -470,7 +452,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
                     <div className="flex justify-between w-full">
                         <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-                        <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto h-10">
+                        <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
                             {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                             حفظ بيانات الفترة ({periodEntries.length} سجلات)
                         </Button>
@@ -480,5 +462,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
