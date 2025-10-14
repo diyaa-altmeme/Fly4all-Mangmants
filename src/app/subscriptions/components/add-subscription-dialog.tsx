@@ -311,7 +311,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                                     </FormItem>
                                                     <FormItem>
                                                         <FormControl><RadioGroupItem value="installments" id="installments" className="sr-only peer" /></FormControl>
-                                                        <Label htmlFor="installments" className="flex h-10 items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground font-bold text-sm cursor-pointer">على شكل دفعات</Label>
+                                                        <Label htmlFor="installments" className="whitespace-nowrap flex h-10 items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground font-bold text-sm cursor-pointer">على شكل دفعات</Label>
                                                     </FormItem>
                                                 </RadioGroup>
                                             </FormControl>
