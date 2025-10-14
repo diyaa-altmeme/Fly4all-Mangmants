@@ -170,7 +170,7 @@ export default function NewVisaForm({
                 <Controller name="clientId" control={control} render={({ field }) => (<Autocomplete options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="اختر عميلاً..."/>)} />
                 {errors.clientId && <p className="text-sm text-destructive h-4">{errors.clientId.message}</p>}
             </div>
-            <div className="space-y-1"><Label htmlFor="submissionDate">تاريخ التقديم</Label><Controller name="submissionDate" control={control} render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )} />{errors.submissionDate && <p className="text-sm text-destructive h-4">{errors.submissionDate.message}</p>}</div>
+            <div className="space-y-1"><Label htmlFor="submissionDate">تاريخ التقديم</Label><Controller name="submissionDate" control={control} render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>{errors.submissionDate && <p className="text-sm text-destructive h-4">{errors.submissionDate.message}</p>}</div>
             <div className="space-y-1">
                 <Label htmlFor="currency">العملة</Label>
                 <Controller name="currency" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select>)} />
@@ -202,11 +202,11 @@ export default function NewVisaForm({
                   const currency = watch('currency');
                   return (
                   <TableRow key={field.id}>
-                    <TableCell className="p-1"><Input {...form.register(`passengers.${index}.name`)} placeholder="الاسم الكامل" /></TableCell>
-                    <TableCell className="p-1"><Input {...form.register(`passengers.${index}.passportNumber`)} placeholder="رقم الجواز" /></TableCell>
-                    <TableCell className="p-1"><Input {...form.register(`passengers.${index}.applicationNumber`)} placeholder="رقم الطلب" /></TableCell>
-                    <TableCell className="p-1"><Input {...form.register(`passengers.${index}.visaType`)} placeholder="مثال: سياحية 30 يوم" /></TableCell>
-                    <TableCell className="p-1"><Input {...form.register(`passengers.${index}.bk`)} placeholder="BK" /></TableCell>
+                    <TableCell className="p-1"><Input {...form.register(`passengers.${index}.name`)} /></TableCell>
+                    <TableCell className="p-1"><Input {...form.register(`passengers.${index}.passportNumber`)} /></TableCell>
+                    <TableCell className="p-1"><Input {...form.register(`passengers.${index}.applicationNumber`)} /></TableCell>
+                    <TableCell className="p-1"><Input {...form.register(`passengers.${index}.visaType`)} /></TableCell>
+                    <TableCell className="p-1"><Input {...form.register(`passengers.${index}.bk`)} /></TableCell>
                     <TableCell className="p-1"><Controller name={`passengers.${index}.purchasePrice`} control={control} render={({ field }) => <NumericInput currency={currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={field.onChange} />} /></TableCell>
                     <TableCell className="p-1"><Controller name={`passengers.${index}.salePrice`} control={control} render={({ field }) => <NumericInput currency={currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={field.onChange} />} /></TableCell>
                     <TableCell className="p-1">
@@ -234,13 +234,10 @@ export default function NewVisaForm({
             </Button>
           </div>
           <DialogFooter className="flex-row items-center justify-between sticky bottom-0 bg-background border-t p-2 -mx-6 -mb-6">
-            <div></div>
-            <div className="flex-grow">
-                 <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5"><User className="h-4 w-4 text-primary"/> <span>المستخدم: {currentUser?.name || '...'}</span></div>
-                     <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary"/> <span>الصندوق: {boxName}</span></div>
-                    <div className="flex items-center gap-1.5"><Hash className="h-4 w-4 text-primary"/> <span>رقم الفاتورة: (تلقائي)</span></div>
-                </div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5"><User className="h-4 w-4 text-primary"/> <span>{currentUser?.name || '...'}</span></div>
+                 <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary"/> <span>{boxName}</span></div>
+                <div className="flex items-center gap-1.5"><Hash className="h-4 w-4 text-primary"/> <span>رقم الفاتورة: (تلقائي)</span></div>
             </div>
             <div className="flex items-center gap-2">
                  <Button type="button" variant="ghost" onClick={() => form.reset()}>إلغاء</Button>
@@ -254,5 +251,3 @@ export default function NewVisaForm({
       </form>
   );
 }
-
-    
