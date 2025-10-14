@@ -1,11 +1,11 @@
 
 "use client";
 
-// import * as XLSX from "xlsx";
+import * as XLSX from "xlsx";
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useToast } from "@/hooks/use-toast";
-import { UploadCloud, File, CheckCircle, X } from "lucide-react";
+import { UploadCloud, File, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,30 +15,24 @@ export default function ImportUpload({ onDataReady }: { onDataReady: (data: any[
 
     const handleFile = useCallback((selectedFile: File) => {
         setFile(selectedFile);
-        toast({
-            title: "وظيفة معطلة",
-            description: "تم تعطيل استيراد ملفات Excel مؤقتًا بسبب ثغرة أمنية.",
-            variant: "destructive"
-        });
-        onDataReady([]);
-        // const reader = new FileReader();
-        // reader.onload = (event) => {
-        //     try {
-        //         const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        //         const workbook = XLSX.read(data, { type: "array" });
-        //         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        //         const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-        //         onDataReady(json);
-        //          toast({ title: `تم تحميل ${json.length} سجل بنجاح`, description: "انتقِل للخطوة التالية لربط الحقول." });
-        //     } catch (error) {
-        //         toast({
-        //             title: "خطأ في قراءة الملف",
-        //             description: "تعذر تحليل ملف Excel. الرجاء التأكد من أنه بالتنسيق الصحيح.",
-        //             variant: "destructive"
-        //         });
-        //     }
-        // };
-        // reader.readAsArrayBuffer(selectedFile);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = new Uint8Array(event.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: "array" });
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                onDataReady(json);
+                 toast({ title: `تم تحميل ${json.length} سجل بنجاح`, description: "انتقِل للخطوة التالية لربط الحقول." });
+            } catch (error) {
+                toast({
+                    title: "خطأ في قراءة الملف",
+                    description: "تعذر تحليل ملف Excel. الرجاء التأكد من أنه بالتنسيق الصحيح.",
+                    variant: "destructive"
+                });
+            }
+        };
+        reader.readAsArrayBuffer(selectedFile);
     }, [onDataReady, toast]);
 
     const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -54,7 +48,6 @@ export default function ImportUpload({ onDataReady }: { onDataReady: (data: any[
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
         },
         maxFiles: 1,
-        disabled: true
     });
     
     const removeFile = (e: React.MouseEvent) => {
@@ -67,15 +60,28 @@ export default function ImportUpload({ onDataReady }: { onDataReady: (data: any[
         <div 
             {...getRootProps()} 
             className={cn(
-                "border-2 border-dashed rounded-lg p-10 text-center cursor-not-allowed bg-muted/20 relative flex flex-col justify-center items-center h-64"
+                "border-2 border-dashed rounded-lg p-10 text-center cursor-pointer relative flex flex-col justify-center items-center h-64 hover:border-primary transition-colors",
+                isDragActive && "border-primary bg-primary/10"
             )}
         >
-            <input {...getInputProps()} />
-            <div className="flex flex-col items-center justify-center h-full">
-                <UploadCloud className="h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 font-semibold text-lg">تم تعطيل تحميل الملفات</h3>
-                <p className="mt-2 text-sm text-muted-foreground">هذه الميزة غير متاحة حاليا بسبب ثغرة أمنية.</p>
-            </div>
+            <input {...getInputProps()} id="excel-upload" />
+            {file ? (
+                <div className="flex flex-col items-center justify-center h-full">
+                    <CheckCircle className="h-12 w-12 text-green-500" />
+                    <p className="mt-4 font-semibold text-lg">تم تحميل الملف: {file.name}</p>
+                    <p className="text-sm text-muted-foreground">جاهز للانتقال للخطوة التالية.</p>
+                     <Button variant="ghost" size="sm" onClick={removeFile} className="mt-2 text-destructive hover:text-destructive">
+                        <X className="me-1 h-4 w-4" />
+                        إزالة الملف
+                    </Button>
+                </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <UploadCloud className="h-12 w-12" />
+                    <h3 className="mt-4 font-semibold text-lg">اسحب وأفلت ملف Excel هنا</h3>
+                    <p className="mt-2 text-sm">أو انقر لاختيار ملف من جهازك</p>
+                </div>
+            )}
         </div>
     );
 }
