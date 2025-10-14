@@ -15,6 +15,7 @@ import { Autocomplete } from '@/components/ui/autocomplete';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Switch } from '@/components/ui/switch';
 import { produce } from 'immer';
+import { Separator } from '../ui/separator';
 
 interface SubscriptionsSettingsProps {
     settings: AppSettings;
@@ -74,7 +75,6 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
         }));
     };
     
-
     const supplierOptions = React.useMemo(() => 
         (navData?.suppliers || []).map(s => ({ value: s.id, label: s.name })),
     [navData?.suppliers]);
@@ -112,7 +112,7 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-lg"><BellRing className="h-5 w-5"/>إشعارات وتذكيرات الأقساط</CardTitle>
-                        <CardDescription>إدارة التذكيرات التلقائية للأقساط.</CardDescription>
+                        <CardDescription>إدارة التذكيرات التلقائية للأقساط المستحقة والمتأخرة.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                          <div className="flex items-center justify-between rounded-lg border p-3">
@@ -137,12 +137,13 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
                                 <Button variant="outline" size="sm" onClick={addReminderDay}><PlusCircle className="me-2 h-4 w-4"/>إضافة يوم تذكير</Button>
                             </div>
                         </div>
-                         <div className="space-y-2 pt-3 border-t">
+                         <Separator />
+                         <div className="space-y-2">
                              <Label className="font-semibold flex items-center gap-2 text-sm"><AlertTriangle className="h-4 w-4"/>إشعارات التأخير</Label>
                              <div className="flex items-center gap-2">
                                  <span className="text-xs">إرسال إشعار تأخير بعد</span>
                                  <NumericInput className="w-20 h-8" value={subSettings.reminders?.notifyAfterOverdueDays} onValueChange={v => handleChange('reminders', {...subSettings.reminders, notifyAfterOverdueDays: v || 1})} />
-                                 <span className="text-xs">أيام</span>
+                                 <span className="text-xs">أيام من الاستحقاق</span>
                             </div>
                         </div>
                     </CardContent>
