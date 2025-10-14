@@ -363,8 +363,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
                                      <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
                                         <FormItem className="w-48">
+                                            <FormLabel>نسبة الأرباح لنا</FormLabel>
                                             <div className="relative">
-                                                <FormControl><NumericInput placeholder="حصة الروضتين" {...field} className="pe-7 text-center" onValueChange={field.onChange}/></FormControl>
+                                                <FormControl><NumericInput {...field} className="pe-7 text-center" onValueChange={field.onChange}/></FormControl>
                                                 <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                             </div>
                                             <FormMessage />
@@ -426,5 +427,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
