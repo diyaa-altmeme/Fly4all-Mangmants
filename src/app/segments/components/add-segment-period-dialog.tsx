@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -14,7 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins } from 'lucide-react';
+import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins, ChevronDown, BadgeCent } from 'lucide-react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -74,53 +73,70 @@ const PairedInput = ({
     label: string;
     borderColorClass: string;
 }) => {
-    const type = form.watch(profitType);
+    const { control, watch } = form;
+    const count = watch(name) as number || 0;
+    const type = watch(profitType) as 'percentage' | 'fixed';
+    const value = watch(profitValue) as number || 0;
+    
+    const result = useMemo(() => {
+        if (type === 'percentage') {
+            return count * (value / 100);
+        }
+        return count * value;
+    }, [count, type, value]);
+
 
     return (
     <div className="space-y-1.5">
         <Label className="font-semibold">{label}</Label>
         <Collapsible asChild>
-            <div className={cn("flex rounded-lg border overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
-                <FormField
-                    control={form.control}
-                    name={name}
-                    render={({ field }) => (
-                        <FormItem className="flex-grow">
-                            <FormControl>
-                                <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center" />
-                            </FormControl>
-                        </FormItem>
-                    )}
-                />
-                <CollapsibleContent asChild>
-                    <div className="flex border-r">
-                        <FormField
-                            control={form.control}
-                            name={profitType}
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormControl>
-                                        <ToggleGroup type="single" variant="outline" value={field.value} onValueChange={field.onChange} className="h-9">
-                                            <ToggleGroupItem value="percentage" className="h-full rounded-none text-xs p-1.5"><Percent className="h-3 w-3" /></ToggleGroupItem>
-                                            <ToggleGroupItem value="fixed" className="h-full rounded-none text-xs p-1.5">$</ToggleGroupItem>
-                                        </ToggleGroup>
-                                    </FormControl>
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name={profitValue}
-                            render={({ field }) => (
-                                <FormItem className="w-20">
-                                    <FormControl>
-                                        <NumericInput {...field} className="h-9 border-0 rounded-none text-center" />
-                                    </FormControl>
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                </CollapsibleContent>
+            <div className={cn("flex flex-col rounded-lg border overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
+                 <div className="flex">
+                    <FormField
+                        control={control}
+                        name={name}
+                        render={({ field }) => (
+                            <FormItem className="flex-grow">
+                                <FormControl>
+                                    <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center" />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
+                    <CollapsibleContent asChild>
+                        <div className="flex border-r">
+                            <FormField
+                                control={control}
+                                name={profitType}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormControl>
+                                            <ToggleGroup type="single" variant="outline" value={field.value} onValueChange={field.onChange} className="h-9">
+                                                <ToggleGroupItem value="percentage" className="h-full rounded-none text-xs p-1.5"><Percent className="h-3 w-3" /></ToggleGroupItem>
+                                                <ToggleGroupItem value="fixed" className="h-full rounded-none text-xs p-1.5">$</ToggleGroupItem>
+                                            </ToggleGroup>
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={control}
+                                name={profitValue}
+                                render={({ field }) => (
+                                    <FormItem className="w-20">
+                                        <FormControl>
+                                            <NumericInput {...field} className="h-9 border-0 rounded-none text-center" />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    </CollapsibleContent>
+                 </div>
+                  <div className="relative">
+                    <Input readOnly disabled value={result.toFixed(2)} className="h-8 text-center border-0 rounded-none bg-muted/50 font-mono font-bold text-primary" />
+                    <Label className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">الناتج</Label>
+                 </div>
             </div>
         </Collapsible>
     </div>
@@ -346,10 +362,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <FormField control={companyForm.control} name="clientId" render={({ field }) => (
-                                        <FormItem><FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="الشركة المصدرة للسكمنت"/></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>الشركة المصدرة للسكمنت</FormLabel><FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شركة..."/></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={companyForm.control} name="partnerId" render={({ field }) => (
-                                        <FormItem><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="الشريك"/></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شريك..."/></FormControl><FormMessage /></FormItem>
                                     )}/>
                                 </div>
                                 <Collapsible>
@@ -411,9 +427,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <TableRow key={index}>
                                             <TableCell className="font-semibold">{entry.companyName}</TableCell>
                                             <TableCell>{entry.partnerName}</TableCell>
-                                            <TableCell className="font-mono">{entry.total.toFixed(2)} {entry.currency}</TableCell>
-                                            <TableCell className="font-mono text-green-600">{entry.alrawdatainShare.toFixed(2)} {entry.currency}</TableCell>
-                                            <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)} {entry.currency}</TableCell>
+                                            <TableCell className="font-mono">{entry.total.toFixed(2)}</TableCell>
+                                            <TableCell className="font-mono text-green-600">{entry.alrawdatainShare.toFixed(2)}</TableCell>
+                                            <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)}</TableCell>
                                             <TableCell className='text-center'>
                                                 <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button>
                                             </TableCell>
@@ -438,3 +454,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
