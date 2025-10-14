@@ -58,7 +58,6 @@ const InputWithPercentage = ({ field, ...props }: { field: any } & React.Compone
     </div>
 );
 
-
 const PairedInput = ({
     form,
     name,
@@ -198,7 +197,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             ...rest,
             companyName: client?.name || '',
             clientId: client?.id || '',
-            partnerId: selectedPartnerOption?.value || '',
+            partnerId: selectedPartnerOption?.value.split('-')[1] || '',
             partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
@@ -224,7 +223,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const removeEntry = (index: number) => {
         setPeriodEntries(prev => prev.filter((_, i) => i !== index));
     }
-    
+
     const handleSavePeriod = async () => {
         const periodData = await periodForm.trigger() ? periodForm.getValues() : null;
         if (!periodData || !periodData.fromDate || !periodData.toDate) {
@@ -272,8 +271,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </DialogHeader>
                 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                     <div className="p-4 border rounded-lg bg-background/50">
-                        <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
+                    <div className="p-4 border rounded-lg bg-background/50">
                         <Form {...periodForm}>
                             <form className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
@@ -286,8 +284,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         </Form>
                     </div>
 
-                     <div className="p-4 border rounded-lg">
-                        <h3 className="font-semibold text-base mb-2">إضافة شركة</h3>
+                    <div className="p-4 border rounded-lg">
                         <Form {...companyForm}>
                            <Collapsible asChild>
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
@@ -378,3 +375,4 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
