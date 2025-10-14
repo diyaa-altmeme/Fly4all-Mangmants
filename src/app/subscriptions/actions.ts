@@ -99,7 +99,7 @@ export const getSubscriptionById = cache(async (id: string): Promise<Subscriptio
 });
 
 
-export async function addSubscription(subscriptionData: Omit<Subscription, 'id' | 'profit' | 'paidAmount' | 'status'>) {
+export async function addSubscription(subscriptionData: Omit<Subscription, 'id' | 'profit' | 'paidAmount' | 'status'> & { installments?: { dueDate: string, amount: number }[] }) {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     
@@ -115,11 +115,12 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         const profit = totalSale - totalPurchase;
         const newInvoiceNumber = await getNextVoucherNumber('SUB');
         
+        const { installments, ...coreSubscriptionData } = subscriptionData;
+
         const finalSubscriptionData: Omit<Subscription, 'id'> = {
-            ...subscriptionData,
+            ...coreSubscriptionData,
             purchaseDate: new Date(subscriptionData.purchaseDate).toISOString(),
             startDate: new Date(subscriptionData.startDate).toISOString(),
-            deferredDueDate: subscriptionData.deferredDueDate ? new Date(subscriptionData.deferredDueDate).toISOString() : undefined,
             invoiceNumber: newInvoiceNumber,
             purchasePrice: totalPurchase,
             salePrice: totalSale,
@@ -131,50 +132,18 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         };
         batch.set(subscriptionRef, finalSubscriptionData);
 
-        // Generate installments based on payment method
-        const startDate = new Date(finalSubscriptionData.startDate);
-        const totalInstallments = finalSubscriptionData.numberOfInstallments || 1;
-
-        if (finalSubscriptionData.installmentMethod === 'installments') {
-            const installmentAmount = parseFloat((totalSale / totalInstallments).toFixed(2));
-            const totalCalculated = installmentAmount * totalInstallments;
-            const remainder = parseFloat((totalSale - totalCalculated).toFixed(2));
-
-            for (let i = 0; i < totalInstallments; i++) {
+        // Generate installments based on form data
+        if (installments && installments.length > 0) {
+            installments.forEach(inst => {
                 const installmentRef = db.collection('subscription_installments').doc();
-                const dueDate = addMonths(startDate, i);
-                
-                let currentInstallmentAmount = installmentAmount;
-                if (i === totalInstallments - 1) {
-                    currentInstallmentAmount += remainder;
-                }
-
                 const installmentData: Omit<SubscriptionInstallment, 'id'> = {
                     subscriptionId: subscriptionRef.id, clientName: finalSubscriptionData.clientName, serviceName: finalSubscriptionData.serviceName,
-                    amount: parseFloat(currentInstallmentAmount.toFixed(2)), currency: finalSubscriptionData.currency, dueDate: dueDate.toISOString(),
+                    amount: inst.amount, currency: finalSubscriptionData.currency, dueDate: inst.dueDate,
                     status: 'Unpaid', paidAmount: 0, discount: 0,
                 };
                 batch.set(installmentRef, installmentData);
-            }
-        } else if (finalSubscriptionData.installmentMethod === 'upfront') {
-            const installmentRef = db.collection('subscription_installments').doc();
-            const installmentData: Omit<SubscriptionInstallment, 'id'> = {
-                subscriptionId: subscriptionRef.id, clientName: finalSubscriptionData.clientName, serviceName: finalSubscriptionData.serviceName,
-                amount: totalSale, currency: finalSubscriptionData.currency, dueDate: startDate.toISOString(),
-                status: 'Unpaid', paidAmount: 0, discount: 0,
-            };
-            batch.set(installmentRef, installmentData);
-        } else if (finalSubscriptionData.installmentMethod === 'deferred') {
-            const installmentRef = db.collection('subscription_installments').doc();
-            const dueDate = finalSubscriptionData.deferredDueDate ? new Date(finalSubscriptionData.deferredDueDate) : endOfDay(addMonths(startDate, totalInstallments));
-            const installmentData: Omit<SubscriptionInstallment, 'id'> = {
-                subscriptionId: subscriptionRef.id, clientName: finalSubscriptionData.clientName, serviceName: finalSubscriptionData.serviceName,
-                amount: totalSale, currency: finalSubscriptionData.currency, dueDate: dueDate.toISOString(),
-                status: 'Unpaid', paidAmount: 0, discount: 0,
-            };
-            batch.set(installmentRef, installmentData);
+            });
         }
-        
         
         // Create initial journal entry for the subscription sale
         const journalVoucherRef = db.collection('journal-vouchers').doc();
@@ -697,5 +666,3 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
-
-    
