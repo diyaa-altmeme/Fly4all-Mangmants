@@ -311,7 +311,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                             <div className="flex items-center gap-4">
                                                 <div className="space-y-1.5 w-48">
                                                     <Label>عدد الدفعات</Label>
-                                                    <Input type="number" value={numInstallments} onChange={(e) => setNumInstallments(Number(e.target.value) || 0)} min={1}/>
+                                                    <NumericInput value={numInstallments} onValueChange={(v) => setNumInstallments(v || 0)} min={1}/>
                                                 </div>
                                                 <Button type="button" onClick={handleGenerateInstallments} className="mt-6">توليد الأقساط</Button>
                                             </div>
@@ -369,3 +369,4 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
   );
 }
 
+    
