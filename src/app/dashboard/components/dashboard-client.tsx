@@ -75,10 +75,10 @@ const WelcomeCard = () => {
                     </div>
                 </div>
                 <div className="mt-8 md:mt-0 floating-element">
-                    <Image src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=300&q=80" 
+                    <Image src="/logo.png" 
                          width={256}
                          height={256}
-                         className="w-48 h-48 md:w-64 md:h-64 object-contain" alt="رسمة لوحة تحكم" />
+                         className="w-48 h-48 md:w-64 md:h-64 object-contain" alt="شعار المشروع" />
                 </div>
             </div>
         </div>
