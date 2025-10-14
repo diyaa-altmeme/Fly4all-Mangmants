@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -5,9 +6,23 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import type { Currency } from "@/lib/types";
 
+// A robust function to parse different decimal and thousands formats
+const parseNumericValue = (value: string): number | undefined => {
+    if (typeof value !== 'string' || value.trim() === '') return undefined;
+    // Standardize decimal separator to a period and remove thousands separators
+    const sanitized = value
+        .replace(/,/g, '.')
+        .replace(/\s/g, '')
+        .replace(/(?<=\..*)\./g, ''); // Remove all but first decimal point
+
+    const num = parseFloat(sanitized);
+    return isNaN(num) ? undefined : num;
+};
+
+
 interface NumericInputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> {
-  value?: number | string;
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value" | "type"> {
+  value?: number | string | null;
   onValueChange?: (value: number | undefined) => void;
   allowNegative?: boolean;
   currency?: Currency;
@@ -18,83 +33,46 @@ interface NumericInputProps
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
   ({ value, onValueChange, className, allowNegative = false, currency, currencyClassName, direction = 'rtl', ...props }, ref) => {
     
-    const [isFocused, setIsFocused] = React.useState(false);
-    const [internalString, setInternalString] = React.useState<string>("");
+    const [internalValue, setInternalValue] = React.useState<string>(String(value ?? ''));
 
-    // Helper to format number string with thousand separators
-    const formatValue = (val: string | number | undefined | null): string => {
-        if (val === undefined || val === null || val === '') return '';
-        const num = Number(val);
-        if (isNaN(num)) return '';
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-        }).format(num);
-    };
-    
-    // When the external value changes, update the internal state
+    // When the external value prop changes, update the internal state
     React.useEffect(() => {
-        const formatted = String(value ?? '');
-        setInternalString(formatted);
+        setInternalValue(String(value ?? ''));
     }, [value]);
 
-
-    const parseAndSanitize = (val: string): string => {
-        // Allow only numbers, one decimal point, and optionally a negative sign
-        let sanitized = val.replace(/[^0-9.-]/g, '');
-        
-        // Ensure only one decimal point
-        const parts = sanitized.split('.');
-        if (parts.length > 2) {
-            sanitized = parts[0] + '.' + parts.slice(1).join('');
-        }
-
-        // Handle negative sign
-        if (!allowNegative) {
-            sanitized = sanitized.replace(/-/g, '');
-        } else if (sanitized.lastIndexOf('-') > 0) {
-            sanitized = `-${sanitized.replace(/-/g, '')}`;
-        }
-        
-        return sanitized;
-    }
-    
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const sanitized = parseAndSanitize(e.target.value);
-        setInternalString(sanitized);
+      const val = e.target.value;
+      // Allow user to type freely, including decimals and negative signs
+      setInternalValue(val);
 
-        if (onValueChange) {
-            const numValue = parseFloat(sanitized);
-            if (!isNaN(numValue)) {
-                onValueChange(numValue);
-            } else if (sanitized === '' || (sanitized === '-' && allowNegative)) {
-                onValueChange(undefined);
-            }
-        }
+      if (onValueChange) {
+        const numericVal = parseNumericValue(val);
+        onValueChange(numericVal);
+      }
     };
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-        setIsFocused(false);
-        const numValue = parseFloat(internalString);
-        if (!isNaN(numValue)) {
-            // No need to set internal string to formatted value, let displayValue handle it.
-            if(onValueChange) onValueChange(numValue);
-        } else {
-            if(onValueChange) onValueChange(undefined);
-            setInternalString(""); // Clear if not a valid number
-        }
-        props.onBlur?.(e);
+      const numericVal = parseNumericValue(internalValue);
+      if (numericVal !== undefined) {
+        // On blur, format the internal value for display, but keep the raw number for the form state
+        setInternalValue(String(numericVal));
+      } else {
+        setInternalValue('');
+      }
+      props.onBlur?.(e);
     };
 
-    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-        setIsFocused(true);
-        // When focusing, the internal string is already the raw, unformatted value.
-        props.onFocus?.(e);
-    };
+    const displayValue = () => {
+       const numericVal = parseNumericValue(internalValue);
+       if (numericVal !== undefined) {
+         return new Intl.NumberFormat('en-US', {
+           minimumFractionDigits: 0,
+           maximumFractionDigits: 4, // Allow up to 4 decimal places for precision
+         }).format(numericVal);
+       }
+       return internalValue; // Show raw input while typing or if invalid
+    }
     
-    // Determine what to display: raw input while focused, formatted value otherwise.
-    const displayValue = isFocused ? internalString : formatValue(internalString);
-
     if (currency) {
       return (
         <div className={cn("relative flex items-center w-full", className)}>
@@ -107,10 +85,9 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
               "z-10 text-right w-full",
               direction === 'rtl' ? "rounded-l-none rounded-r-lg border-l-0" : "rounded-r-none rounded-l-lg border-r-0"
             )}
-            value={displayValue}
+            value={internalValue}
             onChange={handleChange}
             onBlur={handleBlur}
-            onFocus={handleFocus}
             {...props}
           />
            <div className={cn(
@@ -131,10 +108,9 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         inputMode="decimal"
         placeholder="0.00"
         className={cn("text-right", className)}
-        value={displayValue}
+        value={internalValue}
         onChange={handleChange}
         onBlur={handleBlur}
-        onFocus={handleFocus}
         {...props}
       />
     );
