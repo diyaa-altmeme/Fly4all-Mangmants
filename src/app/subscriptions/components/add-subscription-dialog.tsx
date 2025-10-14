@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,9 +17,9 @@ import { useToast } from "@/hooks/use-toast";
 import type { Currency, Client, Supplier, Subscription, User, Box } from '@/lib/types';
 import { Loader2, Calendar as CalendarIcon, PlusCircle, User as UserIcon, Hash, Wallet, ArrowLeft, ArrowRight, X, Building, Store, Settings2, Save, Trash2 } from 'lucide-react';
 import { addSubscription as addSubscriptionAction } from '@/app/subscriptions/actions';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from 'next/navigation';
 import { Autocomplete } from '@/components/ui/autocomplete';
@@ -95,7 +95,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
     resolver: zodResolver(formSchema),
   });
 
-  const { control, handleSubmit, watch, setValue, formState: { errors }, trigger } = form;
+  const { control, handleSubmit, watch, setValue, formState: { errors }, trigger, reset: resetForm } = form;
   const { fields, append, remove, replace } = useFieldArray({ control, name: "installments" });
 
   useEffect(() => {
@@ -152,7 +152,6 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
         return { dueDate, amount: installmentAmount };
       });
       
-      // Adjust last installment for rounding differences
       const totalGenerated = newInstallments.reduce((sum, inst) => sum + inst.amount, 0);
       const difference = totalSale - totalGenerated;
       if (newInstallments.length > 0) {
@@ -269,10 +268,10 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                 )}/>
                                 <div className="grid grid-cols-2 gap-4">
                                      <FormField control={control} name="supplierId" render={({ field }) => (
-                                        <FormItem><FormLabel>المورد</FormLabel><FormControl><Autocomplete searchAction="suppliers" value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..."/></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>المورد</FormLabel><FormControl><Autocomplete searchAction="suppliers" options={supplierOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..."/></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={control} name="clientId" render={({ field }) => (
-                                        <FormItem><FormLabel>العميل</FormLabel><FormControl><Autocomplete searchAction="clients" value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>العميل</FormLabel><FormControl><Autocomplete searchAction="clients" options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                 </div>
                             </Section>
@@ -369,3 +368,4 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
     </Dialog>
   );
 }
+
