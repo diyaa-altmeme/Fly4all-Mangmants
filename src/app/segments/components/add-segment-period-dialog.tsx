@@ -15,7 +15,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins, ChevronDown, BadgeCent, DollarSign } from 'lucide-react';
 import { z } from 'zod';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, FormProvider, useFormContext, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -43,10 +43,10 @@ const companyEntrySchema = z.object({
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   partnerId: z.string().min(1, { message: "اسم الشريك مطلوب." }),
   currency: z.enum(['USD', 'IQD']),
-  tickets: z.coerce.number().int().nonnegative().default(0),
-  visas: z.coerce.number().int().nonnegative().default(0),
-  hotels: z.coerce.number().int().nonnegative().default(0),
-  groups: z.coerce.number().int().nonnegative().default(0),
+  tickets: z.coerce.number().nonnegative().default(0),
+  visas: z.coerce.number().nonnegative().default(0),
+  hotels: z.coerce.number().nonnegative().default(0),
+  groups: z.coerce.number().nonnegative().default(0),
   
   ticketProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
   ticketProfitValue: z.coerce.number().min(0).default(50),
@@ -58,7 +58,6 @@ const companyEntrySchema = z.object({
   groupProfitValue: z.coerce.number().min(0).default(100),
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
 });
-
 
 const PairedInput = ({
     form,
@@ -173,7 +172,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     }, [clients, suppliers]);
 
     const defaultCurrency = navData?.settings?.currencySettings?.defaultCurrency || 'USD';
-
+  
     const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
     const companyForm = useForm<CompanyEntryFormValues>({ 
         resolver: zodResolver(companyEntrySchema),
@@ -259,7 +258,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             ...rest,
             companyName: client?.name || '',
             clientId: client?.id || '',
-            partnerId: selectedPartnerOption?.value.split('-')[1] || '',
+            partnerId: selectedPartnerOption?.value || '',
             partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
@@ -387,14 +386,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                 إعدادات العمولة
                                             </Button>
                                         </CollapsibleTrigger>
-                                        <div className="flex items-center gap-4">
+                                        <div className={cn("flex items-center gap-4 transition-opacity", !isCommissionSettingsOpen && "opacity-0 pointer-events-none")}>
                                             <div className="flex items-center gap-2">
                                                 <Label className="font-bold">نوع العمولة للكل</Label>
-                                                <Select
-                                                    disabled={!isCommissionSettingsOpen}
-                                                    onValueChange={handleGlobalProfitTypeChange}
-                                                    defaultValue="percentage"
-                                                >
+                                                <Select onValueChange={handleGlobalProfitTypeChange} defaultValue="percentage">
                                                     <SelectTrigger className="w-[150px] h-10"><SelectValue /></SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="percentage">نسبة مئوية (%)</SelectItem>
