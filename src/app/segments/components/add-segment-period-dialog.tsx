@@ -61,20 +61,21 @@ const PairedInput = ({
     name,
     profitType,
     profitValue,
-    placeholder,
+    label,
     borderColorClass
 }: {
     form: ReturnType<typeof useForm<CompanyEntryFormValues>>;
     name: keyof CompanyEntryFormValues;
     profitType: keyof CompanyEntryFormValues;
     profitValue: keyof CompanyEntryFormValues;
-    placeholder: string;
+    label: string;
     borderColorClass: string;
 }) => {
     const type = form.watch(profitType);
 
     return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
+        <Label className="font-semibold">{label}</Label>
         <div className={cn("flex rounded-lg border overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
             <FormField
                 control={form.control}
@@ -82,7 +83,7 @@ const PairedInput = ({
                 render={({ field }) => (
                     <FormItem className="flex-grow">
                         <FormControl>
-                            <NumericInput {...field} placeholder={placeholder} className="h-9 border-0 rounded-none text-center" />
+                            <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center" />
                         </FormControl>
                     </FormItem>
                 )}
@@ -257,10 +258,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
             clientId: '', partnerId: '', tickets: 0, visas: 0, hotels: 0, groups: 0,
-            ticketProfitType: 'percentage', ticketProfitValue: 50,
-            visaProfitType: 'fixed', visaProfitValue: 1,
-            hotelProfitType: 'fixed', hotelProfitValue: 1,
-            groupProfitType: 'fixed', groupProfitValue: 1,
+            ticketProfitType: 'percentage',
+            ticketProfitValue: 50,
+            visaProfitType: 'fixed',
+            visaProfitValue: 1,
+            hotelProfitType: 'fixed',
+            hotelProfitValue: 1,
+            groupProfitType: 'fixed',
+            groupProfitValue: 1,
             alrawdatainSharePercentage: 50,
         });
     };
@@ -342,10 +347,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     )}/>
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                     <PairedInput form={companyForm} name="tickets" profitType="ticketProfitType" profitValue="ticketProfitValue" placeholder="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" />
-                                     <PairedInput form={companyForm} name="visas" profitType="visaProfitType" profitValue="visaProfitValue" placeholder="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" />
-                                     <PairedInput form={companyForm} name="hotels" profitType="hotelProfitType" profitValue="hotelProfitValue" placeholder="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" />
-                                     <PairedInput form={companyForm} name="groups" profitType="groupProfitType" profitValue="groupProfitValue" placeholder="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" />
+                                     <PairedInput form={companyForm} name="tickets" profitType="ticketProfitType" profitValue="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" />
+                                     <PairedInput form={companyForm} name="visas" profitType="visaProfitType" profitValue="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" />
+                                     <PairedInput form={companyForm} name="hotels" profitType="hotelProfitType" profitValue="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" />
+                                     <PairedInput form={companyForm} name="groups" profitType="groupProfitType" profitValue="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" />
                                 </div>
 
                                 <div className="flex items-center justify-between">
@@ -421,3 +426,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
