@@ -31,7 +31,6 @@ import { Autocomplete } from '@/components/ui/autocomplete';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Separator } from '@/components/ui/separator';
 
@@ -51,12 +50,12 @@ const companyEntrySchema = z.object({
   
   ticketProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
   ticketProfitValue: z.coerce.number().min(0).default(50),
-  visaProfitType: z.enum(['percentage', 'fixed']).default('fixed'),
-  visaProfitValue: z.coerce.number().min(0).default(1),
-  hotelProfitType: z.enum(['percentage', 'fixed']).default('fixed'),
-  hotelProfitValue: z.coerce.number().min(0).default(1),
-  groupProfitType: z.enum(['percentage', 'fixed']).default('fixed'),
-  groupProfitValue: z.coerce.number().min(0).default(1),
+  visaProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
+  visaProfitValue: z.coerce.number().min(0).default(100),
+  hotelProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
+  hotelProfitValue: z.coerce.number().min(0).default(100),
+  groupProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
+  groupProfitValue: z.coerce.number().min(0).default(100),
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
 });
 
@@ -78,7 +77,7 @@ const PairedInput = ({
     borderColorClass: string;
     currency: Currency;
 }) => {
-    const { control, watch, setValue } = form;
+    const { control, watch } = form;
     const count = watch(name) as number || 0;
     const profitType = watch(profitTypeField);
     const profitValue = watch(profitValueField) as number || 0;
@@ -93,69 +92,48 @@ const PairedInput = ({
     const Icon = profitType === 'percentage' ? Percent : DollarSign;
 
     return (
-    <div className="space-y-1.5">
-        <Label className="font-semibold text-sm text-center block">{label}</Label>
-        <div className={cn("flex flex-col rounded-lg border-2 overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
-            <div className="flex">
+        <div className="space-y-1.5">
+            <Label className="font-semibold text-sm text-center block">{label}</Label>
+            <div className={cn("flex flex-col rounded-lg border-2 overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
                 <FormField
                     control={control}
                     name={name}
                     render={({ field }) => (
-                        <FormItem className="flex-grow">
+                        <FormItem>
                             <FormControl>
                                 <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center font-bold text-base" />
                             </FormControl>
                         </FormItem>
                     )}
                 />
+                 <div className="relative">
+                    <div className="flex items-center justify-center h-9 bg-muted/50 font-mono font-bold text-primary">
+                        {result.toFixed(2)}
+                         <span className="text-xs ms-1">{currency}</span>
+                    </div>
+                    <Label className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">الناتج</Label>
+                 </div>
+                 <CollapsibleContent asChild>
+                    <div className="p-2 bg-muted/70 border-t flex items-center gap-2">
+                        <FormField
+                            control={control}
+                            name={profitValueField}
+                            render={({ field }) => (
+                                <FormItem className="flex-grow">
+                                    <FormControl>
+                                       <div className="relative">
+                                         <NumericInput {...field} placeholder="القيمة" className="h-8 pe-8 text-center" />
+                                         <Icon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                       </div>
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </CollapsibleContent>
             </div>
-             <div className="relative">
-                <div className="flex items-center justify-center h-9 bg-muted/50 font-mono font-bold text-primary">
-                    {result.toFixed(2)}
-                     <span className="text-xs ms-1">{currency}</span>
-                </div>
-                <Label className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">الناتج</Label>
-             </div>
-             <CollapsibleContent asChild>
-                <div className="p-2 bg-muted/70 border-t flex items-center gap-2">
-                    <FormField
-                        control={control}
-                        name={profitTypeField}
-                        render={({ field }) => (
-                            <FormItem className="w-20">
-                                <FormControl>
-                                    <Select value={field.value} onValueChange={field.onChange}>
-                                        <SelectTrigger className="h-8">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="percentage">%</SelectItem>
-                                            <SelectItem value="fixed">$</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={control}
-                        name={profitValueField}
-                        render={({ field }) => (
-                            <FormItem className="flex-grow">
-                                <FormControl>
-                                   <div className="relative">
-                                     <NumericInput {...field} placeholder="القيمة" className="h-8 pe-8 text-center" />
-                                     <Icon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                   </div>
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                </div>
-            </CollapsibleContent>
         </div>
-    </div>
-);
+    );
 };
 
 
@@ -174,6 +152,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const [isSaving, setIsSaving] = useState(false);
     
     const [periodEntries, setPeriodEntries] = useState<Omit<SegmentEntry, 'id' | 'fromDate' | 'toDate'>[]>([]);
+    const [isCommissionSettingsOpen, setIsCommissionSettingsOpen] = useState(false);
     const { data: navData } = useVoucherNav();
     
     const allCompanyOptions = useMemo(() => {
@@ -280,7 +259,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             ...rest,
             companyName: client?.name || '',
             clientId: client?.id || '',
-            partnerId: selectedPartnerOption?.value || '',
+            partnerId: selectedPartnerOption?.value.split('-')[1] || '',
             partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
@@ -346,6 +325,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             setIsSaving(false);
         }
     };
+    
+    const handleGlobalProfitTypeChange = (value: 'percentage' | 'fixed') => {
+        companyForm.setValue('ticketProfitType', value);
+        companyForm.setValue('visaProfitType', value);
+        companyForm.setValue('hotelProfitType', value);
+        companyForm.setValue('groupProfitType', value);
+    };
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -387,7 +373,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <FormItem><FormLabel>الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شريك..."/></FormControl><FormMessage /></FormItem>
                                     )}/>
                                 </div>
-                                <Collapsible>
+                                <Collapsible open={isCommissionSettingsOpen} onOpenChange={setIsCommissionSettingsOpen}>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                         <PairedInput form={companyForm} name="tickets" profitTypeField="ticketProfitType" profitValueField="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" currency={companyForm.watch('currency')} />
                                         <PairedInput form={companyForm} name="visas" profitTypeField="visaProfitType" profitValueField="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" currency={companyForm.watch('currency')} />
@@ -402,10 +388,26 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             </Button>
                                         </CollapsibleTrigger>
                                         <div className="flex items-center gap-4">
-                                             <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <Label className="font-bold">نوع العمولة للكل</Label>
+                                                <Select
+                                                    disabled={!isCommissionSettingsOpen}
+                                                    onValueChange={handleGlobalProfitTypeChange}
+                                                    defaultValue="percentage"
+                                                >
+                                                    <SelectTrigger className="w-[150px] h-10"><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="percentage">نسبة مئوية (%)</SelectItem>
+                                                        <SelectItem value="fixed">مبلغ ثابت ($)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <Separator orientation="vertical" className="h-6" />
+                                            <div className="flex items-center gap-2">
                                                 <Label className="font-bold">العملة</Label>
                                                 <FormField control={companyForm.control} name="currency" render={({ field }) => ( <Select onValueChange={field.onChange} value={field.value}><SelectTrigger className="h-10"><SelectValue /></SelectTrigger><SelectContent>{(navData?.settings.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}</SelectContent></Select> )}/>
                                             </div>
+                                            <Separator orientation="vertical" className="h-6" />
                                             <div className="flex items-center gap-2">
                                                 <Label className="font-bold whitespace-nowrap">نسبة الأرباح لنا</Label>
                                                 <div className="relative w-28">
