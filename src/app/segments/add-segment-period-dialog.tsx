@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -28,7 +29,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { addSegmentEntries } from '@/app/segments/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
 
-
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
@@ -37,10 +37,7 @@ const periodSchema = z.object({
 const companyEntrySchema = z.object({
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   partnerId: z.string().min(1, { message: "اسم الشريك مطلوب." }),
-  tickets: z.coerce.number().int().nonnegative().default(0),
-  visas: z.coerce.number().int().nonnegative().default(0),
-  hotels: z.coerce.number().int().nonnegative().default(0),
-  groups: z.coerce.number().int().nonnegative().default(0),
+  totalProfit: z.coerce.number().min(0).default(0),
 });
 
 type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
@@ -81,6 +78,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
     const companyForm = useForm<CompanyEntryFormValues>({ 
         resolver: zodResolver(companyEntrySchema),
+        defaultValues: {
+            clientId: '',
+            partnerId: '',
+            totalProfit: 0,
+        }
     });
 
     const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
@@ -89,15 +91,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     useEffect(() => {
         if (open) {
-            // Reset everything when dialog opens
              periodForm.reset({});
              companyForm.reset({
                 clientId: '',
                 partnerId: '',
-                tickets: 0,
-                visas: 0,
-                hotels: 0,
-                groups: 0,
+                totalProfit: 0,
             });
             setPeriodEntries([]);
             setStep(1);
@@ -105,18 +103,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     }, [open, periodForm, companyForm]);
 
      const calculateShares = (data: CompanyEntryFormValues, companySettings?: SegmentSettings) => {
-        const effectiveSettings: SegmentSettings = companySettings || {
-            ticketProfitPercentage: 50, visaProfitPercentage: 100, hotelProfitPercentage: 100,
-            groupProfitPercentage: 100, alrawdatainSharePercentage: 50,
-        };
-
-        const ticketProfits = data.tickets * (effectiveSettings.ticketProfitPercentage / 100);
-        const visaProfits = data.visas * (effectiveSettings.visaProfitPercentage / 100);
-        const hotelProfits = data.hotels * (effectiveSettings.hotelProfitPercentage / 100);
-        const groupProfits = data.groups * (effectiveSettings.groupProfitPercentage / 100);
-        const otherProfits = visaProfits + hotelProfits + groupProfits;
-        const total = ticketProfits + otherProfits;
-        const alrawdatainShare = total * (effectiveSettings.alrawdatainSharePercentage / 100);
+        const total = data.totalProfit || 0;
+        
+        const effectiveSettings = companySettings || { alrawdatainSharePercentage: 50 };
+        const alrawdatainSharePercentage = effectiveSettings.alrawdatainSharePercentage || 50;
+        
+        const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
         
         const client = clients.find(c => c.id === data.clientId);
@@ -129,8 +121,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             clientId: client?.id || '',
             partnerId: selectedPartnerOption?.value || '',
             partnerName: selectedPartnerOption?.label || '',
-            ticketProfits, 
-            otherProfits, 
             total, 
             alrawdatainShare, 
             partnerShare 
@@ -142,7 +132,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const newEntry = calculateShares(data, company?.segmentSettings);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
-        companyForm.reset({ clientId: '', partnerId: '', tickets: 0, visas: 0, hotels: 0, groups: 0 });
+        companyForm.reset({ clientId: '', partnerId: '', totalProfit: 0 });
     };
 
     const removeEntry = (index: number) => {
@@ -223,16 +213,15 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 <Form {...companyForm}>
                                     <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                             <FormField control={companyForm.control} name="clientId" render={({ field }) => (
+                                            <FormField control={companyForm.control} name="clientId" render={({ field }) => (
                                                 <FormItem><FormLabel>الشركة المصدرة للسكمنت</FormLabel><FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شركة..."/></FormControl><FormMessage /></FormItem>
                                             )}/>
                                             <FormField control={companyForm.control} name="partnerId" render={({ field }) => (
                                                 <FormItem><FormLabel>الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شريك..."/></FormControl><FormMessage /></FormItem>
                                             )}/>
-                                            <FormField control={companyForm.control} name="tickets" render={({ field }) => (<FormItem><FormLabel>التذاكر</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={companyForm.control} name="visas" render={({ field }) => (<FormItem><FormLabel>الفيزا</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={companyForm.control} name="hotels" render={({ field }) => (<FormItem><FormLabel>الفنادق</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={companyForm.control} name="groups" render={({ field }) => (<FormItem><FormLabel>الكروبات</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            <div className="sm:col-span-2">
+                                                <FormField control={companyForm.control} name="totalProfit" render={({ field }) => (<FormItem><FormLabel>إجمالي الربح</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            </div>
                                         </div>
                                         <div className='flex justify-end'>
                                             <Button type="submit"><PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة</Button>
@@ -248,7 +237,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             <TableRow>
                                                 <TableHead>الشركة</TableHead>
                                                 <TableHead>الشريك</TableHead>
-                                                <TableHead>المجموع</TableHead>
+                                                <TableHead>إجمالي الربح</TableHead>
                                                 <TableHead>حصة الروضتين</TableHead>
                                                 <TableHead>حصة الشريك</TableHead>
                                                 <TableHead className='w-[60px] text-center'>حذف</TableHead>
