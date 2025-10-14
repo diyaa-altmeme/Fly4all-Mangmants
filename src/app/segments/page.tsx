@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -8,7 +9,7 @@ import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
 import { getClients } from '@/app/relations/actions';
 import { getSuppliers } from '@/app/suppliers/actions';
-import AddSegmentPeriodDialog from './add-segment-period-dialog';
+import AddSegmentPeriodDialog from './components/add-segment-period-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,8 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import SegmentDetailsTable from '@/components/segments/segment-details-table';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
-import EditSegmentPeriodDialog from '@/components/segments/edit-segment-period-dialog';
-import SegmentSettingsDialog from '@/components/segments/segment-settings-dialog';
+import EditSegmentPeriodDialog from '@/app/segments/components/edit-segment-period-dialog';
 import { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon } from 'lucide-react';
@@ -38,6 +38,7 @@ const StatCard = ({ title, value }: { title: string, value: string }) => (
 
 const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period: any, index: number, clients: Client[], suppliers: Supplier[], onDataChange: () => void }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const { toast } = useToast();
 
     const handleDeletePeriod = async (fromDate: string, toDate: string) => {
         await deleteSegmentPeriod(fromDate, toDate);
@@ -46,7 +47,7 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
 
     return (
         <Collapsible asChild key={`${period.fromDate}_${period.toDate}`} open={isOpen} onOpenChange={setIsOpen}>
-            <tbody className="border-t">
+             <tbody className="border-t">
                 <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
                     <TableCell className="p-1 text-center">
                        <CollapsibleTrigger asChild>
@@ -207,7 +208,6 @@ export default function SegmentsPage() {
                             </CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
-                             <SegmentSettingsDialog clients={clients} onSettingsSaved={fetchData} />
                              <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={fetchData} />
                         </div>
                     </div>
@@ -235,7 +235,7 @@ export default function SegmentsPage() {
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
-                                <CalendarUI initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
+                                <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
                             </PopoverContent>
                         </Popover>
                          <Button onClick={() => { setSearchTerm(''); setDate(undefined); }} variant="ghost" className={!searchTerm && !date ? 'hidden' : ''}>مسح</Button>
