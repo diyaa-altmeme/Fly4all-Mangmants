@@ -30,8 +30,8 @@ const passengerSchema = z.object({
   applicationNumber: z.string().optional(),
   visaType: z.string().min(1, "نوع الفيزا مطلوب"),
   bk: z.string().optional(),
-  purchasePrice: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val >= 0),
-  salePrice: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val >= 0),
+  purchasePrice: z.coerce.number().min(0, "سعر الشراء يجب أن يكون 0 أو أكثر."),
+  salePrice: z.coerce.number().min(0, "سعر البيع يجب أن يكون 0 أو أكثر."),
 });
 
 const bookingSchema = z.object({
@@ -94,7 +94,6 @@ export default function InlineNewVisaForm({ onBookingAdded, onCancel }: InlineNe
 
   const onSubmit = async (data: BookingFormValues) => {
     const actionToast = toast({ title: "جاري إضافة طلب الفيزا..." });
-    onBookingAdded(data as any); // Optimistic update
     
     try {
       const newBookingPayload: Omit<VisaBookingEntry, 'id' | 'enteredBy' | 'enteredAt' | 'isEntered' | 'isAudited'> = {
@@ -103,7 +102,7 @@ export default function InlineNewVisaForm({ onBookingAdded, onCancel }: InlineNe
         clientId: data.clientId,
         boxId: data.boxId,
         currency: data.currency,
-        submissionDate: format(data.submissionDate, 'yyyy-MM-dd hh:mm a'),
+        submissionDate: data.submissionDate.toISOString(),
         notes: data.notes || '', 
         passengers: data.passengers.map((p) => ({
           id: `temp-${Math.random()}`,
@@ -121,6 +120,7 @@ export default function InlineNewVisaForm({ onBookingAdded, onCancel }: InlineNe
       
       if (result.success && result.newBooking) {
         actionToast.update({ id: actionToast.id, title: "تمت الإضافة بنجاح" });
+        onBookingAdded(result.newBooking);
         form.reset();
       } else {
           throw new Error(result.error);
@@ -180,8 +180,8 @@ export default function InlineNewVisaForm({ onBookingAdded, onCancel }: InlineNe
                                     <TableCell className="p-1"><Input {...register(`passengers.${index}.applicationNumber`)} placeholder="رقم الطلب" className="font-bold" /></TableCell>
                                     <TableCell className="p-1"><Input {...register(`passengers.${index}.visaType`)} placeholder="مثال: سياحية 30 يوم" className="font-bold" /></TableCell>
                                     <TableCell className="p-1"><Input {...register(`passengers.${index}.bk`)} placeholder="BK" className="font-bold" /></TableCell>
-                                    <TableCell className="p-1"><Controller name={`passengers.${index}.purchasePrice`} control={control} render={({ field }) => <NumericInput currency={currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={field.onChange} />} /></TableCell>
-                                    <TableCell className="p-1"><Controller name={`passengers.${index}.salePrice`} control={control} render={({ field }) => <NumericInput currency={currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={field.onChange} />} /></TableCell>
+                                    <TableCell className="p-1"><Controller name={`passengers.${index}.purchasePrice`} control={control} render={({ field }) => <NumericInput currency={currency as Currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={field.onChange} />} /></TableCell>
+                                    <TableCell className="p-1"><Controller name={`passengers.${index}.salePrice`} control={control} render={({ field }) => <NumericInput currency={currency as Currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={field.onChange} />} /></TableCell>
                                     <TableCell className="p-1">
                                     <Button variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 1}>
                                         <Trash2 className="h-4 w-4 text-destructive" />

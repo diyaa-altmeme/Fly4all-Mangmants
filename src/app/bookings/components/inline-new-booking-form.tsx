@@ -84,7 +84,7 @@ export default function InlineNewBookingForm({ onBookingAdded, onCancel }: Inlin
   const airportOptions = React.useMemo(() => 
     AIRPORTS.map(airport => ({
         value: airport.code,
-        label: `${''}${airport.arabicName} (${''}${airport.code})`,
+        label: `${airport.arabicName} (${airport.code})`,
         arabicName: airport.arabicName,
         city: airport.city,
         country: airport.country,
@@ -263,8 +263,8 @@ export default function InlineNewBookingForm({ onBookingAdded, onCancel }: Inlin
                                             <TableCell className="p-1"><FormField name={`passengers.${index}.name`} control={control} render={({field}) => <FormItem><FormControl><Input {...field} placeholder="الاسم الكامل" /></FormControl><FormMessage/></FormItem>} /></TableCell>
                                             <TableCell className="p-1"><FormField name={`passengers.${index}.passportNumber`} control={control} render={({field}) => <FormItem><FormControl><Input {...field} placeholder="رقم الجواز" /></FormControl><FormMessage/></FormItem>} /></TableCell>
                                             <TableCell className="p-1"><FormField name={`passengers.${index}.ticketNumber`} control={control} render={({field}) => <FormItem><FormControl><Input {...field} placeholder="رقم التذكرة" /></FormControl><FormMessage/></FormItem>} /></TableCell>
-                                            <TableCell className="p-1"><FormField name={`passengers.${index}.purchasePrice`} control={control} render={({field}) => <FormItem><FormControl><NumericInput currency={currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={field.onChange}/></FormControl><FormMessage/></FormItem>} /></TableCell>
-                                            <TableCell className="p-1"><FormField name={`passengers.${index}.salePrice`} control={control} render={({field}) => <FormItem><FormControl><NumericInput currency={currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={field.onChange}/></FormControl><FormMessage/></FormItem>} /></TableCell>
+                                            <TableCell className="p-1"><FormField name={`passengers.${index}.purchasePrice`} control={control} render={({field}) => <FormItem><FormControl><NumericInput currency={currency as Currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={field.onChange}/></FormControl><FormMessage/></FormItem>} /></TableCell>
+                                            <TableCell className="p-1"><FormField name={`passengers.${index}.salePrice`} control={control} render={({field}) => <FormItem><FormControl><NumericInput currency={currency as Currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={field.onChange}/></FormControl><FormMessage/></FormItem>} /></TableCell>
                                             <TableCell className="p-1"><FormField name={`passengers.${index}.passengerType`} control={control} render={({ field }) => (
                                                 <FormItem>
                                                     <FormControl>
