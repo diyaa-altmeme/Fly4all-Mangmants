@@ -108,16 +108,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     </div>
 
                     <div className="flex items-center space-x-4 space-x-reverse">
-                         <GlobalSearch />
                         <NotificationCenter />
-                         <div className="relative">
-                            <Button asChild variant="ghost" size="icon" className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative group">
-                                <Link href="/chat">
-                                    <MessageSquare className="text-xl" />
-                                     {unreadChatCount > 0 && <span className="notification-badge ping-element">{unreadChatCount}</span>}
-                                </Link>
-                            </Button>
-                        </div>
                         <UserNav />
                     </div>
                 </div>
