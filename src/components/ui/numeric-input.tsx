@@ -20,25 +20,38 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
   ({ value, onValueChange, className, allowNegative = false, currency, currencyClassName, direction = 'rtl', ...props }, ref) => {
     
     const [isFocused, setIsFocused] = React.useState(false);
-    const [localValue, setLocalValue] = React.useState<string>(() => {
-      const numValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
-      return (numValue === undefined || numValue === null || isNaN(numValue)) ? '' : String(numValue);
-    });
-
+    
+    const formatValue = (num: number | string | undefined | null): string => {
+        if (num === undefined || num === null || num === '') return '';
+        const numberValue = typeof num === 'string' ? parseFloat(num.replace(/,/g, '')) : num;
+        if (isNaN(numberValue)) return '';
+        return new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 20, // Allow many decimal places
+        }).format(numberValue);
+    };
+    
+    const parseValue = (str: string): number | undefined => {
+        if (str === '') return undefined;
+        const cleaned = str.replace(/,/g, '');
+        const numberValue = parseFloat(cleaned);
+        return isNaN(numberValue) ? undefined : numberValue;
+    };
+    
+    // Internal state to hold the raw string value for editing
+    const [internalString, setInternalString] = React.useState<string>(
+      value === undefined || value === null ? '' : String(value)
+    );
+    
+    // Sync with external value prop
     React.useEffect(() => {
-        const numValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
-        const newValueStr = (numValue === undefined || numValue === null || isNaN(numValue)) ? '' : String(numValue);
-        if (newValueStr !== localValue) {
-             setLocalValue(newValueStr);
+        const stringValue = value === undefined || value === null ? '' : String(value);
+        if (parseFloat(stringValue) !== parseFloat(internalString)) {
+            setInternalString(stringValue);
         }
     }, [value]);
-    
-    const displayValue = React.useMemo(() => {
-      if (isFocused) return localValue;
-      const numValue = parseFloat(localValue);
-      if (isNaN(numValue) || numValue === 0) return '';
-      return new Intl.NumberFormat('en-US').format(numValue);
-    }, [localValue, isFocused]);
+
+    const displayValue = isFocused ? internalString : formatValue(internalString);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       let inputValue = e.target.value;
@@ -55,25 +68,27 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         numericValStr = `-${numericValStr.replace(/-/g, '')}`;
       }
       
-      setLocalValue(numericValStr);
+      setInternalString(numericValStr);
 
       if (onValueChange) {
-        if (numericValStr === '' || numericValStr === '-') {
-             onValueChange(undefined);
-        } else {
-            const parsed = parseFloat(numericValStr);
-            onValueChange(isNaN(parsed) ? undefined : parsed);
-        }
+        onValueChange(parseValue(numericValStr));
       }
     };
     
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
         setIsFocused(false);
+        const parsed = parseValue(internalString);
+        if (onValueChange) {
+            onValueChange(parsed);
+        }
         props.onBlur?.(e);
     }
     
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
          setIsFocused(true);
+         // When focusing, set the internal state to be the non-formatted number string
+         const numValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+         setInternalString(numValue === undefined || numValue === null || isNaN(numValue) ? '' : String(numValue));
          props.onFocus?.(e);
     }
 
@@ -125,5 +140,3 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 NumericInput.displayName = "NumericInput";
 
 export { NumericInput };
-
-  
