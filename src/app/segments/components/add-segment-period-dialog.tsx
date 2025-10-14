@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins, ChevronDown, BadgeCent } from 'lucide-react';
+import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins, ChevronDown, BadgeCent, DollarSign } from 'lucide-react';
 import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -33,6 +33,7 @@ import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useVoucherNav } from '@/context/voucher-nav-context';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 
 const periodSchema = z.object({
@@ -60,36 +61,37 @@ const companyEntrySchema = z.object({
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
 });
 
+
 const PairedInput = ({
     form,
     name,
-    profitType,
-    profitValue,
+    profitTypeField,
+    profitValueField,
     label,
     borderColorClass,
-    globalProfitType,
     currency
 }: {
     form: ReturnType<typeof useForm<CompanyEntryFormValues>>;
     name: keyof CompanyEntryFormValues;
-    profitType: keyof CompanyEntryFormValues;
-    profitValue: keyof CompanyEntryFormValues;
+    profitTypeField: keyof CompanyEntryFormValues;
+    profitValueField: keyof CompanyEntryFormValues;
     label: string;
     borderColorClass: string;
-    globalProfitType: 'percentage' | 'fixed';
     currency: Currency;
 }) => {
-    const { control, watch } = form;
+    const { control, watch, setValue } = form;
     const count = watch(name) as number || 0;
-    const value = watch(profitValue) as number || 0;
+    const profitType = watch(profitTypeField) as 'percentage' | 'fixed';
+    const profitValue = watch(profitValueField) as number || 0;
     
     const result = useMemo(() => {
-        if (globalProfitType === 'percentage') {
-            return count * (value / 100);
+        if (profitType === 'percentage') {
+            return count * (profitValue / 100);
         }
-        return count * value;
-    }, [count, globalProfitType, value]);
-
+        return count * profitValue;
+    }, [count, profitType, profitValue]);
+    
+    const Icon = profitType === 'percentage' ? Percent : DollarSign;
 
     return (
     <div className="space-y-1.5">
@@ -115,6 +117,36 @@ const PairedInput = ({
                 </div>
                 <Label className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">الناتج</Label>
              </div>
+             <CollapsibleContent asChild>
+                <div className="p-2 bg-muted/70 border-t flex items-center gap-2">
+                    <FormField
+                        control={control}
+                        name={profitValueField}
+                        render={({ field }) => (
+                            <FormItem className="flex-grow">
+                                <FormControl>
+                                   <div className="relative">
+                                     <NumericInput {...field} placeholder="القيمة" className="h-8 pe-8 text-center" />
+                                     <Icon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                   </div>
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
+                    <ToggleGroup 
+                        type="single" 
+                        value={profitType}
+                        onValueChange={(value: 'percentage' | 'fixed') => { if (value) setValue(profitTypeField, value) }}
+                    >
+                        <ToggleGroupItem value="percentage" className="h-8 w-8 p-0" variant="outline" data-state={profitType === 'percentage' ? 'on' : 'off'}>
+                            <Percent className="h-4 w-4" />
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="fixed" className="h-8 w-8 p-0" variant="outline" data-state={profitType === 'fixed' ? 'on' : 'off'}>
+                            <DollarSign className="h-4 w-4" />
+                        </ToggleGroupItem>
+                    </ToggleGroup>
+                </div>
+            </CollapsibleContent>
         </div>
     </div>
 );
@@ -182,15 +214,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
     const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
-    
-    const [globalProfitType, setGlobalProfitType] = useState<'percentage' | 'fixed'>('percentage');
-
-    useEffect(() => {
-        companyForm.setValue('ticketProfitType', globalProfitType);
-        companyForm.setValue('visaProfitType', globalProfitType);
-        companyForm.setValue('hotelProfitType', globalProfitType);
-        companyForm.setValue('groupProfitType', globalProfitType);
-    }, [globalProfitType, companyForm]);
 
 
     useEffect(() => {
@@ -269,14 +292,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
             clientId: '', partnerId: '', currency: defaultCurrency as Currency, tickets: 0, visas: 0, hotels: 0, groups: 0,
-            ticketProfitType: 'percentage',
-            ticketProfitValue: 50,
-            visaProfitType: 'fixed',
-            visaProfitValue: 1,
-            hotelProfitType: 'fixed',
-            hotelProfitValue: 1,
-            groupProfitType: 'fixed',
-            groupProfitValue: 1,
+            ticketProfitType: 'percentage', ticketProfitValue: 50,
+            visaProfitType: 'fixed', visaProfitValue: 1,
+            hotelProfitType: 'fixed', hotelProfitValue: 1,
+            groupProfitType: 'fixed', groupProfitValue: 1,
             alrawdatainSharePercentage: 50,
         });
     };
@@ -359,10 +378,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 </div>
                                 <Collapsible>
                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                        <PairedInput form={companyForm} name="tickets" profitType="ticketProfitType" profitValue="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" globalProfitType={globalProfitType} currency={companyForm.watch('currency')} />
-                                        <PairedInput form={companyForm} name="visas" profitType="visaProfitType" profitValue="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" globalProfitType={globalProfitType} currency={companyForm.watch('currency')} />
-                                        <PairedInput form={companyForm} name="hotels" profitType="hotelProfitType" profitValue="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" globalProfitType={globalProfitType} currency={companyForm.watch('currency')} />
-                                        <PairedInput form={companyForm} name="groups" profitType="groupProfitType" profitValue="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" globalProfitType={globalProfitType} currency={companyForm.watch('currency')} />
+                                        <PairedInput form={companyForm} name="tickets" profitTypeField="ticketProfitType" profitValueField="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" currency={companyForm.watch('currency')} />
+                                        <PairedInput form={companyForm} name="visas" profitTypeField="visaProfitType" profitValueField="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" currency={companyForm.watch('currency')} />
+                                        <PairedInput form={companyForm} name="hotels" profitTypeField="hotelProfitType" profitValueField="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" currency={companyForm.watch('currency')} />
+                                        <PairedInput form={companyForm} name="groups" profitTypeField="groupProfitType" profitValueField="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" currency={companyForm.watch('currency')} />
                                     </div>
                                     <div className="flex items-center justify-between mt-3">
                                         <CollapsibleTrigger asChild>
@@ -385,25 +404,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             )}/>
                                         </div>
                                     </div>
-                                     <CollapsibleContent asChild>
-                                        <div className="mt-4 p-3 border rounded-md bg-muted/50">
-                                            <Label className="font-semibold text-sm">نوع العمولة (يطبق على الكل)</Label>
-                                            <RadioGroup
-                                                value={globalProfitType}
-                                                onValueChange={(v: 'percentage' | 'fixed') => setGlobalProfitType(v)}
-                                                className="grid grid-cols-2 gap-2 mt-2"
-                                            >
-                                                <Label className={cn("p-2 text-center border rounded-md cursor-pointer", globalProfitType === 'percentage' && "bg-primary text-primary-foreground border-primary")}>
-                                                    <RadioGroupItem value="percentage" className="sr-only" />
-                                                    نسبة مئوية (%)
-                                                </Label>
-                                                <Label className={cn("p-2 text-center border rounded-md cursor-pointer", globalProfitType === 'fixed' && "bg-primary text-primary-foreground border-primary")}>
-                                                    <RadioGroupItem value="fixed" className="sr-only" />
-                                                    مبلغ ثابت ($)
-                                                </Label>
-                                            </RadioGroup>
-                                        </div>
-                                    </CollapsibleContent>
                                 </Collapsible>
                                 <div className='flex justify-end pt-4 border-t mt-4'>
                                     <Button type="submit" className="h-10"><PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة</Button>
@@ -461,4 +461,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     );
 }
 
-    
