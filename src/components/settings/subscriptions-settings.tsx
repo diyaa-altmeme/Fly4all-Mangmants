@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -21,6 +20,26 @@ interface SubscriptionsSettingsProps {
   settings: AppSettings;
   onSettingsChanged: () => void;
 }
+
+const SettingsCard = ({ title, description, icon: Icon, children, className }: { title: string, description: string, icon: React.ElementType, children: React.ReactNode, className?: string }) => (
+    <Card className={cn("flex flex-col", className)}>
+        <CardHeader>
+            <div className="flex items-center gap-3">
+                <div className="p-3 bg-muted rounded-full">
+                    <Icon className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                    <CardTitle>{title}</CardTitle>
+                    <CardDescription>{description}</CardDescription>
+                </div>
+            </div>
+        </CardHeader>
+        <CardContent className="flex-grow space-y-4">
+            {children}
+        </CardContent>
+    </Card>
+);
+
 
 export default function SubscriptionsSettings({ settings: initialSettings, onSettingsChanged }: SubscriptionsSettingsProps) {
   const [subSettings, setSubSettings] = useState<Partial<SubscriptionSettings>>(initialSettings?.subscriptionSettings || {});
@@ -107,15 +126,10 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg"><Settings className="h-5 w-5"/>الإعدادات الافتراضية</CardTitle>
-                <CardDescription>لتسريع عملية إضافة اشتراك جديد.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+        <SettingsCard title="الإعدادات الافتراضية" description="لتسريع عملية إضافة اشتراك جديد." icon={Settings}>
+            <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label className="font-bold">المورد الافتراضي</Label>
+                  <Label className="font-semibold">المورد الافتراضي</Label>
                   <Autocomplete 
                     options={supplierOptions} 
                     value={subSettings.defaultSupplier || ''}
@@ -125,36 +139,27 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                    <Label className="font-bold">الكمية الافتراضية</Label>
+                    <Label className="font-semibold">الكمية الافتراضية</Label>
                     <NumericInput value={subSettings.defaultQuantity} onValueChange={(v) => handleChange('defaultQuantity', v || 1)} aria-label="Default quantity" />
                     {errors.defaultQuantity && <p className="text-xs text-destructive">{errors.defaultQuantity}</p>}
                     </div>
                     <div className="space-y-1.5">
-                    <Label className="font-bold">عدد الأقساط الافتراضي</Label>
+                    <Label className="font-semibold">عدد الأقساط الافتراضي</Label>
                     <NumericInput value={subSettings.defaultInstallments} onValueChange={(v) => handleChange('defaultInstallments', v || 12)} aria-label="Default installments" />
                     {errors.defaultInstallments && <p className="text-xs text-destructive">{errors.defaultInstallments}</p>}
                     </div>
                 </div>
               </div>
-            </CardContent>
-        </Card>
+        </SettingsCard>
 
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle className="flex items-center gap-2 text-lg"><BellRing className="h-5 w-5"/>إشعارات وتذكيرات الأقساط</CardTitle>
-                        <CardDescription>إدارة التذكيرات التلقائية للأقساط.</CardDescription>
-                    </div>
-                     <div className="flex items-center space-x-2 space-x-reverse">
-                        <Switch id="reminders-enabled" checked={subSettings.reminders?.enabled} onCheckedChange={(c) => handleChange('reminders', {...subSettings.reminders, enabled: c})} />
-                        <Label htmlFor="reminders-enabled" className="font-semibold text-sm">تفعيل</Label>
-                    </div>
+        <SettingsCard title="إشعارات وتذكيرات الأقساط" description="إدارة التذكيرات التلقائية للأقساط." icon={BellRing}>
+            <div className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                    <Label htmlFor="reminders-enabled" className="font-semibold">تفعيل الإشعارات التلقائية</Label>
+                    <Switch id="reminders-enabled" checked={subSettings.reminders?.enabled} onCheckedChange={(c) => handleChange('reminders', {...subSettings.reminders, enabled: c})} />
                 </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
                 <div className="space-y-3 p-3 border rounded-lg">
-                    <Label className="font-semibold flex items-center gap-2 text-sm"><Clock className="h-4 w-4"/>توقيتات التذكير</Label>
+                    <Label className="font-semibold flex items-center gap-2"><Clock className="h-4 w-4"/>توقيتات التذكير</Label>
                     <div className="flex items-center gap-2">
                         <Label htmlFor="sendTime" className="text-xs shrink-0">وقت الإرسال:</Label>
                         <Input id="sendTime" type="time" value={subSettings.reminders?.sendTime || '09:00'} onChange={e => handleChange('reminders', {...subSettings.reminders, sendTime: e.target.value})} className="h-8"/>
@@ -168,58 +173,52 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeReminderDay(index)}><Trash2 className="h-4 w-4" /></Button>
                             </div>
                         ))}
-                        <Button variant="outline" size="sm" onClick={() => addReminderDay(1)}><PlusCircle className="me-2 h-4 w-4"/>إضافة يوم تذكير</Button>
+                        <Button variant="outline" size="sm" onClick={() => addReminderDay(1)}><PlusCircle className="me-2 h-4 w-4"/>إضافة يوم</Button>
                         {errors.reminders && <p className="text-xs text-destructive">{errors.reminders}</p>}
                     </div>
                 </div>
                  <div className="space-y-3 p-3 border rounded-lg">
-                     <Label className="font-semibold flex items-center gap-2 text-sm"><AlertTriangle className="h-4 w-4"/>إشعارات التأخير</Label>
+                     <Label className="font-semibold flex items-center gap-2"><AlertTriangle className="h-4 w-4"/>إشعارات التأخير</Label>
                      <div className="flex items-center gap-2">
                          <span className="text-xs">إرسال إشعار تأخير بعد</span>
                          <NumericInput className="w-20 h-8" value={subSettings.reminders?.notifyAfterOverdueDays} onValueChange={v => handleChange('reminders', {...subSettings.reminders, notifyAfterOverdueDays: v || 1})} />
                          <span className="text-xs">أيام من الاستحقاق</span>
                     </div>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </SettingsCard>
       </div>
 
-       <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg"><Banknote className="h-5 w-5"/>الإعدادات المحاسبية</CardTitle>
-                <CardDescription>تحديد حسابات الربط مع شجرة الحسابات.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div className="space-y-1.5">
-                        <Label className="font-bold">حساب إيراد الاشتراكات</Label>
-                         <Autocomplete 
-                            searchAction="all"
-                            value={subSettings.revenueAccountId || ''}
-                            onValueChange={(value) => handleChange('revenueAccountId', value)}
-                            placeholder="اختر حساب الإيراد..."
-                        />
-                    </div>
-                     <div className="space-y-1.5">
-                        <Label className="font-bold">حساب تكلفة الاشتراكات</Label>
-                         <Autocomplete 
-                            searchAction="all"
-                            value={subSettings.costAccountId || ''}
-                            onValueChange={(value) => handleChange('costAccountId', value)}
-                            placeholder="اختر حساب التكلفة..."
-                        />
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+       <SettingsCard title="الإعدادات المحاسبية" description="تحديد حسابات الربط مع شجرة الحسابات." icon={Banknote}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="space-y-1.5">
+                  <Label className="font-bold">حساب إيراد الاشتراكات</Label>
+                   <Autocomplete 
+                      searchAction="all"
+                      value={subSettings.revenueAccountId || ''}
+                      onValueChange={(value) => handleChange('revenueAccountId', value)}
+                      placeholder="اختر حساب الإيراد..."
+                  />
+              </div>
+               <div className="space-y-1.5">
+                  <Label className="font-bold">حساب تكلفة الاشتراكات</Label>
+                   <Autocomplete 
+                      searchAction="all"
+                      value={subSettings.costAccountId || ''}
+                      onValueChange={(value) => handleChange('costAccountId', value)}
+                      placeholder="اختر حساب التكلفة..."
+                  />
+              </div>
+          </div>
+       </SettingsCard>
 
-        <div className="flex justify-end mt-6">
-            <Button onClick={handleSave} disabled={isSaving} size="lg">
-                {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                <Save className="me-2 h-4 w-4" />
-                حفظ كل التغييرات
-            </Button>
-        </div>
+      <div className="flex justify-end mt-6">
+        <Button onClick={handleSave} disabled={isSaving} size="lg">
+            {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+            <Save className="me-2 h-4 w-4" />
+            حفظ كل التغييرات
+        </Button>
+      </div>
     </div>
   );
 }
