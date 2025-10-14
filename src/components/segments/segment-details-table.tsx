@@ -89,5 +89,3 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
     </Table>
   );
 }
-
-    

@@ -19,10 +19,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import type { SegmentEntry, SegmentSettings, Client, Supplier } from '@/lib/types';
+import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,8 +31,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Switch } from '@/components/ui/switch';
-
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -58,7 +55,6 @@ const companyEntrySchema = z.object({
   groupProfitValue: z.coerce.number().min(0).default(1),
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
 });
-
 
 const PairedInput = ({
     form,
@@ -232,6 +228,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
+        
         const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
         
@@ -362,7 +359,8 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                      <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
                                         <FormItem className="w-48">
                                             <div className="relative">
-                                                <FormControl><InputWithPercentage field={field} placeholder="حصة الروضتين"/></FormControl>
+                                                <FormControl><NumericInput placeholder="حصة الروضتين" {...field} className="pe-7 text-center" onValueChange={field.onChange}/></FormControl>
+                                                <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                             </div>
                                             <FormMessage />
                                         </FormItem>
