@@ -50,7 +50,6 @@ const companyEntrySchema = z.object({
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
 });
 
-
 const InputWithPercentage = ({ field, ...props }: { field: any } & React.ComponentProps<typeof Input>) => (
     <div className="relative">
       <Input type="number" {...field} className="pe-7" {...props} />
@@ -211,7 +210,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data);
+        const newEntry = calculateShares(data, company?.segmentSettings);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
@@ -374,5 +373,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             </DialogContent>
         </Dialog>
     );
-}
 
+    
