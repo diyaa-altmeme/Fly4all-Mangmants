@@ -19,6 +19,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import type { SegmentEntry, SegmentSettings, Client, Supplier } from '@/lib/types';
@@ -47,6 +48,12 @@ const companyEntrySchema = z.object({
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
 });
 
+const InputWithPercentage = ({ field, ...props }: { field: any } & React.ComponentProps<typeof Input>) => (
+    <div className="relative">
+      <Input type="number" {...field} className="pe-7" {...props} />
+      <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+    </div>
+);
 
 type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
 type PeriodFormValues = z.infer<typeof periodSchema>;
@@ -56,14 +63,6 @@ interface AddSegmentPeriodDialogProps {
   suppliers: Supplier[];
   onSuccess: () => Promise<void>;
 }
-
-const InputWithPercentage = ({ field }: { field: any }) => (
-    <div className="relative">
-      <Input type="number" {...field} className="pe-7" />
-      <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-    </div>
-);
-
 
 export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
     const [open, setOpen] = useState(false);
@@ -117,8 +116,17 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         if (open) {
              periodForm.reset({});
              companyForm.reset({
-                clientId: '', partnerId: '', tickets: 0, visas: 0, hotels: 0, groups: 0,
-                ticketProfitPercentage: 50, visaProfitPercentage: 100, hotelProfitPercentage: 100, groupProfitPercentage: 100, alrawdatainSharePercentage: 50,
+                clientId: '',
+                partnerId: '',
+                tickets: 0,
+                visas: 0,
+                hotels: 0,
+                groups: 0,
+                ticketProfitPercentage: 50,
+                visaProfitPercentage: 100,
+                hotelProfitPercentage: 100,
+                groupProfitPercentage: 100,
+                alrawdatainSharePercentage: 50,
             });
             setPeriodEntries([]);
             setStep(1);
@@ -143,18 +151,21 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         return { 
             ...rest,
             companyName: client?.name || '',
+            clientId: client?.id || '',
+            partnerId: selectedPartnerOption?.value || '',
             partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
             total, 
             alrawdatainShare, 
             partnerShare,
-             // Store the settings used for this calculation
+            // Store the settings used for this calculation
             ticketProfitPercentage, visaProfitPercentage, hotelProfitPercentage, groupProfitPercentage, alrawdatainSharePercentage
         };
     }
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
+        const company = clients.find(c => c.id === data.clientId);
         const newEntry = calculateShares(data);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
@@ -332,5 +343,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
