@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -15,6 +16,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { produce } from "immer";
 import { Switch } from '../ui/switch';
 import { Separator } from '../ui/separator';
+import { cn } from '@/lib/utils';
 
 interface SubscriptionsSettingsProps {
   settings: AppSettings;
@@ -168,6 +170,7 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
                         <Label className="text-xs">أيام التذكير (قبل الاستحقاق)</Label>
                         {(subSettings.reminders?.daysBeforeDue || []).map((day, index) => (
                             <div key={index} className="flex items-center gap-2">
+                                 <span className="text-xs">تذكير قبل</span>
                                  <NumericInput className="w-20 h-8" value={day} onValueChange={(v) => handleReminderChange(index, Number(v || 0))} aria-label={`reminder-${index}`} />
                                  <span className="text-xs">أيام</span>
                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeReminderDay(index)}><Trash2 className="h-4 w-4" /></Button>
