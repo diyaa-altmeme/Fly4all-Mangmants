@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -138,12 +137,22 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
 
         if (subscriptionData.installmentMethod === 'installments') {
             const installmentAmount = parseFloat((totalSale / totalInstallments).toFixed(2));
+            const totalCalculated = installmentAmount * totalInstallments;
+            const remainder = parseFloat((totalSale - totalCalculated).toFixed(2));
+
             for (let i = 0; i < totalInstallments; i++) {
                 const installmentRef = db.collection('subscription_installments').doc();
                 const dueDate = addMonths(startDate, i);
+                
+                let currentInstallmentAmount = installmentAmount;
+                // Add the remainder to the last installment to ensure the total is correct
+                if (i === totalInstallments - 1) {
+                    currentInstallmentAmount += remainder;
+                }
+
                 const installmentData: Omit<SubscriptionInstallment, 'id'> = {
                     subscriptionId: subscriptionRef.id, clientName: subscriptionData.clientName, serviceName: subscriptionData.serviceName,
-                    amount: installmentAmount, currency: subscriptionData.currency, dueDate: dueDate.toISOString(),
+                    amount: parseFloat(currentInstallmentAmount.toFixed(2)), currency: subscriptionData.currency, dueDate: dueDate.toISOString(),
                     status: 'Unpaid', paidAmount: 0, discount: 0,
                 };
                 batch.set(installmentRef, installmentData);
@@ -686,3 +695,5 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
+    
