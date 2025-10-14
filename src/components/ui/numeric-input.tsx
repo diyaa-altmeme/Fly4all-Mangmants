@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -20,84 +19,81 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
   ({ value, onValueChange, className, allowNegative = false, currency, currencyClassName, direction = 'rtl', ...props }, ref) => {
     
     const [isFocused, setIsFocused] = React.useState(false);
+    const [internalString, setInternalString] = React.useState<string>("");
+
+    // Helper to format number string with thousand separators
+    const formatValue = (val: string | number | undefined | null): string => {
+        if (val === undefined || val === null || val === '') return '';
+        const num = Number(val);
+        if (isNaN(num)) return '';
+        return new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+        }).format(num);
+    };
     
-    // Internal state to hold the raw string value for editing
-    const [internalString, setInternalString] = React.useState<string>(
-      value === undefined || value === null ? '' : String(value)
-    );
-
-    // Sync with external value prop when it changes from outside
+    // When the external value changes, update the internal state
     React.useEffect(() => {
-        const stringValue = value === undefined || value === null || value === '' ? '' : String(value);
-        const internalNum = parseFloat(internalString);
-        const valueNum = parseFloat(stringValue);
-
-        // Only update if the numeric values are different, to avoid interrupting user input
-        if (isNaN(internalNum) && isNaN(valueNum) && internalString === stringValue) return;
-        if (internalNum !== valueNum) {
-           setInternalString(stringValue);
-        }
+        const formatted = String(value ?? '');
+        setInternalString(formatted);
     }, [value]);
 
 
-    const formatValue = (numStr: string | undefined | null): string => {
-        if (numStr === undefined || numStr === null || numStr === '') return '';
-        const numberValue = parseFloat(numStr);
-        if (isNaN(numberValue)) return numStr; // Return as is if not a valid number (e.g., "50.")
+    const parseAndSanitize = (val: string): string => {
+        // Allow only numbers, one decimal point, and optionally a negative sign
+        let sanitized = val.replace(/[^0-9.-]/g, '');
         
-        // Use formatting that handles decimals correctly
-        return new Intl.NumberFormat('en-US', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 20,
-        }).format(numberValue);
-    };
-    
-    const parseValue = (str: string): number | undefined => {
-        if (str === '') return undefined;
-        const cleaned = str.replace(/,/g, '');
-        const numberValue = parseFloat(cleaned);
-        return isNaN(numberValue) ? undefined : numberValue;
-    };
-    
+        // Ensure only one decimal point
+        const parts = sanitized.split('.');
+        if (parts.length > 2) {
+            sanitized = parts[0] + '.' + parts.slice(1).join('');
+        }
 
-    const displayValue = isFocused ? internalString : formatValue(internalString);
-
+        // Handle negative sign
+        if (!allowNegative) {
+            sanitized = sanitized.replace(/-/g, '');
+        } else if (sanitized.lastIndexOf('-') > 0) {
+            sanitized = `-${sanitized.replace(/-/g, '')}`;
+        }
+        
+        return sanitized;
+    }
+    
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      let inputValue = e.target.value;
-      
-      // Regex to allow numbers, a single decimal point, and a negative sign at the start
-      const regex = allowNegative ? /^-?[0-9]*\.?[0-9]*$/ : /^[0-9]*\.?[0-9]*$/;
-      
-      if (regex.test(inputValue)) {
-          setInternalString(inputValue);
-          if (onValueChange) {
-              const parsed = parseValue(inputValue);
-              // Only call onValueChange if it's a valid number or empty
-              if (parsed !== undefined || inputValue === '' || inputValue === '-') {
-                onValueChange(parsed);
-              }
-          }
-      }
+        const sanitized = parseAndSanitize(e.target.value);
+        setInternalString(sanitized);
+
+        if (onValueChange) {
+            const numValue = parseFloat(sanitized);
+            if (!isNaN(numValue)) {
+                onValueChange(numValue);
+            } else if (sanitized === '' || (sanitized === '-' && allowNegative)) {
+                onValueChange(undefined);
+            }
+        }
     };
-    
+
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
         setIsFocused(false);
-        const parsed = parseValue(internalString);
-        if (onValueChange) {
-            onValueChange(parsed);
+        const numValue = parseFloat(internalString);
+        if (!isNaN(numValue)) {
+            // No need to set internal string to formatted value, let displayValue handle it.
+            if(onValueChange) onValueChange(numValue);
+        } else {
+            if(onValueChange) onValueChange(undefined);
+            setInternalString(""); // Clear if not a valid number
         }
-        // Format the display on blur
-        setInternalString(String(parsed || ''));
         props.onBlur?.(e);
-    }
-    
+    };
+
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-         setIsFocused(true);
-         // When focusing, set the internal state to be the non-formatted number string
-         const numValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
-         setInternalString(numValue === undefined || numValue === null || isNaN(numValue) ? '' : String(numValue));
-         props.onFocus?.(e);
-    }
+        setIsFocused(true);
+        // When focusing, the internal string is already the raw, unformatted value.
+        props.onFocus?.(e);
+    };
+    
+    // Determine what to display: raw input while focused, formatted value otherwise.
+    const displayValue = isFocused ? internalString : formatValue(internalString);
 
     if (currency) {
       return (
