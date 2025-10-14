@@ -33,8 +33,6 @@ import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -69,7 +67,8 @@ const PairedInput = ({
     profitValueField,
     label,
     borderColorClass,
-    currency
+    currency,
+    globalProfitType,
 }: {
     form: ReturnType<typeof useForm<CompanyEntryFormValues>>;
     name: keyof CompanyEntryFormValues;
@@ -78,24 +77,29 @@ const PairedInput = ({
     label: string;
     borderColorClass: string;
     currency: Currency;
+    globalProfitType: 'percentage' | 'fixed';
 }) => {
     const { control, watch, setValue } = form;
     const count = watch(name) as number || 0;
-    const profitType = watch(profitTypeField) as 'percentage' | 'fixed';
     const profitValue = watch(profitValueField) as number || 0;
     
+    // The type is now controlled globally, but we still set it per-field for the form data
+    useEffect(() => {
+        setValue(profitTypeField, globalProfitType);
+    }, [globalProfitType, setValue, profitTypeField]);
+
     const result = useMemo(() => {
-        if (profitType === 'percentage') {
+        if (globalProfitType === 'percentage') {
             return count * (profitValue / 100);
         }
         return count * profitValue;
-    }, [count, profitType, profitValue]);
+    }, [count, globalProfitType, profitValue]);
     
-    const Icon = profitType === 'percentage' ? Percent : DollarSign;
+    const Icon = globalProfitType === 'percentage' ? Percent : DollarSign;
 
     return (
     <div className="space-y-1.5">
-        <Label className="font-semibold text-sm">{label}</Label>
+        <Label className="font-semibold text-sm text-center block">{label}</Label>
         <div className={cn("flex flex-col rounded-lg border-2 overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
             <div className="flex">
                 <FormField
@@ -133,18 +137,6 @@ const PairedInput = ({
                             </FormItem>
                         )}
                     />
-                    <ToggleGroup 
-                        type="single" 
-                        value={profitType}
-                        onValueChange={(value: 'percentage' | 'fixed') => { if (value) setValue(profitTypeField, value) }}
-                    >
-                        <ToggleGroupItem value="percentage" className="h-8 w-8 p-0" variant="outline" data-state={profitType === 'percentage' ? 'on' : 'off'}>
-                            <Percent className="h-4 w-4" />
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="fixed" className="h-8 w-8 p-0" variant="outline" data-state={profitType === 'fixed' ? 'on' : 'off'}>
-                            <DollarSign className="h-4 w-4" />
-                        </ToggleGroupItem>
-                    </ToggleGroup>
                 </div>
             </CollapsibleContent>
         </div>
@@ -169,6 +161,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     
     const [periodEntries, setPeriodEntries] = useState<Omit<SegmentEntry, 'id' | 'fromDate' | 'toDate'>[]>([]);
     const { data: navData } = useVoucherNav();
+    const [globalProfitType, setGlobalProfitType] = useState<'percentage' | 'fixed'>('percentage');
     
     const allCompanyOptions = useMemo(() => {
         return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name }));
@@ -202,12 +195,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             groups: 0,
             ticketProfitType: 'percentage',
             ticketProfitValue: 50,
-            visaProfitType: 'fixed',
-            visaProfitValue: 1,
-            hotelProfitType: 'fixed',
-            hotelProfitValue: 1,
-            groupProfitType: 'fixed',
-            groupProfitValue: 1,
+            visaProfitType: 'percentage',
+            visaProfitValue: 100,
+            hotelProfitType: 'percentage',
+            hotelProfitValue: 100,
+            groupProfitType: 'percentage',
+            groupProfitValue: 100,
             alrawdatainSharePercentage: 50,
         }
     });
@@ -229,12 +222,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 groups: 0,
                 ticketProfitType: 'percentage',
                 ticketProfitValue: 50,
-                visaProfitType: 'fixed',
-                visaProfitValue: 1,
-                hotelProfitType: 'fixed',
-                hotelProfitValue: 1,
-                groupProfitType: 'fixed',
-                groupProfitValue: 1,
+                visaProfitType: 'percentage',
+                visaProfitValue: 100,
+                hotelProfitType: 'percentage',
+                hotelProfitValue: 100,
+                groupProfitType: 'percentage',
+                groupProfitValue: 100,
                 alrawdatainSharePercentage: 50,
             });
             setPeriodEntries([]);
@@ -292,10 +285,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
             clientId: '', partnerId: '', currency: defaultCurrency as Currency, tickets: 0, visas: 0, hotels: 0, groups: 0,
-            ticketProfitType: 'percentage', ticketProfitValue: 50,
-            visaProfitType: 'fixed', visaProfitValue: 1,
-            hotelProfitType: 'fixed', hotelProfitValue: 1,
-            groupProfitType: 'fixed', groupProfitValue: 1,
+            ticketProfitType: 'percentage',
+            ticketProfitValue: 50,
+            visaProfitType: 'percentage',
+            visaProfitValue: 100,
+            hotelProfitType: 'percentage',
+            hotelProfitValue: 100,
+            groupProfitType: 'percentage',
+            groupProfitValue: 100,
             alrawdatainSharePercentage: 50,
         });
     };
@@ -342,7 +339,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             <DialogTrigger asChild>
                  <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>إضافة سجل سكمنت جديد</DialogTitle>
                     <DialogDescription>
@@ -352,6 +349,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
                     <div className="p-4 border rounded-lg bg-background/50">
+                        <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
                         <Form {...periodForm}>
                             <form className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
@@ -378,10 +376,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 </div>
                                 <Collapsible>
                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                        <PairedInput form={companyForm} name="tickets" profitTypeField="ticketProfitType" profitValueField="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" currency={companyForm.watch('currency')} />
-                                        <PairedInput form={companyForm} name="visas" profitTypeField="visaProfitType" profitValueField="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" currency={companyForm.watch('currency')} />
-                                        <PairedInput form={companyForm} name="hotels" profitTypeField="hotelProfitType" profitValueField="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" currency={companyForm.watch('currency')} />
-                                        <PairedInput form={companyForm} name="groups" profitTypeField="groupProfitType" profitValueField="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" currency={companyForm.watch('currency')} />
+                                        <PairedInput form={companyForm} name="tickets" profitTypeField="ticketProfitType" profitValueField="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" currency={companyForm.watch('currency')} globalProfitType={globalProfitType} />
+                                        <PairedInput form={companyForm} name="visas" profitTypeField="visaProfitType" profitValueField="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" currency={companyForm.watch('currency')} globalProfitType={globalProfitType} />
+                                        <PairedInput form={companyForm} name="hotels" profitTypeField="hotelProfitType" profitValueField="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" currency={companyForm.watch('currency')} globalProfitType={globalProfitType} />
+                                        <PairedInput form={companyForm} name="groups" profitTypeField="groupProfitType" profitValueField="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" currency={companyForm.watch('currency')} globalProfitType={globalProfitType} />
                                     </div>
                                     <div className="flex items-center justify-between mt-3">
                                         <CollapsibleTrigger asChild>
@@ -390,18 +388,29 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                 إعدادات العمولة
                                             </Button>
                                         </CollapsibleTrigger>
-                                        <div className="flex items-end gap-4">
-                                            <div className="space-y-1.5"><Label className="font-bold">العملة</Label><FormField control={companyForm.control} name="currency" render={({ field }) => ( <Select onValueChange={field.onChange} value={field.value}><SelectTrigger className="h-10"><SelectValue /></SelectTrigger><SelectContent>{(navData?.settings.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}</SelectContent></Select> )}/></div>
-                                            <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="font-bold">نسبة الأرباح لنا</FormLabel>
-                                                    <div className="relative">
-                                                        <FormControl><NumericInput {...field} className="pe-7 text-center h-10" onValueChange={field.onChange}/></FormControl>
-                                                        <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    </div>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}/>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2">
+                                                <Label className="font-bold whitespace-nowrap">نوع العمولة للكل</Label>
+                                                <Select value={globalProfitType} onValueChange={(v: 'percentage' | 'fixed') => setGlobalProfitType(v)}>
+                                                    <SelectTrigger className="h-10 w-32"><SelectValue /></SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="percentage">نسبة مئوية (%)</SelectItem>
+                                                        <SelectItem value="fixed">مبلغ ثابت ($)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <Separator orientation="vertical" className="h-6" />
+                                            <div className="flex items-center gap-2">
+                                                <Label className="font-bold">العملة</Label>
+                                                <FormField control={companyForm.control} name="currency" render={({ field }) => ( <Select onValueChange={field.onChange} value={field.value}><SelectTrigger className="h-10"><SelectValue /></SelectTrigger><SelectContent>{(navData?.settings.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}</SelectContent></Select> )}/>
+                                            </div>
+                                             <div className="flex items-center gap-2">
+                                                <Label className="font-bold whitespace-nowrap">نسبة الأرباح لنا</Label>
+                                                <div className="relative w-28">
+                                                    <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => ( <NumericInput {...field} className="pe-7 text-center h-10" onValueChange={field.onChange}/> )}/>
+                                                    <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </Collapsible>
@@ -461,3 +470,4 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     );
 }
 
+    
