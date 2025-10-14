@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -42,10 +43,6 @@ export default function SegmentSettingsDialog({ clients, onSettingsSaved }: Segm
   const [localClients, setLocalClients] = useState<Client[]>([]);
   
   const defaultSettings: SegmentSettings = {
-    ticketProfitPercentage: 50,
-    visaProfitPercentage: 100,
-    hotelProfitPercentage: 100,
-    groupProfitPercentage: 100,
     alrawdatainSharePercentage: 50,
   };
 
@@ -104,11 +101,11 @@ export default function SegmentSettingsDialog({ clients, onSettingsSaved }: Segm
             إعدادات الشركات
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-xl h-[80vh] flex flex-col">
         <DialogHeader>
             <DialogTitle>إعدادات السكمنت الخاصة بالشركات</DialogTitle>
             <DialogDescription>
-                تحكم في النسب المئوية المستخدمة لحساب الأرباح وتوزيعها لكل شركة على حدة.
+                تحكم في نسبة حصة الروضتين من أرباح السكمنت لكل شركة.
             </DialogDescription>
         </DialogHeader>
         <div className="py-2">
@@ -123,23 +120,7 @@ export default function SegmentSettingsDialog({ clients, onSettingsSaved }: Segm
                 {filteredClients.map(client => (
                     <div key={client.id} className="p-4 border rounded-lg">
                         <h4 className="font-bold text-lg mb-3">{client.name}</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                             <div className="space-y-1">
-                                <Label>ربح التذاكر</Label>
-                                <InputWithPercentage value={client.segmentSettings?.ticketProfitPercentage ?? ''} onChange={(e: any) => handleSettingChange(client.id, 'ticketProfitPercentage', e.target.value)} />
-                             </div>
-                             <div className="space-y-1">
-                                <Label>ربح الفيزا</Label>
-                                <InputWithPercentage value={client.segmentSettings?.visaProfitPercentage ?? ''} onChange={(e: any) => handleSettingChange(client.id, 'visaProfitPercentage', e.target.value)} />
-                             </div>
-                             <div className="space-y-1">
-                                <Label>ربح الفنادق</Label>
-                                <InputWithPercentage value={client.segmentSettings?.hotelProfitPercentage ?? ''} onChange={(e: any) => handleSettingChange(client.id, 'hotelProfitPercentage', e.target.value)} />
-                             </div>
-                             <div className="space-y-1">
-                                <Label>ربح الكروبات</Label>
-                                <InputWithPercentage value={client.segmentSettings?.groupProfitPercentage ?? ''} onChange={(e: any) => handleSettingChange(client.id, 'groupProfitPercentage', e.target.value)} />
-                             </div>
+                        <div className="grid grid-cols-2 gap-4">
                              <div className="space-y-1">
                                 <Label>حصة الروضتين</Label>
                                 <InputWithPercentage value={client.segmentSettings?.alrawdatainSharePercentage ?? ''} onChange={(e: any) => handleSettingChange(client.id, 'alrawdatainSharePercentage', e.target.value)} />
