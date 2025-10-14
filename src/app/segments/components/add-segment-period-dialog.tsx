@@ -15,7 +15,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins, ChevronDown, BadgeCent } from 'lucide-react';
 import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,6 @@ import { Autocomplete } from '@/components/ui/autocomplete';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const periodSchema = z.object({
@@ -67,6 +66,7 @@ const PairedInput = ({
     label,
     borderColorClass,
     globalProfitType,
+    currency
 }: {
     form: ReturnType<typeof useForm<CompanyEntryFormValues>>;
     name: keyof CompanyEntryFormValues;
@@ -75,6 +75,7 @@ const PairedInput = ({
     label: string;
     borderColorClass: string;
     globalProfitType: 'percentage' | 'fixed';
+    currency: Currency;
 }) => {
     const { control, watch } = form;
     const count = watch(name) as number || 0;
@@ -90,7 +91,7 @@ const PairedInput = ({
 
     return (
     <div className="space-y-1.5">
-        <Label className="font-semibold">{label}</Label>
+        <Label className="font-semibold text-sm">{label}</Label>
         <div className={cn("flex flex-col rounded-lg border-2 overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
             <div className="flex">
                 <FormField
@@ -99,7 +100,7 @@ const PairedInput = ({
                     render={({ field }) => (
                         <FormItem className="flex-grow">
                             <FormControl>
-                                <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center" />
+                                <NumericInput {...field} placeholder="العدد" className="h-10 border-0 rounded-none text-center font-bold text-base" />
                             </FormControl>
                         </FormItem>
                     )}
@@ -113,7 +114,7 @@ const PairedInput = ({
                                 <FormItem className="w-24">
                                      <div className="relative">
                                         <FormControl>
-                                            <NumericInput {...field} className="h-9 border-0 rounded-none text-center pe-6" />
+                                            <NumericInput {...field} className="h-10 border-0 rounded-none text-center pe-6" />
                                         </FormControl>
                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-bold">
                                             {globalProfitType === 'percentage' ? '%' : '$'}
@@ -125,8 +126,11 @@ const PairedInput = ({
                     </div>
                 </CollapsibleContent>
             </div>
-              <div className="relative">
-                <Input readOnly disabled value={result.toFixed(2)} className="h-8 text-center border-0 rounded-none bg-muted/50 font-mono font-bold text-primary" />
+             <div className="relative">
+                <div className="flex items-center justify-center h-9 bg-muted/50 font-mono font-bold text-primary">
+                    {result.toFixed(2)}
+                     <span className="text-xs ms-1">{currency}</span>
+                </div>
                 <Label className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">الناتج</Label>
              </div>
         </div>
@@ -150,6 +154,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const [isSaving, setIsSaving] = useState(false);
     
     const [periodEntries, setPeriodEntries] = useState<Omit<SegmentEntry, 'id' | 'fromDate' | 'toDate'>[]>([]);
+    const { data: navData } = useVoucherNav();
     
     const allCompanyOptions = useMemo(() => {
         return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name }));
@@ -168,6 +173,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         });
     }, [clients, suppliers]);
 
+    const defaultCurrency = navData?.settings?.currencySettings?.defaultCurrency || 'USD';
 
     const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
     const companyForm = useForm<CompanyEntryFormValues>({ 
@@ -175,7 +181,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         defaultValues: {
             clientId: '',
             partnerId: '',
-            currency: 'USD',
+            currency: defaultCurrency as Currency,
             tickets: 0,
             visas: 0,
             hotels: 0,
@@ -211,7 +217,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
              companyForm.reset({
                 clientId: '',
                 partnerId: '',
-                currency: 'USD',
+                currency: defaultCurrency as Currency,
                 tickets: 0,
                 visas: 0,
                 hotels: 0,
@@ -228,7 +234,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             });
             setPeriodEntries([]);
         }
-    }, [open, periodForm, companyForm]);
+    }, [open, periodForm, companyForm, defaultCurrency]);
 
      const calculateShares = (data: CompanyEntryFormValues) => {
         const { alrawdatainSharePercentage, ...rest } = data;
@@ -276,11 +282,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data, company?.segmentSettings);
+        const newEntry = calculateShares(data);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
-            clientId: '', partnerId: '', currency: 'USD', tickets: 0, visas: 0, hotels: 0, groups: 0,
+            clientId: '', partnerId: '', currency: defaultCurrency as Currency, tickets: 0, visas: 0, hotels: 0, groups: 0,
             ticketProfitType: 'percentage',
             ticketProfitValue: 50,
             visaProfitType: 'fixed',
@@ -348,16 +354,17 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         <Form {...periodForm}>
                             <form className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
-                                    <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                                 )}/>
                                 <FormField control={periodForm.control} name="toDate" render={({ field }) => (
-                                    <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                                 )}/>
                             </form>
                         </Form>
                     </div>
 
                     <div className="p-4 border rounded-lg">
+                        <h3 className="font-semibold text-base mb-2">إضافة شركة جديدة</h3>
                         <Form {...companyForm}>
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -370,27 +377,27 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 </div>
                                 <Collapsible>
                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                        <PairedInput form={companyForm} name="tickets" profitType="ticketProfitType" profitValue="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" globalProfitType={globalProfitType} />
-                                        <PairedInput form={companyForm} name="visas" profitType="visaProfitType" profitValue="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" globalProfitType={globalProfitType} />
-                                        <PairedInput form={companyForm} name="hotels" profitType="hotelProfitType" profitValue="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" globalProfitType={globalProfitType} />
-                                        <PairedInput form={companyForm} name="groups" profitType="groupProfitType" profitValue="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" globalProfitType={globalProfitType} />
+                                        <PairedInput form={companyForm} name="tickets" profitType="ticketProfitType" profitValue="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" globalProfitType={globalProfitType} currency={companyForm.watch('currency')} />
+                                        <PairedInput form={companyForm} name="visas" profitType="visaProfitType" profitValue="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" globalProfitType={globalProfitType} currency={companyForm.watch('currency')} />
+                                        <PairedInput form={companyForm} name="hotels" profitType="hotelProfitType" profitValue="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" globalProfitType={globalProfitType} currency={companyForm.watch('currency')} />
+                                        <PairedInput form={companyForm} name="groups" profitType="groupProfitType" profitValue="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" globalProfitType={globalProfitType} currency={companyForm.watch('currency')} />
                                     </div>
                                     <div className="flex items-center justify-between mt-3">
                                         <CollapsibleTrigger asChild>
-                                            <Button type="button" variant="outline" size="sm">
+                                            <Button type="button" variant="outline" size="sm" className="h-9">
                                                 <Settings2 className="me-2 h-4 w-4"/>
                                                 إعدادات العمولة
                                             </Button>
                                         </CollapsibleTrigger>
                                         <div className="flex items-center gap-4">
-                                             <FormField control={companyForm.control} name="currency" render={({ field }) => (
-                                                <FormItem className="w-28"><FormControl><Select onValueChange={field.onChange} value={field.value}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select></FormControl></FormItem>
+                                            <FormField control={companyForm.control} name="currency" render={({ field }) => (
+                                                <FormItem className="w-28"><FormControl><Select onValueChange={field.onChange} value={field.value}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent>{(navData?.settings.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}</SelectContent></Select></FormControl></FormItem>
                                             )}/>
                                             <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
                                                 <FormItem className="w-48">
                                                     <Label>نسبة الأرباح لنا</Label>
                                                     <div className="relative">
-                                                        <FormControl><NumericInput {...field} className="pe-7 text-center" onValueChange={field.onChange}/></FormControl>
+                                                        <FormControl><NumericInput {...field} className="pe-7 text-center h-9" onValueChange={field.onChange}/></FormControl>
                                                         <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                                     </div>
                                                     <FormMessage />
@@ -419,7 +426,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     </CollapsibleContent>
                                 </Collapsible>
                                 <div className='flex justify-end pt-4 border-t mt-4'>
-                                    <Button type="submit"><PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة</Button>
+                                    <Button type="submit" className="h-10"><PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة</Button>
                                 </div>
                             </form>
                         </Form>
@@ -463,7 +470,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
                     <div className="flex justify-between w-full">
                         <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-                        <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
+                        <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto h-10">
                             {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                             حفظ بيانات الفترة ({periodEntries.length} سجلات)
                         </Button>
