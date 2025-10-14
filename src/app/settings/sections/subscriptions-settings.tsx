@@ -1,12 +1,28 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Loader2, Save, PlusCircle, Trash2, BellRing, Clock, AlertTriangle, Settings, UserCheck, Banknote } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  PlusCircle,
+  Trash2,
+  BellRing,
+  Settings,
+  Banknote,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { updateSettings } from '@/app/settings/actions';
 import { useVoucherNav } from "@/context/voucher-nav-context";
@@ -15,40 +31,60 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { produce } from "immer";
 import { Switch } from "@/components/ui/switch";
-import { Separator } from '@/components/ui/separator';
+import { Separator } from "@/components/ui/separator";
+
+const SectionCard = ({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+}) => (
+  <Card className="flex flex-col">
+    <CardHeader>
+      <div className="flex items-center gap-3">
+        <div className="p-3 bg-primary/10 rounded-full">
+          <Icon className="h-5 w-5 text-primary" />
+        </div>
+        <CardTitle className="text-base font-semibold">{title}</CardTitle>
+      </div>
+    </CardHeader>
+    <CardContent className="space-y-4 flex-grow">{children}</CardContent>
+  </Card>
+);
 
 interface SubscriptionsSettingsProps {
   settings: AppSettings;
   onSettingsChanged: () => void;
 }
 
-export default function SubscriptionsSettings({ settings: initialSettings, onSettingsChanged }: SubscriptionsSettingsProps) {
-  const [subSettings, setSubSettings] = useState<Partial<SubscriptionSettings>>(initialSettings?.subscriptionSettings || {});
+export default function SubscriptionsSettings({
+  settings: initialSettings,
+  onSettingsChanged,
+}: SubscriptionsSettingsProps) {
+  const [subSettings, setSubSettings] = useState<Partial<SubscriptionSettings>>(
+    initialSettings?.subscriptionSettings || {}
+  );
   const [isSaving, setIsSaving] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const { data: navData } = useVoucherNav();
 
-  useEffect(() => setSubSettings(initialSettings?.subscriptionSettings || {}), [initialSettings]);
+  useEffect(() => setSubSettings(initialSettings?.subscriptionSettings || {}), [
+    initialSettings,
+  ]);
+  
+  const supplierOptions = useMemo(
+    () => (navData?.suppliers || []).map((s: any) => ({ value: s.id, label: s.name })),
+    [navData?.suppliers]
+  );
 
-  const supplierOptions = useMemo(() => (navData?.suppliers || []).map((s: any) => ({ value: s.id, label: s.name })), [navData?.suppliers]);
-
-  const validate = (draftSettings: Partial<SubscriptionSettings>) => {
-    const errs: Record<string, string> = {};
-    if (draftSettings.defaultQuantity != null && draftSettings.defaultQuantity <= 0) errs.defaultQuantity = "الكمية يجب أن تكون أكبر من صفر";
-    if (draftSettings.defaultInstallments != null && draftSettings.defaultInstallments <= 0) errs.defaultInstallments = "عدد الأقساط يجب أن يكون أكبر من صفر";
-    const days = draftSettings.reminders?.daysBeforeDue || [];
-    const dup = days.some((d: number, i: number) => days.indexOf(d) !== i);
-    if (dup) errs.reminders = "أيام التذكير يجب أن تكون مختلفة";
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+  const handleChange = (key: keyof SubscriptionSettings, value: any) => {
+    setSubSettings((prev) => ({ ...prev, [key]: value }));
   };
-
-  const handleSave = async () => {
-    if (!validate(subSettings)) {
-      toast({ title: "خطأ في المدخلات", description: "تأكد من صحة الحقول قبل الحفظ.", variant: "destructive" });
-      return;
-    }
+  
+  const handleSave = useCallback(async () => {
     setIsSaving(true);
     try {
       const result = await updateSettings({ subscriptionSettings: subSettings });
@@ -59,19 +95,16 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
         toast({ title: "خطأ", description: "تعذر حفظ الإعدادات.", variant: "destructive" });
       }
     } catch (e: any) {
-      toast({ title: "خطأ غير متوقع", description: e.message || "حصل خطأ عند الحفظ.", variant: "destructive" });
+      toast({ title: "خطأ غير متوقع", description: e.message || "حصل خطأ.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleChange = (key: keyof SubscriptionSettings, value: any) => {
-    setSubSettings((prev) => ({ ...prev, [key]: value }));
-  };
+  }, [subSettings, toast, onSettingsChanged]);
 
   const ensureReminders = (draft: Partial<SubscriptionSettings>) => {
     if (!draft.reminders) draft.reminders = { enabled: true, daysBeforeDue: [], sendTime: "09:00" } as any;
     if (!Array.isArray(draft.reminders.daysBeforeDue)) draft.reminders.daysBeforeDue = [];
+    return draft;
   };
 
   const handleReminderChange = (index: number, value: number) => {
@@ -80,21 +113,19 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
       produce((draft: Partial<SubscriptionSettings>) => {
         ensureReminders(draft);
         draft.reminders!.daysBeforeDue[index] = Math.round(value);
-        draft.reminders!.daysBeforeDue = Array.from(new Set(draft.reminders!.daysBeforeDue)).sort((a: number, b: number) => b - a);
       })
     );
   };
 
-  const addReminderDay = (day = 1) => {
+  const addReminderDay = () => {
     setSubSettings(
       produce((draft: Partial<SubscriptionSettings>) => {
         ensureReminders(draft);
-        draft.reminders!.daysBeforeDue.push(day);
-        draft.reminders!.daysBeforeDue = Array.from(new Set(draft.reminders!.daysBeforeDue)).sort((a: number, b: number) => b - a);
+        draft.reminders!.daysBeforeDue.push(1);
       })
     );
   };
-
+  
   const removeReminderDay = (index: number) => {
     setSubSettings(
       produce((draft: Partial<SubscriptionSettings>) => {
@@ -105,120 +136,113 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
   };
 
   return (
-    <div className="space-y-6">
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Settings className="h-5 w-5"/>الإعدادات الافتراضية</CardTitle>
-                <CardDescription>لتسريع عملية إضافة اشتراك جديد.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-1.5 md:col-span-1">
-                  <Label className="font-semibold">المورد الافتراضي</Label>
-                  <Autocomplete 
-                    options={supplierOptions} 
-                    value={subSettings.defaultSupplier || ''}
-                    onValueChange={(value) => handleChange('defaultSupplier', value)}
-                    placeholder="اختر موردًا..."
+    <div className="w-full max-w-4xl mx-auto space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="text-right">
+              <h2 className="text-2xl font-bold">إعدادات الاشتراكات</h2>
+              <p className="text-sm text-muted-foreground">تخصيص الإعدادات الافتراضية، التذكيرات، والربط المحاسبي للاشتراكات.</p>
+          </div>
+          <div className="flex items-center gap-3">
+              <Button onClick={handleSave} disabled={isSaving} size="lg">
+                  {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                  <Save className="me-2 h-4 w-4" /> حفظ كل التغييرات
+              </Button>
+          </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <SectionCard title="الإعدادات الافتراضية" icon={Settings}>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label>المورد الافتراضي</Label>
+              <Autocomplete
+                options={supplierOptions}
+                value={subSettings.defaultSupplier || ""}
+                onValueChange={(v) => handleChange("defaultSupplier", v)}
+                placeholder="اختر المورّد"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label>الكمية الافتراضية</Label>
+                  <NumericInput
+                    value={subSettings.defaultQuantity}
+                    onValueChange={(v) => handleChange("defaultQuantity", v)}
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="font-semibold">الكمية الافتراضية</Label>
-                  <NumericInput value={subSettings.defaultQuantity} onValueChange={(v) => handleChange('defaultQuantity', v || 1)} aria-label="Default quantity" />
-                  {errors.defaultQuantity && <p className="text-xs text-destructive">{errors.defaultQuantity}</p>}
+                <div className="space-y-1">
+                  <Label>عدد الأقساط</Label>
+                  <NumericInput
+                    value={subSettings.defaultInstallments}
+                    onValueChange={(v) => handleChange("defaultInstallments", v)}
+                  />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="font-semibold">عدد الأقساط الافتراضي</Label>
-                  <NumericInput value={subSettings.defaultInstallments} onValueChange={(v) => handleChange('defaultInstallments', v || 12)} aria-label="Default installments" />
-                  {errors.defaultInstallments && <p className="text-xs text-destructive">{errors.defaultInstallments}</p>}
-                </div>
-              </div>
-            </CardContent>
-        </Card>
-        
-        <Card>
-            <CardHeader>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle className="flex items-center gap-2"><BellRing className="h-5 w-5"/>إشعارات وتذكيرات الأقساط</CardTitle>
-                        <CardDescription>إدارة التذكيرات التلقائية للأقساط المستحقة والمتأخرة.</CardDescription>
-                    </div>
-                     <div className="flex items-center space-x-2 space-x-reverse">
-                        <Switch id="reminders-enabled" checked={subSettings.reminders?.enabled} onCheckedChange={(c) => handleChange('reminders', {...subSettings.reminders, enabled: c})} />
-                        <Label htmlFor="reminders-enabled" className="font-semibold text-xs">تفعيل</Label>
-                    </div>
-                </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-                        <Label className="font-semibold flex items-center gap-2 text-sm"><Clock className="h-4 w-4"/>توقيتات التذكير</Label>
-                        <div className="flex items-center gap-2">
-                            <Label htmlFor="sendTime" className="text-xs shrink-0">وقت الإرسال:</Label>
-                            <Input id="sendTime" type="time" value={subSettings.reminders?.sendTime || "09:00"} onChange={e => handleChange('reminders', {...subSettings.reminders, sendTime: e.target.value})} className="h-8"/>
-                        </div>
-                         <div className="space-y-2">
-                            <Label className="text-xs">أيام التذكير (قبل الاستحقاق)</Label>
-                            {(subSettings.reminders?.daysBeforeDue || []).map((day, index) => (
-                                <div key={index} className="flex items-center gap-2">
-                                     <span className="text-xs">تذكير قبل</span>
-                                     <NumericInput className="w-20 h-8" value={day} onValueChange={(v) => handleReminderChange(index, Number(v || 0))} aria-label={`reminder-${index}`} />
-                                     <span className="text-xs">أيام</span>
-                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeReminderDay(index)}><Trash2 className="h-4 w-4" /></Button>
-                                </div>
-                            ))}
-                            <Button variant="outline" size="sm" onClick={() => addReminderDay(1)}><PlusCircle className="me-2 h-4 w-4"/>إضافة يوم تذكير</Button>
-                            {errors.reminders && <p className="text-xs text-destructive">{errors.reminders}</p>}
-                        </div>
-                    </div>
-                     <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-                         <Label className="font-semibold flex items-center gap-2 text-sm"><AlertTriangle className="h-4 w-4"/>إشعارات التأخير</Label>
-                         <div className="flex items-center gap-2">
-                             <span className="text-xs">إرسال إشعار تأخير بعد</span>
-                             <NumericInput className="w-20 h-8" value={subSettings.reminders?.notifyAfterOverdueDays} onValueChange={v => handleChange('reminders', {...subSettings.reminders, notifyAfterOverdueDays: v || 1})} />
-                             <span className="text-xs">أيام من الاستحقاق</span>
-                        </div>
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+            </div>
+          </div>
+        </SectionCard>
 
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Banknote className="h-5 w-5"/>الإعدادات المحاسبية</CardTitle>
-                <CardDescription>تحديد حسابات الربط مع شجرة الحسابات.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     <div className="space-y-1.5">
-                        <Label className="font-bold">حساب إيراد الاشتراكات</Label>
-                         <Autocomplete 
-                            searchAction="all"
-                            value={subSettings.revenueAccountId || ''}
-                            onValueChange={(value) => handleChange('revenueAccountId', value)}
-                            placeholder="اختر حساب الإيراد..."
-                        />
-                    </div>
-                     <div className="space-y-1.5">
-                        <Label className="font-bold">حساب تكلفة الاشتراكات</Label>
-                         <Autocomplete 
-                            searchAction="all"
-                            value={subSettings.costAccountId || ''}
-                            onValueChange={(value) => handleChange('costAccountId', value)}
-                            placeholder="اختر حساب التكلفة..."
-                        />
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+        <SectionCard title="إشعارات وتذكيرات الأقساط" icon={BellRing}>
+            <div className="flex justify-between items-center mb-4">
+                <Label>تفعيل الإشعارات التلقائية</Label>
+                <Switch
+                  checked={subSettings.reminders?.enabled}
+                  onCheckedChange={(c) =>
+                    handleChange("reminders", { ...subSettings.reminders, enabled: c })
+                  }
+                />
+            </div>
 
-        <div className="flex justify-end mt-6">
-            <Button onClick={handleSave} disabled={isSaving} size="lg">
-                {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                <Save className="me-2 h-4 w-4" />
-                حفظ كل التغييرات
-            </Button>
+            <Separator />
+            
+            <div className="space-y-3 mt-4">
+                <div className="flex items-center gap-2">
+                    <Label className="text-sm shrink-0">وقت الإرسال:</Label>
+                    <Input type="time" value={(subSettings.reminders as any)?.sendTime || '09:00'} onChange={e => handleChange('reminders', {...subSettings.reminders, sendTime: e.target.value})} className="h-9"/>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm">أيام التذكير (قبل الاستحقاق)</Label>
+                  {(subSettings.reminders?.daysBeforeDue || []).map((day: number, idx: number) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <span className="text-xs">تذكير قبل</span>
+                      <NumericInput
+                        className="w-20 h-8"
+                        value={day}
+                        onValueChange={(v) => handleReminderChange(idx, Number(v || 0))}
+                      />
+                      <span className="text-xs">أيام</span>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeReminderDay(idx)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button variant="outline" size="sm" onClick={addReminderDay}><PlusCircle className="h-4 w-4 me-2"/> إضافة</Button>
+                </div>
+            </div>
+        </SectionCard>
+      </div>
+
+       <SectionCard title="الإعدادات المحاسبية" icon={Banknote}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <Label>حساب إيراد الاشتراكات</Label>
+            <Autocomplete
+              value={subSettings.revenueAccountId || ""}
+              onValueChange={(v) => handleChange("revenueAccountId", v)}
+              placeholder="اختر حساب الإيراد..."
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>حساب تكلفة الاشتراكات</Label>
+            <Autocomplete
+              value={subSettings.costAccountId || ""}
+              onValueChange={(v) => handleChange("costAccountId", v)}
+              placeholder="اختر حساب التكلفة..."
+            />
+          </div>
         </div>
+      </SectionCard>
     </div>
   );
 }
+
