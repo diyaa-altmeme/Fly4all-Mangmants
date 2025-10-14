@@ -132,10 +132,10 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         batch.set(subscriptionRef, finalSubscriptionData);
 
         // Generate installments based on payment method
-        const startDate = new Date(subscriptionData.startDate);
-        const totalInstallments = subscriptionData.numberOfInstallments || 1;
+        const startDate = new Date(finalSubscriptionData.startDate);
+        const totalInstallments = finalSubscriptionData.numberOfInstallments || 1;
 
-        if (subscriptionData.installmentMethod === 'installments') {
+        if (finalSubscriptionData.installmentMethod === 'installments') {
             const installmentAmount = parseFloat((totalSale / totalInstallments).toFixed(2));
             const totalCalculated = installmentAmount * totalInstallments;
             const remainder = parseFloat((totalSale - totalCalculated).toFixed(2));
@@ -145,29 +145,31 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                 const dueDate = addMonths(startDate, i);
                 
                 let currentInstallmentAmount = installmentAmount;
-                // Add the remainder to the last installment to ensure the total is correct
                 if (i === totalInstallments - 1) {
                     currentInstallmentAmount += remainder;
                 }
 
                 const installmentData: Omit<SubscriptionInstallment, 'id'> = {
-                    subscriptionId: subscriptionRef.id, clientName: subscriptionData.clientName, serviceName: subscriptionData.serviceName,
-                    amount: parseFloat(currentInstallmentAmount.toFixed(2)), currency: subscriptionData.currency, dueDate: dueDate.toISOString(),
+                    subscriptionId: subscriptionRef.id, clientName: finalSubscriptionData.clientName, serviceName: finalSubscriptionData.serviceName,
+                    amount: parseFloat(currentInstallmentAmount.toFixed(2)), currency: finalSubscriptionData.currency, dueDate: dueDate.toISOString(),
                     status: 'Unpaid', paidAmount: 0, discount: 0,
                 };
                 batch.set(installmentRef, installmentData);
             }
-        } else { // Single payment (upfront or deferred)
+        } else if (finalSubscriptionData.installmentMethod === 'upfront') {
             const installmentRef = db.collection('subscription_installments').doc();
-            let dueDate: Date;
-            if (subscriptionData.installmentMethod === 'upfront') {
-                dueDate = startDate; // Due at the beginning
-            } else { // 'deferred'
-                dueDate = subscriptionData.deferredDueDate ? new Date(subscriptionData.deferredDueDate) : endOfDay(addMonths(startDate, totalInstallments));
-            }
             const installmentData: Omit<SubscriptionInstallment, 'id'> = {
-                subscriptionId: subscriptionRef.id, clientName: subscriptionData.clientName, serviceName: subscriptionData.serviceName,
-                amount: totalSale, currency: subscriptionData.currency, dueDate: dueDate.toISOString(),
+                subscriptionId: subscriptionRef.id, clientName: finalSubscriptionData.clientName, serviceName: finalSubscriptionData.serviceName,
+                amount: totalSale, currency: finalSubscriptionData.currency, dueDate: startDate.toISOString(),
+                status: 'Unpaid', paidAmount: 0, discount: 0,
+            };
+            batch.set(installmentRef, installmentData);
+        } else if (finalSubscriptionData.installmentMethod === 'deferred') {
+            const installmentRef = db.collection('subscription_installments').doc();
+            const dueDate = finalSubscriptionData.deferredDueDate ? new Date(finalSubscriptionData.deferredDueDate) : endOfDay(addMonths(startDate, totalInstallments));
+            const installmentData: Omit<SubscriptionInstallment, 'id'> = {
+                subscriptionId: subscriptionRef.id, clientName: finalSubscriptionData.clientName, serviceName: finalSubscriptionData.serviceName,
+                amount: totalSale, currency: finalSubscriptionData.currency, dueDate: dueDate.toISOString(),
                 status: 'Unpaid', paidAmount: 0, discount: 0,
             };
             batch.set(installmentRef, installmentData);
@@ -178,20 +180,20 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         const journalVoucherRef = db.collection('journal-vouchers').doc();
         
         const debitEntries: JournalEntry[] = [
-            { accountId: subscriptionData.clientId, amount: totalSale, description: `اشتراك خدمة: ${subscriptionData.serviceName}` },
-            { accountId: 'expense_subscriptions', amount: totalPurchase, description: `تكلفة اشتراك: ${subscriptionData.serviceName}` }
+            { accountId: finalSubscriptionData.clientId, amount: totalSale, description: `اشتراك خدمة: ${finalSubscriptionData.serviceName}` },
+            { accountId: 'expense_subscriptions', amount: totalPurchase, description: `تكلفة اشتراك: ${finalSubscriptionData.serviceName}` }
         ];
         const creditEntries: JournalEntry[] = [
-            { accountId: subscriptionData.supplierId, amount: totalPurchase, description: `مستحقات اشتراك: ${subscriptionData.serviceName}` },
-            { accountId: 'revenue_subscriptions', amount: totalSale, description: `إيراد اشتراك: ${subscriptionData.serviceName}` }
+            { accountId: finalSubscriptionData.supplierId, amount: totalPurchase, description: `مستحقات اشتراك: ${finalSubscriptionData.serviceName}` },
+            { accountId: 'revenue_subscriptions', amount: totalSale, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` }
         ];
 
         batch.set(journalVoucherRef, {
             invoiceNumber: newInvoiceNumber,
-            date: new Date(subscriptionData.purchaseDate).toISOString(),
-            currency: subscriptionData.currency,
+            date: new Date(finalSubscriptionData.purchaseDate).toISOString(),
+            currency: finalSubscriptionData.currency,
             exchangeRate: null,
-            notes: subscriptionData.notes || `تسجيل اشتراك خدمة ${subscriptionData.serviceName}`,
+            notes: finalSubscriptionData.notes || `تسجيل اشتراك خدمة ${finalSubscriptionData.serviceName}`,
             createdBy: user.uid,
             officer: user.name,
             createdAt: new Date().toISOString(),
@@ -204,10 +206,10 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             originalData: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }, 
         });
 
-        batch.update(db.collection('clients').doc(subscriptionData.clientId), { useCount: FieldValue.increment(1) });
-        batch.update(db.collection('clients').doc(subscriptionData.supplierId), { useCount: FieldValue.increment(1) });
-        if(subscriptionData.boxId) {
-             batch.update(db.collection('boxes').doc(subscriptionData.boxId), { useCount: FieldValue.increment(1) });
+        batch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });
+        batch.update(db.collection('clients').doc(finalSubscriptionData.supplierId), { useCount: FieldValue.increment(1) });
+        if(finalSubscriptionData.boxId) {
+             batch.update(db.collection('boxes').doc(finalSubscriptionData.boxId), { useCount: FieldValue.increment(1) });
         }
 
 
@@ -218,14 +220,14 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             userName: user.name,
             action: 'CREATE',
             targetType: 'SUBSCRIPTION',
-            description: `أنشأ اشتراكًا جديدًا: "${subscriptionData.serviceName}" للعميل ${subscriptionData.clientName}.`,
+            description: `أنشأ اشتراكًا جديدًا: "${finalSubscriptionData.serviceName}" للعميل ${finalSubscriptionData.clientName}.`,
             targetId: subscriptionRef.id,
         });
 
         await createNotification({
             userId: user.uid,
             title: 'تم إنشاء اشتراك جديد',
-            body: `تم إنشاء اشتراك "${subscriptionData.serviceName}" للعميل ${subscriptionData.clientName}.`,
+            body: `تم إنشاء اشتراك "${finalSubscriptionData.serviceName}" للعميل ${finalSubscriptionData.clientName}.`,
             type: 'system',
             link: `/subscriptions`
         });
@@ -695,5 +697,7 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
+    
 
     
