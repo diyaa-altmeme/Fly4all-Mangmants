@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from "react";
@@ -127,6 +126,11 @@ const systemItems = [
     { href: "/system/data-audit", label: "فحص البيانات", icon: ScanSearch, permission: 'system:data_audit:run' },
     { href: "/support", label: "الدعم والمساعدة", icon: HelpCircle, permission: 'public' },
     { href: "/coming-soon", label: "الميزات القادمة", icon: Lightbulb, permission: 'public' },
+];
+
+const additionalServicesItems = [
+    { href: "/chat", label: "المحادثات", icon: MessageSquare, permission: 'public' },
+    { href: "/campaigns", label: "الحملات", icon: Send, permission: 'admin' },
 ];
 
 const MobileSubItem = ({ href, icon: Icon, children }: { href: string; icon: React.ElementType; children: React.ReactNode }) => (
@@ -334,6 +338,21 @@ const MainNavContent = () => {
           </>
       )},
       {
+        id: 'additional-services',
+        label: 'خدمات إضافية',
+        icon: MessageSquare,
+        activeRoutes: ['/chat', '/campaigns'],
+        children: (
+            <>
+              {filterItems(additionalServicesItems).map(item => (
+                  <DropdownMenuItem asChild key={item.href}>
+                     <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
+                 </DropdownMenuItem>
+             ))}
+            </>
+        )
+      },
+      {
           id: 'system', 
           label: 'النظام', 
           icon: Network, 
@@ -355,6 +374,7 @@ const MainNavContent = () => {
       const childItems = menu.id === 'operations' ? operationsItems 
                        : menu.id === 'custom_reports' ? customReportsItems
                        : menu.id === 'reports' ? reportsItems 
+                       : menu.id === 'additional-services' ? additionalServicesItems
                        : menu.id === 'system' ? systemItems 
                        : [];
       return filterItems(childItems).length > 0;
@@ -392,6 +412,7 @@ const MainNavContent = () => {
       const itemsToRender = menu.id === 'operations' ? operationsItems 
                           : menu.id === 'custom_reports' ? customReportsItems
                           : menu.id === 'reports' ? reportsItems 
+                          : menu.id === 'additional-services' ? additionalServicesItems
                           : [];
 
       if (itemsToRender.length > 0) {
@@ -427,10 +448,6 @@ const MainNavContent = () => {
                        </AccordionContent>
                   </AccordionItem>
               ))}
-               <NavLink href="/chat" active={pathname.startsWith('/chat')} className="w-full justify-end text-base">
-                المحادثات
-                <MessageSquare className="h-5 w-5" />
-              </NavLink>
           </Accordion>
       )
   }
@@ -453,15 +470,6 @@ const MainNavContent = () => {
                    {menu.children}
                 </NavMenu>
             ))}
-            
-            <NavLink href="/chat" active={pathname.startsWith('/chat')} className="justify-end">
-                المحادثات
-                <MessageSquare className="h-4 w-4" />
-            </NavLink>
-             <NavLink href="/campaigns" active={pathname.startsWith('/campaigns')} className="justify-end">
-                الحملات
-                <Send className="h-4 w-4" />
-            </NavLink>
         </nav>
     </div>
   );
