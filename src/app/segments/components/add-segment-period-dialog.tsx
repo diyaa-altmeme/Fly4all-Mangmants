@@ -32,6 +32,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -64,7 +65,8 @@ const PairedInput = ({
     profitType,
     profitValue,
     label,
-    borderColorClass
+    borderColorClass,
+    globalProfitType,
 }: {
     form: ReturnType<typeof useForm<CompanyEntryFormValues>>;
     name: keyof CompanyEntryFormValues;
@@ -72,73 +74,62 @@ const PairedInput = ({
     profitValue: keyof CompanyEntryFormValues;
     label: string;
     borderColorClass: string;
+    globalProfitType: 'percentage' | 'fixed';
 }) => {
     const { control, watch } = form;
     const count = watch(name) as number || 0;
-    const type = watch(profitType) as 'percentage' | 'fixed';
     const value = watch(profitValue) as number || 0;
     
     const result = useMemo(() => {
-        if (type === 'percentage') {
+        if (globalProfitType === 'percentage') {
             return count * (value / 100);
         }
         return count * value;
-    }, [count, type, value]);
+    }, [count, globalProfitType, value]);
 
 
     return (
     <div className="space-y-1.5">
         <Label className="font-semibold">{label}</Label>
-        <Collapsible asChild>
-            <div className={cn("flex flex-col rounded-lg border overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
-                 <div className="flex">
-                    <FormField
-                        control={control}
-                        name={name}
-                        render={({ field }) => (
-                            <FormItem className="flex-grow">
-                                <FormControl>
-                                    <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center" />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                    <CollapsibleContent asChild>
-                        <div className="flex border-r">
-                            <FormField
-                                control={control}
-                                name={profitType}
-                                render={({ field }) => (
-                                    <FormItem>
+        <div className={cn("flex flex-col rounded-lg border-2 overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
+            <div className="flex">
+                <FormField
+                    control={control}
+                    name={name}
+                    render={({ field }) => (
+                        <FormItem className="flex-grow">
+                            <FormControl>
+                                <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center" />
+                            </FormControl>
+                        </FormItem>
+                    )}
+                />
+                 <CollapsibleContent asChild>
+                    <div className="flex border-r">
+                         <FormField
+                            control={control}
+                            name={profitValue}
+                            render={({ field }) => (
+                                <FormItem className="w-24">
+                                     <div className="relative">
                                         <FormControl>
-                                            <ToggleGroup type="single" variant="outline" value={field.value} onValueChange={field.onChange} className="h-9">
-                                                <ToggleGroupItem value="percentage" className="h-full rounded-none text-xs p-1.5"><Percent className="h-3 w-3" /></ToggleGroupItem>
-                                                <ToggleGroupItem value="fixed" className="h-full rounded-none text-xs p-1.5">$</ToggleGroupItem>
-                                            </ToggleGroup>
+                                            <NumericInput {...field} className="h-9 border-0 rounded-none text-center pe-6" />
                                         </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={control}
-                                name={profitValue}
-                                render={({ field }) => (
-                                    <FormItem className="w-20">
-                                        <FormControl>
-                                            <NumericInput {...field} className="h-9 border-0 rounded-none text-center" />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                    </CollapsibleContent>
-                 </div>
-                  <div className="relative">
-                    <Input readOnly disabled value={result.toFixed(2)} className="h-8 text-center border-0 rounded-none bg-muted/50 font-mono font-bold text-primary" />
-                    <Label className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">الناتج</Label>
-                 </div>
+                                         <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-bold">
+                                            {globalProfitType === 'percentage' ? '%' : '$'}
+                                        </span>
+                                    </div>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </CollapsibleContent>
             </div>
-        </Collapsible>
+              <div className="relative">
+                <Input readOnly disabled value={result.toFixed(2)} className="h-8 text-center border-0 rounded-none bg-muted/50 font-mono font-bold text-primary" />
+                <Label className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">الناتج</Label>
+             </div>
+        </div>
     </div>
 );
 };
@@ -203,6 +194,15 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
     const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
+    
+    const [globalProfitType, setGlobalProfitType] = useState<'percentage' | 'fixed'>('percentage');
+
+    useEffect(() => {
+        companyForm.setValue('ticketProfitType', globalProfitType);
+        companyForm.setValue('visaProfitType', globalProfitType);
+        companyForm.setValue('hotelProfitType', globalProfitType);
+        companyForm.setValue('groupProfitType', globalProfitType);
+    }, [globalProfitType, companyForm]);
 
 
     useEffect(() => {
@@ -276,7 +276,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data);
+        const newEntry = calculateShares(data, company?.segmentSettings);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
@@ -348,10 +348,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         <Form {...periodForm}>
                             <form className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
-                                    <FormItem><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>من تاريخ</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                                 )}/>
                                 <FormField control={periodForm.control} name="toDate" render={({ field }) => (
-                                    <FormItem><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>إلى تاريخ</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                                    <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                                 )}/>
                             </form>
                         </Form>
@@ -369,11 +369,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     )}/>
                                 </div>
                                 <Collapsible>
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                        <PairedInput form={companyForm} name="tickets" profitType="ticketProfitType" profitValue="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" />
-                                        <PairedInput form={companyForm} name="visas" profitType="visaProfitType" profitValue="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" />
-                                        <PairedInput form={companyForm} name="hotels" profitType="hotelProfitType" profitValue="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" />
-                                        <PairedInput form={companyForm} name="groups" profitType="groupProfitType" profitValue="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" />
+                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        <PairedInput form={companyForm} name="tickets" profitType="ticketProfitType" profitValue="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" globalProfitType={globalProfitType} />
+                                        <PairedInput form={companyForm} name="visas" profitType="visaProfitType" profitValue="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" globalProfitType={globalProfitType} />
+                                        <PairedInput form={companyForm} name="hotels" profitType="hotelProfitType" profitValue="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" globalProfitType={globalProfitType} />
+                                        <PairedInput form={companyForm} name="groups" profitType="groupProfitType" profitValue="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" globalProfitType={globalProfitType} />
                                     </div>
                                     <div className="flex items-center justify-between mt-3">
                                         <CollapsibleTrigger asChild>
@@ -383,7 +383,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             </Button>
                                         </CollapsibleTrigger>
                                         <div className="flex items-center gap-4">
-                                            <FormField control={companyForm.control} name="currency" render={({ field }) => (
+                                             <FormField control={companyForm.control} name="currency" render={({ field }) => (
                                                 <FormItem className="w-28"><FormControl><Select onValueChange={field.onChange} value={field.value}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select></FormControl></FormItem>
                                             )}/>
                                             <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
@@ -398,6 +398,25 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             )}/>
                                         </div>
                                     </div>
+                                     <CollapsibleContent asChild>
+                                        <div className="mt-4 p-3 border rounded-md bg-muted/50">
+                                            <Label className="font-semibold text-sm">نوع العمولة (يطبق على الكل)</Label>
+                                            <RadioGroup
+                                                value={globalProfitType}
+                                                onValueChange={(v: 'percentage' | 'fixed') => setGlobalProfitType(v)}
+                                                className="grid grid-cols-2 gap-2 mt-2"
+                                            >
+                                                <Label className={cn("p-2 text-center border rounded-md cursor-pointer", globalProfitType === 'percentage' && "bg-primary text-primary-foreground border-primary")}>
+                                                    <RadioGroupItem value="percentage" className="sr-only" />
+                                                    نسبة مئوية (%)
+                                                </Label>
+                                                <Label className={cn("p-2 text-center border rounded-md cursor-pointer", globalProfitType === 'fixed' && "bg-primary text-primary-foreground border-primary")}>
+                                                    <RadioGroupItem value="fixed" className="sr-only" />
+                                                    مبلغ ثابت ($)
+                                                </Label>
+                                            </RadioGroup>
+                                        </div>
+                                    </CollapsibleContent>
                                 </Collapsible>
                                 <div className='flex justify-end pt-4 border-t mt-4'>
                                     <Button type="submit"><PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة</Button>
