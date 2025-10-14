@@ -80,7 +80,8 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
   const { data: navData, loaded: navLoaded, fetchData } = useVoucherNav();
   const [isSaving, setIsSaving] = useState(false);
   const [dialogDimensions, setDialogDimensions] = useState({ width: '1024px', height: '90vh' });
-  
+  const [numInstallments, setNumInstallments] = useState<number>(2);
+
   const subscriptionSettings = navData?.settings?.subscriptionSettings;
   const defaultCurrency = navData?.settings.currencySettings?.defaultCurrency || 'USD';
   
@@ -93,6 +94,9 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
+
+  const { control, handleSubmit, watch, setValue, formState: { errors }, trigger } = form;
+  const { fields, append, remove, replace } = useFieldArray({ control, name: "installments" });
 
   useEffect(() => {
     if (open) {
@@ -108,14 +112,13 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
         discount: 0,
         startDate: new Date(),
         installmentMethod: 'upfront',
+        installments: [],
         notes: '',
         boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
       });
+      setNumInstallments(subscriptionSettings?.defaultInstallments || 2);
     }
   }, [open, form, currentUser, navData, defaultCurrency, subscriptionSettings]);
-
-  const { control, handleSubmit, watch, setValue, formState: { errors } } = form;
-  const { fields, append, remove } = useFieldArray({ control, name: "installments" });
 
   const watchedCurrency = watch('currency');
   const installmentMethod = watch('installmentMethod');
@@ -124,6 +127,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
   const saleUnitPrice = watch('unitPrice');
   const discount = watch('discount');
   const installmentsArray = watch('installments');
+  const startDate = watch('startDate');
 
   const totalPurchase = (quantity || 0) * (purchaseUnitPrice || 0);
   const totalSale = ((quantity || 0) * (saleUnitPrice || 0)) - (discount || 0);
@@ -139,6 +143,27 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
 
   const supplierOptions = React.useMemo(() => (navData?.suppliers || []).map(s => ({ value: s.id, label: s.name })), [navData?.suppliers]);
   const clientOptions = React.useMemo(() => (navData?.clients || []).map(c => ({ value: c.id, label: `${c.name} ${c.code ? `(${c.code})` : ''}` })), [navData?.clients]);
+  
+  const handleGenerateInstallments = useCallback(() => {
+    if (numInstallments > 0 && totalSale > 0) {
+      const installmentAmount = parseFloat((totalSale / numInstallments).toFixed(2));
+      const newInstallments = Array.from({ length: numInstallments }, (_, i) => {
+        const dueDate = addMonths(startDate, i);
+        return { dueDate, amount: installmentAmount };
+      });
+      
+      // Adjust last installment for rounding differences
+      const totalGenerated = newInstallments.reduce((sum, inst) => sum + inst.amount, 0);
+      const difference = totalSale - totalGenerated;
+      if (newInstallments.length > 0) {
+        newInstallments[newInstallments.length - 1].amount += difference;
+      }
+
+      replace(newInstallments);
+    } else {
+      replace([]);
+    }
+  }, [numInstallments, totalSale, startDate, replace]);
 
 
   const onFinalSubmit = async (data: FormValues) => {
@@ -284,6 +309,13 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                     </div>
                                     {installmentMethod === 'installments' && (
                                         <div className="space-y-4 pt-4 border-t">
+                                            <div className="flex items-center gap-4">
+                                                <div className="space-y-1.5 w-48">
+                                                    <Label>عدد الدفعات</Label>
+                                                    <Input type="number" value={numInstallments} onChange={(e) => setNumInstallments(Number(e.target.value) || 0)} min={1}/>
+                                                </div>
+                                                <Button type="button" onClick={handleGenerateInstallments} className="mt-6">توليد الأقساط</Button>
+                                            </div>
                                             <h4 className="font-bold">إدارة الدفعات</h4>
                                             <div className="border rounded-lg">
                                                 <Table><TableHeader><TableRow><TableHead>#</TableHead><TableHead>تاريخ الاستحقاق</TableHead><TableHead>المبلغ</TableHead><TableHead className="w-12"></TableHead></TableRow></TableHeader>
@@ -301,7 +333,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                             </div>
                                             <div className="flex justify-between items-center">
                                                 <Button type="button" variant="outline" size="sm" onClick={() => append({ dueDate: addMonths(fields[fields.length - 1]?.dueDate || new Date(), 1), amount: 0 })}>
-                                                    <PlusCircle className="me-2 h-4 w-4" /> إضافة دفعة
+                                                    <PlusCircle className="me-2 h-4 w-4" /> إضافة دفعة يدوية
                                                 </Button>
                                                 <div className="space-x-4 font-mono text-sm">
                                                     <span className="font-bold">الموزع: <span className="text-blue-600">{distributedAmount.toLocaleString()}</span></span>
