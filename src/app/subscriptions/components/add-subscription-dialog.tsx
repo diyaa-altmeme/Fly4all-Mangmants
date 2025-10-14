@@ -29,7 +29,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, addMonths, endOfDay } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 import { useForm, Controller, FormProvider, useFormContext, useFieldArray } from 'react-hook-form';
 import { cn } from '@/lib/utils';
 import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
@@ -295,21 +295,35 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                             </Section>
 
                              <Section title="جدولة الدفعات" className="md:col-span-2">
-                                <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] gap-6 items-start">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 items-end">
                                     <FormField name="installmentMethod" control={control} render={({ field }) => (
-                                        <FormItem className="space-y-3">
+                                        <FormItem className="space-y-2">
                                             <FormLabel className="font-bold text-base">طريقة السداد</FormLabel>
-                                            <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-3 gap-2">
-                                              <FormItem><FormControl><RadioGroupItem value="upfront" id="upfront" className="sr-only peer" /></FormControl><Label htmlFor="upfront" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">دفعة مقدمًا</Label></FormItem>
-                                              <FormItem><FormControl><RadioGroupItem value="deferred" id="deferred" className="sr-only peer" /></FormControl><Label htmlFor="deferred" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">دفع بالأجل</Label></FormItem>
-                                              <FormItem><FormControl><RadioGroupItem value="installments" id="installments" className="sr-only peer" /></FormControl><Label htmlFor="installments" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">على شكل دفعات</Label></FormItem>
-                                            </RadioGroup></FormControl><FormMessage />
+                                            <FormControl>
+                                                <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-3 gap-2">
+                                                    <FormItem>
+                                                        <FormControl><RadioGroupItem value="upfront" id="upfront" className="sr-only peer" /></FormControl>
+                                                        <Label htmlFor="upfront" className="flex h-10 items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground font-bold text-sm cursor-pointer">دفعة مقدمًا</Label>
+                                                    </FormItem>
+                                                    <FormItem>
+                                                        <FormControl><RadioGroupItem value="deferred" id="deferred" className="sr-only peer" /></FormControl>
+                                                        <Label htmlFor="deferred" className="flex h-10 items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground font-bold text-sm cursor-pointer">دفع بالأجل</Label>
+                                                    </FormItem>
+                                                    <FormItem>
+                                                        <FormControl><RadioGroupItem value="installments" id="installments" className="sr-only peer" /></FormControl>
+                                                        <Label htmlFor="installments" className="flex h-10 items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground font-bold text-sm cursor-pointer">على شكل دفعات</Label>
+                                                    </FormItem>
+                                                </RadioGroup>
+                                            </FormControl>
+                                            <FormMessage />
                                         </FormItem>
                                     )}/>
-                                    <FormField control={control} name="startDate" render={({ field }) => ( <FormItem><FormLabel className="font-bold">تاريخ بدء الاشتراك</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={control} name="startDate" render={({ field }) => (
+                                        <FormItem><FormLabel className="font-bold">تاريخ بدء الاشتراك</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>
+                                    )}/>
                                 </div>
                                 <div className="pt-4 space-y-4">
-                                    {installmentMethod === 'deferred' && (
+                                    {(installmentMethod === 'upfront' || installmentMethod === 'deferred') && (
                                         <FormField control={control} name="deferredDueDate" render={({ field }) => (<FormItem><FormLabel className="font-bold">تاريخ استحقاق الدفعة</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
                                     )}
                                     {installmentMethod === 'installments' && (
@@ -374,5 +388,3 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
     </Dialog>
   );
 }
-
-    
