@@ -12,9 +12,7 @@ import { z } from 'zod';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { cn } from '@/lib/utils';
 import { DialogFooter } from '@/components/ui/dialog';
 import { useAuth } from '@/lib/auth-context';
@@ -61,7 +59,6 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
   const { data: navData } = useVoucherNav();
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -114,7 +111,7 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
             if(onVoucherUpdated) onVoucherUpdated(data);
         } else {
             const result = await createPaymentVoucher({
-                date: format(data.date, 'yyyy-MM-dd'),
+                date: (data.date as Date).toISOString(),
                 toSupplierId: data.payeeId, // Assuming payeeId is the supplier ID
                 amount: data.totalAmount,
                 currency: data.currency,
@@ -158,7 +155,7 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
              <div className="space-y-4">
                 <div className="space-y-1.5">
                     <Label htmlFor="date">التاريخ</Label>
-                    <Controller control={control} name="date" render={({ field }) => (<Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="me-2 h-4 w-4" />{field.value ? format(field.value, 'yyyy-MM-dd') : <span>اختر تاريخ</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={(d) => { if(d) field.onChange(d); setIsCalendarOpen(false); }} initialFocus /></PopoverContent></Popover>)} />
+                    <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
                     {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
                 </div>
                  <div className="space-y-1.5">
