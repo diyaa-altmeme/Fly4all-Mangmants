@@ -46,12 +46,12 @@ function monthIdFromDate(d: Date) {
   return `${d.getFullYear()}-${('0' + (d.getMonth() + 1)).slice(-2)}`;
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
+export async function getDashboardStats(date: Date = new Date()): Promise<DashboardStats> {
     const db = await getDb();
     if (!db) return { revenue: 0, profit: 0, bookingsCount: 0, activeSubscriptions: 0, currency: 'USD' };
 
     try {
-        const monthId = monthIdFromDate(new Date());
+        const monthId = monthIdFromDate(date);
         // This assumes a single company for now. In a multi-tenant app, you'd get the companyId from the user session.
         const companyId = "default";
         const docId = `${companyId}_revenue_${monthId}`;
