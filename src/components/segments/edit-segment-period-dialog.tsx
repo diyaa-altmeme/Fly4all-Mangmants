@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -72,7 +73,7 @@ const EditCompanyForm = ({ entryData, allCompanyOptions, partnerOptions, onSave,
         resolver: zodResolver(companyEntrySchema),
         defaultValues: {
             clientId: entryData.clientId || '',
-            partnerId: partnerOptions.find(p => p.value.endsWith(entryData.partnerId))?.value || '',
+            partnerId: partnerOptions.find(p => p.value === entryData.partnerId)?.value || '',
             tickets: entryData.tickets || 0,
             visas: entryData.visas || 0,
             hotels: entryData.hotels || 0,
@@ -152,18 +153,15 @@ export default function EditSegmentPeriodDialog({ existingPeriod, clients, suppl
     }, [open, existingPeriod, periodForm, companyForm]);
 
      const calculateShares = (data: CompanyEntryFormValues, companySettings?: SegmentSettings) => {
-        const client = clients.find(c => c.id === data.clientId);
         const settings = companySettings || {
-            tickets: { type: 'percentage', value: 50 },
-            visas: { type: 'fixed', value: 1 },
-            hotels: { type: 'fixed', value: 1 },
-            groups: { type: 'fixed', value: 1 }
+            ticketProfitPercentage: 50, visaProfitPercentage: 100, hotelProfitPercentage: 100,
+            groupProfitPercentage: 100, alrawdatainSharePercentage: 50,
         };
 
-        const ticketProfits = data.tickets * (settings.tickets.value || 0); // Assuming value is profit per ticket
-        const visaProfits = data.visas * (settings.visas.value || 0);
-        const hotelProfits = data.hotels * (settings.hotels.value || 0);
-        const groupProfits = data.groups * (settings.groups.value || 0);
+        const ticketProfits = data.tickets * (settings.ticketProfitPercentage / 100);
+        const visaProfits = data.visas * (settings.visaProfitPercentage / 100);
+        const hotelProfits = data.hotels * (settings.hotelProfitPercentage / 100);
+        const groupProfits = data.groups * (settings.groupProfitPercentage / 100);
 
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
@@ -172,6 +170,7 @@ export default function EditSegmentPeriodDialog({ existingPeriod, clients, suppl
         const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
         
+        const client = clients.find(c => c.id === data.clientId);
         const selectedPartnerOption = partnerOptions.find(p => p.value === data.partnerId);
 
         return { 

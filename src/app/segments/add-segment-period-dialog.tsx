@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,7 +37,10 @@ const periodSchema = z.object({
 const companyEntrySchema = z.object({
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   partnerId: z.string().min(1, { message: "اسم الشريك مطلوب." }),
-  totalProfit: z.coerce.number().min(0).default(0),
+  tickets: z.coerce.number().int().nonnegative().default(0),
+  visas: z.coerce.number().int().nonnegative().default(0),
+  hotels: z.coerce.number().int().nonnegative().default(0),
+  groups: z.coerce.number().int().nonnegative().default(0),
 });
 
 type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
@@ -81,7 +84,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         defaultValues: {
             clientId: '',
             partnerId: '',
-            totalProfit: 0,
+            tickets: 0,
+            visas: 0,
+            hotels: 0,
+            groups: 0,
         }
     });
 
@@ -95,7 +101,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
              companyForm.reset({
                 clientId: '',
                 partnerId: '',
-                totalProfit: 0,
+                tickets: 0,
+                visas: 0,
+                hotels: 0,
+                groups: 0,
             });
             setPeriodEntries([]);
             setStep(1);
@@ -103,12 +112,18 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     }, [open, periodForm, companyForm]);
 
      const calculateShares = (data: CompanyEntryFormValues, companySettings?: SegmentSettings) => {
-        const total = data.totalProfit || 0;
-        
-        const effectiveSettings = companySettings || { alrawdatainSharePercentage: 50 };
-        const alrawdatainSharePercentage = effectiveSettings.alrawdatainSharePercentage || 50;
-        
-        const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
+        const effectiveSettings = companySettings || {
+            ticketProfitPercentage: 50, visaProfitPercentage: 100, hotelProfitPercentage: 100,
+            groupProfitPercentage: 100, alrawdatainSharePercentage: 50,
+        };
+
+        const ticketProfits = data.tickets * (effectiveSettings.ticketProfitPercentage / 100);
+        const visaProfits = data.visas * (effectiveSettings.visaProfitPercentage / 100);
+        const hotelProfits = data.hotels * (effectiveSettings.hotelProfitPercentage / 100);
+        const groupProfits = data.groups * (effectiveSettings.groupProfitPercentage / 100);
+        const otherProfits = visaProfits + hotelProfits + groupProfits;
+        const total = ticketProfits + otherProfits;
+        const alrawdatainShare = total * (effectiveSettings.alrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
         
         const client = clients.find(c => c.id === data.clientId);
@@ -121,6 +136,8 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             clientId: client?.id || '',
             partnerId: selectedPartnerOption?.value || '',
             partnerName: selectedPartnerOption?.label || '',
+            ticketProfits, 
+            otherProfits, 
             total, 
             alrawdatainShare, 
             partnerShare 
@@ -132,7 +149,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const newEntry = calculateShares(data, company?.segmentSettings);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
-        companyForm.reset({ clientId: '', partnerId: '', totalProfit: 0 });
+        companyForm.reset({ clientId: '', partnerId: '', tickets: 0, visas: 0, hotels: 0, groups: 0 });
     };
 
     const removeEntry = (index: number) => {
@@ -219,9 +236,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             <FormField control={companyForm.control} name="partnerId" render={({ field }) => (
                                                 <FormItem><FormLabel>الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شريك..."/></FormControl><FormMessage /></FormItem>
                                             )}/>
-                                            <div className="sm:col-span-2">
-                                                <FormField control={companyForm.control} name="totalProfit" render={({ field }) => (<FormItem><FormLabel>إجمالي الربح</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            </div>
+                                            <FormField control={companyForm.control} name="tickets" render={({ field }) => (<FormItem><FormLabel>التذاكر</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            <FormField control={companyForm.control} name="visas" render={({ field }) => (<FormItem><FormLabel>الفيزا</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            <FormField control={companyForm.control} name="hotels" render={({ field }) => (<FormItem><FormLabel>الفنادق</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            <FormField control={companyForm.control} name="groups" render={({ field }) => (<FormItem><FormLabel>الكروبات</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                         </div>
                                         <div className='flex justify-end'>
                                             <Button type="submit"><PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة</Button>
@@ -237,7 +255,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             <TableRow>
                                                 <TableHead>الشركة</TableHead>
                                                 <TableHead>الشريك</TableHead>
-                                                <TableHead>إجمالي الربح</TableHead>
+                                                <TableHead>المجموع</TableHead>
                                                 <TableHead>حصة الروضتين</TableHead>
                                                 <TableHead>حصة الشريك</TableHead>
                                                 <TableHead className='w-[60px] text-center'>حذف</TableHead>
