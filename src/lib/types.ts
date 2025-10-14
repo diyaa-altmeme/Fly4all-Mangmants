@@ -457,20 +457,16 @@ export type CurrencySettings = {
 export type SubscriptionSettings = {
   defaultSupplier?: string;
   defaultInstallments?: number;
-  defaultProfitMargin?: number;
   defaultQuantity?: number;
-  firstInstallmentAfterDays?: number;
-  autoActivate?: boolean;
-  installmentMethod?: 'automatic' | 'manual';
-  maxInstallments?: number;
-  minInstallmentAmount?: number;
-  reminderDaysBefore?: number;
-  reminderFrequency?: 'daily' | 'weekly';
-  alertAdminOnDelay?: number;
+  autoCreateJournalEntry?: boolean;
+  reminders?: {
+    enabled: boolean;
+    daysBeforeDue: number[]; // e.g. [7, 3, 1] for 7, 3, and 1 day before
+    sendTime: string; // e.g. "09:00"
+    notifyAfterOverdueDays?: number; // Send reminder X days after due date if still unpaid
+  };
   revenueAccountId?: string;
   costAccountId?: string;
-  autoCreateJournalEntry?: boolean;
-  allowEditingAfterPayment?: boolean;
 };
 
 
@@ -697,6 +693,7 @@ export type Subscription = {
     discount: number;
     startDate: string; // ISO Date String
     numberOfInstallments: number;
+    installmentMethod?: 'upfront' | 'deferred' | 'installments';
     currency: Currency;
     notes: string;
     profit: number; // This is now calculated: salePrice - purchasePrice
