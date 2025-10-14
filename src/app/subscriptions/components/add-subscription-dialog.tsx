@@ -55,7 +55,8 @@ const formSchema = z.object({
   unitPrice: z.coerce.number().min(0, "سعر بيع الوحدة يجب أن يكون أكبر من صفر").default(0),
   discount: z.coerce.number().min(0, "الخصم لا يمكن أن يكون سالبًا.").default(0).optional(),
   startDate: z.date({ required_error: "تاريخ بدء الاشتراك مطلوب." }),
-  installmentMethod: z.enum(['upfront', 'deferred', 'installments']).default('installments'),
+  installmentMethod: z.enum(['upfront', 'deferred', 'installments']).default('upfront'),
+  deferredDueDate: z.date().optional(),
   installments: z.array(installmentSchema).optional(),
   boxId: z.string().optional(),
   notes: z.string().optional(),
@@ -105,9 +106,8 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
         quantity: subscriptionSettings?.defaultQuantity || 1,
         unitPrice: 0,
         discount: 0,
-        startDate: addMonths(new Date(), 1),
-        installmentMethod: 'installments',
-        installments: [{ dueDate: addMonths(new Date(), 1), amount: 0 }],
+        startDate: new Date(),
+        installmentMethod: 'upfront',
         notes: '',
         boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
       });
@@ -161,6 +161,9 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
       
       const newSubscriptionData = {
         ...data,
+        purchaseDate: data.purchaseDate.toISOString(),
+        startDate: data.startDate.toISOString(),
+        deferredDueDate: data.deferredDueDate ? data.deferredDueDate.toISOString() : undefined,
         installments: (data.installments || []).map(inst => ({ ...inst, dueDate: inst.dueDate.toISOString() })),
         clientName: client.name,
         supplierName: supplier.name,
@@ -266,12 +269,18 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
 
                              <Section title="جدولة الدفعات" className="md:col-span-2">
                                 <FormField name="installmentMethod" control={control} render={({ field }) => (
-                                    <FormItem className="space-y-3"><FormLabel className="font-semibold">طريقة السداد</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="grid grid-cols-1 md:grid-cols-3 gap-2">{/* ... */}</RadioGroup></FormControl><FormMessage /></FormItem>
+                                    <FormItem className="space-y-3"><FormLabel className="font-semibold">طريقة السداد</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                      <FormItem><FormControl><RadioGroupItem value="upfront" id="upfront" className="sr-only peer" /></FormControl><Label htmlFor="upfront" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">دفعة مقدمًا</Label></FormItem>
+                                      <FormItem><FormControl><RadioGroupItem value="deferred" id="deferred" className="sr-only peer" /></FormControl><Label htmlFor="deferred" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">دفع بالأجل</Label></FormItem>
+                                      <FormItem><FormControl><RadioGroupItem value="installments" id="installments" className="sr-only peer" /></FormControl><Label htmlFor="installments" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">على شكل دفعات</Label></FormItem>
+                                    </RadioGroup></FormControl><FormMessage /></FormItem>
                                 )}/>
                                 <div className="pt-4 space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <FormField control={control} name="startDate" render={({ field }) => ( <FormItem><FormLabel>تاريخ بدء الاشتراك</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)}/>
-                                        {installmentMethod === 'deferred' && <FormField control={control} name="installments.0.dueDate" render={({ field }) => (<FormItem><FormLabel>تاريخ استحقاق الدفعة المؤجلة</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)} />}
+                                        {(installmentMethod === 'upfront' || installmentMethod === 'deferred') && (
+                                            <FormField control={control} name="deferredDueDate" render={({ field }) => (<FormItem><FormLabel>تاريخ استحقاق الدفعة</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
+                                        )}
                                     </div>
                                     {installmentMethod === 'installments' && (
                                         <div className="space-y-4 pt-4 border-t">
