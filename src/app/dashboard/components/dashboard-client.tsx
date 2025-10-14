@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -23,6 +24,7 @@ import type { HrData } from '@/lib/types';
 
 interface DashboardClientProps {
   stats: DashboardStats;
+  prevStats: DashboardStats;
   recentBookings: BookingEntry[];
   upcomingInstallments: SubscriptionInstallment[];
   chartData: { name: string; revenue: number; profit: number }[];
@@ -85,6 +87,7 @@ const WelcomeCard = () => {
 
 export default function DashboardClient({
   stats,
+  prevStats,
   recentBookings,
   upcomingInstallments,
   chartData,
@@ -102,7 +105,7 @@ export default function DashboardClient({
         </motion.section>
         
         <motion.section variants={itemVariants}>
-            <StatsCards stats={stats} />
+            <StatsCards currentStats={stats} prevStats={prevStats} />
         </motion.section>
         
         <motion.section className="grid grid-cols-1 lg:grid-cols-3 gap-6">

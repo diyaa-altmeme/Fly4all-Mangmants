@@ -1,4 +1,5 @@
 
+
 import React, { Suspense } from 'react';
 import { getDashboardStats, getRecentBookings, getUpcomingInstallments, getRevenueChartData } from './actions';
 import DashboardClient from './components/dashboard-client';
@@ -6,11 +7,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card } from '@/components/ui/card';
 import { getUsers } from '@/app/users/actions';
 import type { User, HrData } from '@/lib/types';
+import { subMonths } from 'date-fns';
 
 
 async function DashboardDataContainer() {
-  const [stats, recentBookings, upcomingInstallments, chartData, users] = await Promise.all([
+  const [currentMonthStats, previousMonthStats, recentBookings, upcomingInstallments, chartData, users] = await Promise.all([
     getDashboardStats(),
+    getDashboardStats(subMonths(new Date(), 1)),
     getRecentBookings(),
     getUpcomingInstallments(),
     getRevenueChartData(),
@@ -19,7 +22,8 @@ async function DashboardDataContainer() {
 
   return (
     <DashboardClient 
-      stats={stats}
+      stats={currentMonthStats}
+      prevStats={previousMonthStats}
       recentBookings={recentBookings}
       upcomingInstallments={upcomingInstallments}
       chartData={chartData}

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -34,44 +35,61 @@ const StatCard = ({ title, value, icon: Icon, currency, percentage, isPositive }
   );
 };
 
+const calculatePercentageChange = (current: number, previous: number): { percentage: string, isPositive: boolean } => {
+    if (previous === 0) {
+        return current > 0 ? { percentage: 'زيادة', isPositive: true } : { percentage: '0%', isPositive: true };
+    }
+    const change = ((current - previous) / previous) * 100;
+    const isPositive = change >= 0;
+    return {
+        percentage: `${Math.abs(change).toFixed(0)}%`,
+        isPositive,
+    };
+};
 
-export default function StatsCards({ stats }: { stats: DashboardStats }) {
+
+export default function StatsCards({ currentStats, prevStats }: { currentStats: DashboardStats, prevStats: DashboardStats }) {
+  
+  const revenueChange = calculatePercentageChange(currentStats.revenue, prevStats.revenue);
+  const profitChange = calculatePercentageChange(currentStats.profit, prevStats.profit);
+  const bookingsChange = calculatePercentageChange(currentStats.bookingsCount, prevStats.bookingsCount);
+  const subscriptionsChange = calculatePercentageChange(currentStats.activeSubscriptions, prevStats.activeSubscriptions);
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       <StatCard 
         title="إجمالي الإيرادات" 
-        value={stats.revenue.toLocaleString()} 
+        value={currentStats.revenue.toLocaleString()} 
         icon={BarChart}
-        currency="ر.س"
-        percentage="12%"
-        isPositive={true}
+        currency={currentStats.currency}
+        percentage={revenueChange.percentage}
+        isPositive={revenueChange.isPositive}
       />
       <StatCard 
         title="صافي الربح" 
-        value={stats.profit.toLocaleString()}
+        value={currentStats.profit.toLocaleString()}
         icon={DollarSign}
-        currency="ر.س"
-        percentage="8%"
-        isPositive={true}
+        currency={currentStats.currency}
+        percentage={profitChange.percentage}
+        isPositive={profitChange.isPositive}
       />
       <StatCard 
         title="الحجوزات الجديدة" 
-        value={stats.bookingsCount.toLocaleString()} 
+        value={currentStats.bookingsCount.toLocaleString()} 
         icon={Ticket}
         currency="حجزًا"
-        percentage="3%"
-        isPositive={false}
+        percentage={bookingsChange.percentage}
+        isPositive={bookingsChange.isPositive}
       />
       <StatCard 
         title="الاشتراكات النشطة" 
-        value={stats.activeSubscriptions.toLocaleString()}
+        value={currentStats.activeSubscriptions.toLocaleString()}
         icon={Repeat}
         currency="اشتراكًا"
-        percentage="20%"
-        isPositive={true}
+        percentage={subscriptionsChange.percentage}
+        isPositive={subscriptionsChange.isPositive}
       />
     </div>
   );
 }
 
-    
