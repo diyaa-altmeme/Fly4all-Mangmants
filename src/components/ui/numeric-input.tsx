@@ -21,13 +21,34 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     
     const [isFocused, setIsFocused] = React.useState(false);
     
-    const formatValue = (num: number | string | undefined | null): string => {
-        if (num === undefined || num === null || num === '') return '';
-        const numberValue = typeof num === 'string' ? parseFloat(num.replace(/,/g, '')) : num;
-        if (isNaN(numberValue)) return '';
+    // Internal state to hold the raw string value for editing
+    const [internalString, setInternalString] = React.useState<string>(
+      value === undefined || value === null ? '' : String(value)
+    );
+
+    // Sync with external value prop when it changes from outside
+    React.useEffect(() => {
+        const stringValue = value === undefined || value === null || value === '' ? '' : String(value);
+        const internalNum = parseFloat(internalString);
+        const valueNum = parseFloat(stringValue);
+
+        // Only update if the numeric values are different, to avoid interrupting user input
+        if (isNaN(internalNum) && isNaN(valueNum) && internalString === stringValue) return;
+        if (internalNum !== valueNum) {
+           setInternalString(stringValue);
+        }
+    }, [value]);
+
+
+    const formatValue = (numStr: string | undefined | null): string => {
+        if (numStr === undefined || numStr === null || numStr === '') return '';
+        const numberValue = parseFloat(numStr);
+        if (isNaN(numberValue)) return numStr; // Return as is if not a valid number (e.g., "50.")
+        
+        // Use formatting that handles decimals correctly
         return new Intl.NumberFormat('en-US', {
             minimumFractionDigits: 0,
-            maximumFractionDigits: 20, // Allow many decimal places
+            maximumFractionDigits: 20,
         }).format(numberValue);
     };
     
@@ -38,40 +59,24 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         return isNaN(numberValue) ? undefined : numberValue;
     };
     
-    // Internal state to hold the raw string value for editing
-    const [internalString, setInternalString] = React.useState<string>(
-      value === undefined || value === null ? '' : String(value)
-    );
-    
-    // Sync with external value prop
-    React.useEffect(() => {
-        const stringValue = value === undefined || value === null ? '' : String(value);
-        if (parseFloat(stringValue) !== parseFloat(internalString)) {
-            setInternalString(stringValue);
-        }
-    }, [value]);
 
     const displayValue = isFocused ? internalString : formatValue(internalString);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       let inputValue = e.target.value;
       
-      const regex = allowNegative ? /[^0-9.-]/g : /[^0-9.]/g;
-      let numericValStr = inputValue.replace(regex, "");
-
-      const parts = numericValStr.split('.');
-      if (parts.length > 2) {
-        numericValStr = `${''}${parts[0]}.${parts.slice(1).join('')}`;
-      }
+      // Regex to allow numbers, a single decimal point, and a negative sign at the start
+      const regex = allowNegative ? /^-?[0-9]*\.?[0-9]*$/ : /^[0-9]*\.?[0-9]*$/;
       
-      if (allowNegative && numericValStr.lastIndexOf('-') > 0) {
-        numericValStr = `-${numericValStr.replace(/-/g, '')}`;
-      }
-      
-      setInternalString(numericValStr);
-
-      if (onValueChange) {
-        onValueChange(parseValue(numericValStr));
+      if (regex.test(inputValue)) {
+          setInternalString(inputValue);
+          if (onValueChange) {
+              const parsed = parseValue(inputValue);
+              // Only call onValueChange if it's a valid number or empty
+              if (parsed !== undefined || inputValue === '' || inputValue === '-') {
+                onValueChange(parsed);
+              }
+          }
       }
     };
     
@@ -81,6 +86,8 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         if (onValueChange) {
             onValueChange(parsed);
         }
+        // Format the display on blur
+        setInternalString(String(parsed || ''));
         props.onBlur?.(e);
     }
     
