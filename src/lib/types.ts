@@ -3,6 +3,7 @@
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
+import { parseISO } from 'date-fns';
 
 export type Currency = "USD" | "IQD" | string;
 
@@ -351,6 +352,7 @@ export type SegmentEntry = {
   clientId: string;
   partnerId: string;
   partnerName: string;
+  currency: Currency;
   
   // Counts of items
   tickets: number;
@@ -374,6 +376,17 @@ export type SegmentEntry = {
   // The settings used for this calculation
   clientSettingsUsed?: SegmentSettings;
   partnerSettingsUsed?: PartnerShareSetting;
+  
+  // New fields for flexible profit calculation
+  ticketProfitType: 'percentage' | 'fixed';
+  ticketProfitValue: number;
+  visaProfitType: 'percentage' | 'fixed';
+  visaProfitValue: number;
+  hotelProfitType: 'percentage' | 'fixed';
+  hotelProfitValue: number;
+  groupProfitType: 'percentage' | 'fixed';
+  groupProfitValue: number;
+  alrawdatainSharePercentage: number;
 };
 
 export type RemittanceDistributionColumn = {

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -10,11 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
-const formatCurrency = (amount?: number): string => {
+const formatCurrency = (amount?: number, currency?: string): string => {
     if (amount === null || amount === undefined || isNaN(amount)) {
         return '$0.00';
     }
-    return `$${amount.toFixed(2)}`;
+    return `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency || 'USD'}`;
 };
 
 
@@ -37,11 +38,11 @@ const CalculationDetailsPopover = ({ entry }: { entry: SegmentEntry }) => {
             <PopoverContent>
                 <div className="space-y-2 text-sm">
                     <h4 className="font-bold">تفاصيل الحسبة</h4>
-                    <p>التذاكر: {entry.tickets} * {entry.ticketProfitPercentage}% = {formatCurrency(entry.ticketProfits)}</p>
-                    <p>الفيزا: {entry.visas} * {entry.visaProfitPercentage}% = {formatCurrency(entry.visas * (entry.visaProfitPercentage/100))}</p>
-                    <p>الفنادق: {entry.hotels} * {entry.hotelProfitPercentage}% = {formatCurrency(entry.hotels * (entry.hotelProfitPercentage/100))}</p>
-                    <p>الكروبات: {entry.groups} * {entry.groupProfitPercentage}% = {formatCurrency(entry.groups * (entry.groupProfitPercentage/100))}</p>
-                    <p className="border-t pt-2 mt-2 font-bold">حصة الروضتين: {formatCurrency(entry.total)} * {entry.alrawdatainSharePercentage}% = {formatCurrency(entry.alrawdatainShare)}</p>
+                    <p>التذاكر: {entry.tickets} * {entry.ticketProfitType === 'percentage' ? `${entry.ticketProfitValue}%` : formatCurrency(entry.ticketProfitValue, entry.currency)} = {formatCurrency(entry.ticketProfits, entry.currency)}</p>
+                    <p>الفيزا: {entry.visas} * {entry.visaProfitType === 'percentage' ? `${entry.visaProfitValue}%` : formatCurrency(entry.visaProfitValue, entry.currency)} = {formatCurrency(entry.visas * (entry.visaProfitType === 'percentage' ? (entry.visaProfitValue / 100) : entry.visaProfitValue), entry.currency)}</p>
+                    <p>الفنادق: {entry.hotels} * {entry.hotelProfitType === 'percentage' ? `${entry.hotelProfitValue}%` : formatCurrency(entry.hotelProfitValue, entry.currency)} = {formatCurrency(entry.hotels * (entry.hotelProfitType === 'percentage' ? (entry.hotelProfitValue / 100) : entry.hotelProfitValue), entry.currency)}</p>
+                    <p>الكروبات: {entry.groups} * {entry.groupProfitType === 'percentage' ? `${entry.groupProfitValue}%` : formatCurrency(entry.groupProfitValue, entry.currency)} = {formatCurrency(entry.groups * (entry.groupProfitType === 'percentage' ? (entry.groupProfitValue / 100) : entry.groupProfitValue), entry.currency)}</p>
+                    <p className="border-t pt-2 mt-2 font-bold">حصة الروضتين: {formatCurrency(entry.total, entry.currency)} * {entry.alrawdatainSharePercentage}% = {formatCurrency(entry.alrawdatainShare, entry.currency)}</p>
                 </div>
             </PopoverContent>
         </Popover>
@@ -67,9 +68,9 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
               <TableRow key={entry.id}>
                 <TableCell className="font-semibold">{entry.companyName}</TableCell>
                 <TableCell>{entry.partnerName}</TableCell>
-                <TableCell className="font-mono font-bold">{formatCurrency(entry.total)}</TableCell>
-                <TableCell className="font-mono text-green-600">{formatCurrency(entry.alrawdatainShare)}</TableCell>
-                <TableCell className="font-mono text-blue-600">{formatCurrency(entry.partnerShare)}</TableCell>
+                <TableCell className="font-mono font-bold">{formatCurrency(entry.total, entry.currency)}</TableCell>
+                <TableCell className="font-mono text-green-600">{formatCurrency(entry.alrawdatainShare, entry.currency)}</TableCell>
+                <TableCell className="font-mono text-blue-600">{formatCurrency(entry.partnerShare, entry.currency)}</TableCell>
                 <TableCell>
                     <CalculationDetailsPopover entry={entry} />
                 </TableCell>

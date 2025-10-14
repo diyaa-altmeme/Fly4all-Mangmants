@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -73,11 +74,6 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                                     <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
                                 </DropdownMenuContent>
                             </DropdownMenu>
-                             <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
-                                </Button>
-                            </CollapsibleTrigger>
                         </div>
                     </TableCell>
                 </TableRow>
