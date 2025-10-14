@@ -218,7 +218,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
     if (open) {
       resetSteps();
       form.reset({
-        currency: defaultCurrency as 'USD' | 'IQD',
+        currency: defaultCurrency,
         purchaseDate: new Date(),
         clientId: '',
         supplierId: subscriptionSettings?.defaultSupplier || '',
