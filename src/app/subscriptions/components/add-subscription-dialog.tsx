@@ -67,7 +67,7 @@ type FormValues = z.infer<typeof formSchema>;
 const Section = ({ title, children, className }: { title: React.ReactNode, children: React.ReactNode, className?: string }) => (
     <Card className={cn("shadow-sm", className)}>
         <CardContent className="pt-6 space-y-4">
-            <h3 className="font-semibold text-primary mb-3">{title}</h3>
+            <h3 className="font-bold text-primary mb-3">{title}</h3>
             {children}
         </CardContent>
     </Card>
@@ -264,24 +264,24 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <Section title="المعلومات الأساسية">
                                 <FormField control={control} name="serviceName" render={({ field }) => (
-                                    <FormItem><FormLabel>اسم الاشتراك / الخدمة</FormLabel><FormControl><Input placeholder="مثال: اشتراك إنترنت شهري" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel className="font-bold">اسم الاشتراك / الخدمة</FormLabel><FormControl><Input placeholder="مثال: اشتراك إنترنت شهري" {...field} /></FormControl><FormMessage /></FormItem>
                                 )}/>
                                 <div className="grid grid-cols-2 gap-4">
                                      <FormField control={control} name="supplierId" render={({ field }) => (
-                                        <FormItem><FormLabel>المورد</FormLabel><FormControl><Autocomplete searchAction="suppliers" options={supplierOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..."/></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel className="font-bold">المورد</FormLabel><FormControl><Autocomplete searchAction="suppliers" options={supplierOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..."/></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={control} name="clientId" render={({ field }) => (
-                                        <FormItem><FormLabel>العميل</FormLabel><FormControl><Autocomplete searchAction="clients" options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel className="font-bold">العميل</FormLabel><FormControl><Autocomplete searchAction="clients" options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                 </div>
                             </Section>
 
                             <Section title="التفاصيل المالية">
                                 <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={control} name="quantity" render={({ field }) => (<FormItem><FormLabel>الكمية</FormLabel><FormControl><NumericInput onValueChange={(val) => field.onChange(val || 0)} value={field.value} /></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={control} name="discount" render={({ field }) => (<FormItem><FormLabel>الخصم</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} /></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={control} name="purchasePrice" render={({ field }) => (<FormItem><FormLabel>سعر شراء الوحدة</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} /></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={control} name="unitPrice" render={({ field }) => (<FormItem><FormLabel>سعر بيع الوحدة</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={control} name="quantity" render={({ field }) => (<FormItem><FormLabel className="font-bold">الكمية</FormLabel><FormControl><NumericInput onValueChange={(val) => field.onChange(val || 0)} value={field.value} placeholder="أدخل الكمية" /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={control} name="discount" render={({ field }) => (<FormItem><FormLabel className="font-bold">الخصم</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل الخصم" /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={control} name="purchasePrice" render={({ field }) => (<FormItem><FormLabel className="font-bold">سعر شراء الوحدة</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل سعر الشراء" /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={control} name="unitPrice" render={({ field }) => (<FormItem><FormLabel className="font-bold">سعر بيع الوحدة</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل سعر البيع" /></FormControl><FormMessage /></FormItem>)}/>
                                 </div>
                                 <Separator className="my-4"/>
                                 <div className="grid grid-cols-3 gap-4 text-center">
@@ -293,7 +293,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
 
                              <Section title="جدولة الدفعات" className="md:col-span-2">
                                 <FormField name="installmentMethod" control={control} render={({ field }) => (
-                                    <FormItem className="space-y-3"><FormLabel className="font-semibold">طريقة السداد</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                    <FormItem className="space-y-3"><FormLabel className="font-bold text-base">طريقة السداد</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                       <FormItem><FormControl><RadioGroupItem value="upfront" id="upfront" className="sr-only peer" /></FormControl><Label htmlFor="upfront" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">دفعة مقدمًا</Label></FormItem>
                                       <FormItem><FormControl><RadioGroupItem value="deferred" id="deferred" className="sr-only peer" /></FormControl><Label htmlFor="deferred" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">دفع بالأجل</Label></FormItem>
                                       <FormItem><FormControl><RadioGroupItem value="installments" id="installments" className="sr-only peer" /></FormControl><Label htmlFor="installments" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">على شكل دفعات</Label></FormItem>
@@ -301,17 +301,17 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                 )}/>
                                 <div className="pt-4 space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <FormField control={control} name="startDate" render={({ field }) => ( <FormItem><FormLabel>تاريخ بدء الاشتراك</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)}/>
+                                        <FormField control={control} name="startDate" render={({ field }) => ( <FormItem><FormLabel className="font-bold">تاريخ بدء الاشتراك</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)}/>
                                         {(installmentMethod === 'upfront' || installmentMethod === 'deferred') && (
-                                            <FormField control={control} name="deferredDueDate" render={({ field }) => (<FormItem><FormLabel>تاريخ استحقاق الدفعة</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
+                                            <FormField control={control} name="deferredDueDate" render={({ field }) => (<FormItem><FormLabel className="font-bold">تاريخ استحقاق الدفعة</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
                                         )}
                                     </div>
                                     {installmentMethod === 'installments' && (
                                         <div className="space-y-4 pt-4 border-t">
                                             <div className="flex items-center gap-4">
                                                 <div className="space-y-1.5 w-48">
-                                                    <Label>عدد الدفعات</Label>
-                                                    <NumericInput value={numInstallments} onValueChange={(v) => setNumInstallments(v || 0)} min={1}/>
+                                                    <Label className="font-bold">عدد الدفعات</Label>
+                                                    <NumericInput value={numInstallments} onValueChange={(v) => setNumInstallments(v || 0)} min={1} placeholder="أدخل العدد"/>
                                                 </div>
                                                 <Button type="button" onClick={handleGenerateInstallments} className="mt-6">توليد الأقساط</Button>
                                             </div>
@@ -323,7 +323,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                                             <TableRow key={item.id}>
                                                                 <TableCell>{index + 1}</TableCell>
                                                                 <TableCell><FormField control={control} name={`installments.${index}.dueDate`} render={({ field }) => <DateTimePicker date={field.value} setDate={field.onChange} />}/></TableCell>
-                                                                <TableCell><FormField control={control} name={`installments.${index}.amount`} render={({ field }) => <NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} />}/></TableCell>
+                                                                <TableCell><FormField control={control} name={`installments.${index}.amount`} render={({ field }) => <NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل المبلغ"/>}/></TableCell>
                                                                 <TableCell><Button type="button" variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => remove(index)}><Trash2 className="h-4 w-4"/></Button></TableCell>
                                                             </TableRow>
                                                         ))}
@@ -343,7 +343,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                     )}
                                 </div>
                             </Section>
-                             <div className="md:col-span-2"><FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel>ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)}/></div>
+                             <div className="md:col-span-2"><FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel className="font-bold">ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)}/></div>
                         </div>
                     )}
                 </div>
@@ -368,5 +368,3 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
     </Dialog>
   );
 }
-
-    
