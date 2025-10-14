@@ -20,9 +20,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import type { SegmentEntry, Client, Supplier } from '@/lib/types';
+import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -41,6 +42,7 @@ const periodSchema = z.object({
 const companyEntrySchema = z.object({
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   partnerId: z.string().min(1, { message: "اسم الشريك مطلوب." }),
+  currency: z.enum(['USD', 'IQD']),
   tickets: z.coerce.number().int().nonnegative().default(0),
   visas: z.coerce.number().int().nonnegative().default(0),
   hotels: z.coerce.number().int().nonnegative().default(0),
@@ -77,48 +79,50 @@ const PairedInput = ({
     return (
     <div className="space-y-1.5">
         <Label className="font-semibold">{label}</Label>
-        <div className={cn("flex rounded-lg border overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
-            <FormField
-                control={form.control}
-                name={name}
-                render={({ field }) => (
-                    <FormItem className="flex-grow">
-                        <FormControl>
-                            <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center" />
-                        </FormControl>
-                    </FormItem>
-                )}
-            />
-             <CollapsibleContent asChild>
-                <div className="flex border-r">
-                    <FormField
-                        control={form.control}
-                        name={profitType}
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormControl>
-                                    <ToggleGroup type="single" variant="outline" value={field.value} onValueChange={field.onChange} className="h-9">
-                                        <ToggleGroupItem value="percentage" className="h-full rounded-none text-xs p-1.5"><Percent className="h-3 w-3" /></ToggleGroupItem>
-                                        <ToggleGroupItem value="fixed" className="h-full rounded-none text-xs p-1.5">$</ToggleGroupItem>
-                                    </ToggleGroup>
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name={profitValue}
-                        render={({ field }) => (
-                            <FormItem className="w-20">
-                                <FormControl>
-                                    <NumericInput {...field} className="h-9 border-0 rounded-none text-center" />
-                                </FormControl>
-                            </FormItem>
-                        )}
-                    />
-                </div>
-            </CollapsibleContent>
-        </div>
+        <Collapsible asChild>
+            <div className={cn("flex rounded-lg border overflow-hidden focus-within:ring-2 focus-within:ring-ring", borderColorClass)}>
+                <FormField
+                    control={form.control}
+                    name={name}
+                    render={({ field }) => (
+                        <FormItem className="flex-grow">
+                            <FormControl>
+                                <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center" />
+                            </FormControl>
+                        </FormItem>
+                    )}
+                />
+                <CollapsibleContent asChild>
+                    <div className="flex border-r">
+                        <FormField
+                            control={form.control}
+                            name={profitType}
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormControl>
+                                        <ToggleGroup type="single" variant="outline" value={field.value} onValueChange={field.onChange} className="h-9">
+                                            <ToggleGroupItem value="percentage" className="h-full rounded-none text-xs p-1.5"><Percent className="h-3 w-3" /></ToggleGroupItem>
+                                            <ToggleGroupItem value="fixed" className="h-full rounded-none text-xs p-1.5">$</ToggleGroupItem>
+                                        </ToggleGroup>
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name={profitValue}
+                            render={({ field }) => (
+                                <FormItem className="w-20">
+                                    <FormControl>
+                                        <NumericInput {...field} className="h-9 border-0 rounded-none text-center" />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </CollapsibleContent>
+            </div>
+        </Collapsible>
     </div>
 );
 };
@@ -164,6 +168,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         defaultValues: {
             clientId: '',
             partnerId: '',
+            currency: 'USD',
             tickets: 0,
             visas: 0,
             hotels: 0,
@@ -190,6 +195,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
              companyForm.reset({
                 clientId: '',
                 partnerId: '',
+                currency: 'USD',
                 tickets: 0,
                 visas: 0,
                 hotels: 0,
@@ -258,7 +264,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
-            clientId: '', partnerId: '', tickets: 0, visas: 0, hotels: 0, groups: 0,
+            clientId: '', partnerId: '', currency: 'USD', tickets: 0, visas: 0, hotels: 0, groups: 0,
             ticketProfitType: 'percentage',
             ticketProfitValue: 50,
             visaProfitType: 'fixed',
@@ -337,7 +343,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
                     <div className="p-4 border rounded-lg">
                         <Form {...companyForm}>
-                           <Collapsible asChild>
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <FormField control={companyForm.control} name="clientId" render={({ field }) => (
@@ -347,36 +352,41 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <FormItem><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="الشريك"/></FormControl><FormMessage /></FormItem>
                                     )}/>
                                 </div>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                     <PairedInput form={companyForm} name="tickets" profitType="ticketProfitType" profitValue="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" />
-                                     <PairedInput form={companyForm} name="visas" profitType="visaProfitType" profitValue="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" />
-                                     <PairedInput form={companyForm} name="hotels" profitType="hotelProfitType" profitValue="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" />
-                                     <PairedInput form={companyForm} name="groups" profitType="groupProfitType" profitValue="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" />
-                                </div>
-
-                                <div className="flex items-center justify-between">
-                                    <CollapsibleTrigger asChild>
-                                        <Button type="button" variant="outline" size="sm">
-                                            <Settings2 className="me-2 h-4 w-4"/>
-                                            إعدادات العمولة
-                                        </Button>
-                                    </CollapsibleTrigger>
-
-                                     <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
-                                        <FormItem className="w-48">
-                                            <FormLabel>نسبة الأرباح لنا</FormLabel>
-                                            <div className="relative">
-                                                <FormControl><NumericInput {...field} className="pe-7 text-center" onValueChange={field.onChange}/></FormControl>
-                                                <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            </div>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}/>
-
+                                <Collapsible>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        <PairedInput form={companyForm} name="tickets" profitType="ticketProfitType" profitValue="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" />
+                                        <PairedInput form={companyForm} name="visas" profitType="visaProfitType" profitValue="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" />
+                                        <PairedInput form={companyForm} name="hotels" profitType="hotelProfitType" profitValue="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" />
+                                        <PairedInput form={companyForm} name="groups" profitType="groupProfitType" profitValue="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" />
+                                    </div>
+                                    <div className="flex items-center justify-between mt-3">
+                                        <CollapsibleTrigger asChild>
+                                            <Button type="button" variant="outline" size="sm">
+                                                <Settings2 className="me-2 h-4 w-4"/>
+                                                إعدادات العمولة
+                                            </Button>
+                                        </CollapsibleTrigger>
+                                        <div className="flex items-center gap-4">
+                                            <FormField control={companyForm.control} name="currency" render={({ field }) => (
+                                                <FormItem className="w-28"><FormControl><Select onValueChange={field.onChange} value={field.value}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select></FormControl></FormItem>
+                                            )}/>
+                                            <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
+                                                <FormItem className="w-48">
+                                                    <Label>نسبة الأرباح لنا</Label>
+                                                    <div className="relative">
+                                                        <FormControl><NumericInput {...field} className="pe-7 text-center" onValueChange={field.onChange}/></FormControl>
+                                                        <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                    </div>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}/>
+                                        </div>
+                                    </div>
+                                </Collapsible>
+                                <div className='flex justify-end pt-4 border-t mt-4'>
                                     <Button type="submit"><PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة</Button>
                                 </div>
                             </form>
-                           </Collapsible>
                         </Form>
                     </div>
                     
@@ -401,9 +411,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <TableRow key={index}>
                                             <TableCell className="font-semibold">{entry.companyName}</TableCell>
                                             <TableCell>{entry.partnerName}</TableCell>
-                                            <TableCell className="font-mono">{entry.total.toFixed(2)}</TableCell>
-                                            <TableCell className="font-mono text-green-600">{entry.alrawdatainShare.toFixed(2)}</TableCell>
-                                            <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)}</TableCell>
+                                            <TableCell className="font-mono">{entry.total.toFixed(2)} {entry.currency}</TableCell>
+                                            <TableCell className="font-mono text-green-600">{entry.alrawdatainShare.toFixed(2)} {entry.currency}</TableCell>
+                                            <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)} {entry.currency}</TableCell>
                                             <TableCell className='text-center'>
                                                 <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button>
                                             </TableCell>
@@ -428,4 +438,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
