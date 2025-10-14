@@ -13,7 +13,7 @@ import type { AppSettings, SubscriptionSettings } from '@/lib/types';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '../ui/switch';
 import { produce } from 'immer';
 import { Separator } from '../ui/separator';
 
@@ -82,7 +82,7 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                 <Card>
+                <Card className="h-full">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-lg"><Settings className="h-5 w-5"/>الإعدادات الافتراضية</CardTitle>
                         <CardDescription>لتسريع عملية إضافة اشتراك جديد.</CardDescription>
@@ -109,7 +109,7 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="h-full">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-lg"><BellRing className="h-5 w-5"/>إشعارات وتذكيرات الأقساط</CardTitle>
                         <CardDescription>إدارة التذكيرات التلقائية للأقساط المستحقة والمتأخرة.</CardDescription>
@@ -149,8 +149,8 @@ export default function SubscriptionsSettings({ settings: initialSettings, onSet
                     </CardContent>
                 </Card>
             </div>
-
-            <Card>
+            
+             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg"><Banknote className="h-5 w-5"/>الإعدادات المحاسبية</CardTitle>
                     <CardDescription>تحديد حسابات الربط مع شجرة الحسابات.</CardDescription>
