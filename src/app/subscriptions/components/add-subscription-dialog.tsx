@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -248,10 +249,10 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                 )}/>
                                 <div className="grid grid-cols-2 gap-4">
                                      <FormField control={control} name="supplierId" render={({ field }) => (
-                                        <FormItem><FormLabel>المورد</FormLabel><FormControl><Autocomplete searchAction='suppliers' value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..."/></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>المورد</FormLabel><FormControl><Autocomplete searchAction="suppliers" value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..."/></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={control} name="clientId" render={({ field }) => (
-                                        <FormItem><FormLabel>العميل</FormLabel><FormControl><Autocomplete searchAction='clients' value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>العميل</FormLabel><FormControl><Autocomplete searchAction="clients" value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                 </div>
                             </Section>
@@ -306,7 +307,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                         <div className="flex items-center gap-1.5"><Hash className="h-4 w-4 text-primary"/> <span>رقم الفاتورة: (تلقائي)</span></div>
                     </div>
                     <div className="flex items-center gap-2">
-                       <Button type="submit" disabled={isSaving || !isValid}>
+                       <Button type="submit" disabled={isSaving}>
                             {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                             <Save className="me-2 h-4 w-4" />
                             حفظ الاشتراك
