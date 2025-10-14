@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -119,9 +118,15 @@ export default function EditSegmentPeriodDialog({ existingPeriod, clients, suppl
     }, [clients]);
 
      const partnerOptions = useMemo(() => {
-        const clientPartners = clients.filter(c => c.type === 'company').map(c => ({ value: `client-${c.id}`, label: `شركة: ${c.name}` }));
-        const supplierPartners = suppliers.map(s => ({ value: `supplier-${s.id}`, label: `مورد: ${s.name}` }));
-        return [...clientPartners, ...supplierPartners];
+        const allRelations = [...clients, ...suppliers];
+        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+        return uniqueRelations.map(r => {
+            let labelPrefix = '';
+            if (r.relationType === 'client') labelPrefix = 'عميل: ';
+            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
+            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
+            return { value: r.id, label: `${labelPrefix}${r.name}` };
+        });
     }, [clients, suppliers]);
     
     const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
