@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -49,9 +48,14 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
         <Collapsible asChild key={`${period.fromDate}_${period.toDate}`} open={isOpen} onOpenChange={setIsOpen}>
             <tbody className="border-t">
                 <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
-                    <TableCell className="text-center font-bold">
-                       <Badge>{period.entries.length > 0 ? period.entries.length : '0'}</Badge>
+                    <TableCell className="p-1 text-center">
+                       <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                            </Button>
+                        </CollapsibleTrigger>
                     </TableCell>
+                    <TableCell className="font-semibold p-1">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center">{period.toDate}</TableCell>
                     <TableCell className="font-mono text-center font-bold">{period.totalProfit.toFixed(2)}</TableCell>
@@ -253,7 +257,8 @@ export default function SegmentsPage() {
                         <Table>
                              <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[50px]">عدد الشركات</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                    <TableHead>عدد الشركات</TableHead>
                                     <TableHead className="text-center">من تاريخ</TableHead>
                                     <TableHead className="text-center">إلى تاريخ</TableHead>
                                     <TableHead className="text-center">إجمالي الربح</TableHead>
@@ -262,7 +267,7 @@ export default function SegmentsPage() {
                                     <TableHead className="text-center">الإجراءات</TableHead>
                                 </TableRow>
                             </TableHeader>
-                             {sortedAndFilteredPeriods.length === 0 ? (
+                            {sortedAndFilteredPeriods.length === 0 ? (
                                 <TableBody>
                                     <TableRow>
                                         <TableCell colSpan={8} className="text-center h-24">
