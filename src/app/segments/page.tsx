@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/use-debounce';
 import { Badge } from '@/components/ui/badge';
+import { produce } from 'immer';
 
 
 const StatCard = ({ title, value }: { title: string, value: string }) => (
@@ -60,9 +61,9 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                     <TableCell className="font-semibold p-1">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center">{period.toDate}</TableCell>
-                    <TableCell className="font-mono text-center font-bold">{period.totalProfit.toFixed(2)}</TableCell>
-                    <TableCell className="font-mono text-center text-green-600">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
-                    <TableCell className="font-mono text-center text-blue-600">{period.totalPartnerShare.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono font-bold p-1">{period.totalProfit.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono text-green-600">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono text-blue-600">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="text-center">
                         <div className="flex items-center justify-center">
                             <DropdownMenu>
@@ -124,6 +125,10 @@ export default function SegmentsPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+    
+    const handleSuccess = (newEntries: SegmentEntry[]) => {
+      setSegments(prev => [...newEntries, ...prev]);
+    }
 
     const groupedByPeriod = useMemo(() => {
         return segments.reduce((acc, entry) => {
@@ -204,7 +209,7 @@ export default function SegmentsPage() {
                             </CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
-                             <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={fetchData} />
+                             <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
                         </div>
                     </div>
                 </CardHeader>
@@ -257,9 +262,9 @@ export default function SegmentsPage() {
                                     <TableHead>عدد الشركات</TableHead>
                                     <TableHead className="text-center">من تاريخ</TableHead>
                                     <TableHead className="text-center">إلى تاريخ</TableHead>
-                                    <TableHead className="text-center">إجمالي الربح</TableHead>
-                                    <TableHead className="text-center">حصة الروضتين</TableHead>
-                                    <TableHead className="text-center">حصة الشريك</TableHead>
+                                    <TableHead className="text-right">إجمالي الربح</TableHead>
+                                    <TableHead className="text-right">حصة الروضتين</TableHead>
+                                    <TableHead className="text-right">حصة الشريك</TableHead>
                                     <TableHead className="text-center">الإجراءات</TableHead>
                                 </TableRow>
                             </TableHeader>
