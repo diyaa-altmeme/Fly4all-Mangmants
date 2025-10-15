@@ -24,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { addSegmentEntries } from '@/app/segments/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
@@ -269,10 +269,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
         
-        const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
+        const client = clients.find(c => c.id === data.clientId);
+        const companySettings = client?.segmentSettings;
+
+        const effectiveAlrawdatainSharePercentage = companySettings?.alrawdatainSharePercentage ?? alrawdatainSharePercentage;
+        
+        const alrawdatainShare = total * (effectiveAlrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
         
-        const client = clients.find(c => c.id === data.clientId);
         const selectedPartnerOption = partnerOptions.find(p => p.value === data.partnerId);
 
         return { 
@@ -286,13 +290,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             total, 
             alrawdatainShare, 
             partnerShare,
-            alrawdatainSharePercentage
+            alrawdatainSharePercentage: effectiveAlrawdatainSharePercentage
         };
     }
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data);
+        const newEntry = calculateShares(data, company?.segmentSettings);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
@@ -383,11 +387,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         <Form {...companyForm}>
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <FormField control={companyForm.control} name="clientId" render={({ field }) => (
-                                        <FormItem><FormLabel>الشركة المصدرة للسكمنت</FormLabel><FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شركة..."/></FormControl><FormMessage /></FormItem>
-                                    )}/>
                                     <FormField control={companyForm.control} name="partnerId" render={({ field }) => (
                                         <FormItem><FormLabel>الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شريك..."/></FormControl><FormMessage /></FormItem>
+                                    )}/>
+                                    <FormField control={companyForm.control} name="clientId" render={({ field }) => (
+                                        <FormItem><FormLabel>الشركة المصدرة للسكمنت</FormLabel><FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شركة..."/></FormControl><FormMessage /></FormItem>
                                     )}/>
                                 </div>
                                 <Collapsible open={isCommissionSettingsOpen} onOpenChange={setIsCommissionSettingsOpen}>
