@@ -70,6 +70,17 @@ const buildDetailedVisaDescription = (booking: VisaBookingEntry): StructuredDesc
     };
 };
 
+const buildDetailedSubscriptionDescription = (subscription: Subscription): StructuredDescription => {
+    return {
+        title: `اشتراك خدمة: ${subscription.serviceName}`,
+        totalReceived: `فاتورة رقم: ${subscription.invoiceNumber}`,
+        selfReceipt: `يبدأ في: ${format(parseISO(subscription.startDate), 'yyyy-MM-dd')}`,
+        distributions: [],
+        notes: subscription.notes || ''
+    };
+};
+
+
 const buildDetailedDistributedReceiptDescription = async (voucher: JournalVoucher, accountsMap: Map<string, string>): Promise<StructuredDescription> => {
     const originalData = voucher.originalData;
     
@@ -135,93 +146,81 @@ async function getTransactionsForAccount(
     const db = await getDb();
     if (!db) return [];
 
-    const journalSnapshot = await db.collection('journal-vouchers').where('isDeleted', '!=', true).get();
-    
-    const transactions: ReportTransaction[] = [];
+    const debitQuery = db.collection('journal-vouchers').where('debitEntries', 'array-contains-any', [{ accountId: accountId }, { accountId: accountId.replace(/^expense_/, '') }]);
+    const creditQuery = db.collection('journal-vouchers').where('creditEntries', 'array-contains-any', [{ accountId: accountId }, { accountId: accountId.replace(/^expense_/, '') }]);
 
-    const normalizeDateToISO = (d: any) => {
-        if (!d) return new Date().toISOString();
-        if (d?.toDate) return d.toDate().toISOString();
-        if (typeof d === 'string') return d;
-        return new Date(d).toISOString();
-    };
+    const [debitSnapshot, creditSnapshot] = await Promise.all([debitQuery.get(), creditQuery.get()]);
 
-    const matchesAccount = (entryAccountId: string) => {
-        if (!entryAccountId) return false;
-        // exact match
-        if (entryAccountId === accountId) return true;
-        // entry = "rawId" and requested = "expense_rawId"
-        if (`expense_${entryAccountId}` === accountId) return true;
-        // entry = "expense_rawId" and requested = "rawId"
-        if (entryAccountId === accountId.replace(/^expense_/, '')) return true;
-        return false;
-    };
+    const transactionsMap = new Map<string, ReportTransaction>();
 
-    for (const doc of journalSnapshot.docs) {
-        const voucher = { id: doc.id, ...doc.data() } as JournalVoucher;
+    const processSnapshot = async (snapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>, isDebit: boolean) => {
+        for (const doc of snapshot.docs) {
+            const voucher = { id: doc.id, ...doc.data() } as JournalVoucher;
+            if (voucher.isDeleted) continue;
 
-        const debitEntry = (voucher.debitEntries || []).find(e => matchesAccount(e.accountId));
-        const creditEntry = (voucher.creditEntries || []).find(e => matchesAccount(e.accountId));
+            const entry = (isDebit ? voucher.debitEntries : voucher.creditEntries).find(e => e.accountId === accountId || `expense_${e.accountId}` === accountId || e.accountId === accountId.replace(/^expense_/, ''));
+            if (!entry) continue;
 
-        if (!debitEntry && !creditEntry) {
-            continue; // Skip vouchers not related to this account
-        }
+            const amount = entry.amount || 0;
+            const voucherTypeLabel = getVoucherTypeLabel(voucher.voucherType);
+            let description: string | StructuredDescription = voucher.notes;
 
-        const voucherTypeLabel = getVoucherTypeLabel(voucher.voucherType);
-        let description: string | StructuredDescription = voucher.notes;
+            const otherParties = (isDebit ? voucher.creditEntries : voucher.debitEntries)
+                .map(e => accountsMap.get(e.accountId) || e.accountId)
+                .join(', ');
 
-        let otherParties: string[] = [];
-
-        if (debitEntry) {
-            otherParties.push(...(voucher.creditEntries || []).map(e => accountsMap.get(e.accountId) || e.accountId));
-        }
-        if (creditEntry) {
-            otherParties.push(...(voucher.debitEntries || []).map(e => accountsMap.get(e.accountId) || e.accountId));
-        }
-
-        const uniqueOtherParties = [...new Set(otherParties)].join(', ');
-
-        if (reportType === 'detailed' && voucher.originalData) {
-            switch (voucher.voucherType) {
-                case 'journal_from_distributed_receipt':
-                    description = await buildDetailedDistributedReceiptDescription(voucher, accountsMap);
-                    break;
-                case 'booking':
-                    description = buildDetailedBookingDescription(voucher.originalData);
-                    break;
-                case 'visa':
-                    description = buildDetailedVisaDescription(voucher.originalData);
-                    break;
-                case 'segment':
-                    description = buildDetailedSegmentDescription(voucher);
-                    break;
-                default:
-                    description = `${voucher.notes || voucherTypeLabel} (الطرف المقابل: ${uniqueOtherParties})`;
+            if (reportType === 'detailed' && voucher.originalData) {
+                switch (voucher.voucherType) {
+                    case 'journal_from_distributed_receipt':
+                        description = await buildDetailedDistributedReceiptDescription(voucher, accountsMap);
+                        break;
+                    case 'booking':
+                        description = buildDetailedBookingDescription(voucher.originalData);
+                        break;
+                    case 'visa':
+                        description = buildDetailedVisaDescription(voucher.originalData);
+                        break;
+                    case 'segment':
+                        description = buildDetailedSegmentDescription(voucher);
+                        break;
+                     case 'subscription':
+                        description = buildDetailedSubscriptionDescription(voucher.originalData);
+                        break;
+                    default:
+                        description = `${voucher.notes || voucherTypeLabel} (الطرف المقابل: ${otherParties})`;
+                }
+            } else {
+                 description = `${voucher.notes || voucherTypeLabel} (الطرف المقابل: ${otherParties})`;
             }
-        } else {
-            description = `${voucher.notes || voucherTypeLabel} (الطرف المقابل: ${uniqueOtherParties})`;
+
+            const dateIso = voucher.date ? (voucher.date.includes('T') ? voucher.date : parseISO(voucher.date).toISOString()) : new Date().toISOString();
+
+            if (transactionsMap.has(doc.id)) {
+                const existing = transactionsMap.get(doc.id)!;
+                if(isDebit) existing.debit += amount;
+                else existing.credit += amount;
+            } else {
+                transactionsMap.set(doc.id, {
+                    id: voucher.id,
+                    invoiceNumber: voucher.invoiceNumber || 'N/A',
+                    date: dateIso,
+                    description: description,
+                    type: voucherTypeLabel,
+                    debit: isDebit ? amount : 0,
+                    credit: isDebit ? 0 : amount,
+                    balance: 0,
+                    currency: voucher.currency,
+                    otherParty: otherParties,
+                    officer: voucher.officer,
+                });
+            }
         }
+    };
 
-        const dateIso = normalizeDateToISO(voucher.date);
-
-        const tx: ReportTransaction = {
-            id: voucher.id,
-            invoiceNumber: voucher.invoiceNumber || 'N/A',
-            date: dateIso,
-            description: description,
-            type: voucherTypeLabel,
-            debit: debitEntry?.amount || 0,
-            credit: creditEntry?.amount || 0,
-            balance: 0,
-            currency: voucher.currency,
-            otherParty: uniqueOtherParties,
-            officer: voucher.officer,
-        };
-
-        transactions.push(tx);
-    }
+    await processSnapshot(debitSnapshot, true);
+    await processSnapshot(creditSnapshot, false);
     
-    return transactions;
+    return Array.from(transactionsMap.values());
 }
 
 
@@ -255,8 +254,10 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
         if (params.accountId === 'revenue_segments') {
             accountInfo = { id: 'revenue_segments', name: 'إيرادات السكمنت', type: 'revenue' };
         } else {
+            // support params like "expense_<id>" and also plain ids if needed
             const expenseAccount = settings.voucherSettings?.expenseAccounts?.find(a => `expense_${a.id}` === params.accountId || a.id === params.accountId);
             if (expenseAccount) {
+                // keep the incoming params.accountId verbatim so matching against voucher entries works
                 const resolvedId = params.accountId.startsWith('expense_') ? params.accountId : (`expense_${expenseAccount.id}`);
                 accountInfo = { id: resolvedId, name: expenseAccount.name, type: 'expense' };
             } else {

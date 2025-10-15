@@ -1,4 +1,5 @@
 
+
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
@@ -902,6 +903,8 @@ export type JournalVoucher = {
     creditEntries: JournalEntry[];
     isAudited: boolean;
     isConfirmed: boolean;
+    isDeleted?: boolean;
+    deletedAt?: string;
     originalData?: any; // To store original form data if needed for display
 };
 
