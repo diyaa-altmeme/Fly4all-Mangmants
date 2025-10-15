@@ -194,8 +194,7 @@ export default function SegmentsPage() {
     if (loading) {
         return (
              <div className="space-y-4">
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-48 w-full" />
                 <Skeleton className="h-64 w-full" />
             </div>
         )
@@ -209,12 +208,10 @@ export default function SegmentsPage() {
                         <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
                              <div>
                                 <CardTitle>سجل حسابات السكمنت</CardTitle>
-                                <CardDescription>
-                                    عرض ملخص الفترات المحاسبية للسكمنت.
-                                </CardDescription>
+                                <CardDescription>عرض ملخص الفترات المحاسبية للسكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={onSuccess} />
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
                                 <Button onClick={fetchData} variant="outline" disabled={loading} className="w-full sm:w-auto">
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
