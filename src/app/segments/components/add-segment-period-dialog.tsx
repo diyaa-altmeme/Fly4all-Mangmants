@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -14,7 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins, ChevronDown, BadgeCent, DollarSign } from 'lucide-react';
+import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins, ChevronDown, BadgeCent, DollarSign, User, Wallet, Hash } from 'lucide-react';
 import { z } from 'zod';
 import { useForm, Controller, FormProvider, useFormContext, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,6 +33,8 @@ import { NumericInput } from '@/components/ui/numeric-input';
 import { Label } from '@/components/ui/label';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/lib/auth-context';
+
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -153,6 +154,8 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     
     const [periodEntries, setPeriodEntries] = useState<Omit<SegmentEntry, 'id' | 'fromDate' | 'toDate'>[]>([]);
     const [isCommissionSettingsOpen, setIsCommissionSettingsOpen] = useState(false);
+    const { user: currentUser } = useAuth();
+    const { data: navData } = useVoucherNav();
     
     const allCompanyOptions = useMemo(() => {
         return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name }));
@@ -171,8 +174,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         });
     }, [clients, suppliers]);
 
-    const { data: navData } = useVoucherNav();
-    const defaultCurrency = navData?.settings?.currencySettings?.defaultCurrency || 'USD';
 
     const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
     const companyForm = useForm<CompanyEntryFormValues>({ 
@@ -180,7 +181,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         defaultValues: {
             clientId: '',
             partnerId: '',
-            currency: defaultCurrency as Currency,
+            currency: 'USD',
             tickets: 0,
             visas: 0,
             hotels: 0,
@@ -196,6 +197,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             alrawdatainSharePercentage: 50,
         }
     });
+    
+    const boxName = useMemo(() => {
+        if (!currentUser || !('boxId' in currentUser)) return 'غير محدد';
+        return navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد';
+    }, [currentUser, navData?.boxes]);
 
     const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
     const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
@@ -207,7 +213,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
              companyForm.reset({
                 clientId: '',
                 partnerId: '',
-                currency: defaultCurrency as Currency,
+                currency: 'USD',
                 tickets: 0,
                 visas: 0,
                 hotels: 0,
@@ -224,28 +230,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             });
             setPeriodEntries([]);
         }
-    }, [open, periodForm, companyForm, defaultCurrency]);
-    
-    const watchedClientId = companyForm.watch('clientId');
-
-    useEffect(() => {
-        if (watchedClientId) {
-            const client = clients.find(c => c.id === watchedClientId);
-            if (client?.segmentSettings) {
-                const settings = client.segmentSettings;
-                companyForm.setValue('ticketProfitType', settings.ticketProfitType);
-                companyForm.setValue('ticketProfitValue', settings.ticketProfitValue);
-                companyForm.setValue('visaProfitType', settings.visaProfitType);
-                companyForm.setValue('visaProfitValue', settings.visaProfitValue);
-                companyForm.setValue('hotelProfitType', settings.hotelProfitType);
-                companyForm.setValue('hotelProfitValue', settings.hotelProfitValue);
-                companyForm.setValue('groupProfitType', settings.groupProfitType);
-                companyForm.setValue('groupProfitValue', settings.groupProfitValue);
-                companyForm.setValue('alrawdatainSharePercentage', settings.alrawdatainSharePercentage);
-            }
-        }
-    }, [watchedClientId, clients, companyForm]);
-
+    }, [open, periodForm, companyForm]);
 
      const calculateShares = (data: CompanyEntryFormValues) => {
         const { alrawdatainSharePercentage, ...rest } = data;
@@ -284,7 +269,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             ...rest,
             companyName: client?.name || '',
             clientId: client?.id || '',
-            partnerId: selectedPartnerOption?.value || '',
+            partnerId: selectedPartnerOption?.value.split('-')[1] || '',
             partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
@@ -297,11 +282,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data);
+        const newEntry = calculateShares(data, company?.segmentSettings);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
-            clientId: '', partnerId: '', currency: defaultCurrency as Currency, tickets: 0, visas: 0, hotels: 0, groups: 0,
+            clientId: '', partnerId: '', currency: 'USD', tickets: 0, visas: 0, hotels: 0, groups: 0,
             ticketProfitType: 'percentage',
             ticketProfitValue: 50,
             visaProfitType: 'percentage',
@@ -373,18 +358,21 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
                     <div className="p-4 border rounded-lg bg-background/50">
-                        <h3 className="font-semibold text-base mb-4">تفاصيل الفترة والشركات</h3>
+                        <h3 className="font-semibold text-base mb-4">الفترة المحاسبية</h3>
                         <Form {...periodForm}>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start mb-4">
+                            <form className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start mb-4">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
                                     <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                                 )}/>
                                 <FormField control={periodForm.control} name="toDate" render={({ field }) => (
                                     <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                                 )}/>
-                            </div>
+                            </form>
                         </Form>
-                         <Separator className="my-4" />
+                    </div>
+
+                    <div className="p-4 border rounded-lg">
+                        <h3 className="font-semibold text-base mb-2">إضافة شركة جديدة</h3>
                         <Form {...companyForm}>
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -479,12 +467,21 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </div>
             
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <div className="flex justify-between w-full">
-                        <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-                        <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
-                            {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                            حفظ بيانات الفترة ({periodEntries.length} سجلات)
-                        </Button>
+                    <div className="flex items-center justify-between w-full">
+                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1.5"><User className="h-4 w-4"/> <span>{currentUser?.name || '...'}</span></div>
+                             {currentUser && 'boxId' in currentUser && currentUser.boxId && (
+                                <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>{boxName}</span></div>
+                            )}
+                            <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                             <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+                            <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
+                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                                حفظ بيانات الفترة ({periodEntries.length} سجلات)
+                            </Button>
+                        </div>
                     </div>
                 </DialogFooter>
             </DialogContent>
