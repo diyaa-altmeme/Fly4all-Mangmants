@@ -1,11 +1,10 @@
-
 "use client";
 
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { FileSpreadsheet, SlidersHorizontal } from 'lucide-react';
-import AliasesSettings from './aliases-settings';
+import AliasesSettings from '@/app/relations/settings/import/components/aliases-settings';
 import DynamicImportTool from '@/app/relations/settings/import/components/dynamic-import-tool';
 import type { AppSettings } from '@/lib/types';
 
