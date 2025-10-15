@@ -194,7 +194,7 @@ export default function SegmentsPage() {
     if (loading) {
         return (
              <div className="space-y-4">
-                <Skeleton className="h-48 w-full" />
+                <Skeleton className="h-24 w-full" />
                 <Skeleton className="h-64 w-full" />
             </div>
         )
@@ -203,16 +203,16 @@ export default function SegmentsPage() {
     return (
         <div className="space-y-6">
             <Card>
-                <CardHeader>
+                 <CardHeader>
                     <div className="flex w-full flex-col items-start gap-4">
                         <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
                              <div>
                                 <CardTitle>سجل حسابات السكمنت</CardTitle>
                                 <CardDescription>عرض ملخص الفترات المحاسبية للسكمنت.</CardDescription>
                             </div>
-                            <div className="flex gap-2 w-full sm:w-auto">
+                            <div className="flex items-center gap-2">
                                 <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
-                                <Button onClick={fetchData} variant="outline" disabled={loading} className="w-full sm:w-auto">
+                                <Button onClick={fetchData} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
                                 </Button>
@@ -263,7 +263,7 @@ export default function SegmentsPage() {
                         <Table>
                              <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[40px] p-2"></TableHead>
+                                    <TableHead className="w-[50px] p-2"></TableHead>
                                     <TableHead className="p-2">الشركات</TableHead>
                                     <TableHead className="p-2 text-center">من تاريخ</TableHead>
                                     <TableHead className="p-2 text-center">إلى تاريخ</TableHead>
