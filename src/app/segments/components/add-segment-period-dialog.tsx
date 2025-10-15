@@ -44,6 +44,7 @@ const periodSchema = z.object({
 const companyEntrySchema = z.object({
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   partnerId: z.string().min(1, { message: "اسم الشريك مطلوب." }),
+  currency: z.enum(['USD', 'IQD']),
   tickets: z.coerce.number().int().nonnegative().default(0),
   visas: z.coerce.number().int().nonnegative().default(0),
   hotels: z.coerce.number().int().nonnegative().default(0),
@@ -235,27 +236,27 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const { alrawdatainSharePercentage, ...rest } = data;
 
         const ticketProfits = data.ticketProfitType === 'percentage'
-            ? data.tickets * (data.ticketProfitValue / 100)
-            : data.tickets * data.ticketProfitValue;
+            ? (data.tickets || 0) * ((data.ticketProfitValue || 0) / 100)
+            : (data.tickets || 0) * (data.ticketProfitValue || 0);
             
         const visaProfits = data.visaProfitType === 'percentage'
-            ? data.visas * (data.visaProfitValue / 100)
-            : data.visas * data.visaProfitValue;
+            ? (data.visas || 0) * ((data.visaProfitValue || 0) / 100)
+            : (data.visas || 0) * (data.visaProfitValue || 0);
             
         const hotelProfits = data.hotelProfitType === 'percentage'
-            ? data.hotels * (data.hotelProfitValue / 100)
-            : data.hotels * data.hotelProfitValue;
+            ? (data.hotels || 0) * ((data.hotelProfitValue || 0) / 100)
+            : (data.hotels || 0) * (data.hotelProfitValue || 0);
 
         const groupProfits = data.groupProfitType === 'percentage'
-            ? data.groups * (data.groupProfitValue / 100)
-            : data.groups * data.groupProfitValue;
+            ? (data.groups || 0) * ((data.groupProfitValue || 0) / 100)
+            : (data.groups || 0) * (data.groupProfitValue || 0);
 
 
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
         
         const client = clients.find(c => c.id === data.clientId);
-        const companySettings = client?.segmentSettings;
+        const companySettings = client?.segmentSettings as SegmentSettings | undefined;
 
         const effectiveAlrawdatainSharePercentage = companySettings?.alrawdatainSharePercentage ?? alrawdatainSharePercentage;
         
@@ -268,7 +269,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             ...rest,
             companyName: client?.name || '',
             clientId: client?.id || '',
-            partnerId: selectedPartnerOption?.value.split('-')[1] || '',
+            partnerId: selectedPartnerOption?.value || '',
             partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
@@ -281,7 +282,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data, company?.segmentSettings as any);
+        const newEntry = calculateShares(data);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
@@ -463,11 +464,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
                     <div className="flex items-center justify-between w-full">
                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-1.5"><User className="h-4 w-4"/> <span>{currentUser?.name || '...'}</span></div>
+                            <div className="flex items-center gap-1.5"><User className="h-4 w-4 text-primary"/> <span>{currentUser?.name || '...'}</span></div>
                              {currentUser && 'boxId' in currentUser && currentUser.boxId && (
-                                <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>{boxName}</span></div>
+                                <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary"/> <span>{boxName}</span></div>
                             )}
-                            <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
+                            <div className="flex items-center gap-1.5"><Hash className="h-4 w-4 text-primary"/> <span>رقم الفاتورة: (تلقائي)</span></div>
                         </div>
                         <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
                             {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
