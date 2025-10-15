@@ -23,16 +23,19 @@ export async function getSegments(): Promise<SegmentEntry[]> {
     }
 }
 
-export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]) {
+export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Promise<{ success: boolean; error?: string, newEntries?: SegmentEntry[] }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const batch = db.batch();
+    const newEntries: SegmentEntry[] = [];
     try {
         const clientSettingsToUpdate: { [clientId: string]: Partial<SegmentSettings> } = {};
 
         entries.forEach(entryData => {
             const docRef = db.collection(SEGMENTS_COLLECTION).doc();
             batch.set(docRef, entryData);
+
+            newEntries.push({ ...entryData, id: docRef.id });
 
             // Prepare to update client's segment settings
             clientSettingsToUpdate[entryData.clientId] = {
@@ -58,7 +61,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]) {
         await batch.commit();
 
         revalidatePath('/segments');
-        return { success: true, count: entries.length };
+        return { success: true, newEntries };
     } catch (error) {
         console.error("Error adding segment entries: ", String(error));
         return { success: false, error: "Failed to add segment entries." };

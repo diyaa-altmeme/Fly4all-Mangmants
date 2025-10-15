@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -24,7 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { addSegmentEntries } from '@/app/segments/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
@@ -142,7 +143,7 @@ type PeriodFormValues = z.infer<typeof periodSchema>;
 interface AddSegmentPeriodDialogProps {
   clients: Client[];
   suppliers: Supplier[];
-  onSuccess: () => Promise<void>;
+  onSuccess: (newEntries: SegmentEntry[]) => void;
 }
 
 export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
@@ -283,7 +284,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             ...rest,
             companyName: client?.name || '',
             clientId: client?.id || '',
-            partnerId: selectedPartnerOption?.value.split('-')[1] || '',
+            partnerId: selectedPartnerOption?.value || '',
             partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
@@ -296,7 +297,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data, company?.segmentSettings);
+        const newEntry = calculateShares(data);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
@@ -338,11 +339,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             }));
             
             const result = await addSegmentEntries(finalEntries as any);
-            if (!result.success) throw new Error(result.error);
+            if (!result.success || !result.newEntries) throw new Error(result.error);
             
             toast({ title: "تم حفظ بيانات الفترة بنجاح" });
             setOpen(false);
-            await onSuccess();
+            onSuccess(result.newEntries);
         } catch (error: any) {
             toast({ title: "خطأ", description: error.message || "لم يتم حفظ البيانات.", variant: "destructive" });
         } finally {
@@ -490,5 +491,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
