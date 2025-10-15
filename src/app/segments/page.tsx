@@ -125,11 +125,11 @@ export default function SegmentsPage() {
         fetchData();
     }, [fetchData]);
     
-    const handleSuccess = (newEntries: SegmentEntry[]) => {
+    const handleSuccess = useCallback((newEntries: SegmentEntry[]) => {
       setSegments(prev => produce(prev, draft => {
         newEntries.forEach(newEntry => draft.unshift(newEntry));
       }));
-    }
+    }, []);
 
     const groupedByPeriod = useMemo(() => {
         return segments.reduce((acc, entry) => {
@@ -202,12 +202,12 @@ export default function SegmentsPage() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
                             <CardTitle>سجل حسابات السكمنت</CardTitle>
                             <CardDescription>عرض ملخص الفترات المحاسبية للسكمنت.</CardDescription>
                         </div>
-                        <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={onSuccess} />
+                        <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
                     </div>
                      <div className="pt-4 space-y-4">
                         <div className="flex flex-col sm:flex-row items-center gap-2">
