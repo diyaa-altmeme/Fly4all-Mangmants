@@ -17,7 +17,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import SegmentDetailsTable from '@/components/segments/segment-details-table';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
-import EditSegmentPeriodDialog from '@/app/segments/components/edit-segment-period-dialog';
 import { DateRange } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarIcon } from 'lucide-react';
@@ -65,16 +64,16 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="font-mono text-center text-xs">{invoiceNumber}</TableCell>
-                    <TableCell className="font-semibold p-1 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
-                    <TableCell className="font-mono text-center text-xs">{period.fromDate}</TableCell>
-                    <TableCell className="font-mono text-center text-xs">{period.toDate}</TableCell>
-                    <TableCell className="text-center font-mono p-1 text-xs">{period.totalTickets.toFixed(2)}</TableCell>
-                    <TableCell className="text-center font-mono p-1 text-xs">{period.totalOther.toFixed(2)}</TableCell>
-                    <TableCell className="text-center font-mono text-green-600 p-1 text-xs">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
-                    <TableCell className="text-center font-mono text-blue-600 p-1 text-xs">{period.totalPartnerShare.toFixed(2)}</TableCell>
-                    <TableCell className="font-mono text-center text-xs">{entryUser}</TableCell>
-                    <TableCell className="font-mono text-center text-xs">{entryDate}</TableCell>
+                    <TableCell className="font-mono text-center text-xs font-bold">{invoiceNumber}</TableCell>
+                    <TableCell className="font-bold p-1 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
+                    <TableCell className="font-mono text-center text-xs font-bold">{period.fromDate}</TableCell>
+                    <TableCell className="font-mono text-center text-xs font-bold">{period.toDate}</TableCell>
+                    <TableCell className="text-center font-mono p-1 text-xs font-bold">{period.totalTickets.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-mono p-1 text-xs font-bold">{period.totalOther.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-mono text-green-600 p-1 text-xs font-bold">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-mono text-blue-600 p-1 text-xs font-bold">{period.totalPartnerShare.toFixed(2)}</TableCell>
+                    <TableCell className="font-mono text-center text-xs font-bold">{entryUser}</TableCell>
+                    <TableCell className="font-mono text-center text-xs font-bold">{entryDate}</TableCell>
                     <TableCell className="p-1 text-center">
                         <div className="flex items-center justify-center">
                             <DropdownMenu>
@@ -82,7 +81,6 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                                     <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
-                                    <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
                                     <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -319,5 +317,3 @@ export default function SegmentsPage() {
         </div>
     )
 }
-
-    
