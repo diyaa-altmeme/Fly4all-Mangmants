@@ -43,71 +43,74 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
     const user = await getCurrentUserFromSession();
     if (!user || !('role' in user)) return { success: false, error: "User not authenticated or not an employee." };
 
-    const batch = db.batch();
+    const writeBatch = db.batch();
     const newEntries: SegmentEntry[] = [];
     
     try {
+        const entryDate = new Date(); // Use a single timestamp for the entire batch
         const invoiceNumber = await getNextVoucherNumber('SEG');
 
         for (const entryData of entries) {
-            const segmentDocRef = db.collection(SEGMENTS_COLLECTION).doc();
+            const segmentDocRef = db.collection('segments').doc();
             
             const dataWithUser: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
                 invoiceNumber,
                 enteredBy: user.name,
-                createdAt: new Date().toISOString(),
+                createdAt: entryDate.toISOString(),
                 isDeleted: false,
             };
-            batch.set(segmentDocRef, dataWithUser);
+            writeBatch.set(segmentDocRef, dataWithUser);
 
             newEntries.push({ ...dataWithUser, id: segmentDocRef.id });
 
-            // Create Journal Entry for this segment entry
+            // Create a dedicated Journal Entry for this specific segment entry
             const journalVoucherRef = db.collection('journal-vouchers').doc();
             
+            // Debit the client for the total profit (this is what they owe)
             const debitEntries: JournalEntry[] = [
-                // The total profit is a debit on the issuing company's account (they owe us this)
                 { accountId: entryData.clientId, amount: entryData.total, description: `أرباح سكمنت للفترة ${entryData.fromDate} - ${entryData.toDate}` },
             ];
 
+            // Credit the partner for their share (liability for us)
+            // Credit our revenue account for our share (income for us)
             const creditEntries: JournalEntry[] = [
-                // The partner's share is a credit to their account (we owe them this)
                 { accountId: entryData.partnerId, amount: entryData.partnerShare, description: `حصة من أرباح سكمنت شركة ${entryData.companyName}` },
-                // Our share is credited to a revenue account
                 { accountId: 'revenue_segments', amount: entryData.alrawdatainShare, description: `حصة الروضتين من سكمنت ${entryData.companyName}` },
             ];
             
+            // This check should theoretically always pass if calculations are correct
             const totalDebit = debitEntries.reduce((sum, e) => sum + e.amount, 0);
             const totalCredit = creditEntries.reduce((sum, e) => sum + e.amount, 0);
             if (Math.abs(totalDebit - totalCredit) > 0.01) {
                 console.error(`Journal entry for segment of ${entryData.companyName} is not balanced. Debit: ${totalDebit}, Credit: ${totalCredit}`);
+                // Skip this entry to avoid creating an unbalanced journal voucher
                 continue; 
             }
 
-             batch.set(journalVoucherRef, {
+             writeBatch.set(journalVoucherRef, {
                 invoiceNumber: invoiceNumber,
-                date: entryData.toDate,
+                date: entryDate.toISOString(), // Use the entry date for the accounting record
                 currency: entryData.currency,
                 exchangeRate: null,
                 notes: `قيد أرباح السكمنت لشركة ${entryData.companyName} عن الفترة من ${entryData.fromDate} إلى ${entryData.toDate}`,
                 createdBy: user.uid,
                 officer: user.name,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
+                createdAt: entryDate.toISOString(),
+                updatedAt: entryDate.toISOString(),
                 voucherType: "segment",
                 debitEntries,
                 creditEntries,
-                isAudited: true,
-                isConfirmed: true,
+                isAudited: true, // Auto-audited
+                isConfirmed: true, // Auto-confirmed
                 isDeleted: false,
                 originalData: { ...dataWithUser, segmentId: segmentDocRef.id }, 
             });
 
-
+            // Update client settings and use counts
             if (entryData.clientId) {
                 const clientRef = db.collection('clients').doc(entryData.clientId);
-                batch.update(clientRef, { 
+                writeBatch.update(clientRef, { 
                     'segmentSettings.ticketProfitType': entryData.ticketProfitType,
                     'segmentSettings.ticketProfitValue': entryData.ticketProfitValue,
                     'segmentSettings.visaProfitType': entryData.visaProfitType,
@@ -117,11 +120,16 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                     'segmentSettings.groupProfitType': entryData.groupProfitType,
                     'segmentSettings.groupProfitValue': entryData.groupProfitValue,
                     'segmentSettings.alrawdatainSharePercentage': entryData.alrawdatainSharePercentage,
+                    'useCount': FieldValue.increment(1)
                 });
             }
+             if (entryData.partnerId) {
+                 const partnerRef = db.collection('clients').doc(entryData.partnerId);
+                 writeBatch.update(partnerRef, { 'useCount': FieldValue.increment(1) });
+             }
         }
 
-        await batch.commit();
+        await writeBatch.commit();
 
         revalidatePath('/segments');
         revalidatePath('/reports/account-statement');
@@ -137,7 +145,7 @@ export async function updateSegmentEntry(id: string, data: Partial<Omit<SegmentE
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     try {
-        await db.collection(SEGMENTS_COLLECTION).doc(id).update(data);
+        await db.collection('segments').doc(id).update(data);
         revalidatePath('/segments');
         return { success: true };
     } catch (error: any) {
@@ -150,7 +158,7 @@ export async function deleteSegmentPeriod(fromDate: string, toDate: string, perm
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available.", count: 0 };
     try {
-        const snapshot = await db.collection(SEGMENTS_COLLECTION)
+        const snapshot = await db.collection('segments')
             .where('fromDate', '==', fromDate)
             .where('toDate', '==', toDate)
             .get();
@@ -160,7 +168,7 @@ export async function deleteSegmentPeriod(fromDate: string, toDate: string, perm
         }
 
         const batch = db.batch();
-        const invoiceNumber = snapshot.docs[0].data().invoiceNumber;
+        const invoiceNumbers = new Set(snapshot.docs.map(doc => doc.data().invoiceNumber));
 
         snapshot.docs.forEach(doc => {
             if (permanent) {
@@ -171,25 +179,28 @@ export async function deleteSegmentPeriod(fromDate: string, toDate: string, perm
         });
         
         // Also soft/hard delete the corresponding journal vouchers
-        if (invoiceNumber) {
-            const voucherSnapshot = await db.collection('journal-vouchers')
-                .where('invoiceNumber', '==', invoiceNumber)
-                .where('voucherType', '==', 'segment')
-                .get();
-            
-            voucherSnapshot.forEach(doc => {
-                 if (permanent) {
-                    batch.delete(doc.ref);
-                } else {
-                    batch.update(doc.ref, { isDeleted: true, deletedAt: new Date().toISOString() });
-                }
-            });
+        if (invoiceNumbers.size > 0) {
+            for (const invoiceNumber of Array.from(invoiceNumbers)) {
+                const voucherSnapshot = await db.collection('journal-vouchers')
+                    .where('invoiceNumber', '==', invoiceNumber)
+                    .where('voucherType', '==', 'segment')
+                    .get();
+                
+                voucherSnapshot.forEach(doc => {
+                     if (permanent) {
+                        batch.delete(doc.ref);
+                    } else {
+                        batch.update(doc.ref, { isDeleted: true, deletedAt: new Date().toISOString() });
+                    }
+                });
+            }
         }
 
         await batch.commit();
         
         revalidatePath('/segments');
         revalidatePath('/segments/deleted-segments');
+        revalidatePath('/reports/account-statement');
         return { success: true, count: snapshot.size };
     } catch (error: any) {
         console.error("Error deleting segment period: ", String(error));
@@ -201,7 +212,7 @@ export async function restoreSegmentPeriod(fromDate: string, toDate: string): Pr
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available.", count: 0 };
     try {
-        const snapshot = await db.collection(SEGMENTS_COLLECTION)
+        const snapshot = await db.collection('segments')
             .where('fromDate', '==', fromDate)
             .where('toDate', '==', toDate)
             .where('isDeleted', '==', true)
@@ -212,31 +223,33 @@ export async function restoreSegmentPeriod(fromDate: string, toDate: string): Pr
         }
 
         const batch = db.batch();
-        const invoiceNumber = snapshot.docs[0].data().invoiceNumber;
+        const invoiceNumbers = new Set(snapshot.docs.map(doc => doc.data().invoiceNumber));
 
         snapshot.docs.forEach(doc => {
             batch.update(doc.ref, { isDeleted: false, deletedAt: FieldValue.delete() });
         });
 
-        if (invoiceNumber) {
-             const voucherSnapshot = await db.collection('journal-vouchers')
-                .where('invoiceNumber', '==', invoiceNumber)
-                .where('voucherType', '==', 'segment')
-                .get();
-            
-            voucherSnapshot.forEach(doc => {
-                batch.update(doc.ref, { isDeleted: false, deletedAt: FieldValue.delete() });
-            });
+        if (invoiceNumbers.size > 0) {
+             for (const invoiceNumber of Array.from(invoiceNumbers)) {
+                 const voucherSnapshot = await db.collection('journal-vouchers')
+                    .where('invoiceNumber', '==', invoiceNumber)
+                    .where('voucherType', '==', 'segment')
+                    .get();
+                
+                voucherSnapshot.forEach(doc => {
+                    batch.update(doc.ref, { isDeleted: false, deletedAt: FieldValue.delete() });
+                });
+            }
         }
 
         await batch.commit();
         
         revalidatePath('/segments');
         revalidatePath('/segments/deleted-segments');
+        revalidatePath('/reports/account-statement');
         return { success: true, count: snapshot.size };
     } catch (error: any) {
         console.error("Error restoring segment period: ", String(error));
         return { success: false, error: "Failed to restore segment period.", count: 0 };
     }
 }
-

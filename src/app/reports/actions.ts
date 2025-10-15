@@ -2,7 +2,7 @@
 
 'use server';
 
-import type { ReportInfo, AccountType, ReportTransaction, Currency, DebtsReportData, Client, Supplier, AppSettings, Box, StructuredDescription, BookingEntry, VisaBookingEntry, Subscription, JournalVoucher, JournalEntry, DebtsReportEntry, InvoiceReportItem, ClientTransactionSummary, TreeNode, Exchange } from '@/lib/types';
+import type { ReportInfo, AccountType, ReportTransaction, Currency, DebtsReportData, Client, Supplier, AppSettings, Box, StructuredDescription, BookingEntry, VisaBookingEntry, Subscription, JournalVoucher, JournalEntry, DebtsReportEntry, InvoiceReportItem, ClientTransactionSummary, TreeNode, Exchange, SegmentEntry } from '@/lib/types';
 import { getDb } from '@/lib/firebase-admin';
 import { DateRange } from 'react-day-picker';
 import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
@@ -105,85 +105,120 @@ const buildDetailedDistributedReceiptDescription = async (voucher: JournalVouche
         distributions: otherDistributions,
         notes: originalData.notes || '',
     };
-}
+};
+
+const buildDetailedSegmentDescription = (voucher: JournalVoucher): StructuredDescription => {
+    const originalData = voucher.originalData as SegmentEntry;
+    if (!originalData) {
+        return { title: 'قيد سكمنت', totalReceived: null, selfReceipt: null, distributions: [], notes: voucher.notes };
+    }
+    return {
+        title: `قيد أرباح سكمنت لشركة: ${originalData.companyName}`,
+        totalReceived: `إجمالي ربح السكمنت: ${formatCurrencyDisplay(originalData.total, originalData.currency)}`,
+        selfReceipt: `حصة الروضتين: ${formatCurrencyDisplay(originalData.alrawdatainShare, originalData.currency)}`,
+        distributions: [{
+            name: `حصة الشريك (${originalData.partnerName})`,
+            amount: formatCurrencyDisplay(originalData.partnerShare, originalData.currency),
+        }],
+        notes: `فترة السكمنت من ${originalData.fromDate} إلى ${originalData.toDate}`,
+    };
+};
 
 
-async function getTransactionsForAccount(accountId: string, accountsMap: Map<string, string>, settings: AppSettings, reportType: 'summary' | 'detailed'): Promise<ReportTransaction[]> {
-    const transactions: ReportTransaction[] = [];
+
+async function getTransactionsForAccount(
+    accountId: string, 
+    accountsMap: Map<string, string>, 
+    settings: AppSettings, 
+    reportType: 'summary' | 'detailed'
+): Promise<ReportTransaction[]> {
     const db = await getDb();
     if (!db) return [];
 
-    // This is not efficient for very large datasets, but it's the most reliable way to query for this
-    // without complex, pre-defined composite indexes for every possible query combination.
-    // Firestore is not designed for complex relational queries like this.
-    const journalSnapshot = await db.collection('journal-vouchers').get();
+    const journalSnapshot = await db.collection('journal-vouchers').where('isDeleted', '!=', true).get();
     
-    const vouchers = journalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as JournalVoucher));
+    const transactions: ReportTransaction[] = [];
 
-    for (const voucher of vouchers) {
-        const relevantDebit = voucher.debitEntries?.find((e: any) => e.accountId === accountId);
-        const relevantCredit = voucher.creditEntries?.find((e: any) => e.accountId === accountId);
-        
-        if (!relevantDebit && !relevantCredit) continue;
+    const normalizeDateToISO = (d: any) => {
+        if (!d) return new Date().toISOString();
+        if (d?.toDate) return d.toDate().toISOString();
+        if (typeof d === 'string') return d;
+        return new Date(d).toISOString();
+    };
 
-        let description: string | StructuredDescription = voucher.notes;
+    const matchesAccount = (entryAccountId: string) => {
+        if (!entryAccountId) return false;
+        // exact match
+        if (entryAccountId === accountId) return true;
+        // entry = "rawId" and requested = "expense_rawId"
+        if (`expense_${entryAccountId}` === accountId) return true;
+        // entry = "expense_rawId" and requested = "rawId"
+        if (entryAccountId === accountId.replace(/^expense_/, '')) return true;
+        return false;
+    };
+
+    for (const doc of journalSnapshot.docs) {
+        const voucher = { id: doc.id, ...doc.data() } as JournalVoucher;
+
+        const debitEntry = (voucher.debitEntries || []).find(e => matchesAccount(e.accountId));
+        const creditEntry = (voucher.creditEntries || []).find(e => matchesAccount(e.accountId));
+
+        if (!debitEntry && !creditEntry) {
+            continue; // Skip vouchers not related to this account
+        }
+
         const voucherTypeLabel = getVoucherTypeLabel(voucher.voucherType);
+        let description: string | StructuredDescription = voucher.notes;
 
-        if (relevantDebit) {
-            const creditedParties = voucher.creditEntries.map((e: any) => accountsMap.get(e.accountId) || e.accountId).join(', ');
-            
-            if (reportType === 'detailed' && voucher.voucherType === 'journal_from_distributed_receipt' && voucher.originalData) {
-                description = await buildDetailedDistributedReceiptDescription(voucher, accountsMap);
-            } else if(reportType === 'detailed' && voucher.voucherType === 'booking' && voucher.originalData) {
-                description = buildDetailedBookingDescription(voucher.originalData);
-            } else if(reportType === 'detailed' && voucher.voucherType === 'visa' && voucher.originalData) {
-                 description = buildDetailedVisaDescription(voucher.originalData);
-            }
-             else {
-                 description = `${voucher.notes || 'حركة مدينة'} (إلى: ${creditedParties})`;
-            }
+        let otherParties: string[] = [];
 
-             transactions.push({
-                id: `journal-${voucher.id}-debit`,
-                invoiceNumber: voucher.invoiceNumber || 'N/A',
-                date: voucher.date,
-                description: description,
-                type: voucherTypeLabel,
-                debit: relevantDebit.amount,
-                credit: 0, 
-                balance: 0,
-                currency: voucher.currency,
-                otherParty: creditedParties,
-                officer: voucher.officer,
-            });
+        if (debitEntry) {
+            otherParties.push(...(voucher.creditEntries || []).map(e => accountsMap.get(e.accountId) || e.accountId));
         }
-        if (relevantCredit) {
-             const debitedParties = voucher.debitEntries.map((e: any) => accountsMap.get(e.accountId) || e.accountId).join(', ');
-
-             if (reportType === 'detailed' && voucher.voucherType === 'journal_from_distributed_receipt' && voucher.originalData) {
-                description = await buildDetailedDistributedReceiptDescription(voucher, accountsMap);
-            } else if(reportType === 'detailed' && voucher.voucherType === 'booking' && voucher.originalData) {
-                description = buildDetailedBookingDescription(voucher.originalData);
-            } else if(reportType === 'detailed' && voucher.voucherType === 'visa' && voucher.originalData) {
-                description = buildDetailedVisaDescription(voucher.originalData);
-            } else {
-                 description = `${voucher.notes || 'حركة دائنة'} (من: ${debitedParties})`;
-             }
-
-             transactions.push({
-                id: `journal-${voucher.id}-credit`,
-                invoiceNumber: voucher.invoiceNumber || 'N/A',
-                date: voucher.date,
-                description: description,
-                type: voucherTypeLabel,
-                debit: 0, 
-                credit: relevantCredit.amount,
-                balance: 0,
-                currency: voucher.currency,
-                otherParty: debitedParties,
-                officer: voucher.officer,
-            });
+        if (creditEntry) {
+            otherParties.push(...(voucher.debitEntries || []).map(e => accountsMap.get(e.accountId) || e.accountId));
         }
+
+        const uniqueOtherParties = [...new Set(otherParties)].join(', ');
+
+        if (reportType === 'detailed' && voucher.originalData) {
+            switch (voucher.voucherType) {
+                case 'journal_from_distributed_receipt':
+                    description = await buildDetailedDistributedReceiptDescription(voucher, accountsMap);
+                    break;
+                case 'booking':
+                    description = buildDetailedBookingDescription(voucher.originalData);
+                    break;
+                case 'visa':
+                    description = buildDetailedVisaDescription(voucher.originalData);
+                    break;
+                case 'segment':
+                    description = buildDetailedSegmentDescription(voucher);
+                    break;
+                default:
+                    description = `${voucher.notes || voucherTypeLabel} (الطرف المقابل: ${uniqueOtherParties})`;
+            }
+        } else {
+            description = `${voucher.notes || voucherTypeLabel} (الطرف المقابل: ${uniqueOtherParties})`;
+        }
+
+        const dateIso = normalizeDateToISO(voucher.date);
+
+        const tx: ReportTransaction = {
+            id: voucher.id,
+            invoiceNumber: voucher.invoiceNumber || 'N/A',
+            date: dateIso,
+            description: description,
+            type: voucherTypeLabel,
+            debit: debitEntry?.amount || 0,
+            credit: creditEntry?.amount || 0,
+            balance: 0,
+            currency: voucher.currency,
+            otherParty: uniqueOtherParties,
+            officer: voucher.officer,
+        };
+
+        transactions.push(tx);
     }
     
     return transactions;
@@ -217,11 +252,16 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
     
     const settings = await getSettings();
     if (!accountInfo) {
-        const expenseAccount = settings.voucherSettings?.expenseAccounts?.find(a => a.id === params.accountId);
-        if (expenseAccount) {
-            accountInfo = { id: expenseAccount.id, name: expenseAccount.name, type: 'expense' };
+        if (params.accountId === 'revenue_segments') {
+            accountInfo = { id: 'revenue_segments', name: 'إيرادات السكمنت', type: 'revenue' };
         } else {
-             throw new Error(`Account with ID ${params.accountId} not found.`);
+            const expenseAccount = settings.voucherSettings?.expenseAccounts?.find(a => `expense_${a.id}` === params.accountId || a.id === params.accountId);
+            if (expenseAccount) {
+                const resolvedId = params.accountId.startsWith('expense_') ? params.accountId : (`expense_${expenseAccount.id}`);
+                accountInfo = { id: resolvedId, name: expenseAccount.name, type: 'expense' };
+            } else {
+                throw new Error(`Account with ID ${params.accountId} not found.`);
+            }
         }
     }
     
@@ -241,6 +281,12 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
             accountsMap.set(channel.accountId, channel.label);
         }
     });
+
+    settings.voucherSettings?.expenseAccounts?.forEach(acc => {
+        accountsMap.set(acc.id, acc.name);
+        accountsMap.set(`expense_${acc.id}`, acc.name);
+    });
+    accountsMap.set('revenue_segments', 'إيرادات السكمنت');
 
 
     const allTransactions = await getTransactionsForAccount(accountInfo.id, accountsMap, settings, params.reportType);
