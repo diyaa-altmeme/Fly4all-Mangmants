@@ -65,16 +65,16 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
+                    <TableCell className="font-mono text-center text-xs">{invoiceNumber}</TableCell>
                     <TableCell className="font-semibold p-1 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{period.toDate}</TableCell>
-                    <TableCell className="font-mono text-center text-xs">{invoiceNumber}</TableCell>
-                    <TableCell className="font-mono text-center text-xs">{entryUser}</TableCell>
-                    <TableCell className="font-mono text-center text-xs">{entryDate}</TableCell>
                     <TableCell className="text-center font-mono p-1 text-xs">{period.totalTickets.toFixed(2)}</TableCell>
                     <TableCell className="text-center font-mono p-1 text-xs">{period.totalOther.toFixed(2)}</TableCell>
                     <TableCell className="text-center font-mono text-green-600 p-1 text-xs">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
                     <TableCell className="text-center font-mono text-blue-600 p-1 text-xs">{period.totalPartnerShare.toFixed(2)}</TableCell>
+                    <TableCell className="font-mono text-center text-xs">{entryUser}</TableCell>
+                    <TableCell className="font-mono text-center text-xs">{entryDate}</TableCell>
                     <TableCell className="p-1 text-center">
                         <div className="flex items-center justify-center">
                             <DropdownMenu>
@@ -283,16 +283,16 @@ export default function SegmentsPage() {
                              <TableHeader>
                                 <TableRow>
                                     <TableHead className="w-[40px] p-1"></TableHead>
+                                    <TableHead className="font-bold text-center p-2">رقم الفاتورة</TableHead>
                                     <TableHead className="font-bold text-center p-2">الشركات</TableHead>
                                     <TableHead className="font-bold text-center p-2">من</TableHead>
                                     <TableHead className="font-bold text-center p-2">إلى</TableHead>
-                                    <TableHead className="font-bold text-center p-2">رقم الفاتورة</TableHead>
-                                    <TableHead className="font-bold text-center p-2">موظف الإدخال</TableHead>
-                                    <TableHead className="font-bold text-center p-2">تاريخ الإدخال</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح التذاكر</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح أخرى</TableHead>
                                     <TableHead className="text-center font-bold p-2">حصة الروضتين</TableHead>
                                     <TableHead className="text-center font-bold p-2">حصة الشريك</TableHead>
+                                    <TableHead className="font-bold text-center p-2">موظف الإدخال</TableHead>
+                                    <TableHead className="font-bold text-center p-2">تاريخ الإدخال</TableHead>
                                     <TableHead className="text-center font-bold p-2">الإجراءات</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -319,3 +319,5 @@ export default function SegmentsPage() {
         </div>
     )
 }
+
+    
