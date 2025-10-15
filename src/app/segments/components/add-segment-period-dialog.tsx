@@ -385,10 +385,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 </div>
                                 <Collapsible open={isCommissionSettingsOpen} onOpenChange={setIsCommissionSettingsOpen}>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                        <PairedInput form={companyForm} name="tickets" profitTypeField="ticketProfitType" profitValueField="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" currency={'USD'} />
-                                        <PairedInput form={companyForm} name="visas" profitTypeField="visaProfitType" profitValueField="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" currency={'USD'} />
-                                        <PairedInput form={companyForm} name="hotels" profitTypeField="hotelProfitType" profitValueField="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" currency={'USD'} />
-                                        <PairedInput form={companyForm} name="groups" profitTypeField="groupProfitType" profitValueField="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" currency={'USD'} />
+                                        <PairedInput form={companyForm} name="tickets" profitTypeField="ticketProfitType" profitValueField="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" currency={companyForm.getValues('currency')} />
+                                        <PairedInput form={companyForm} name="visas" profitTypeField="visaProfitType" profitValueField="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" currency={companyForm.getValues('currency')} />
+                                        <PairedInput form={companyForm} name="hotels" profitTypeField="hotelProfitType" profitValueField="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" currency={companyForm.getValues('currency')} />
+                                        <PairedInput form={companyForm} name="groups" profitTypeField="groupProfitType" profitValueField="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" currency={companyForm.getValues('currency')} />
                                     </div>
                                     <div className="flex items-center justify-between mt-3">
                                         <CollapsibleTrigger asChild>
