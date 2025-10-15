@@ -85,7 +85,7 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
       </TableBody>
        <TableFooter>
         <TableRow className="bg-muted font-bold">
-          <TableCell colSpan={2} className="p-2">المجموع</TableCell>
+          <TableCell colSpan={3} className="p-2">المجموع</TableCell>
           <TableCell className="text-center font-mono p-2">{formatCurrency(period.totalTickets)}</TableCell>
           <TableCell className="text-center font-mono p-2">{formatCurrency(period.totalOther)}</TableCell>
           <TableCell className="text-center font-mono text-green-600 p-2">{formatCurrency(period.totalAlrawdatainShare)}</TableCell>

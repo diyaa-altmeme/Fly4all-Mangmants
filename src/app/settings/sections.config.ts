@@ -9,7 +9,7 @@ import {
 import AccountingSettings from "@/app/settings/sections/accounting-settings";
 import ApiSettings from "@/app/settings/sections/api-settings";
 import SystemStatusSettings from "@/app/settings/sections/system-status-settings";
-import RelationsSettingsPage from '@/app/relations/settings/page';
+import RelationsSettings from '@/app/relations/settings/page';
 import AppearancePage from '@/app/settings/themes/page';
 import CurrencySettings from '@/components/settings/currency-settings';
 import SubscriptionsSettings from '@/components/settings/subscriptions-settings';
@@ -37,7 +37,7 @@ export const settingSections = [
         name: 'إعدادات العلاقات', 
         icon: Users,
         subItems: [
-            { id: 'relations_fields', name: 'إدارة الحقول والاستيراد', icon: SlidersHorizontal, component: RelationsSettingsPage },
+            { id: 'relations_fields', name: 'إدارة الحقول والاستيراد', icon: SlidersHorizontal, component: RelationsSettings },
         ],
     },
     { 
