@@ -1,4 +1,5 @@
 
+
       
 
 "use client";
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, ArrowDown, ArrowUp, HandCoins, ListTree, FilePenLine, ChevronDown, FileSpreadsheet, FileBarChart, BookOpen, Book, SlidersHorizontal, Printer, Ticket, RefreshCw, Briefcase, BedDouble, Users as UsersIcon, Shield, Train, Settings, CreditCard, Wallet, GitBranch, Banknote, BookUser, FileDown, FileUp, ArrowRightLeft, Repeat, XCircle, CheckCheck, Smartphone, MoreHorizontal } from "lucide-react";
+import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, ArrowDown, ArrowUp, HandCoins, ListTree, FilePenLine, ChevronDown, FileSpreadsheet, FileBarChart, BookOpen, Book, SlidersHorizontal, Printer, Ticket, RefreshCw, Briefcase, BedDouble, Users as UsersIcon, Shield, Train, Settings, CreditCard, Wallet, GitBranch, Banknote, BookUser, FileDown, FileUp, ArrowRightLeft, Repeat, XCircle, CheckCheck, Smartphone, MoreHorizontal, Layers3 } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, parseISO } from "date-fns";
 import type { Box, ReportInfo, ReportTransaction, Currency, AccountType, Client, Supplier, StructuredDescription } from '@/lib/types';
@@ -103,6 +104,7 @@ const mainOperationsFilters = [
     { id: 'visa', label: 'طلب فيزا', icon: CreditCard },
     { id: 'subscription', label: 'اشتراك', icon: Repeat },
     { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft },
+    { id: 'segment', label: 'سكمنت', icon: Layers3 },
 ];
 
 const voucherTypeFilters = [
@@ -536,5 +538,3 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         </div>
     )
 }
-
-    
