@@ -28,7 +28,7 @@ import { Input } from '@/components/ui/input';
 import { useDebounce } from '@/hooks/use-debounce';
 import { Badge } from '@/components/ui/badge';
 import { produce } from 'immer';
-
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
     <div className={cn("text-center p-2 rounded-lg bg-background", className)}>
@@ -62,8 +62,8 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                     <TableCell className="font-semibold p-1">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{period.toDate}</TableCell>
-                    <TableCell className="text-right font-mono font-bold p-1 text-xs">{period.totalTickets.toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono font-bold p-1 text-xs">{period.totalOther.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono p-1 text-xs">{period.totalTickets.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono p-1 text-xs">{period.totalOther.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono text-green-600 p-1 text-xs">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
                     <TableCell className="text-right font-mono text-blue-600 p-1 text-xs">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="p-1 text-center">
@@ -104,7 +104,7 @@ export default function SegmentsPage() {
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
-    const [date, setDate] = React.useState<DateRange | undefined>();
+    const [periodFilter, setPeriodFilter] = useState<string>('all');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -124,13 +124,20 @@ export default function SegmentsPage() {
         }
     }, [toast]);
     
-    const handleSuccess = useCallback(async (newEntries: SegmentEntry[]) => {
-      setSegments(prev => produce(prev, draft => {
-        // Add new entries and sort to ensure order is correct
-        const newAndExisting = [...newEntries, ...draft];
-        newAndExisting.sort((a,b) => parseISO(b.toDate).getTime() - parseISO(a.toDate).getTime());
-        return newAndExisting;
-      }));
+    const handleSuccess = useCallback(async (newEntries?: SegmentEntry[]) => {
+      if (newEntries && newEntries.length > 0) {
+        setSegments(prev => {
+            const newPeriodKey = `${newEntries[0].fromDate}_${newEntries[0].toDate}`;
+            const existingPeriodIndex = prev.findIndex(p => `${p.fromDate}_${p.toDate}` === newPeriodKey);
+            
+            if (existingPeriodIndex > -1) {
+                // This logic is complex, a full refetch is safer for now.
+                return prev;
+            } else {
+                 return [...newEntries, ...prev].sort((a,b) => parseISO(b.toDate).getTime() - parseISO(a.toDate).getTime());
+            }
+        });
+      }
       await fetchData();
     }, [fetchData]);
 
@@ -174,17 +181,14 @@ export default function SegmentsPage() {
                 )
             );
         }
-
-        if (date?.from && date?.to) {
-            periods = periods.filter(p => {
-                const periodDate = new Date(p.fromDate);
-                return periodDate >= date.from! && periodDate <= date.to!;
-            });
+        
+        if (periodFilter !== 'all') {
+            periods = periods.filter(p => `${p.fromDate}_${p.toDate}` === periodFilter);
         }
         
         return periods;
 
-    }, [groupedByPeriod, debouncedSearchTerm, date]);
+    }, [groupedByPeriod, debouncedSearchTerm, periodFilter]);
 
     const { grandTotalProfit, grandTotalAlrawdatainShare, grandTotalPartnerShare } = useMemo(() => {
         return sortedAndFilteredPeriods.reduce((acc, period) => {
@@ -195,10 +199,19 @@ export default function SegmentsPage() {
         }, { grandTotalProfit: 0, grandTotalAlrawdatainShare: 0, grandTotalPartnerShare: 0 });
     }, [sortedAndFilteredPeriods]);
 
+    const periodOptions = useMemo(() => {
+        return Object.values(groupedByPeriod)
+            .sort((a,b) => new Date(b.toDate).getTime() - new Date(a.toDate).getTime())
+            .map(p => ({
+                value: `${p.fromDate}_${p.toDate}`,
+                label: `${p.fromDate} -> ${p.toDate}`
+            }));
+    }, [groupedByPeriod]);
+
     if (loading) {
         return (
              <div className="space-y-4">
-                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-32 w-full" />
                 <Skeleton className="h-64 w-full" />
             </div>
         )
@@ -215,46 +228,40 @@ export default function SegmentsPage() {
                                 <CardDescription>عرض ملخص الفترات المحاسبية للسكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={() => handleSuccess()} />
                                 <Button onClick={fetchData} variant="outline" disabled={loading} className="w-full sm:w-auto">
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
                                 </Button>
                             </div>
                         </div>
-                        <div className="pt-4 space-y-4">
-                             <div className="flex items-center gap-2">
-                               <div className="relative flex-grow">
-                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="بحث بالشركة أو الشريك..."
-                                    className="ps-10 h-8"
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                />
-                                </div>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            id="date"
-                                            variant={"outline"}
-                                            className={cn("w-full sm:w-[250px] justify-start text-left font-normal h-8", !date && "text-muted-foreground")}
-                                        >
-                                            <CalendarIcon className="me-2 h-4 w-4" />
-                                            {date?.from ? (date.to ? (<>{format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}</>) : (format(date.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <CalendarUI mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
-                                    </PopoverContent>
-                                </Popover>
-                                 { (searchTerm || date) && <Button onClick={() => { setSearchTerm(''); setDate(undefined); }} variant="ghost">مسح</Button> }
+                        <div className="w-full flex flex-col sm:flex-row items-center gap-2">
+                           <div className="relative flex-grow">
+                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="بحث بالشركة أو الشريك..."
+                                className="ps-10 h-8"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
                             </div>
-                             <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency="USD" className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
-                                <StatCard title="حصة الروضتين" value={grandTotalAlrawdatainShare} currency="USD" className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
-                                <StatCard title="حصة الشريك" value={grandTotalPartnerShare} currency="USD" className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
-                            </div>
+                             <Select value={periodFilter} onValueChange={setPeriodFilter}>
+                                <SelectTrigger className="w-full sm:w-[250px] h-8">
+                                    <SelectValue placeholder="اختر فترة..."/>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">كل الفترات</SelectItem>
+                                    {periodOptions.map(opt => (
+                                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                             { (searchTerm || periodFilter !== 'all') && <Button onClick={() => { setSearchTerm(''); setPeriodFilter('all'); }} variant="ghost" size="sm">مسح</Button> }
+                        </div>
+                         <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                            <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency="USD" className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                            <StatCard title="حصة الروضتين" value={grandTotalAlrawdatainShare} currency="USD" className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
+                            <StatCard title="حصة الشريك" value={grandTotalPartnerShare} currency="USD" className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
                         </div>
                     </div>
                 </CardHeader>
@@ -271,8 +278,8 @@ export default function SegmentsPage() {
                                 <TableRow>
                                     <TableHead className="w-[50px] p-2"></TableHead>
                                     <TableHead className="p-2">الشركات</TableHead>
-                                    <TableHead className="p-2 text-center">من تاريخ</TableHead>
-                                    <TableHead className="p-2 text-center">إلى تاريخ</TableHead>
+                                    <TableHead className="p-2 text-center">من</TableHead>
+                                    <TableHead className="p-2 text-center">إلى</TableHead>
                                     <TableHead className="text-right p-2">أرباح التذاكر</TableHead>
                                     <TableHead className="text-right p-2">أرباح أخرى</TableHead>
                                     <TableHead className="text-right p-2">حصة الروضتين</TableHead>
