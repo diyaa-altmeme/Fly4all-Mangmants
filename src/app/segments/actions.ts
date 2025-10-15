@@ -23,7 +23,7 @@ export async function getSegments(): Promise<SegmentEntry[]> {
     }
 }
 
-export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id' | 'invoiceNumber'>[]): Promise<{ success: boolean; error?: string, newEntries?: SegmentEntry[] }> {
+export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Promise<{ success: boolean; error?: string, newEntries?: SegmentEntry[] }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
@@ -50,18 +50,23 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id' | 'invo
 
             newEntries.push({ ...dataWithUser, id: docRef.id });
 
-            clientSettingsToUpdate[entryData.clientId] = {
-                ticketProfitPercentage: entryData.ticketProfitPercentage,
-                visaProfitPercentage: entryData.visaProfitPercentage,
-                hotelProfitPercentage: entryData.hotelProfitPercentage,
-                groupProfitPercentage: entryData.groupProfitPercentage,
-                alrawdatainSharePercentage: entryData.alrawdatainSharePercentage,
-            };
+            // Only update settings if a client ID exists
+            if (entryData.clientId) {
+                clientSettingsToUpdate[entryData.clientId] = {
+                    ticketProfitPercentage: entryData.ticketProfitPercentage,
+                    visaProfitPercentage: entryData.visaProfitPercentage,
+                    hotelProfitPercentage: entryData.hotelProfitPercentage,
+                    groupProfitPercentage: entryData.groupProfitPercentage,
+                    alrawdatainSharePercentage: entryData.alrawdatainSharePercentage,
+                };
+            }
         }
 
         for (const clientId in clientSettingsToUpdate) {
-            const clientRef = db.collection('clients').doc(clientId);
-            batch.update(clientRef, { segmentSettings: clientSettingsToUpdate[clientId] });
+            if (clientId) { // Ensure we don't try to update with an empty ID
+                const clientRef = db.collection('clients').doc(clientId);
+                batch.update(clientRef, { segmentSettings: clientSettingsToUpdate[clientId] });
+            }
         }
 
 
