@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent } from 'lucide-react';
+import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
 import { getClients } from '@/app/relations/actions';
@@ -30,10 +30,12 @@ import { Badge } from '@/components/ui/badge';
 import { produce } from 'immer';
 
 
-const StatCard = ({ title, value }: { title: string, value: string }) => (
-    <div className="bg-muted/50 p-3 rounded-lg text-center flex-1">
-        <p className="text-xs text-muted-foreground font-semibold">{title}</p>
-        <p className="text-xl font-bold font-mono">{value}</p>
+const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
+    <div className={cn("text-center p-2 rounded-lg bg-background", className)}>
+        <p className="text-xs font-bold text-muted-foreground">{title}</p>
+        <p className="font-bold font-mono text-sm">
+            {value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} {currency}
+        </p>
     </div>
 );
 
@@ -58,16 +60,17 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                         </CollapsibleTrigger>
                     </TableCell>
                     <TableCell className="font-semibold p-1">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
-                    <TableCell className="font-mono text-center">{period.fromDate}</TableCell>
-                    <TableCell className="font-mono text-center">{period.toDate}</TableCell>
-                    <TableCell className="text-right font-mono font-bold p-1">{period.totalProfit.toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono text-green-600">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono text-blue-600">{period.totalPartnerShare.toFixed(2)}</TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="font-mono text-center text-xs">{period.fromDate}</TableCell>
+                    <TableCell className="font-mono text-center text-xs">{period.toDate}</TableCell>
+                    <TableCell className="text-right font-mono font-bold p-1 text-xs">{period.totalTickets.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono font-bold p-1 text-xs">{period.totalOther.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono text-green-600 p-1 text-xs">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-mono text-blue-600 p-1 text-xs">{period.totalPartnerShare.toFixed(2)}</TableCell>
+                    <TableCell className="p-1 text-center">
                         <div className="flex items-center justify-center">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal /></Button>
+                                    <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
                                     <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
@@ -79,7 +82,7 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={8} className="p-0">
+                        <TableCell colSpan={9} className="p-0">
                             <div className="p-4 bg-muted/30">
                                 <h4 className="font-bold mb-2">تفاصيل شركات الفترة:</h4>
                                 <SegmentDetailsTable period={period} onDeleteEntry={() => {}} />
@@ -202,15 +205,23 @@ export default function SegmentsPage() {
         <div className="space-y-6">
             <Card>
                 <CardHeader>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div>
-                            <CardTitle>سجل حسابات السكمنت</CardTitle>
-                            <CardDescription>عرض ملخص الفترات المحاسبية للسكمنت.</CardDescription>
+                    <div className="flex w-full flex-col items-start gap-4">
+                        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
+                             <div>
+                                <CardTitle>سجل حسابات السكمنت</CardTitle>
+                                <CardDescription>
+                                    عرض ملخص الفترات المحاسبية للسكمنت.
+                                </CardDescription>
+                            </div>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={onSuccess} />
+                                <Button onClick={fetchData} variant="outline" disabled={loading} className="w-full sm:w-auto">
+                                    {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
+                                    تحديث
+                                </Button>
+                            </div>
                         </div>
-                        <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
-                    </div>
-                     <div className="pt-4 space-y-4">
-                        <div className="flex flex-col sm:flex-row items-center gap-2">
+                        <div className="w-full flex flex-col sm:flex-row items-center gap-2">
                              <div className="relative flex-grow">
                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
@@ -235,12 +246,12 @@ export default function SegmentsPage() {
                                     <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
                                 </PopoverContent>
                             </Popover>
-                             <Button onClick={() => { setSearchTerm(''); setDate(undefined); }} variant="ghost" className={!searchTerm && !date ? 'hidden' : ''}>مسح</Button>
+                             { (searchTerm || date) && <Button onClick={() => { setSearchTerm(''); setDate(undefined); }} variant="ghost">مسح</Button> }
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <StatCard title="إجمالي أرباح السكمنت" value={`$${grandTotalProfit.toFixed(2)}`} />
-                            <StatCard title="حصة الروضتين" value={`$${grandTotalAlrawdatainShare.toFixed(2)}`} />
-                            <StatCard title="حصة الشريك" value={`$${grandTotalPartnerShare.toFixed(2)}`} />
+                         <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                            <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency="USD" className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                            <StatCard title="حصة الروضتين" value={grandTotalAlrawdatainShare} currency="USD" className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
+                            <StatCard title="حصة الشريك" value={grandTotalPartnerShare} currency="USD" className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
                         </div>
                     </div>
                 </CardHeader>
@@ -255,20 +266,21 @@ export default function SegmentsPage() {
                         <Table>
                              <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[50px]"></TableHead>
-                                    <TableHead>عدد الشركات</TableHead>
-                                    <TableHead className="text-center">من تاريخ</TableHead>
-                                    <TableHead className="text-center">إلى تاريخ</TableHead>
-                                    <TableHead className="text-right">إجمالي الربح</TableHead>
-                                    <TableHead className="text-right">حصة الروضتين</TableHead>
-                                    <TableHead className="text-right">حصة الشريك</TableHead>
-                                    <TableHead className="text-center">الإجراءات</TableHead>
+                                    <TableHead className="w-[40px] p-2"></TableHead>
+                                    <TableHead className="p-2">الشركات</TableHead>
+                                    <TableHead className="p-2 text-center">من تاريخ</TableHead>
+                                    <TableHead className="p-2 text-center">إلى تاريخ</TableHead>
+                                    <TableHead className="text-right p-2">أرباح التذاكر</TableHead>
+                                    <TableHead className="text-right p-2">أرباح أخرى</TableHead>
+                                    <TableHead className="text-right p-2">حصة الروضتين</TableHead>
+                                    <TableHead className="text-right p-2">حصة الشريك</TableHead>
+                                    <TableHead className="text-center p-2">الإجراءات</TableHead>
                                 </TableRow>
                             </TableHeader>
                             {sortedAndFilteredPeriods.length === 0 ? (
                                 <TableBody>
                                     <TableRow>
-                                        <TableCell colSpan={8} className="text-center h-24">
+                                        <TableCell colSpan={9} className="text-center h-24">
                                             لا توجد بيانات للفترة المحددة.
                                         </TableCell>
                                     </TableRow>
