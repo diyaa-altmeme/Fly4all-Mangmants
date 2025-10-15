@@ -55,7 +55,6 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="p-2">رقم الفاتورة</TableHead>
           <TableHead className="p-2">الشركة</TableHead>
           <TableHead className="p-2">الشريك</TableHead>
           <TableHead className="text-center p-2">أرباح التذاكر</TableHead>
@@ -69,7 +68,6 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
         {period.entries.map((entry) => {
             return (
               <TableRow key={entry.id}>
-                <TableCell className="p-2 font-mono text-xs">{entry.invoiceNumber}</TableCell>
                 <TableCell className="font-semibold p-2">{entry.companyName}</TableCell>
                 <TableCell className="p-2">{entry.partnerName}</TableCell>
                 <TableCell className="font-mono text-center p-2">{formatCurrency(entry.ticketProfits, entry.currency)}</TableCell>
@@ -85,7 +83,7 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
       </TableBody>
        <TableFooter>
         <TableRow className="bg-muted font-bold">
-          <TableCell colSpan={3} className="p-2">المجموع</TableCell>
+          <TableCell colSpan={2} className="p-2">المجموع</TableCell>
           <TableCell className="text-center font-mono p-2">{formatCurrency(period.totalTickets)}</TableCell>
           <TableCell className="text-center font-mono p-2">{formatCurrency(period.totalOther)}</TableCell>
           <TableCell className="text-center font-mono text-green-600 p-2">{formatCurrency(period.totalAlrawdatainShare)}</TableCell>
