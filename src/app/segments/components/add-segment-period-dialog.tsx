@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import type { SegmentEntry, SegmentSettings, Client, Supplier } from '@/lib/types';
+import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -45,10 +45,10 @@ const companyEntrySchema = z.object({
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   partnerId: z.string().min(1, { message: "اسم الشريك مطلوب." }),
   currency: z.enum(['USD', 'IQD']),
-  tickets: z.coerce.number().int().nonnegative().default(0),
-  visas: z.coerce.number().int().nonnegative().default(0),
-  hotels: z.coerce.number().int().nonnegative().default(0),
-  groups: z.coerce.number().int().nonnegative().default(0),
+  tickets: z.coerce.number().nonnegative().default(0),
+  visas: z.coerce.number().nonnegative().default(0),
+  hotels: z.coerce.number().nonnegative().default(0),
+  groups: z.coerce.number().nonnegative().default(0),
   
   ticketProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
   ticketProfitValue: z.coerce.number().min(0).default(50),
@@ -232,9 +232,18 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         }
     }, [open, periodForm, companyForm]);
 
-     const calculateShares = (data: CompanyEntryFormValues) => {
-        const client = clients.find(c => c.id === data.clientId);
-        const companySettings = client?.segmentSettings;
+     const calculateShares = (data: CompanyEntryFormValues, companySettings?: SegmentSettings) => {
+        const settings = companySettings || {
+            ticketProfitType: data.ticketProfitType,
+            ticketProfitValue: data.ticketProfitValue,
+            visaProfitType: data.visaProfitType,
+            visaProfitValue: data.visaProfitValue,
+            hotelProfitType: data.hotelProfitType,
+            hotelProfitValue: data.hotelProfitValue,
+            groupProfitType: data.groupProfitType,
+            groupProfitValue: data.groupProfitValue,
+            alrawdatainSharePercentage: data.alrawdatainSharePercentage
+        };
         
         const getProfit = (count: number, type: 'percentage' | 'fixed' | undefined, value: number | undefined) => {
             const profitType = type || 'percentage';
@@ -243,19 +252,20 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             return (count || 0) * profitValue;
         };
         
-        const ticketProfits = getProfit(data.tickets, data.ticketProfitType, data.ticketProfitValue);
-        const visaProfits = getProfit(data.visas, data.visaProfitType, data.visaProfitValue);
-        const hotelProfits = getProfit(data.hotels, data.hotelProfitType, data.hotelProfitValue);
-        const groupProfits = getProfit(data.groups, data.groupProfitType, data.groupProfitValue);
+        const ticketProfits = getProfit(data.tickets, settings.ticketProfitType, settings.ticketProfitValue);
+        const visaProfits = getProfit(data.visas, settings.visaProfitType, settings.visaProfitValue);
+        const hotelProfits = getProfit(data.hotels, settings.hotelProfitType, settings.hotelProfitValue);
+        const groupProfits = getProfit(data.groups, settings.groupProfitType, settings.groupProfitValue);
 
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
         
-        const alrawdatainSharePercentage = data.alrawdatainSharePercentage || 0;
+        const alrawdatainSharePercentage = settings.alrawdatainSharePercentage || 50;
         
         const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
         
+        const client = clients.find(c => c.id === data.clientId);
         const selectedPartnerOption = partnerOptions.find(p => p.value === data.partnerId);
 
         return { 
@@ -269,11 +279,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             total, 
             alrawdatainShare, 
             partnerShare,
-            alrawdatainSharePercentage,
         };
     }
     
-    // Auto-fill settings when client changes
     const selectedClientId = companyForm.watch('clientId');
     useEffect(() => {
         const clientOption = allCompanyOptions.find(opt => opt.value === selectedClientId);
@@ -340,7 +348,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             
             toast({ title: "تم حفظ بيانات الفترة بنجاح" });
             setOpen(false);
-            onSuccess(result.newEntries);
+            await onSuccess();
         } catch (error: any) {
             toast({ title: "خطأ", description: error.message || "لم يتم حفظ البيانات.", variant: "destructive" });
         } finally {
@@ -369,7 +377,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </DialogHeader>
                 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                     <div className="p-4 border rounded-lg">
+                    <div className="p-4 border rounded-lg">
                         <h3 className="font-semibold text-base mb-2">البيانات الأساسية للفترة والسكمنت</h3>
                         <Form {...companyForm}>
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
