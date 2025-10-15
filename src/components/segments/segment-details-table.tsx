@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -25,6 +24,8 @@ interface SegmentDetailsTableProps {
     totalProfit: number;
     totalAlrawdatainShare: number;
     totalPartnerShare: number;
+    totalTickets: number;
+    totalOther: number;
   };
   onDeleteEntry: (id: string) => void;
 }
@@ -54,24 +55,26 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>الشركة</TableHead>
-          <TableHead>الشريك</TableHead>
-          <TableHead>إجمالي الربح</TableHead>
-          <TableHead>حصة الروضتين</TableHead>
-          <TableHead>حصة الشريك</TableHead>
-          <TableHead>الحسبة</TableHead>
+          <TableHead className="p-2">الشركة</TableHead>
+          <TableHead className="p-2">الشريك</TableHead>
+          <TableHead className="text-right p-2">أرباح التذاكر</TableHead>
+          <TableHead className="text-right p-2">أرباح أخرى</TableHead>
+          <TableHead className="text-right p-2">حصة الروضتين</TableHead>
+          <TableHead className="text-right p-2">حصة الشريك</TableHead>
+          <TableHead className="text-center p-2">الحسبة</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {period.entries.map((entry) => {
             return (
               <TableRow key={entry.id}>
-                <TableCell className="font-semibold">{entry.companyName}</TableCell>
-                <TableCell>{entry.partnerName}</TableCell>
-                <TableCell className="font-mono font-bold">{formatCurrency(entry.total, entry.currency)}</TableCell>
-                <TableCell className="font-mono text-green-600">{formatCurrency(entry.alrawdatainShare, entry.currency)}</TableCell>
-                <TableCell className="font-mono text-blue-600">{formatCurrency(entry.partnerShare, entry.currency)}</TableCell>
-                <TableCell>
+                <TableCell className="font-semibold p-2">{entry.companyName}</TableCell>
+                <TableCell className="p-2">{entry.partnerName}</TableCell>
+                <TableCell className="font-mono text-right p-2">{formatCurrency(entry.ticketProfits, entry.currency)}</TableCell>
+                <TableCell className="font-mono text-right p-2">{formatCurrency(entry.otherProfits, entry.currency)}</TableCell>
+                <TableCell className="font-mono text-right text-green-600 p-2">{formatCurrency(entry.alrawdatainShare, entry.currency)}</TableCell>
+                <TableCell className="font-mono text-right text-blue-600 p-2">{formatCurrency(entry.partnerShare, entry.currency)}</TableCell>
+                <TableCell className="text-center p-1">
                     <CalculationDetailsPopover entry={entry} />
                 </TableCell>
               </TableRow>
@@ -80,11 +83,12 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
       </TableBody>
        <TableFooter>
         <TableRow className="bg-muted font-bold">
-          <TableCell colSpan={2}>المجموع</TableCell>
-          <TableCell>{formatCurrency(period.totalProfit)}</TableCell>
-          <TableCell className="text-green-600">{formatCurrency(period.totalAlrawdatainShare)}</TableCell>
-          <TableCell className="text-blue-600">{formatCurrency(period.totalPartnerShare)}</TableCell>
-          <TableCell></TableCell>
+          <TableCell colSpan={2} className="p-2">المجموع</TableCell>
+          <TableCell className="text-right font-mono p-2">{formatCurrency(period.totalTickets)}</TableCell>
+          <TableCell className="text-right font-mono p-2">{formatCurrency(period.totalOther)}</TableCell>
+          <TableCell className="text-right font-mono text-green-600 p-2">{formatCurrency(period.totalAlrawdatainShare)}</TableCell>
+          <TableCell className="text-right font-mono text-blue-600 p-2">{formatCurrency(period.totalPartnerShare)}</TableCell>
+          <TableCell className="p-2"></TableCell>
         </TableRow>
       </TableFooter>
     </Table>
