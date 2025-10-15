@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -70,7 +71,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
             const periodText = `للفترة من ${entryData.fromDate} إلى ${entryData.toDate}`;
             const detailsText = `${entryData.tickets} تذكرة، ${entryData.visas} فيزا، ${entryData.hotels} فندق، ${entryData.groups} جروبات`;
             
-            const clientDescription = `السكمنت عن الفترة (${entryData.fromDate} – ${entryData.toDate}) – تفاصيل: ${detailsText}. تم الحساب حسب النسبة.`;
+            const clientDescription = `السكمنت عن الفترة (${entryData.fromDate} – ${entryData.toDate}) – تفاصيل: ${detailsText}.`;
             const partnerDescription = `حصة الشريك من أرباح سكمنت شركة ${entryData.companyName} ${periodText} عن ${detailsText}.`;
             const alrawdatainDescription = `حصة الروضتين من سكمنت شركة ${entryData.companyName} ${periodText}.`;
 

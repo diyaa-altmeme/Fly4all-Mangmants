@@ -73,6 +73,7 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
     
     // Fetch data only when user is available and not a client
     useEffect(() => {
+        // Only fetch if there's a user and they are not just a client portal user.
         if (!authLoading && user && !('isClient' in user && user.isClient)) {
             fetchData();
         }
