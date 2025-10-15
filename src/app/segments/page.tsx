@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign } from 'lucide-react';
+import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
 import { getClients } from '@/app/relations/actions';
@@ -38,6 +38,60 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
     </div>
 );
 
+const ProfitBreakdownPopover = ({ period, type, children }: { period: any, type: 'tickets' | 'other', children: React.ReactNode }) => {
+    const entriesToShow = period.entries.filter((e: any) => type === 'tickets' ? e.ticketProfits > 0 : e.otherProfits > 0);
+
+    if (entriesToShow.length === 0) {
+        return <>{children}</>;
+    }
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <button className="w-full text-center hover:underline">{children}</button>
+            </PopoverTrigger>
+            <PopoverContent>
+                <div className="space-y-2">
+                    <h4 className="font-bold">تفاصيل أرباح {type === 'tickets' ? 'التذاكر' : 'أخرى'}</h4>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>الشركة</TableHead>
+                                <TableHead className="text-center">العدد</TableHead>
+                                <TableHead className="text-center">العمولة</TableHead>
+                                <TableHead className="text-right">الناتج</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {entriesToShow.map((entry: any, index: number) => {
+                                const isTickets = type === 'tickets';
+                                const count = isTickets ? entry.tickets : (entry.visas + entry.hotels + entry.groups);
+                                const profitType = isTickets ? entry.ticketProfitType : 'مبالغ متفرقة';
+                                const profitValue = isTickets ? entry.ticketProfitValue : '';
+                                const result = isTickets ? entry.ticketProfits : entry.otherProfits;
+
+                                return (
+                                    <TableRow key={index}>
+                                        <TableCell>{entry.companyName}</TableCell>
+                                        <TableCell className="text-center">{count}</TableCell>
+                                        <TableCell className="text-center">
+                                            {isTickets ? (
+                                                profitType === 'percentage' ? `${profitValue}%` : `$${profitValue}`
+                                            ) : '-'}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono">{result.toFixed(2)}</TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+};
+
+
 const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period: any, index: number, clients: Client[], suppliers: Supplier[], onDataChange: () => void }) => {
     const [isOpen, setIsOpen] = useState(false);
     const { toast } = useToast();
@@ -47,7 +101,6 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
     // All entries in a period share the same invoice number now
     const invoiceNumber = period.entries[0]?.invoiceNumber || 'N/A';
 
-
     const handleDeletePeriod = async (fromDate: string, toDate: string) => {
         await deleteSegmentPeriod(fromDate, toDate);
         onDataChange();
@@ -56,7 +109,7 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
     return (
         <Collapsible asChild key={`${period.fromDate}_${period.toDate}`} open={isOpen} onOpenChange={setIsOpen}>
              <tbody className="border-t">
-                <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
+                <TableRow className="cursor-pointer font-bold" onClick={() => setIsOpen(!isOpen)}>
                     <TableCell className="p-1 text-center">
                        <CollapsibleTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -64,16 +117,24 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="font-mono text-center text-xs font-bold">{invoiceNumber}</TableCell>
-                    <TableCell className="font-bold p-1 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
-                    <TableCell className="font-mono text-center text-xs font-bold">{period.fromDate}</TableCell>
-                    <TableCell className="font-mono text-center text-xs font-bold">{period.toDate}</TableCell>
-                    <TableCell className="text-center font-mono p-1 text-xs font-bold">{period.totalTickets.toFixed(2)}</TableCell>
-                    <TableCell className="text-center font-mono p-1 text-xs font-bold">{period.totalOther.toFixed(2)}</TableCell>
-                    <TableCell className="text-center font-mono text-green-600 p-1 text-xs font-bold">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
-                    <TableCell className="text-center font-mono text-blue-600 p-1 text-xs font-bold">{period.totalPartnerShare.toFixed(2)}</TableCell>
-                    <TableCell className="font-mono text-center text-xs font-bold">{entryUser}</TableCell>
-                    <TableCell className="font-mono text-center text-xs font-bold">{entryDate}</TableCell>
+                    <TableCell className="font-mono text-center text-xs p-2">{invoiceNumber}</TableCell>
+                    <TableCell className="p-2 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
+                    <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
+                    <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
+                    <TableCell className="font-mono text-center p-2">
+                        <ProfitBreakdownPopover period={period} type="tickets">
+                            {period.totalTickets.toFixed(2)}
+                        </ProfitBreakdownPopover>
+                    </TableCell>
+                    <TableCell className="font-mono text-center p-2">
+                         <ProfitBreakdownPopover period={period} type="other">
+                            {period.totalOther.toFixed(2)}
+                        </ProfitBreakdownPopover>
+                    </TableCell>
+                    <TableCell className="font-mono text-center text-green-600 p-2">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
+                    <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
+                    <TableCell className="font-mono text-center text-xs p-2">{entryUser}</TableCell>
+                    <TableCell className="font-mono text-center text-xs p-2">{entryDate}</TableCell>
                     <TableCell className="p-1 text-center">
                         <div className="flex items-center justify-center">
                             <DropdownMenu>
