@@ -45,9 +45,8 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
     const entryUser = period.entries[0]?.enteredBy || 'غير معروف';
     const entryDate = period.entries[0]?.createdAt ? format(parseISO(period.entries[0].createdAt), 'yyyy-MM-dd hh:mm a') : 'N/A';
     
-    const invoiceNumbers = period.entries.map((e: SegmentEntry) => e.invoiceNumber).filter(Boolean);
-    const displayedInvoices = invoiceNumbers.slice(0, 2).join(', ');
-    const hasMoreInvoices = invoiceNumbers.length > 2;
+    // All entries in a period share the same invoice number now
+    const invoiceNumber = period.entries[0]?.invoiceNumber || 'N/A';
 
 
     const handleDeletePeriod = async (fromDate: string, toDate: string) => {
@@ -69,11 +68,7 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                     <TableCell className="font-semibold p-1 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{period.toDate}</TableCell>
-                    <TableCell className="font-mono text-center text-xs">
-                        <div className="font-mono text-xs truncate" title={invoiceNumbers.join(', ')}>
-                            {displayedInvoices}{hasMoreInvoices && '...'}
-                        </div>
-                    </TableCell>
+                    <TableCell className="font-mono text-center text-xs">{invoiceNumber}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{entryUser}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{entryDate}</TableCell>
                     <TableCell className="text-center font-mono p-1 text-xs">{period.totalTickets.toFixed(2)}</TableCell>
@@ -291,7 +286,7 @@ export default function SegmentsPage() {
                                     <TableHead className="font-bold text-center p-2">الشركات</TableHead>
                                     <TableHead className="font-bold text-center p-2">من</TableHead>
                                     <TableHead className="font-bold text-center p-2">إلى</TableHead>
-                                    <TableHead className="font-bold text-center p-2">أرقام الفواتير</TableHead>
+                                    <TableHead className="font-bold text-center p-2">رقم الفاتورة</TableHead>
                                     <TableHead className="font-bold text-center p-2">موظف الإدخال</TableHead>
                                     <TableHead className="font-bold text-center p-2">تاريخ الإدخال</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح التذاكر</TableHead>

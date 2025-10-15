@@ -34,13 +34,15 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id' | 'invo
     try {
         const clientSettingsToUpdate: { [clientId: string]: any } = {};
 
+        // Generate ONE invoice number for the entire batch/period
+        const invoiceNumber = await getNextVoucherNumber('SEG');
+
         for (const entryData of entries) {
             const docRef = db.collection(SEGMENTS_COLLECTION).doc();
-            const invoiceNumber = await getNextVoucherNumber('SEG');
             
             const dataWithUser: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
-                invoiceNumber,
+                invoiceNumber, // Use the shared invoice number
                 enteredBy: user.name,
                 createdAt: new Date().toISOString(),
             };
