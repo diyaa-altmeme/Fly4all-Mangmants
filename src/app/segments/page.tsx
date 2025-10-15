@@ -123,17 +123,21 @@ export default function SegmentsPage() {
             setLoading(false);
         }
     }, [toast]);
+    
+    const handleSuccess = useCallback(async (newEntries: SegmentEntry[]) => {
+      setSegments(prev => produce(prev, draft => {
+        // Add new entries and sort to ensure order is correct
+        const newAndExisting = [...newEntries, ...draft];
+        newAndExisting.sort((a,b) => parseISO(b.toDate).getTime() - parseISO(a.toDate).getTime());
+        return newAndExisting;
+      }));
+      await fetchData();
+    }, [fetchData]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
     
-    const handleSuccess = useCallback((newEntries: SegmentEntry[]) => {
-      setSegments(prev => produce(prev, draft => {
-        newEntries.forEach(newEntry => draft.unshift(newEntry));
-      }));
-    }, []);
-
     const groupedByPeriod = useMemo(() => {
         return segments.reduce((acc, entry) => {
             const periodKey = `${entry.fromDate}_${entry.toDate}`;
@@ -205,50 +209,52 @@ export default function SegmentsPage() {
             <Card>
                  <CardHeader>
                     <div className="flex w-full flex-col items-start gap-4">
-                        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
+                         <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
                              <div>
                                 <CardTitle>سجل حسابات السكمنت</CardTitle>
                                 <CardDescription>عرض ملخص الفترات المحاسبية للسكمنت.</CardDescription>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex gap-2 w-full sm:w-auto">
                                 <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
-                                <Button onClick={fetchData} variant="outline" disabled={loading}>
+                                <Button onClick={fetchData} variant="outline" disabled={loading} className="w-full sm:w-auto">
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
                                 </Button>
                             </div>
                         </div>
-                        <div className="w-full flex flex-col sm:flex-row items-center gap-2">
-                             <div className="relative flex-grow">
+                        <div className="pt-4 space-y-4">
+                             <div className="flex items-center gap-2">
+                               <div className="relative flex-grow">
                                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="بحث بالشركة أو الشريك..."
-                                    className="ps-10"
+                                    className="ps-10 h-8"
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
                                 />
+                                </div>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            id="date"
+                                            variant={"outline"}
+                                            className={cn("w-full sm:w-[250px] justify-start text-left font-normal h-8", !date && "text-muted-foreground")}
+                                        >
+                                            <CalendarIcon className="me-2 h-4 w-4" />
+                                            {date?.from ? (date.to ? (<>{format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}</>) : (format(date.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <CalendarUI mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
+                                    </PopoverContent>
+                                </Popover>
+                                 { (searchTerm || date) && <Button onClick={() => { setSearchTerm(''); setDate(undefined); }} variant="ghost">مسح</Button> }
                             </div>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        id="date"
-                                        variant={"outline"}
-                                        className={cn("w-full sm:w-[250px] justify-start text-left font-normal", !date && "text-muted-foreground")}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date?.from ? (date.to ? (<>{format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}</>) : (format(date.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
-                                </PopoverContent>
-                            </Popover>
-                             { (searchTerm || date) && <Button onClick={() => { setSearchTerm(''); setDate(undefined); }} variant="ghost">مسح</Button> }
-                        </div>
-                         <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                            <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency="USD" className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
-                            <StatCard title="حصة الروضتين" value={grandTotalAlrawdatainShare} currency="USD" className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
-                            <StatCard title="حصة الشريك" value={grandTotalPartnerShare} currency="USD" className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
+                             <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency="USD" className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                                <StatCard title="حصة الروضتين" value={grandTotalAlrawdatainShare} currency="USD" className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
+                                <StatCard title="حصة الشريك" value={grandTotalPartnerShare} currency="USD" className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
+                            </div>
                         </div>
                     </div>
                 </CardHeader>
