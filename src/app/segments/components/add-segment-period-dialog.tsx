@@ -22,14 +22,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
+import type { SegmentEntry, SegmentSettings, Client, Supplier } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { addSegmentEntries } from '@/app/segments/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { NumericInput } from '@/components/ui/numeric-input';
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from '@/components/ui/label';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Separator } from '@/components/ui/separator';
@@ -234,10 +234,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
      const calculateShares = (data: CompanyEntryFormValues) => {
         const client = clients.find(c => c.id === data.clientId);
+        const companySettings = client?.segmentSettings;
         
-        const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => {
-            if (type === 'percentage') return (count || 0) * ((value || 0) / 100);
-            return (count || 0) * (value || 0);
+        const getProfit = (count: number, type: 'percentage' | 'fixed' | undefined, value: number | undefined) => {
+            const profitType = type || 'percentage';
+            const profitValue = value || 0;
+            if (profitType === 'percentage') return (count || 0) * (profitValue / 100);
+            return (count || 0) * profitValue;
         };
         
         const ticketProfits = getProfit(data.tickets, data.ticketProfitType, data.ticketProfitValue);
@@ -248,7 +251,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
         
-        const alrawdatainSharePercentage = data.alrawdatainSharePercentage;
+        const alrawdatainSharePercentage = data.alrawdatainSharePercentage || 0;
         
         const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
@@ -291,7 +294,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data);
+        const newEntry = calculateShares(data, company?.segmentSettings);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
@@ -357,7 +360,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             <DialogTrigger asChild>
                  <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>إضافة سجل سكمنت جديد</DialogTitle>
                     <DialogDescription>
@@ -366,26 +369,20 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </DialogHeader>
                 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                    <div className="p-4 border rounded-lg bg-background/50">
-                        <h3 className="font-semibold text-base mb-4">الفترة المحاسبية</h3>
-                        <Form {...periodForm}>
-                            <form className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start mb-4">
-                                <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
-                                    <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
-                                )}/>
-                                <FormField control={periodForm.control} name="toDate" render={({ field }) => (
-                                    <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
-                                )}/>
-                            </form>
-                        </Form>
-                    </div>
-
-                    <div className="p-4 border rounded-lg">
-                        <h3 className="font-semibold text-base mb-2">إضافة شركة جديدة</h3>
+                     <div className="p-4 border rounded-lg">
+                        <h3 className="font-semibold text-base mb-2">البيانات الأساسية للفترة والسكمنت</h3>
                         <Form {...companyForm}>
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <FormField control={companyForm.control} name="partnerId" render={({ field }) => (
+                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start pb-4 border-b">
+                                  <Form {...periodForm}>
+                                    <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
+                                        <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                                    )}/>
+                                    <FormField control={periodForm.control} name="toDate" render={({ field }) => (
+                                        <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                                    )}/>
+                                   </Form>
+                                   <FormField control={companyForm.control} name="partnerId" render={({ field }) => (
                                         <FormItem><FormLabel>الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شريك..."/></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={companyForm.control} name="clientId" render={({ field }) => {
@@ -480,7 +477,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     <div className="flex justify-between w-full">
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4 text-primary"/> <span>{currentUser?.name || '...'}</span></div>
-                             {currentUser && 'role' in currentUser && currentUser.boxId && (
+                            {currentUser && 'role' in currentUser && currentUser.boxId && (
                                 <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary"/> <span>{boxName}</span></div>
                             )}
                             <div className="flex items-center gap-1.5"><Hash className="h-4 w-4 text-primary"/> <span>رقم الفاتورة: (تلقائي)</span></div>
