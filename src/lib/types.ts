@@ -1,6 +1,7 @@
 
 
 
+
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
@@ -37,14 +38,10 @@ export type SegmentServiceSetting = {
 };
 
 export type SegmentSettings = {
-    ticketProfitType: 'percentage' | 'fixed';
-    ticketProfitValue: number;
-    visaProfitType: 'percentage' | 'fixed';
-    visaProfitValue: number;
-    hotelProfitType: 'percentage' | 'fixed';
-    hotelProfitValue: number;
-    groupProfitType: 'percentage' | 'fixed';
-    groupProfitValue: number;
+    ticketProfitPercentage: number;
+    visaProfitPercentage: number;
+    hotelProfitPercentage: number;
+    groupProfitPercentage: number;
     alrawdatainSharePercentage: number;
 };
 
@@ -336,7 +333,7 @@ export type ReportInfo = {
 };
 
 
-export interface TreeNode {
+export type TreeNode = {
     id: string;
     name: string;
     code: string;
@@ -346,11 +343,12 @@ export interface TreeNode {
     debit: number;
     credit: number;
     currency?: Currency; // For leaf nodes that have a specific currency
-}
+};
 
 // Updated SegmentEntry
 export type SegmentEntry = {
   id: string;
+  invoiceNumber: string;
   fromDate: string;
   toDate: string;
   companyName: string;
@@ -392,6 +390,8 @@ export type SegmentEntry = {
   groupProfitType: 'percentage' | 'fixed';
   groupProfitValue: number;
   alrawdatainSharePercentage: number;
+  enteredBy: string;
+  createdAt: string;
 };
 
 export type RemittanceDistributionColumn = {
