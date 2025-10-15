@@ -44,19 +44,23 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
             const dataWithUser: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
                 invoiceNumber, // Use the shared invoice number
-                enteredBy: user.name, // Correctly assign the user's name
+                enteredBy: user.name,
                 createdAt: new Date().toISOString(),
             };
             batch.set(docRef, dataWithUser);
 
             newEntries.push({ ...dataWithUser, id: docRef.id });
 
-            if (entryData.clientId) {
+             if (entryData.clientId) {
                 clientSettingsToUpdate[entryData.clientId] = {
-                    ticketProfitPercentage: entryData.ticketProfitPercentage,
-                    visaProfitPercentage: entryData.visaProfitPercentage,
-                    hotelProfitPercentage: entryData.hotelProfitPercentage,
-                    groupProfitPercentage: entryData.groupProfitPercentage,
+                    ticketProfitType: entryData.ticketProfitType,
+                    ticketProfitValue: entryData.ticketProfitValue,
+                    visaProfitType: entryData.visaProfitType,
+                    visaProfitValue: entryData.visaProfitValue,
+                    hotelProfitType: entryData.hotelProfitType,
+                    hotelProfitValue: entryData.hotelProfitValue,
+                    groupProfitType: entryData.groupProfitType,
+                    groupProfitValue: entryData.groupProfitValue,
                     alrawdatainSharePercentage: entryData.alrawdatainSharePercentage,
                 };
             }
