@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -67,16 +66,24 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
             // Create a dedicated Journal Entry for this specific segment entry
             const journalVoucherRef = db.collection('journal-vouchers').doc();
             
+            // Generate detailed descriptions
+            const periodText = `للفترة من ${entryData.fromDate} إلى ${entryData.toDate}`;
+            const detailsText = `${entryData.tickets} تذكرة، ${entryData.visas} فيزا، ${entryData.hotels} فندق، ${entryData.groups} جروبات`;
+            
+            const clientDescription = `السكمنت عن الفترة (${entryData.fromDate} – ${entryData.toDate}) – تفاصيل: ${detailsText}. تم الحساب حسب النسبة.`;
+            const partnerDescription = `حصة الشريك من أرباح سكمنت شركة ${entryData.companyName} ${periodText} عن ${detailsText}.`;
+            const alrawdatainDescription = `حصة الروضتين من سكمنت شركة ${entryData.companyName} ${periodText}.`;
+
             // Debit the client for the total profit (this is what they owe)
             const debitEntries: JournalEntry[] = [
-                { accountId: entryData.clientId, amount: entryData.total, description: `أرباح سكمنت للفترة ${entryData.fromDate} - ${entryData.toDate}` },
+                { accountId: entryData.clientId, amount: entryData.total, description: clientDescription },
             ];
 
             // Credit the partner for their share (liability for us)
             // Credit our revenue account for our share (income for us)
             const creditEntries: JournalEntry[] = [
-                { accountId: entryData.partnerId, amount: entryData.partnerShare, description: `حصة من أرباح سكمنت شركة ${entryData.companyName}` },
-                { accountId: 'revenue_segments', amount: entryData.alrawdatainShare, description: `حصة الروضتين من سكمنت ${entryData.companyName}` },
+                { accountId: entryData.partnerId, amount: entryData.partnerShare, description: partnerDescription },
+                { accountId: 'revenue_segments', amount: entryData.alrawdatainShare, description: alrawdatainDescription },
             ];
             
             // This check should theoretically always pass if calculations are correct
