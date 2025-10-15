@@ -9,7 +9,7 @@ import {
 import AccountingSettings from "@/app/settings/sections/accounting-settings";
 import ApiSettings from "@/app/settings/sections/api-settings";
 import SystemStatusSettings from "@/app/settings/sections/system-status-settings";
-import RelationsSettings from '@/app/relations/settings/page';
+import RelationsSettings from '@/app/relations/settings/components/relations-settings-content';
 import AppearancePage from '@/app/settings/themes/page';
 import CurrencySettings from '@/components/settings/currency-settings';
 import SubscriptionsSettings from '@/components/settings/subscriptions-settings';
@@ -85,5 +85,3 @@ export const appearanceSections = [
         ]
     }
 ];
-
-    
