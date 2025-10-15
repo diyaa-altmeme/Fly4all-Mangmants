@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -27,10 +28,33 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]) {
     if (!db) return { success: false, error: "Database not available." };
     const batch = db.batch();
     try {
+        const clientSettingsToUpdate: { [clientId: string]: Partial<SegmentSettings> } = {};
+
         entries.forEach(entryData => {
             const docRef = db.collection(SEGMENTS_COLLECTION).doc();
             batch.set(docRef, entryData);
+
+            // Prepare to update client's segment settings
+            clientSettingsToUpdate[entryData.clientId] = {
+                ticketProfitType: entryData.ticketProfitType,
+                ticketProfitValue: entryData.ticketProfitValue,
+                visaProfitType: entryData.visaProfitType,
+                visaProfitValue: entryData.visaProfitValue,
+                hotelProfitType: entryData.hotelProfitType,
+                hotelProfitValue: entryData.hotelProfitValue,
+                groupProfitType: entryData.groupProfitType,
+                groupProfitValue: entryData.groupProfitValue,
+                alrawdatainSharePercentage: entryData.alrawdatainSharePercentage,
+            };
         });
+
+        // Update client documents with their segment settings
+        for (const clientId in clientSettingsToUpdate) {
+            const clientRef = db.collection('clients').doc(clientId);
+            batch.update(clientRef, { segmentSettings: clientSettingsToUpdate[clientId] });
+        }
+
+
         await batch.commit();
 
         revalidatePath('/segments');
