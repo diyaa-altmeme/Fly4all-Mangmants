@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
@@ -40,10 +35,14 @@ export type SegmentServiceSetting = {
 };
 
 export type SegmentSettings = {
-    ticketProfitPercentage: number;
-    visaProfitPercentage: number;
-    hotelProfitPercentage: number;
-    groupProfitPercentage: number;
+    ticketProfitType: 'percentage' | 'fixed';
+    ticketProfitValue: number;
+    visaProfitType: 'percentage' | 'fixed';
+    visaProfitValue: number;
+    hotelProfitType: 'percentage' | 'fixed';
+    hotelProfitValue: number;
+    groupProfitType: 'percentage' | 'fixed';
+    groupProfitValue: number;
     alrawdatainSharePercentage: number;
 };
 

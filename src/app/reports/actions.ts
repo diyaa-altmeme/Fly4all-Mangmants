@@ -39,6 +39,7 @@ const getVoucherTypeLabel = (type: string) => {
         case 'void': return 'إلغاء (فويد)';
         case 'exchange_transaction': return 'معاملة بورصة';
         case 'exchange_payment': return 'تسديد بورصة';
+        case 'segment': return 'سكمنت';
         default: return type;
     }
 };

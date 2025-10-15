@@ -2,11 +2,12 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { SegmentEntry, SegmentSettings } from '@/lib/types';
+import type { SegmentEntry, SegmentSettings, JournalEntry } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
+import { createAuditLog } from '../system/activity-log/actions';
 
 const SEGMENTS_COLLECTION = 'segments';
 
@@ -31,51 +32,87 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
 
     const batch = db.batch();
     const newEntries: SegmentEntry[] = [];
+    
     try {
-        const clientSettingsToUpdate: { [clientId: string]: any } = {};
-
-        // Generate ONE invoice number for the entire batch/period
         const invoiceNumber = await getNextVoucherNumber('SEG');
 
         for (const entryData of entries) {
-            const docRef = db.collection(SEGMENTS_COLLECTION).doc();
+            const segmentDocRef = db.collection(SEGMENTS_COLLECTION).doc();
             
             const dataWithUser: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
-                invoiceNumber, // Use the shared invoice number
+                invoiceNumber,
                 enteredBy: user.name,
                 createdAt: new Date().toISOString(),
             };
-            batch.set(docRef, dataWithUser);
+            batch.set(segmentDocRef, dataWithUser);
 
-            newEntries.push({ ...dataWithUser, id: docRef.id });
+            newEntries.push({ ...dataWithUser, id: segmentDocRef.id });
 
-             if (entryData.clientId) {
-                clientSettingsToUpdate[entryData.clientId] = {
-                    ticketProfitType: entryData.ticketProfitType,
-                    ticketProfitValue: entryData.ticketProfitValue,
-                    visaProfitType: entryData.visaProfitType,
-                    visaProfitValue: entryData.visaProfitValue,
-                    hotelProfitType: entryData.hotelProfitType,
-                    hotelProfitValue: entryData.hotelProfitValue,
-                    groupProfitType: entryData.groupProfitType,
-                    groupProfitValue: entryData.groupProfitValue,
-                    alrawdatainSharePercentage: entryData.alrawdatainSharePercentage,
-                };
+            // Create Journal Entry for this segment entry
+            const journalVoucherRef = db.collection('journal-vouchers').doc();
+            
+            const debitEntries: JournalEntry[] = [
+                // The total profit is a debit on the issuing company's account (they owe us this)
+                { accountId: entryData.clientId, amount: entryData.total, description: `أرباح سكمنت للفترة ${entryData.fromDate} - ${entryData.toDate}` },
+            ];
+
+            const creditEntries: JournalEntry[] = [
+                // The partner's share is a credit to their account (we owe them this)
+                { accountId: entryData.partnerId, amount: entryData.partnerShare, description: `حصة من أرباح سكمنت شركة ${entryData.companyName}` },
+                // Our share is credited to a revenue account
+                { accountId: 'revenue_segments', amount: entryData.alrawdatainShare, description: `حصة الروضتين من سكمنت ${entryData.companyName}` },
+            ];
+            
+            // Validate that the journal entry is balanced
+            const totalDebit = debitEntries.reduce((sum, e) => sum + e.amount, 0);
+            const totalCredit = creditEntries.reduce((sum, e) => sum + e.amount, 0);
+            if (Math.abs(totalDebit - totalCredit) > 0.01) {
+                console.error(`Journal entry for segment of ${entryData.companyName} is not balanced. Debit: ${totalDebit}, Credit: ${totalCredit}`);
+                // Decide whether to throw an error or just log it
+                continue; // Skip this entry if not balanced
+            }
+
+             batch.set(journalVoucherRef, {
+                invoiceNumber: invoiceNumber, // Use the same invoice number for traceability
+                date: entryData.toDate,
+                currency: entryData.currency,
+                exchangeRate: null,
+                notes: `قيد أرباح السكمنت لشركة ${entryData.companyName} عن الفترة من ${entryData.fromDate} إلى ${entryData.toDate}`,
+                createdBy: user.uid,
+                officer: user.name,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                voucherType: "segment",
+                debitEntries,
+                creditEntries,
+                isAudited: true,
+                isConfirmed: true,
+                originalData: { ...dataWithUser, segmentId: segmentDocRef.id }, 
+            });
+
+
+            // Update client settings if they've changed
+            if (entryData.clientId) {
+                const clientRef = db.collection('clients').doc(entryData.clientId);
+                batch.update(clientRef, { 
+                    'segmentSettings.ticketProfitType': entryData.ticketProfitType,
+                    'segmentSettings.ticketProfitValue': entryData.ticketProfitValue,
+                    'segmentSettings.visaProfitType': entryData.visaProfitType,
+                    'segmentSettings.visaProfitValue': entryData.visaProfitValue,
+                    'segmentSettings.hotelProfitType': entryData.hotelProfitType,
+                    'segmentSettings.hotelProfitValue': entryData.hotelProfitValue,
+                    'segmentSettings.groupProfitType': entryData.groupProfitType,
+                    'segmentSettings.groupProfitValue': entryData.groupProfitValue,
+                    'segmentSettings.alrawdatainSharePercentage': entryData.alrawdatainSharePercentage,
+                });
             }
         }
-
-        for (const clientId in clientSettingsToUpdate) {
-            if (clientId) { // Ensure clientId is not empty
-                const clientRef = db.collection('clients').doc(clientId);
-                batch.update(clientRef, { segmentSettings: clientSettingsToUpdate[clientId] });
-            }
-        }
-
 
         await batch.commit();
 
         revalidatePath('/segments');
+        revalidatePath('/reports/account-statement');
         return { success: true, newEntries };
     } catch (error: any) {
         console.error("Error adding segment entries: ", String(error));
