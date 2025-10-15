@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -122,7 +121,7 @@ const PairedInput = ({
                                 <FormItem className="flex-grow">
                                     <FormControl>
                                        <div className="relative">
-                                         <NumericInput {...field} placeholder="القيمة" className="h-8 pe-8 text-center" />
+                                         <NumericInput {...field} placeholder="القيمة" className="h-8 pe-8 text-center" onValueChange={v => field.onChange(v || 0)} />
                                          <Icon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                        </div>
                                     </FormControl>
@@ -280,7 +279,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             ...rest,
             companyName: client?.name || '',
             clientId: client?.id || '',
-            partnerId: selectedPartnerOption?.value || '',
+            partnerId: selectedPartnerOption?.value.split('-')[1] || '',
             partnerName: selectedPartnerOption?.label || '',
             ticketProfits, 
             otherProfits, 
@@ -380,7 +379,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 )}/>
                             </div>
                         </Form>
-                        <Separator className="my-4" />
+                         <Separator className="my-4" />
                         <Form {...companyForm}>
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -402,11 +401,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <CollapsibleTrigger asChild>
                                             <Button type="button" variant="outline" size="sm" className="h-10">
                                                 <Settings2 className="me-2 h-4 w-4"/>
-                                                إعدادات العمولة
+                                                الاعدادت المالية
                                             </Button>
                                         </CollapsibleTrigger>
                                         <div className={cn("flex items-center gap-4 transition-opacity", !isCommissionSettingsOpen && "opacity-0 pointer-events-none")}>
-                                             <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2">
                                                 <Label className="font-bold">نوع العمولة للكل</Label>
                                                 <Select onValueChange={handleGlobalProfitTypeChange} defaultValue="percentage">
                                                     <SelectTrigger className="w-[150px] h-10"><SelectValue /></SelectTrigger>
@@ -487,3 +486,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
