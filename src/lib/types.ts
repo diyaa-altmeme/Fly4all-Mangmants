@@ -3,6 +3,7 @@
 
 
 
+
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
@@ -378,10 +379,6 @@ export type SegmentEntry = {
   partnerShare: number;
 
   // The settings used for this calculation
-  clientSettingsUsed?: SegmentSettings;
-  partnerSettingsUsed?: PartnerShareSetting;
-  
-  // New fields for flexible profit calculation
   ticketProfitType: 'percentage' | 'fixed';
   ticketProfitValue: number;
   visaProfitType: 'percentage' | 'fixed';

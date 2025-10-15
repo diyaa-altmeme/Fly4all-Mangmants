@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -144,7 +145,7 @@ type PeriodFormValues = z.infer<typeof periodSchema>;
 interface AddSegmentPeriodDialogProps {
   clients: Client[];
   suppliers: Supplier[];
-  onSuccess: (newEntries: SegmentEntry[]) => void;
+  onSuccess: (newEntries: SegmentEntry[]) => Promise<void>;
 }
 
 export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
@@ -233,40 +234,31 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     }, [open, periodForm, companyForm]);
 
      const calculateShares = (data: CompanyEntryFormValues) => {
-        const { alrawdatainSharePercentage, ...rest } = data;
+        const client = clients.find(c => c.id === data.clientId);
+        const companySettings = client?.segmentSettings;
 
-        const ticketProfits = data.ticketProfitType === 'percentage'
-            ? (data.tickets || 0) * ((data.ticketProfitValue || 0) / 100)
-            : (data.tickets || 0) * (data.ticketProfitValue || 0);
-            
-        const visaProfits = data.visaProfitType === 'percentage'
-            ? (data.visas || 0) * ((data.visaProfitValue || 0) / 100)
-            : (data.visas || 0) * (data.visaProfitValue || 0);
-            
-        const hotelProfits = data.hotelProfitType === 'percentage'
-            ? (data.hotels || 0) * ((data.hotelProfitValue || 0) / 100)
-            : (data.hotels || 0) * (data.hotelProfitValue || 0);
-
-        const groupProfits = data.groupProfitType === 'percentage'
-            ? (data.groups || 0) * ((data.groupProfitValue || 0) / 100)
-            : (data.groups || 0) * (data.groupProfitValue || 0);
-
+        const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => {
+            if (type === 'percentage') return (count || 0) * ((value || 0) / 100);
+            return (count || 0) * (value || 0);
+        };
+        
+        const ticketProfits = getProfit(data.tickets, data.ticketProfitType, data.ticketProfitValue);
+        const visaProfits = getProfit(data.visas, data.visaProfitType, data.visaProfitValue);
+        const hotelProfits = getProfit(data.hotels, data.hotelProfitType, data.hotelProfitValue);
+        const groupProfits = getProfit(data.groups, data.groupProfitType, data.groupProfitValue);
 
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
         
-        const client = clients.find(c => c.id === data.clientId);
-        const companySettings = client?.segmentSettings as SegmentSettings | undefined;
-
-        const effectiveAlrawdatainSharePercentage = companySettings?.alrawdatainSharePercentage ?? alrawdatainSharePercentage;
+        const alrawdatainSharePercentage = companySettings?.alrawdatainSharePercentage ?? data.alrawdatainSharePercentage;
         
-        const alrawdatainShare = total * (effectiveAlrawdatainSharePercentage / 100);
+        const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
         
         const selectedPartnerOption = partnerOptions.find(p => p.value === data.partnerId);
 
         return { 
-            ...rest,
+            ...data,
             companyName: client?.name || '',
             clientId: client?.id || '',
             partnerId: selectedPartnerOption?.value || '',
@@ -276,13 +268,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             total, 
             alrawdatainShare, 
             partnerShare,
-            alrawdatainSharePercentage: effectiveAlrawdatainSharePercentage
+            alrawdatainSharePercentage,
         };
     }
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data, company?.segmentSettings);
+        const newEntry = calculateShares(data);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
