@@ -1,11 +1,11 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import type { SegmentEntry, SegmentSettings, PartnerShareSetting } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
 const SEGMENTS_COLLECTION = 'segments';
 
@@ -26,6 +26,9 @@ export async function getSegments(): Promise<SegmentEntry[]> {
 export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Promise<{ success: boolean; error?: string, newEntries?: SegmentEntry[] }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
+    const user = await getCurrentUserFromSession();
+    if (!user) return { success: false, error: "User not authenticated." };
+
     const batch = db.batch();
     const newEntries: SegmentEntry[] = [];
     try {
@@ -33,9 +36,14 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
 
         entries.forEach(entryData => {
             const docRef = db.collection(SEGMENTS_COLLECTION).doc();
-            batch.set(docRef, entryData);
+            const dataWithUser = {
+                ...entryData,
+                enteredBy: user.name,
+                createdAt: new Date().toISOString(),
+            };
+            batch.set(docRef, dataWithUser);
 
-            newEntries.push({ ...entryData, id: docRef.id });
+            newEntries.push({ ...dataWithUser, id: docRef.id });
 
             // Prepare to update client's segment settings
             clientSettingsToUpdate[entryData.clientId] = {
