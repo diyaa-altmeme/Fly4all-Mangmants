@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -14,7 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins, ChevronDown, BadgeCent, DollarSign, User as UserIcon, Wallet, Hash } from 'lucide-react';
+import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins, ChevronDown, BadgeCent, DollarSign, User as UserIcon, Wallet, Hash, CheckCircle } from 'lucide-react';
 import { z } from 'zod';
 import { useForm, Controller, FormProvider, useFormContext, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,7 +34,6 @@ import { Label } from '@/components/ui/label';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/lib/auth-context';
-
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -103,7 +101,7 @@ const PairedInput = ({
                     render={({ field }) => (
                         <FormItem>
                             <FormControl>
-                                <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center font-bold text-base" />
+                                <NumericInput {...field} placeholder="العدد" className="h-9 border-0 rounded-none text-center font-bold text-base" onValueChange={v => field.onChange(v || 0)} />
                             </FormControl>
                         </FormItem>
                     )}
@@ -124,7 +122,7 @@ const PairedInput = ({
                                 <FormItem className="flex-grow">
                                     <FormControl>
                                        <div className="relative">
-                                         <NumericInput {...field} placeholder="القيمة" className="h-8 pe-8 text-center" onValueChange={v => field.onChange(v || 0)} />
+                                         <NumericInput {...field} placeholder="القيمة" className="pe-8 text-center" onValueChange={v => field.onChange(v || 0)} />
                                          <Icon className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                        </div>
                                     </FormControl>
@@ -159,7 +157,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const { data: navData } = useVoucherNav();
     
     const allCompanyOptions = useMemo(() => {
-        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name }));
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
     }, [clients]);
 
     const partnerOptions = useMemo(() => {
@@ -235,8 +233,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
      const calculateShares = (data: CompanyEntryFormValues) => {
         const client = clients.find(c => c.id === data.clientId);
-        const companySettings = client?.segmentSettings;
-
+        
         const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => {
             if (type === 'percentage') return (count || 0) * ((value || 0) / 100);
             return (count || 0) * (value || 0);
@@ -250,7 +247,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
         
-        const alrawdatainSharePercentage = companySettings?.alrawdatainSharePercentage ?? data.alrawdatainSharePercentage;
+        const alrawdatainSharePercentage = data.alrawdatainSharePercentage;
         
         const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
         const partnerShare = total - alrawdatainShare;
@@ -271,6 +268,25 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             alrawdatainSharePercentage,
         };
     }
+    
+    // Auto-fill settings when client changes
+    const selectedClientId = companyForm.watch('clientId');
+    useEffect(() => {
+        const clientOption = allCompanyOptions.find(opt => opt.value === selectedClientId);
+        const clientSettings = clientOption?.settings;
+        if (clientSettings) {
+            companyForm.reset({
+                ...companyForm.getValues(),
+                ...clientSettings,
+            });
+            toast({
+                title: 'تم تحميل الإعدادات',
+                description: `تم تحميل الإعدادات المالية المحفوظة لشركة ${clientOption.label}`,
+                className: 'bg-green-100 dark:bg-green-900'
+            })
+        }
+    }, [selectedClientId, allCompanyOptions, companyForm, toast]);
+
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
@@ -371,9 +387,15 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     <FormField control={companyForm.control} name="partnerId" render={({ field }) => (
                                         <FormItem><FormLabel>الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شريك..."/></FormControl><FormMessage /></FormItem>
                                     )}/>
-                                    <FormField control={companyForm.control} name="clientId" render={({ field }) => (
-                                        <FormItem><FormLabel>الشركة المصدرة للسكمنت</FormLabel><FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شركة..."/></FormControl><FormMessage /></FormItem>
-                                    )}/>
+                                    <FormField control={companyForm.control} name="clientId" render={({ field }) => {
+                                        const hasSettings = allCompanyOptions.find(o => o.value === field.value)?.settings;
+                                        return (
+                                            <FormItem>
+                                                <FormLabel className="flex items-center gap-2">الشركة المصدرة للسكمنت {hasSettings && <Badge variant="secondary" className="bg-green-100 text-green-800"><CheckCircle className="h-3 w-3 me-1"/>إعدادات محفوظة</Badge>}</FormLabel>
+                                                <FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شركة..."/></FormControl><FormMessage />
+                                            </FormItem>
+                                        )
+                                    }}/>
                                 </div>
                                 <Collapsible open={isCommissionSettingsOpen} onOpenChange={setIsCommissionSettingsOpen}>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -404,7 +426,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             <div className="flex items-center gap-2">
                                                 <Label className="font-bold whitespace-nowrap">نسبة الأرباح لنا</Label>
                                                 <div className="relative w-28">
-                                                    <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => ( <NumericInput {...field} className="pe-7 text-center h-10" onValueChange={field.onChange}/> )}/>
+                                                    <FormField control={companyForm.control} name="alrawdatainSharePercentage" render={({ field }) => ( <NumericInput {...field} className="pe-8 text-center h-10" onValueChange={v => field.onChange(v || 0)}/> )}/>
                                                     <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                                 </div>
                                             </div>

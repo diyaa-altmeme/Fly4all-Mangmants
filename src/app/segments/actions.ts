@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -105,7 +104,7 @@ export async function deleteSegmentEntry(id: string) {
         await db.collection(SEGMENTS_COLLECTION).doc(id).delete();
         revalidatePath('/segments');
         return { success: true };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error deleting segment entry: ", String(error));
         return { success: false, error: "Failed to delete segment entry." };
     }
