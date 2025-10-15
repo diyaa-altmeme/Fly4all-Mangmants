@@ -347,21 +347,18 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
                     <div className="p-4 border rounded-lg bg-background/50">
-                        <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
+                        <h3 className="font-semibold text-base mb-2">تفاصيل الفترة والشركات</h3>
                         <Form {...periodForm}>
-                            <form className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start mb-4">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
                                     <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                                 )}/>
                                 <FormField control={periodForm.control} name="toDate" render={({ field }) => (
                                     <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal h-10", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                                 )}/>
-                            </form>
+                            </div>
                         </Form>
-                    </div>
-
-                    <div className="p-4 border rounded-lg">
-                        <h3 className="font-semibold text-base mb-2">إضافة شركة جديدة</h3>
+                        <Separator className="my-4" />
                         <Form {...companyForm}>
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -468,3 +465,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
