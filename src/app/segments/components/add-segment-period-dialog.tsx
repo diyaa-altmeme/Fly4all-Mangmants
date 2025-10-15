@@ -44,11 +44,10 @@ const periodSchema = z.object({
 const companyEntrySchema = z.object({
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   partnerId: z.string().min(1, { message: "اسم الشريك مطلوب." }),
-  currency: z.enum(['USD', 'IQD']),
-  tickets: z.coerce.number().nonnegative().default(0),
-  visas: z.coerce.number().nonnegative().default(0),
-  hotels: z.coerce.number().nonnegative().default(0),
-  groups: z.coerce.number().nonnegative().default(0),
+  tickets: z.coerce.number().int().nonnegative().default(0),
+  visas: z.coerce.number().int().nonnegative().default(0),
+  hotels: z.coerce.number().int().nonnegative().default(0),
+  groups: z.coerce.number().int().nonnegative().default(0),
   
   ticketProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
   ticketProfitValue: z.coerce.number().min(0).default(50),
@@ -282,7 +281,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
         const company = clients.find(c => c.id === data.clientId);
-        const newEntry = calculateShares(data, company?.segmentSettings);
+        const newEntry = calculateShares(data, company?.segmentSettings as any);
         setPeriodEntries(prev => [...prev, newEntry]);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
         companyForm.reset({ 
@@ -385,10 +384,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 </div>
                                 <Collapsible open={isCommissionSettingsOpen} onOpenChange={setIsCommissionSettingsOpen}>
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                        <PairedInput form={companyForm} name="tickets" profitTypeField="ticketProfitType" profitValueField="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" currency={companyForm.watch('currency')} />
-                                        <PairedInput form={companyForm} name="visas" profitTypeField="visaProfitType" profitValueField="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" currency={companyForm.watch('currency')} />
-                                        <PairedInput form={companyForm} name="hotels" profitTypeField="hotelProfitType" profitValueField="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" currency={companyForm.watch('currency')} />
-                                        <PairedInput form={companyForm} name="groups" profitTypeField="groupProfitType" profitValueField="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" currency={companyForm.watch('currency')} />
+                                        <PairedInput form={companyForm} name="tickets" profitTypeField="ticketProfitType" profitValueField="ticketProfitValue" label="التذاكر" borderColorClass="border-blue-500/50 focus-within:ring-blue-500/50" currency={'USD'} />
+                                        <PairedInput form={companyForm} name="visas" profitTypeField="visaProfitType" profitValueField="visaProfitValue" label="الفيزا" borderColorClass="border-green-500/50 focus-within:ring-green-500/50" currency={'USD'} />
+                                        <PairedInput form={companyForm} name="hotels" profitTypeField="hotelProfitType" profitValueField="hotelProfitValue" label="الفنادق" borderColorClass="border-orange-500/50 focus-within:ring-orange-500/50" currency={'USD'} />
+                                        <PairedInput form={companyForm} name="groups" profitTypeField="groupProfitType" profitValueField="groupProfitValue" label="الكروبات" borderColorClass="border-purple-500/50 focus-within:ring-purple-500/50" currency={'USD'} />
                                     </div>
                                     <div className="flex items-center justify-between mt-3">
                                         <CollapsibleTrigger asChild>
@@ -407,11 +406,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                         <SelectItem value="fixed">مبلغ ثابت ($)</SelectItem>
                                                     </SelectContent>
                                                 </Select>
-                                            </div>
-                                            <Separator orientation="vertical" className="h-6" />
-                                            <div className="flex items-center gap-2">
-                                                <Label className="font-bold">العملة</Label>
-                                                <FormField control={companyForm.control} name="currency" render={({ field }) => ( <Select onValueChange={field.onChange} value={field.value}><SelectTrigger className="h-10"><SelectValue /></SelectTrigger><SelectContent>{(navData?.settings.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}</SelectContent></Select> )}/>
                                             </div>
                                             <Separator orientation="vertical" className="h-6" />
                                             <div className="flex items-center gap-2">
@@ -475,13 +469,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                             )}
                             <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
                         </div>
-                        <div className="flex items-center gap-2">
-                             <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-                            <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
-                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                                حفظ بيانات الفترة ({periodEntries.length} سجلات)
-                            </Button>
-                        </div>
+                        <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
+                            {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                            حفظ بيانات الفترة ({periodEntries.length} سجلات)
+                        </Button>
                     </div>
                 </DialogFooter>
             </DialogContent>
