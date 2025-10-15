@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -32,9 +31,9 @@ import { produce } from 'immer';
 
 
 const StatCard = ({ title, value }: { title: string, value: string }) => (
-    <div className="bg-muted/50 p-4 rounded-lg text-center flex-1">
-        <p className="text-sm text-muted-foreground font-semibold">{title}</p>
-        <p className="text-2xl font-bold font-mono">{value}</p>
+    <div className="bg-muted/50 p-3 rounded-lg text-center flex-1">
+        <p className="text-xs text-muted-foreground font-semibold">{title}</p>
+        <p className="text-xl font-bold font-mono">{value}</p>
     </div>
 );
 
@@ -127,7 +126,9 @@ export default function SegmentsPage() {
     }, [fetchData]);
     
     const handleSuccess = (newEntries: SegmentEntry[]) => {
-      setSegments(prev => [...newEntries, ...prev]);
+      setSegments(prev => produce(prev, draft => {
+        newEntries.forEach(newEntry => draft.unshift(newEntry));
+      }));
     }
 
     const groupedByPeriod = useMemo(() => {
@@ -204,49 +205,45 @@ export default function SegmentsPage() {
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
                         <div>
                             <CardTitle>سجل حسابات السكمنت</CardTitle>
-                            <CardDescription>
-                                عرض ملخص الفترات المحاسبية للسكمنت.
-                            </CardDescription>
+                            <CardDescription>عرض ملخص الفترات المحاسبية للسكمنت.</CardDescription>
                         </div>
-                        <div className="flex items-center gap-2">
-                             <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
+                        <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={onSuccess} />
+                    </div>
+                     <div className="pt-4 space-y-4">
+                        <div className="flex flex-col sm:flex-row items-center gap-2">
+                             <div className="relative flex-grow">
+                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="بحث بالشركة أو الشريك..."
+                                    className="ps-10"
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        id="date"
+                                        variant={"outline"}
+                                        className={cn("w-full sm:w-[250px] justify-start text-left font-normal", !date && "text-muted-foreground")}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {date?.from ? (date.to ? (<>{format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}</>) : (format(date.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
+                                </PopoverContent>
+                            </Popover>
+                             <Button onClick={() => { setSearchTerm(''); setDate(undefined); }} variant="ghost" className={!searchTerm && !date ? 'hidden' : ''}>مسح</Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <StatCard title="إجمالي أرباح السكمنت" value={`$${grandTotalProfit.toFixed(2)}`} />
+                            <StatCard title="حصة الروضتين" value={`$${grandTotalAlrawdatainShare.toFixed(2)}`} />
+                            <StatCard title="حصة الشريك" value={`$${grandTotalPartnerShare.toFixed(2)}`} />
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                     <div className="flex flex-col sm:flex-row items-center gap-2">
-                        <div className="relative flex-grow">
-                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="بحث بالشركة أو الشريك..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="ps-10"
-                            />
-                        </div>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    id="date"
-                                    variant={"outline"}
-                                    className={cn("w-full sm:w-[250px] justify-start text-left font-normal", !date && "text-muted-foreground")}
-                                >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {date?.from ? (date.to ? (<>{format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}</>) : (format(date.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
-                            </PopoverContent>
-                        </Popover>
-                         <Button onClick={() => { setSearchTerm(''); setDate(undefined); }} variant="ghost" className={!searchTerm && !date ? 'hidden' : ''}>مسح</Button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <StatCard title="إجمالي أرباح السكمنت" value={`$${grandTotalProfit.toFixed(2)}`} />
-                        <StatCard title="حصة الروضتين" value={`$${grandTotalAlrawdatainShare.toFixed(2)}`} />
-                        <StatCard title="حصة الشريك" value={`$${grandTotalPartnerShare.toFixed(2)}`} />
-                    </div>
-                </CardContent>
             </Card>
 
              <Card>
