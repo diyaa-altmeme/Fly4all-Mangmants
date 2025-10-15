@@ -24,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { addSegmentEntries } from '@/app/segments/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
@@ -34,6 +34,7 @@ import { Label } from '@/components/ui/label';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/lib/auth-context';
+import { Badge } from '@/components/ui/badge';
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -476,8 +477,8 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </div>
             
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <div className="flex items-center justify-between w-full">
-                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex justify-between w-full">
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4 text-primary"/> <span>{currentUser?.name || '...'}</span></div>
                              {currentUser && 'role' in currentUser && currentUser.boxId && (
                                 <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary"/> <span>{boxName}</span></div>
@@ -494,3 +495,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
