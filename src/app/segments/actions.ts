@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -27,7 +28,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+    if (!user || !('role' in user)) return { success: false, error: "User not authenticated or not an employee." };
 
     const batch = db.batch();
     const newEntries: SegmentEntry[] = [];
@@ -43,14 +44,13 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
             const dataWithUser: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
                 invoiceNumber, // Use the shared invoice number
-                enteredBy: user.name,
+                enteredBy: user.name, // Correctly assign the user's name
                 createdAt: new Date().toISOString(),
             };
             batch.set(docRef, dataWithUser);
 
             newEntries.push({ ...dataWithUser, id: docRef.id });
 
-            // Only update settings if a client ID exists
             if (entryData.clientId) {
                 clientSettingsToUpdate[entryData.clientId] = {
                     ticketProfitPercentage: entryData.ticketProfitPercentage,
@@ -63,7 +63,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
         }
 
         for (const clientId in clientSettingsToUpdate) {
-            if (clientId) { // Ensure we don't try to update with an empty ID
+            if (clientId) {
                 const clientRef = db.collection('clients').doc(clientId);
                 batch.update(clientRef, { segmentSettings: clientSettingsToUpdate[clientId] });
             }
