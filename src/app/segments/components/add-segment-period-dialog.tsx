@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -152,7 +153,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     
     const [periodEntries, setPeriodEntries] = useState<Omit<SegmentEntry, 'id' | 'fromDate' | 'toDate'>[]>([]);
     const [isCommissionSettingsOpen, setIsCommissionSettingsOpen] = useState(false);
-    const { data: navData } = useVoucherNav();
     
     const allCompanyOptions = useMemo(() => {
         return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name }));
@@ -171,8 +171,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         });
     }, [clients, suppliers]);
 
+    const { data: navData } = useVoucherNav();
     const defaultCurrency = navData?.settings?.currencySettings?.defaultCurrency || 'USD';
-  
+
     const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
     const companyForm = useForm<CompanyEntryFormValues>({ 
         resolver: zodResolver(companyEntrySchema),
@@ -224,6 +225,27 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             setPeriodEntries([]);
         }
     }, [open, periodForm, companyForm, defaultCurrency]);
+    
+    const watchedClientId = companyForm.watch('clientId');
+
+    useEffect(() => {
+        if (watchedClientId) {
+            const client = clients.find(c => c.id === watchedClientId);
+            if (client?.segmentSettings) {
+                const settings = client.segmentSettings;
+                companyForm.setValue('ticketProfitType', settings.ticketProfitType);
+                companyForm.setValue('ticketProfitValue', settings.ticketProfitValue);
+                companyForm.setValue('visaProfitType', settings.visaProfitType);
+                companyForm.setValue('visaProfitValue', settings.visaProfitValue);
+                companyForm.setValue('hotelProfitType', settings.hotelProfitType);
+                companyForm.setValue('hotelProfitValue', settings.hotelProfitValue);
+                companyForm.setValue('groupProfitType', settings.groupProfitType);
+                companyForm.setValue('groupProfitValue', settings.groupProfitValue);
+                companyForm.setValue('alrawdatainSharePercentage', settings.alrawdatainSharePercentage);
+            }
+        }
+    }, [watchedClientId, clients, companyForm]);
+
 
      const calculateShares = (data: CompanyEntryFormValues) => {
         const { alrawdatainSharePercentage, ...rest } = data;
@@ -347,7 +369,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
                     <div className="p-4 border rounded-lg bg-background/50">
-                        <h3 className="font-semibold text-base mb-2">تفاصيل الفترة والشركات</h3>
+                        <h3 className="font-semibold text-base mb-4">تفاصيل الفترة والشركات</h3>
                         <Form {...periodForm}>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start mb-4">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
@@ -384,7 +406,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             </Button>
                                         </CollapsibleTrigger>
                                         <div className={cn("flex items-center gap-4 transition-opacity", !isCommissionSettingsOpen && "opacity-0 pointer-events-none")}>
-                                            <div className="flex items-center gap-2">
+                                             <div className="flex items-center gap-2">
                                                 <Label className="font-bold">نوع العمولة للكل</Label>
                                                 <Select onValueChange={handleGlobalProfitTypeChange} defaultValue="percentage">
                                                     <SelectTrigger className="w-[150px] h-10"><SelectValue /></SelectTrigger>
@@ -465,5 +487,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
