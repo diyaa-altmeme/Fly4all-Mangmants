@@ -3,7 +3,7 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { SegmentEntry } from '@/lib/types';
+import type { SegmentEntry, SegmentSettings } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
@@ -67,7 +67,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
         }
 
         for (const clientId in clientSettingsToUpdate) {
-            if (clientId) {
+            if (clientId) { // Ensure clientId is not empty
                 const clientRef = db.collection('clients').doc(clientId);
                 batch.update(clientRef, { segmentSettings: clientSettingsToUpdate[clientId] });
             }
@@ -78,9 +78,9 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
 
         revalidatePath('/segments');
         return { success: true, newEntries };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error adding segment entries: ", String(error));
-        return { success: false, error: "Failed to add segment entries." };
+        return { success: false, error: error.message || "Failed to add segment entries." };
     }
 }
 
@@ -92,7 +92,7 @@ export async function updateSegmentEntry(id: string, data: Partial<Omit<SegmentE
         await db.collection(SEGMENTS_COLLECTION).doc(id).update(data);
         revalidatePath('/segments');
         return { success: true };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error updating segment entry: ", String(error));
         return { success: false, error: "Failed to update segment entry." };
     }
