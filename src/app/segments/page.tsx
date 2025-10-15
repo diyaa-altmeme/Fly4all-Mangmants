@@ -1,10 +1,11 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator } from 'lucide-react';
+import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator, History } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
 import { getClients } from '@/app/relations/actions';
@@ -28,6 +29,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { Badge } from '@/components/ui/badge';
 import { produce } from 'immer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import Link from 'next/link';
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
     <div className={cn("text-center p-3 rounded-lg bg-background border", className)}>
@@ -48,7 +50,9 @@ const ProfitBreakdownPopover = ({ period, type, children }: { period: any, type:
     return (
         <Popover>
             <PopoverTrigger asChild>
-                <button className="w-full text-center hover:underline">{children}</button>
+                <button className="w-full text-center hover:underline font-mono font-bold">
+                    {children}
+                </button>
             </PopoverTrigger>
             <PopoverContent>
                 <div className="space-y-2">
@@ -102,8 +106,13 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
     const invoiceNumber = period.entries[0]?.invoiceNumber || 'N/A';
 
     const handleDeletePeriod = async (fromDate: string, toDate: string) => {
-        await deleteSegmentPeriod(fromDate, toDate);
-        onDataChange();
+        const { count } = await deleteSegmentPeriod(fromDate, toDate);
+        if (count > 0) {
+            toast({ title: "تم نقل الفترة إلى المحذوفات" });
+            onDataChange();
+        } else {
+             toast({ title: "لم يتم العثور على الفترة", variant: "destructive" });
+        }
     };
 
     return (
@@ -151,7 +160,7 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                 <CollapsibleContent asChild>
                     <TableRow>
                         <TableCell colSpan={12} className="p-0">
-                            <div className="p-4 bg-muted/30">
+                            <div className="p-4 bg-muted/50">
                                 <h4 className="font-bold mb-2">تفاصيل شركات الفترة:</h4>
                                 <SegmentDetailsTable period={period} onDeleteEntry={() => {}} />
                             </div>
@@ -192,15 +201,8 @@ export default function SegmentsPage() {
         }
     }, [toast]);
     
-    const handleSuccess = useCallback(async (newEntries?: SegmentEntry[]) => {
-      if (newEntries && newEntries.length > 0) {
-        setSegments(prev => {
-            const updatedEntries = [...prev, ...newEntries];
-            return updatedEntries.sort((a,b) => parseISO(b.toDate).getTime() - parseISO(a.toDate).getTime());
-        });
-      } else {
-         await fetchData();
-      }
+    const handleSuccess = useCallback(async () => {
+      await fetchData();
     }, [fetchData]);
 
     useEffect(() => {
@@ -293,6 +295,12 @@ export default function SegmentsPage() {
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
                                 <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
+                                 <Button asChild variant="outline">
+                                    <Link href="/segments/deleted-segments">
+                                        <History className="me-2 h-4 w-4"/>
+                                        سجل المحذوفات
+                                    </Link>
+                                </Button>
                                 <Button onClick={fetchData} variant="outline" disabled={loading} className="w-full sm:w-auto">
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
@@ -313,7 +321,7 @@ export default function SegmentsPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="relative flex-grow">
+                            <div className="relative flex-grow col-span-1 lg:col-span-2">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     placeholder="بحث بالشركة أو الشريك..."
@@ -378,3 +386,4 @@ export default function SegmentsPage() {
         </div>
     )
 }
+
