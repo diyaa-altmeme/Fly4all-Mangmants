@@ -44,6 +44,10 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
     const { toast } = useToast();
     const entryUser = period.entries[0]?.enteredBy || 'غير معروف';
     const entryDate = period.entries[0]?.createdAt ? format(parseISO(period.entries[0].createdAt), 'yyyy-MM-dd hh:mm a') : 'N/A';
+    
+    const invoiceNumbers = period.entries.map((e: SegmentEntry) => e.invoiceNumber).filter(Boolean);
+    const displayedInvoices = invoiceNumbers.slice(0, 2).join(', ');
+    const hasMoreInvoices = invoiceNumbers.length > 2;
 
 
     const handleDeletePeriod = async (fromDate: string, toDate: string) => {
@@ -65,6 +69,11 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                     <TableCell className="font-semibold p-1 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{period.toDate}</TableCell>
+                    <TableCell className="font-mono text-center text-xs">
+                        <div className="font-mono text-xs truncate" title={invoiceNumbers.join(', ')}>
+                            {displayedInvoices}{hasMoreInvoices && '...'}
+                        </div>
+                    </TableCell>
                     <TableCell className="font-mono text-center text-xs">{entryUser}</TableCell>
                     <TableCell className="font-mono text-center text-xs">{entryDate}</TableCell>
                     <TableCell className="text-center font-mono p-1 text-xs">{period.totalTickets.toFixed(2)}</TableCell>
@@ -87,7 +96,7 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={11} className="p-0">
+                        <TableCell colSpan={12} className="p-0">
                             <div className="p-4 bg-muted/30">
                                 <h4 className="font-bold mb-2">تفاصيل شركات الفترة:</h4>
                                 <SegmentDetailsTable period={period} onDeleteEntry={() => {}} />
@@ -224,7 +233,9 @@ export default function SegmentsPage() {
                         <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
                              <div>
                                 <CardTitle>سجل حسابات السكمنت</CardTitle>
-                                <CardDescription>عرض ملخص الفترات المحاسبية للسكمنت.</CardDescription>
+                                <CardDescription>
+                                    إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.
+                                </CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
                                 <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
@@ -280,6 +291,7 @@ export default function SegmentsPage() {
                                     <TableHead className="font-bold text-center p-2">الشركات</TableHead>
                                     <TableHead className="font-bold text-center p-2">من</TableHead>
                                     <TableHead className="font-bold text-center p-2">إلى</TableHead>
+                                    <TableHead className="font-bold text-center p-2">أرقام الفواتير</TableHead>
                                     <TableHead className="font-bold text-center p-2">موظف الإدخال</TableHead>
                                     <TableHead className="font-bold text-center p-2">تاريخ الإدخال</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح التذاكر</TableHead>
@@ -292,7 +304,7 @@ export default function SegmentsPage() {
                             {sortedAndFilteredPeriods.length === 0 ? (
                                 <TableBody>
                                     <TableRow>
-                                        <TableCell colSpan={11} className="text-center h-24">لا توجد بيانات للفترة المحددة.</TableCell>
+                                        <TableCell colSpan={12} className="text-center h-24">لا توجد بيانات للفترة المحددة.</TableCell>
                                     </TableRow>
                                 </TableBody>
                             ) : sortedAndFilteredPeriods.map((period, idx) => (
