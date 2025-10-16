@@ -154,6 +154,7 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
 
     const menuItems = [
         { href: "/accounts/vouchers/list", label: "سجل السندات", icon: ListChecks, permission: 'vouchers:read' },
+        { href: "/settings/accounting", label: "الدليل المحاسبي", icon: GitBranch, permission: 'settings:read'},
         { href: "/settings", label: "الإعدادات", icon: Settings, permission: 'settings:read' }
     ];
     
