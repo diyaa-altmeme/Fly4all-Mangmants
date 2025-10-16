@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import * as React from "react"
@@ -94,14 +95,13 @@ export function Autocomplete({ searchAction, options: staticOptions, value, onVa
   const { data: navData, loaded: navDataLoaded } = useVoucherNav();
   
   const baseOptions = React.useMemo(() => {
-    if (!navDataLoaded && !staticOptions) return [];
+    if (staticOptions) return staticOptions; // Prioritize static options
+    if (!navDataLoaded) return [];
 
-    let options: AutocompleteOption[] = staticOptions || [];
+    const createLabel = (c: any) => `${c.name}${c.code ? ` (${c.code})` : ''}`;
+
+    let options: AutocompleteOption[] = [];
     
-    const createLabel = (c: any) => {
-        return `${c.name}${c.code ? ` (${c.code})` : ''}`;
-    };
-
     if (navDataLoaded) {
         switch(searchAction) {
             case 'clients':
@@ -126,19 +126,15 @@ export function Autocomplete({ searchAction, options: staticOptions, value, onVa
         }
     }
     
-    if (staticOptions) {
-      return [...staticOptions, ...options].sort((a, b) => (b.useCount || 0) - (a.useCount || 0));
-    }
-    
-    return options;
+    return options.sort((a,b) => (b.useCount || 0) - (a.useCount || 0));
   }, [staticOptions, navData, navDataLoaded, searchAction]);
 
 
   const selectedOption = React.useMemo(() => {
-    const allOptions = staticOptions || baseOptions;
+    const allOptions = baseOptions;
     return allOptions.find((option) => option?.value === value)
-  }, [baseOptions, staticOptions, value]);
-
+  }, [baseOptions, value]);
+  
   const handleSelect = (currentValue: string) => {
     const selected = optionsToDisplay.find(opt => opt.value.toLowerCase() === currentValue.toLowerCase());
     onValueChange(selected ? selected.value : "")
@@ -149,10 +145,10 @@ export function Autocomplete({ searchAction, options: staticOptions, value, onVa
   const optionsToDisplay = React.useMemo(() => {
     if (!inputValue) {
         setPage(0);
-        return staticOptions || baseOptions;
+        return baseOptions;
     }
     const lowercasedInput = inputValue.toLowerCase();
-    const allOptions = staticOptions || baseOptions;
+    const allOptions = baseOptions;
     const filtered = allOptions.filter(option => 
       option.label.toLowerCase().includes(lowercasedInput) ||
       (option.arabicName && option.arabicName.toLowerCase().includes(lowercasedInput)) ||
@@ -162,7 +158,7 @@ export function Autocomplete({ searchAction, options: staticOptions, value, onVa
     setPage(0);
     return filtered;
 
-  }, [baseOptions, staticOptions, inputValue]);
+  }, [baseOptions, inputValue]);
   
   const paginatedOptions = React.useMemo(() => {
       const start = page * itemsPerPage;

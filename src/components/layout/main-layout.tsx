@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -108,6 +109,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     </div>
 
                     <div className="flex items-center space-x-4 space-x-reverse">
+                        <GlobalSearch />
                         <NotificationCenter />
                         <UserNav />
                     </div>

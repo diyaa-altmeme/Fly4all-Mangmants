@@ -46,7 +46,7 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
             const [allRelationsRes, boxes, users, settings] = await Promise.all([
                 getClients({ all: true, includeInactive: false }),
                 getBoxes(),
-                getUsers(),
+                getUsers({ all: true }),
                 getSettings(),
             ]);
 
