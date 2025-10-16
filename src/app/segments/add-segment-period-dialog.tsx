@@ -33,6 +33,8 @@ import { useAuth } from '@/lib/auth-context';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { NumericInput } from '@/components/ui/numeric-input';
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -79,260 +81,63 @@ interface AddSegmentPeriodDialogProps {
   onSuccess: () => Promise<void>;
 }
 
-export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDialogProps) {
-    const [open, setOpen] = useState(false);
-    const { toast } = useToast();
-    const [isSaving, setIsSaving] = useState(false);
-    const [periodEntries, setPeriodEntries] = useState<Omit<SegmentEntry, 'id' | 'fromDate' | 'toDate'>[]>([]);
+const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
+    name: string,
+    countFieldName: keyof CompanyEntryFormValues,
+    typeFieldName: keyof CompanyEntryFormValues,
+    valueFieldName: keyof CompanyEntryFormValues
+}) => {
+    const { control, watch } = useFormContext<CompanyEntryFormValues>();
+    const count = watch(countFieldName) as number;
+    const type = watch(typeFieldName);
+    const value = watch(valueFieldName) as number;
     
-    const { data: navData, loaded: isDataLoaded } = useVoucherNav();
-    const clients = navData?.clients || [];
-    const suppliers = navData?.suppliers || [];
-
-    const allCompanyOptions = useMemo(() => {
-        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
-    }, [clients]);
-
-    const partnerOptions = useMemo(() => {
-        const allRelations = [...clients, ...suppliers];
-        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-
-        return uniqueRelations.map(r => {
-            let labelPrefix = '';
-            if (r.relationType === 'client') labelPrefix = 'عميل: ';
-            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
-            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
-            return { value: r.id, label: `${labelPrefix}${r.name}` };
-        });
-    }, [clients, suppliers]);
-
-    const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
-    const companyForm = useForm<CompanyEntryFormValues>({ 
-        resolver: zodResolver(companyEntrySchema),
-        defaultValues: {
-            clientId: '',
-            tickets: 0,
-            visas: 0,
-            hotels: 0,
-            groups: 0,
-            hasPartner: false,
-            partners: [],
-            distributionType: 'percentage',
-            notes: ''
-        }
-    });
-
-    const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
-    const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
-
-
-    useEffect(() => {
-        if (open) {
-             periodForm.reset({});
-             companyForm.reset({
-                clientId: '',
-                tickets: 0,
-                visas: 0,
-                hotels: 0,
-                groups: 0,
-                hasPartner: false,
-                partners: [],
-                distributionType: 'percentage',
-                notes: '',
-            });
-            setPeriodEntries([]);
-        }
-    }, [open, periodForm, companyForm]);
-
-     const calculateShares = (data: CompanyEntryFormValues) => {
-        const company = clients.find(c => c.id === data.clientId);
-        
-        const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => {
-            if (type === 'percentage') return count * (value / 100);
-            return count * value;
-        };
-
-        const ticketProfits = getProfit(data.tickets, data.ticketProfitType, data.ticketProfitValue);
-        const visaProfits = getProfit(data.visas, data.visaProfitType, data.visaProfitValue);
-        const hotelProfits = getProfit(data.hotels, data.hotelProfitType, data.hotelProfitValue);
-        const groupProfits = getProfit(data.groups, data.groupProfitType, data.groupProfitValue);
-
-        const otherProfits = visaProfits + hotelProfits + groupProfits;
-        const total = ticketProfits + otherProfits;
-        
-        const alrawdatainShare = total * (data.alrawdatainSharePercentage / 100);
-        const remainingForPartners = total - alrawdatainShare;
-        
-        const partnerSharesDetails: { partnerId: string, partnerName: string, share: number }[] = [];
-        let partnerTotalShare = 0;
-        
-        if (data.hasPartner && data.partners) {
-             if (data.distributionType === 'percentage') {
-                data.partners.forEach(p => {
-                    const amount = remainingForPartners * (p.value / 100);
-                    partnerSharesDetails.push({ partnerId: p.id, partnerName: p.name, share: amount });
-                    partnerTotalShare += amount;
-                });
-            } else { // fixed
-                data.partners.forEach(p => {
-                    partnerSharesDetails.push({ partnerId: p.id, partnerName: p.name, share: p.value });
-                    partnerTotalShare += p.value;
-                });
-            }
-        }
-
-        return {
-            ...data,
-            currency: 'USD',
-            companyName: company?.name || '',
-            partnerName: partnerSharesDetails.map(p => p.partnerName).join(', ') || 'لا يوجد',
-            ticketProfits, 
-            otherProfits, 
-            total, 
-            alrawdatainShare, 
-            partnerShare: partnerTotalShare,
-            partnerShares: partnerSharesDetails,
-        };
+    let result = 0;
+    if (type === 'percentage') {
+        result = count * (value / 100);
+    } else {
+        result = count * value;
     }
-
-    const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
-        if (data.hasPartner && (!data.partners || data.partners.length === 0)) {
-            toast({ title: 'خطأ', description: 'يجب إضافة شريك واحد على الأقل عند تفعيل خيار الشراكة.', variant: 'destructive'});
-            return;
-        }
-        const newEntry = calculateShares(data);
-        setPeriodEntries(prev => [...prev, newEntry]);
-        toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
-        companyForm.reset({ 
-            clientId: '',
-            tickets: 0, visas: 0, hotels: 0, groups: 0, hasPartner: false, partners: [],
-            distributionType: 'percentage', notes: ''
-        });
-    };
-
-    const removeEntry = (index: number) => {
-        setPeriodEntries(prev => prev.filter((_, i) => i !== index));
+    
+    const cardBorderColors: Record<string, string> = {
+        'التذاكر': 'border-blue-400',
+        'الفيزا': 'border-green-400',
+        'الفنادق': 'border-orange-400',
+        'الكروبات': 'border-purple-400',
     }
-
-    const handleSavePeriod = async () => {
-        const periodData = await periodForm.trigger() ? periodForm.getValues() : null;
-        if (!periodData || !periodData.fromDate || !periodData.toDate) {
-            toast({ title: "بيانات الفترة غير كاملة", description: "الرجاء تحديد تاريخ البدء والانتهاء.", variant: "destructive" });
-            return;
-        }
-
-        if (periodEntries.length === 0) {
-            toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            const finalEntries = periodEntries.map((entry) => ({
-                ...entry,
-                fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
-                toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
-            }));
-            
-            const result = await addSegmentEntries(finalEntries as any);
-            if (!result.success) throw new Error(result.error);
-            
-            toast({ title: "تم حفظ بيانات الفترة بنجاح" });
-            setOpen(false);
-            await onSuccess();
-        } catch (error: any) {
-            toast({ title: "خطأ", description: error.message || "لم يتم حفظ البيانات.", variant: "destructive" });
-        } finally {
-            setIsSaving(false);
-        }
-    };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                 <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>إضافة سجل سكمنت جديد</DialogTitle>
-                    <DialogDescription>
-                        أدخل تفاصيل الفترة، ثم أضف بيانات الشركات، واحفظ السجل.
-                    </DialogDescription>
-                </DialogHeader>
-                
-                <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                    <div className="p-4 border rounded-lg bg-background/50 sticky top-0 z-10">
-                        <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
-                        <Form {...periodForm}>
-                            <form className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                                <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
-                                    <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
-                                )}/>
-                                <FormField control={periodForm.control} name="toDate" render={({ field }) => (
-                                    <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
-                                )}/>
-                            </form>
-                        </Form>
-                    </div>
-
-                    <div className="p-4 border rounded-lg">
-                        <h3 className="font-semibold text-base mb-2">إضافة شركة جديدة</h3>
-                        <FormProvider {...companyForm}>
-                           <AddCompanyToSegmentForm 
-                             allCompanyOptions={allCompanyOptions} 
-                             partnerOptions={partnerOptions} 
-                             onAddEntry={handleAddCompanyEntry}
-                           />
-                        </FormProvider>
-                    </div>
-                    
-                    <div className='p-4 border rounded-lg'>
-                        <h3 className="font-semibold text-base mb-2">الشركات المضافة ({periodEntries.length})</h3>
-                        <div className='border rounded-lg overflow-hidden'>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>الشركة</TableHead>
-                                        <TableHead>الشريك</TableHead>
-                                        <TableHead>إجمالي الربح</TableHead>
-                                        <TableHead>حصة الروضتين</TableHead>
-                                        <TableHead>حصة الشريك</TableHead>
-                                        <TableHead className='w-[60px] text-center'>حذف</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {periodEntries.length === 0 ? (
-                                        <TableRow><TableCell colSpan={6} className="text-center h-24">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
-                                    ) : periodEntries.map((entry, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell className="font-semibold">{entry.companyName}</TableCell>
-                                            <TableCell>{entry.partnerName}</TableCell>
-                                            <TableCell className="font-mono">{entry.total.toFixed(2)}</TableCell>
-                                            <TableCell className="font-mono text-green-600">{entry.alrawdatainShare.toFixed(2)}</TableCell>
-                                            <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)}</TableCell>
-                                            <TableCell className='text-center'>
-                                                <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </div>
-                </div>
-            
-                <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <div className="flex justify-between w-full">
-                        <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-                        <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
-                            {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                            حفظ بيانات الفترة ({periodEntries.length} سجلات)
-                        </Button>
-                    </div>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
+        <div className={cn("p-3 border-2 rounded-lg space-y-2", cardBorderColors[name])}>
+            <p className="text-center font-bold">{name}</p>
+             <FormField control={control} name={countFieldName} render={({ field }) => (<FormItem><FormControl><Input type="number" placeholder="العدد" {...field} className="text-center font-bold text-lg h-10" /></FormControl></FormItem>)} />
+            <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                <span className="font-mono text-green-600 text-sm flex-grow">usd {result.toFixed(2)}</span>
+                <span className="text-xs text-muted-foreground">الناتج</span>
+            </div>
+             <div className="flex items-center gap-2">
+                 <Controller
+                    name={typeFieldName}
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger className="w-20 h-8 text-xs px-2"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="percentage">%</SelectItem>
+                                <SelectItem value="fixed">$</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    )}
+                 />
+                 <Controller
+                    name={valueFieldName}
+                    control={control}
+                    render={({ field }) => (
+                         <NumericInput {...field} onValueChange={field.onChange} className="h-8"/>
+                    )}
+                 />
+            </div>
+        </div>
+    )
 }
 
 function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry }: { allCompanyOptions: any[], partnerOptions: any[], onAddEntry: (data: any) => void }) {
@@ -453,62 +258,290 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
     );
 }
 
-const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
-    name: string,
-    countFieldName: keyof CompanyEntryFormValues,
-    typeFieldName: keyof CompanyEntryFormValues,
-    valueFieldName: keyof CompanyEntryFormValues
-}) => {
-    const { control, watch } = useFormContext<CompanyEntryFormValues>();
-    const count = watch(countFieldName) as number;
-    const type = watch(typeFieldName);
-    const value = watch(valueFieldName) as number;
+export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDialogProps) {
+    const [open, setOpen] = useState(false);
+    const { toast } = useToast();
+    const [isSaving, setIsSaving] = useState(false);
+    const [step, setStep] = useState(1);
+    const [periodEntries, setPeriodEntries] = useState<Omit<SegmentEntry, 'id' | 'fromDate' | 'toDate'>[]>([]);
     
-    let result = 0;
-    if (type === 'percentage') {
-        result = count * (value / 100);
-    } else {
-        result = count * value;
-    }
+    const { data: navData, loaded: isDataLoaded } = useVoucherNav();
+    const clients = navData?.clients || [];
+    const suppliers = navData?.suppliers || [];
     
-    const cardBorderColors: Record<string, string> = {
-        'التذاكر': 'border-blue-400',
-        'الفيزا': 'border-green-400',
-        'الفنادق': 'border-orange-400',
-        'الكروبات': 'border-purple-400',
+    const allCompanyOptions = useMemo(() => {
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+    }, [clients]);
+
+    const partnerOptions = useMemo(() => {
+        const allRelations = [...clients, ...suppliers];
+        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+
+        return uniqueRelations.map(r => {
+            let labelPrefix = '';
+            if (r.relationType === 'client') labelPrefix = 'عميل: ';
+            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
+            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
+            return { value: r.id, label: `${labelPrefix}${r.name}` };
+        });
+    }, [clients, suppliers]);
+
+    const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
+    const companyForm = useForm<CompanyEntryFormValues>({ 
+        resolver: zodResolver(companyEntrySchema),
+        defaultValues: {
+            clientId: '',
+            tickets: 0,
+            visas: 0,
+            hotels: 0,
+            groups: 0,
+            hasPartner: false,
+            partners: [],
+            distributionType: 'percentage',
+            notes: ''
+        }
+    });
+
+    const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
+    const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+             periodForm.reset({});
+             companyForm.reset({
+                clientId: '',
+                tickets: 0,
+                visas: 0,
+                hotels: 0,
+                groups: 0,
+                hasPartner: false,
+                partners: [],
+                distributionType: 'percentage',
+                notes: '',
+            });
+            setPeriodEntries([]);
+            setStep(1);
+        }
+    }, [open, periodForm, companyForm]);
+
+     const calculateShares = (data: CompanyEntryFormValues) => {
+        const company = clients.find(c => c.id === data.clientId);
+        
+        const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => {
+            if (type === 'percentage') return count * (value / 100);
+            return count * value;
+        };
+
+        const ticketProfits = getProfit(data.tickets, data.ticketProfitType, data.ticketProfitValue);
+        const visaProfits = getProfit(data.visas, data.visaProfitType, data.visaProfitValue);
+        const hotelProfits = getProfit(data.hotels, data.hotelProfitType, data.hotelProfitValue);
+        const groupProfits = getProfit(data.groups, data.groupProfitType, data.groupProfitValue);
+
+        const otherProfits = visaProfits + hotelProfits + groupProfits;
+        const total = ticketProfits + otherProfits;
+        
+        const alrawdatainShare = total * (data.alrawdatainSharePercentage / 100);
+        const remainingForPartners = total - alrawdatainShare;
+        
+        const partnerSharesDetails: { partnerId: string, partnerName: string, share: number }[] = [];
+        let partnerTotalShare = 0;
+        
+        if (data.hasPartner && data.partners) {
+             if (data.distributionType === 'percentage') {
+                data.partners.forEach(p => {
+                    const amount = remainingForPartners * (p.value / 100);
+                    partnerSharesDetails.push({ partnerId: p.id, partnerName: p.name, share: amount });
+                    partnerTotalShare += amount;
+                });
+            } else { // fixed
+                data.partners.forEach(p => {
+                    partnerSharesDetails.push({ partnerId: p.id, partnerName: p.name, share: p.value });
+                    partnerTotalShare += p.value;
+                });
+            }
+        }
+
+        return {
+            ...data,
+            currency: 'USD',
+            companyName: company?.name || '',
+            partnerName: partnerSharesDetails.map(p => p.partnerName).join(', ') || 'لا يوجد',
+            ticketProfits, 
+            otherProfits, 
+            total, 
+            alrawdatainShare, 
+            partnerShare: partnerTotalShare,
+            partnerShares: partnerSharesDetails,
+        };
     }
 
+    const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
+        if (data.hasPartner && (!data.partners || data.partners.length === 0)) {
+            toast({ title: 'خطأ', description: 'يجب إضافة شريك واحد على الأقل عند تفعيل خيار الشراكة.', variant: 'destructive'});
+            return;
+        }
+        const newEntry = calculateShares(data);
+        setPeriodEntries(prev => [...prev, newEntry]);
+        toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
+        companyForm.reset({ 
+            clientId: '',
+            tickets: 0, visas: 0, hotels: 0, groups: 0, hasPartner: false, partners: [],
+            distributionType: 'percentage', notes: ''
+        });
+    };
+
+    const removeEntry = (index: number) => {
+        setPeriodEntries(prev => prev.filter((_, i) => i !== index));
+    }
+
+    const goToNextStep = async () => {
+        const isValid = await periodForm.trigger();
+        if (isValid) {
+            setStep(2);
+        }
+    }
+
+    const handleSavePeriod = async () => {
+        const periodData = await periodForm.trigger() ? periodForm.getValues() : null;
+        if (!periodData || !periodData.fromDate || !periodData.toDate) {
+            toast({ title: "بيانات الفترة غير كاملة", description: "الرجاء تحديد تاريخ البدء والانتهاء.", variant: "destructive" });
+            return;
+        }
+
+        if (periodEntries.length === 0) {
+            toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            const finalEntries = periodEntries.map((entry) => ({
+                ...entry,
+                fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
+                toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
+            }));
+            
+            const result = await addSegmentEntries(finalEntries as any);
+            if (!result.success) throw new Error(result.error);
+            
+            toast({ title: "تم حفظ بيانات الفترة بنجاح" });
+            setOpen(false);
+            await onSuccess();
+        } catch (error: any) {
+            toast({ title: "خطأ", description: error.message || "لم يتم حفظ البيانات.", variant: "destructive" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
-        <div className={cn("p-3 border-2 rounded-lg space-y-2", cardBorderColors[name])}>
-            <p className="text-center font-bold">{name}</p>
-             <FormField control={control} name={countFieldName} render={({ field }) => (<FormItem><FormControl><Input type="number" placeholder="العدد" {...field} className="text-center font-bold text-lg h-10" /></FormControl></FormItem>)} />
-            <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                <span className="font-mono text-green-600 text-sm flex-grow">usd {result.toFixed(2)}</span>
-                <span className="text-xs text-muted-foreground">الناتج</span>
-            </div>
-             <div className="flex items-center gap-2">
-                 <Controller
-                    name={typeFieldName}
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger className="w-20 h-8 text-xs px-2"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="percentage">%</SelectItem>
-                                <SelectItem value="fixed">$</SelectItem>
-                            </SelectContent>
-                        </Select>
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                 <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>إضافة سجل سكمنت جديد</DialogTitle>
+                    <DialogDescription>
+                        {step === 1 
+                            ? "الخطوة 1 من 2: حدد الفترة المحاسبية للسجل."
+                            : "الخطوة 2 من 2: أضف بيانات الشركات لهذه الفترة."}
+                    </DialogDescription>
+                </DialogHeader>
+                
+                <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
+                    {step === 1 && (
+                        <div className="p-4 border rounded-lg bg-background/50">
+                            <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
+                            <Form {...periodForm}>
+                                <form className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                                    <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
+                                        <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                                    )}/>
+                                    <FormField control={periodForm.control} name="toDate" render={({ field }) => (
+                                        <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                                    )}/>
+                                </form>
+                            </Form>
+                        </div>
                     )}
-                 />
-                 <Controller
-                    name={valueFieldName}
-                    control={control}
-                    render={({ field }) => (
-                         <NumericInput {...field} onValueChange={field.onChange} className="h-8"/>
+
+                    {step === 2 && (
+                        <>
+                            <div className="p-4 border rounded-lg">
+                                <h3 className="font-semibold text-base mb-2">إضافة شركة جديدة</h3>
+                                <FormProvider {...companyForm}>
+                                   <AddCompanyToSegmentForm 
+                                     allCompanyOptions={allCompanyOptions} 
+                                     partnerOptions={partnerOptions} 
+                                     onAddEntry={handleAddCompanyEntry}
+                                   />
+                                </FormProvider>
+                            </div>
+                            
+                            <div className='p-4 border rounded-lg'>
+                                <h3 className="font-semibold text-base mb-2">الشركات المضافة ({periodEntries.length})</h3>
+                                <div className='border rounded-lg overflow-hidden'>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>الشركة</TableHead>
+                                                <TableHead>الشريك</TableHead>
+                                                <TableHead>إجمالي الربح</TableHead>
+                                                <TableHead>حصة الروضتين</TableHead>
+                                                <TableHead>حصة الشريك</TableHead>
+                                                <TableHead className='w-[60px] text-center'>حذف</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {periodEntries.length === 0 ? (
+                                                <TableRow><TableCell colSpan={6} className="text-center h-24">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
+                                            ) : periodEntries.map((entry, index) => (
+                                                <TableRow key={index}>
+                                                    <TableCell className="font-semibold">{entry.companyName}</TableCell>
+                                                    <TableCell>{entry.partnerName}</TableCell>
+                                                    <TableCell className="font-mono">{entry.total.toFixed(2)}</TableCell>
+                                                    <TableCell className="font-mono text-green-600">{entry.alrawdatainShare.toFixed(2)}</TableCell>
+                                                    <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)}</TableCell>
+                                                    <TableCell className='text-center'>
+                                                        <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>
+                        </>
                     )}
-                 />
-            </div>
-        </div>
-    )
+                </div>
+            
+                <DialogFooter className="pt-4 border-t flex-shrink-0">
+                    {step === 1 && (
+                        <div className="flex justify-between w-full">
+                            <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+                            <Button type="button" onClick={goToNextStep}>
+                                التالي
+                                <ArrowLeft className="ms-2 h-4 w-4" />
+                            </Button>
+                        </div>
+                    )}
+                    {step === 2 && (
+                        <div className="flex justify-between w-full">
+                            <Button variant="outline" onClick={() => setStep(1)}>
+                                <ArrowRight className="me-2 h-4 w-4" />
+                                رجوع
+                            </Button>
+                            <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
+                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                                حفظ بيانات الفترة ({periodEntries.length} سجلات)
+                            </Button>
+                        </div>
+                    )}
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
 }
-```
+
+    
