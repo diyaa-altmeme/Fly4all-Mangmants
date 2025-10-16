@@ -123,7 +123,7 @@ const buildDetailedSegmentDescription = (voucher: JournalVoucher): StructuredDes
     if (!originalData) {
         return { title: 'قيد سكمنت', totalReceived: null, selfReceipt: null, distributions: [], notes: voucher.notes };
     }
-    const detailsText = `${originalData.tickets} تذكرة، ${originalData.visas} فيزا، ${originalData.hotels} فندق، ${originalData.groups} جروبات`;
+    const detailsText = `${originalData.tickets} تذكرة، ${originalData.visas} فيزا، ${originalData.hotels} فندق، ${originalData.groups} جروبات.`;
     return {
         title: `قيد أرباح سكمنت لشركة: ${originalData.companyName}`,
         totalReceived: `إجمالي ربح السكمنت: ${formatCurrencyDisplay(originalData.total, originalData.currency)}`,
@@ -132,7 +132,7 @@ const buildDetailedSegmentDescription = (voucher: JournalVoucher): StructuredDes
             name: `حصة الشريك (${originalData.partnerName}) من ${detailsText}`,
             amount: formatCurrencyDisplay(originalData.partnerShare, originalData.currency),
         }],
-        notes: `فترة السكمنت من ${originalData.fromDate} إلى ${originalData.toDate}`,
+        notes: `الفترة من ${originalData.fromDate} إلى ${originalData.toDate}`,
     };
 };
 
@@ -146,6 +146,9 @@ async function getTransactionsForAccount(
 ): Promise<ReportTransaction[]> {
     const db = await getDb();
     if (!db) return [];
+
+    const debugSnapshot = await db.collection('journal-vouchers').limit(5).get();
+    debugSnapshot.docs.forEach((d) => console.log('DEBUG', d.id, d.data()));
 
     const journalSnapshot = await db.collection('journal-vouchers').where('isDeleted', '!=', true).get();
     
