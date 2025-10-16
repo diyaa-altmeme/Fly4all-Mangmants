@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { Suspense, useEffect, useState, useCallback } from 'react';
@@ -12,7 +11,7 @@ import { getSuppliers } from '@/app/suppliers/actions';
 import ReportGenerator from '@/components/reports/report-generator';
 import { useSearchParams } from 'next/navigation';
 
-function InvoicesReportDataContainer() {
+function AccountStatementContainer() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [data, setData] = useState<{ boxes: Box[], clients: Client[], suppliers: Supplier[] } | null>(null);
@@ -66,7 +65,7 @@ function InvoicesReportDataContainer() {
 export default function AccountStatementPage() {
     return (
         <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
-            <InvoicesReportDataContainer />
+            <AccountStatementContainer />
         </Suspense>
     );
 }
