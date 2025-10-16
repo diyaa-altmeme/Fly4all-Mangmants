@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -67,38 +66,36 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
             // Create a dedicated Journal Entry for this specific segment entry
             const journalVoucherRef = db.collection('journal-vouchers').doc();
             
-            // Generate detailed descriptions
             const periodText = `للفترة من ${entryData.fromDate} إلى ${entryData.toDate}`;
             const detailsText = `${entryData.tickets} تذكرة، ${entryData.visas} فيزا، ${entryData.hotels} فندق، ${entryData.groups} جروبات`;
             
-            const clientDescription = `السكمنت عن الفترة (${entryData.fromDate} – ${entryData.toDate}) – تفاصيل: ${detailsText}.`;
-            const partnerDescription = `حصة الشريك من أرباح سكمنت شركة ${entryData.companyName} ${periodText} عن ${detailsText}.`;
+            const clientDescription = `قيد أرباح السكمنت عن ${periodText}. تفاصيل: ${detailsText}.`;
+            const partnerDescription = `حصة الشريك من أرباح سكمنت شركة ${entryData.companyName} ${periodText}.`;
             const alrawdatainDescription = `حصة الروضتين من سكمنت شركة ${entryData.companyName} ${periodText}.`;
 
-            // Debit the client for the total profit (this is what they owe)
+            // CORRECTED LOGIC:
+            // Debit the client (source of segment) for the total profit (they owe us this amount).
             const debitEntries: JournalEntry[] = [
                 { accountId: entryData.clientId, amount: entryData.total, description: clientDescription },
             ];
 
-            // Credit the partner for their share (liability for us)
-            // Credit our revenue account for our share (income for us)
+            // Credit the partner for their share (a liability for us).
+            // Credit our revenue account for our share (income).
             const creditEntries: JournalEntry[] = [
                 { accountId: entryData.partnerId, amount: entryData.partnerShare, description: partnerDescription },
                 { accountId: 'revenue_segments', amount: entryData.alrawdatainShare, description: alrawdatainDescription },
             ];
             
-            // This check should theoretically always pass if calculations are correct
             const totalDebit = debitEntries.reduce((sum, e) => sum + e.amount, 0);
             const totalCredit = creditEntries.reduce((sum, e) => sum + e.amount, 0);
             if (Math.abs(totalDebit - totalCredit) > 0.01) {
                 console.error(`Journal entry for segment of ${entryData.companyName} is not balanced. Debit: ${totalDebit}, Credit: ${totalCredit}`);
-                // Skip this entry to avoid creating an unbalanced journal voucher
                 continue; 
             }
 
              writeBatch.set(journalVoucherRef, {
                 invoiceNumber: invoiceNumber,
-                date: entryDate.toISOString(), // Use the entry date for the accounting record
+                date: entryDate.toISOString(),
                 currency: entryData.currency,
                 exchangeRate: null,
                 notes: `قيد أرباح السكمنت لشركة ${entryData.companyName} عن الفترة من ${entryData.fromDate} إلى ${entryData.toDate}`,
@@ -109,13 +106,12 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                 voucherType: "segment",
                 debitEntries,
                 creditEntries,
-                isAudited: true, // Auto-audited
-                isConfirmed: true, // Auto-confirmed
+                isAudited: true,
+                isConfirmed: true,
                 isDeleted: false,
                 originalData: { ...dataWithUser, segmentId: segmentDocRef.id }, 
             });
 
-            // Update client settings and use counts
             if (entryData.clientId) {
                 const clientRef = db.collection('clients').doc(entryData.clientId);
                 writeBatch.update(clientRef, { 
