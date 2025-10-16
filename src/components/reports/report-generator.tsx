@@ -34,14 +34,13 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     const [report, setReport] = useState<ReportInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
-    const [currentFilters, setCurrentFilters] = useState<any>(null);
     const { hasPermission } = useAuth();
     
     const allAccounts = useMemo(() => {
         const clientOptions = clients.map(c => ({ value: c.id, label: `عميل: ${c.name}` }));
         const supplierOptions = suppliers.map(s => ({ value: s.id, label: `مورد: ${s.name}` }));
         const boxOptions = boxes.map(b => ({ value: b.id, label: `صندوق: ${b.name}` }));
-        const exchangeOptions: { value: string, label: string }[] = []; // Assuming exchanges are not passed, add later if needed
+        const exchangeOptions: { value: string, label: string }[] = []; 
         const staticAccounts = [
             { value: 'revenue_segments', label: 'إيراد: السكمنت'},
             { value: 'revenue_profit_distribution', label: 'إيراد: توزيع الأرباح'},
@@ -74,30 +73,38 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
       ];
       return allTransactionTypes.find(f => f.label === txType)?.id || txType;
     };
+    
+    const [filters, setFilters] = useState({
+        accountId: defaultAccountId || '',
+        dateRange: { from: subDays(new Date(), 30), to: new Date() } as DateRange | undefined,
+        searchTerm: '',
+        currency: 'both' as Currency | 'both',
+        reportType: 'summary' as 'summary' | 'detailed',
+        typeFilter: new Set(allFilters.map(f => f.id)),
+    });
 
 
-    const handleGenerateReport = useCallback(async (filters: any) => {
-        if (!filters.accountId) {
+    const handleGenerateReport = useCallback(async (newFilters?: Partial<typeof filters>) => {
+        const activeFilters = { ...filters, ...newFilters };
+        if (!activeFilters.accountId) {
             toast({ title: 'مدخلات غير كاملة', description: 'الرجاء اختيار حساب صحيح.', variant: 'destructive', });
             return;
         }
 
         setIsLoading(true);
         setReport(null);
-        setCurrentFilters(filters);
         try {
             const reportData = await getAccountStatement({
-                accountId: filters.accountId,
-                currency: filters.currency,
-                dateRange: { from: filters.dateRange?.from, to: filters.dateRange?.to },
-                reportType: filters.reportType,
+                accountId: activeFilters.accountId,
+                currency: activeFilters.currency,
+                dateRange: activeFilters.dateRange || { from: undefined, to: undefined },
+                reportType: activeFilters.reportType,
             });
             
-            const transactionTypeFilter = filters.typeFilter || new Set();
-            if (transactionTypeFilter.size > 0 && transactionTypeFilter.size < allFilters.length) {
+            if (activeFilters.typeFilter.size > 0 && activeFilters.typeFilter.size < allFilters.length) {
                 reportData.transactions = reportData.transactions.filter(tx => {
                      const transactionTypeName = getTransactionTypeName(tx.type);
-                     return transactionTypeFilter.has(transactionTypeName);
+                     return activeFilters.typeFilter.has(transactionTypeName);
                 });
             }
 
@@ -107,20 +114,13 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         } finally {
             setIsLoading(false);
         }
-    }, [toast, allFilters]);
+    }, [toast, allFilters, filters]);
     
      React.useEffect(() => {
         if (defaultAccountId) {
-            handleGenerateReport({
-                accountId: defaultAccountId,
-                currency: 'both',
-                dateRange: { from: subDays(new Date(), 30), to: new Date() },
-                reportType: 'summary',
-                typeFilter: new Set(allFilters.map(f => f.id))
-            });
+            handleGenerateReport({ accountId: defaultAccountId });
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [defaultAccountId]);
+    }, [defaultAccountId, handleGenerateReport]);
     
     const handleExport = () => {
         if (!report || report.transactions.length === 0) {
@@ -143,7 +143,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Account Statement");
         
-        const accountName = allAccounts.find(a => a.value === report.title.split(': ')[1])?.label || 'Account';
+        const accountName = allAccounts.find(a => a.value === filters.accountId)?.label || 'Account';
         XLSX.writeFile(workbook, `Statement-${accountName}-${new Date().toISOString().split('T')[0]}.xlsx`);
         
         toast({ title: "تم تصدير الكشف بنجاح" });
@@ -154,49 +154,80 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     };
 
     return (
-        <div className="h-[calc(100vh-180px)] flex flex-row-reverse items-stretch">
-             <aside className="w-80 border-l p-4 overflow-y-auto bg-card shrink-0">
-                 <h3 className="text-lg font-bold mb-4">الملخص المالي</h3>
-                 {report ? <ReportSummary report={report} /> : (
-                     <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                        <BarChart size={48} className="text-gray-300"/>
-                        <p className="mt-2">لم يتم إنشاء تقرير بعد.</p>
-                     </div>
-                 )}
-            </aside>
-            <main className="flex-1 overflow-y-auto p-4 space-y-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div>
-                            <CardTitle>{report?.title || "كشف الحساب"}</CardTitle>
-                            <CardDescription>
-                                {report ? `يعرض ${report.transactions.length} حركة للفترة المحددة.` : 'اختر حسابًا لعرض كشف الحساب.'}
-                            </CardDescription>
-                        </div>
-                         <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={handleExport} disabled={!report}><Download className="me-2 h-4 w-4"/> تصدير Excel</Button>
-                            <Button variant="outline" size="sm" onClick={handlePrint} disabled={!report}><Printer className="me-2 h-4 w-4"/> طباعة</Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                         <div className="border rounded-lg overflow-x-auto bg-card">
-                            {isLoading ? (
-                                <div className="flex items-center justify-center h-96">
-                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                </div>
-                            ) : report ? (
-                                <ReportTable transactions={report.transactions} />
-                            ) : (
-                                <div className="flex flex-col items-center justify-center h-96 text-center text-gray-500">
-                                   <FileText size={48} className="text-gray-300" />
-                                   <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
-                                   <p className="text-sm">الرجاء اختيار حساب وتحديد فترة زمنية ثم الضغط على "عرض الكشف".</p>
-                               </div>
-                            )}
-                         </div>
-                    </CardContent>
-                </Card>
-            </main>
+        <div className="h-[calc(100vh-160px)] flex flex-col bg-muted/30">
+            {/* Top Bar */}
+            <header className="flex-shrink-0 p-4 bg-card border-b">
+                 <div className="grid grid-cols-[1fr,250px,250px,auto] gap-4 items-end">
+                    <div className="space-y-1.5">
+                        <Label className="font-semibold">الحساب</Label>
+                        <Autocomplete
+                            value={filters.accountId}
+                            onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
+                            options={allAccounts}
+                            placeholder="اختر حسابًا..."
+                        />
+                    </div>
+                     <div className="space-y-1.5">
+                        <Label className="font-semibold">من تاريخ</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-start text-left font-normal h-10"><CalendarIcon className="me-2 h-4 w-4" />{filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : <span>اختر تاريخ</span>}</Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.dateRange?.from} onSelect={d => setFilters(f => ({ ...f, dateRange: { ...f.dateRange, from: d } }))} /></PopoverContent>
+                        </Popover>
+                    </div>
+                     <div className="space-y-1.5">
+                        <Label className="font-semibold">إلى تاريخ</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-start text-left font-normal h-10"><CalendarIcon className="me-2 h-4 w-4" />{filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : <span>اختر تاريخ</span>}</Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.dateRange?.to} onSelect={d => setFilters(f => ({ ...f, dateRange: { ...f.dateRange, to: d } }))} /></PopoverContent>
+                        </Popover>
+                    </div>
+                    <Button onClick={() => handleGenerateReport()} disabled={isLoading} className="h-10">
+                        {isLoading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4"/>}
+                        تطبيق الفلتر
+                    </Button>
+                </div>
+            </header>
+            
+            <div className="flex-1 flex overflow-hidden">
+                {/* Right Sidebar */}
+                 <aside className="w-64 border-l p-4 overflow-y-auto bg-card">
+                    <ReportFilters 
+                        allFilters={allFilters} 
+                        filters={filters}
+                        onFiltersChange={setFilters}
+                    />
+                </aside>
+
+                {/* Main Content */}
+                <main className="flex-1 flex flex-col overflow-hidden">
+                    <div className="flex-grow overflow-y-auto p-4">
+                        {isLoading ? (
+                            <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                        ) : report ? (
+                            <ReportTable transactions={report.transactions} />
+                        ) : (
+                             <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
+                                <FileText size={48} className="text-gray-300" />
+                                <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
+                                <p className="text-sm">الرجاء اختيار حساب وتحديد فترة زمنية ثم الضغط على "عرض الكشف".</p>
+                           </div>
+                        )}
+                    </div>
+                </main>
+            </div>
+
+            {/* Bottom Bar */}
+            <footer className="flex-shrink-0 p-4 bg-card border-t flex justify-between items-center">
+                 {report ? <ReportSummary report={report} /> : <div className="text-muted-foreground text-sm">لم يتم إنشاء تقرير بعد.</div>}
+                 <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={handleExport} disabled={!report}><Download className="me-2 h-4 w-4"/> تصدير</Button>
+                    <Button variant="outline" size="sm" onClick={handlePrint} disabled={!report}><Printer className="me-2 h-4 w-4"/> طباعة</Button>
+                </div>
+            </footer>
         </div>
     )
 }

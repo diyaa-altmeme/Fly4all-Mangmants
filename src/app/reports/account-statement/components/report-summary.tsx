@@ -3,7 +3,9 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { ReportInfo } from "@/lib/types";
-import { Banknote, TrendingDown, TrendingUp } from "lucide-react";
+import { Banknote, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { cn } from "@/lib/utils";
+
 
 const formatCurrencyDisplay = (amount: number, currency: string) => {
     if (Math.abs(amount) < 0.01) return `0.00 ${currency}`;
@@ -12,55 +14,54 @@ const formatCurrencyDisplay = (amount: number, currency: string) => {
 };
 
 const StatCard = ({ title, usd, iqd, className, icon: Icon }: { title: string; usd: number; iqd: number; className?: string, icon: React.ElementType }) => (
-    <div className={`p-4 bg-muted/50 rounded-xl border-l-4 ${className}`}>
-        <div className="flex items-center gap-3">
-            <Icon className="h-6 w-6" />
-            <p className="text-sm font-bold text-muted-foreground">{title}</p>
-        </div>
-        <div className="mt-2 text-right">
-            <p className="font-bold font-mono text-lg">{formatCurrencyDisplay(usd, 'USD')}</p>
-            <p className="font-bold font-mono text-base text-muted-foreground">{formatCurrencyDisplay(iqd, 'IQD')}</p>
-        </div>
+    <div className={cn("text-center p-2 rounded-lg bg-background", className)}>
+        <p className="text-xs font-bold text-muted-foreground flex items-center justify-center gap-1">
+            <Icon className="h-4 w-4" />
+            {title}
+        </p>
+        <p className={cn("font-bold font-mono text-sm", usd < 0 ? "text-red-500" : "")}>
+            {formatCurrencyDisplay(usd, 'USD')}
+        </p>
+        <p className={cn("font-bold font-mono text-xs text-muted-foreground", iqd < 0 ? "text-red-500/80" : "")}>
+            {formatCurrencyDisplay(iqd, 'IQD')}
+        </p>
     </div>
 );
 
 
 export default function ReportSummary({ report }: { report: ReportInfo }) {
     return (
-        <Card className="shadow-sm">
-            <CardContent className="pt-6">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                    <StatCard 
-                        title="الرصيد الافتتاحي" 
-                        usd={report.openingBalanceUSD} 
-                        iqd={report.openingBalanceIQD} 
-                        className="border-gray-500" 
-                        icon={Banknote} 
-                    />
-                    <StatCard 
-                        title="إجمالي الدائن" 
-                        usd={report.totalCreditUSD} 
-                        iqd={report.totalCreditIQD} 
-                        className="border-green-500"
-                        icon={TrendingUp}
-                    />
-                    <StatCard 
-                        title="إجمالي المدين" 
-                        usd={report.totalDebitUSD} 
-                        iqd={report.totalDebitIQD} 
-                        className="border-red-500"
-                        icon={TrendingDown}
-                    />
-                     <StatCard 
-                        title="الرصيد الختامي" 
-                        usd={report.finalBalanceUSD} 
-                        iqd={report.finalBalanceIQD} 
-                        className="border-blue-500"
-                        icon={Banknote}
-                    />
-                </div>
-            </CardContent>
-        </Card>
+        <div className="grid grid-cols-4 gap-3 w-full">
+            <StatCard 
+                title="الرصيد الافتتاحي" 
+                usd={report.openingBalanceUSD} 
+                iqd={report.openingBalanceIQD} 
+                className="border-gray-500/30" 
+                icon={Banknote} 
+            />
+            <StatCard 
+                title="إجمالي الدائن" 
+                usd={report.totalCreditUSD} 
+                iqd={report.totalCreditIQD} 
+                className="border-green-500/30 text-green-600"
+                icon={TrendingUp}
+            />
+            <StatCard 
+                title="إجمالي المدين" 
+                usd={report.totalDebitUSD} 
+                iqd={report.totalDebitIQD} 
+                className="border-red-500/30 text-red-600"
+                icon={TrendingDown}
+            />
+             <StatCard 
+                title="الرصيد الختامي" 
+                usd={report.finalBalanceUSD} 
+                iqd={report.finalBalanceIQD} 
+                className="border-blue-500/30 text-blue-600"
+                icon={Wallet}
+            />
+        </div>
     );
 }
 
+    
