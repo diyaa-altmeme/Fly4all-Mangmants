@@ -12,33 +12,42 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, PlusCircle, Calendar as CalendarIcon, Trash2, ArrowLeft, Percent, Settings2, HandCoins, ChevronDown, BadgeCent, DollarSign, User as UserIcon, Wallet, Hash, CheckCircle, ArrowRight, X, Building, Store } from 'lucide-react';
-import { z } from 'zod';
-import { useForm, Controller, FormProvider, useFormContext, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import type { Currency, Client, Supplier, Subscription, User, Box, SegmentEntry, SegmentSettings, PartnerShareSetting } from '@/lib/types';
+import { Loader2, Calendar as CalendarIcon, PlusCircle, User as UserIcon, Hash, Wallet, ArrowLeft, ArrowRight, X, Building, Store, Settings2, Save, Trash2, Percent } from 'lucide-react';
 import { addSegmentEntries } from '@/app/segments/actions';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useRouter } from 'next/navigation';
 import { Autocomplete } from '@/components/ui/autocomplete';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { NumericInput } from "@/components/ui/numeric-input";
-import { Label } from '@/components/ui/label';
-import { useVoucherNav } from '@/context/voucher-nav-context';
-import { Separator } from '@/components/ui/separator';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { NumericInput } from '@/components/ui/numeric-input';
 import { useAuth } from '@/lib/auth-context';
-import { Badge } from '@/components/ui/badge';
+import { useVoucherNav } from '@/context/voucher-nav-context';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format, addMonths, parseISO } from 'date-fns';
+import { useForm, Controller, FormProvider, useFormContext, useFieldArray } from 'react-hook-form';
+import { cn } from '@/lib/utils';
+import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
+
+const periodSchema = z.object({
+  fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
+  toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
+  currency: z.enum(['USD', 'IQD']).default('USD'),
+  entries: z.array(z.any()).min(1, "يجب إضافة شركة واحدة على الأقل."),
+});
 
 const partnerSchema = z.object({
   partnerId: z.string().min(1, "اسم الشريك مطلوب."),
@@ -68,29 +77,8 @@ const companyEntrySchema = z.object({
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
 });
 
-const formSchema = z.object({
-  fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
-  toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
-  currency: z.enum(['USD', 'IQD']).default('USD'),
-  entries: z.array(companyEntrySchema.extend({
-      // Calculated fields, not part of the form input itself
-      companyName: z.string(),
-      ticketProfits: z.number(),
-      otherProfits: z.number(),
-      total: z.number(),
-      alrawdatainShare: z.number(),
-      partnerShare: z.number(),
-      partnerShares: z.array(z.object({
-          partnerId: z.string(),
-          partnerName: z.string(),
-          share: z.number(),
-      })).optional(),
-  })).min(1, "يجب إضافة شركة واحدة على الأقل."),
-});
-
-
 type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
-type PeriodFormValues = z.infer<typeof formSchema>;
+type PeriodFormValues = z.infer<typeof periodSchema>;
 type PartnerFormValues = z.infer<typeof partnerSchema>;
 
 interface AddSegmentPeriodDialogProps {
@@ -240,7 +228,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                             name="alrawdatainSharePercentage"
                             control={control}
                             render={({ field }) => (
-                                <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="50"/>
+                                 <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="50"/>
                             )}
                          />
                      </div>
@@ -269,7 +257,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                         </div>
                         <div className="w-28 space-y-1.5">
                             <Label>القيمة</Label>
-                            <Input type="text" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} />
+                            <Input type="number" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} />
                         </div>
                         <Button type="button" size="icon" className="shrink-0" onClick={handleAddPartner}><PlusCircle className="h-4 w-4"/></Button>
                     </div>
@@ -288,7 +276,9 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
             )}
              <FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel>ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
             <div className='flex justify-end'>
-                <Button type="button" onClick={handleCompanyFormSubmit(onAddEntry)}><PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة</Button>
+                 <Button type="button" onClick={handleCompanyFormSubmit(onAddEntry)}>
+                    <PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة
+                 </Button>
             </div>
         </div>
     );
@@ -378,8 +368,10 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                 alrawdatainShare = total * (alrawdatainPercentage / 100);
                 const remainingForPartners = total - alrawdatainShare;
                 
+                const totalPartnerPercentage = data.partners.reduce((sum, p) => sum + p.shareValue, 0);
+
                 data.partners.forEach(p => {
-                    const amount = remainingForPartners * (p.shareValue / 100);
+                    const amount = remainingForPartners * (p.shareValue / totalPartnerPercentage);
                     partnerSharesDetails.push({ partnerId: p.partnerId, partnerName: p.partnerName, share: amount });
                     partnerTotalShare += amount;
                 });
@@ -387,7 +379,6 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                 const totalFixedPartnerShare = data.partners.reduce((sum, p) => sum + p.shareValue, 0);
                 if (totalFixedPartnerShare > total) {
                     toast({ title: 'خطأ في التوزيع', description: 'مجموع الحصص الثابتة للشركاء أكبر من إجمالي الربح.', variant: 'destructive'});
-                    // Here you might want to stop the process or handle the error
                 }
                 alrawdatainShare = total - totalFixedPartnerShare;
                 partnerTotalShare = totalFixedPartnerShare;
@@ -444,7 +435,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                     <DialogDescription>أدخل بيانات الفترة المحاسبية، ثم أضف سجلات الشركات.</DialogDescription>
                 </DialogHeader>
                 <FormProvider {...periodForm}>
-                    <form onSubmit={handleSavePeriod} className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
+                    <form onSubmit={periodForm.handleSubmit(handleSavePeriod)} className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
                         <div className="p-4 border rounded-lg bg-background/50 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                             <FormField control={periodControl} name="fromDate" render={({ field }) => <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>} />
                             <FormField control={periodControl} name="toDate" render={({ field }) => <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>} />
@@ -491,7 +482,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                     </form>
                 </FormProvider>
                  <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="w-full sm:w-auto">
+                    <Button type="submit" onClick={periodForm.handleSubmit(handleSavePeriod)} disabled={isSaving || fields.length === 0} className="w-full sm:w-auto">
                         {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                         حفظ بيانات الفترة ({fields.length} سجلات)
                     </Button>
@@ -500,3 +491,5 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         </Dialog>
     );
 }
+
+    
