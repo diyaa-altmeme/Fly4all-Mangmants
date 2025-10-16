@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -22,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
+import type { SegmentEntry, SegmentSettings, Client, Supplier } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -44,11 +45,10 @@ const periodSchema = z.object({
 const companyEntrySchema = z.object({
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   partnerId: z.string().min(1, { message: "اسم الشريك مطلوب." }),
-  currency: z.enum(['USD', 'IQD']),
-  tickets: z.coerce.number().nonnegative().default(0),
-  visas: z.coerce.number().nonnegative().default(0),
-  hotels: z.coerce.number().nonnegative().default(0),
-  groups: z.coerce.number().nonnegative().default(0),
+  tickets: z.coerce.number().int().nonnegative().default(0),
+  visas: z.coerce.number().int().nonnegative().default(0),
+  hotels: z.coerce.number().int().nonnegative().default(0),
+  groups: z.coerce.number().int().nonnegative().default(0),
   
   ticketProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
   ticketProfitValue: z.coerce.number().min(0).default(50),
@@ -144,7 +144,7 @@ type PeriodFormValues = z.infer<typeof periodSchema>;
 interface AddSegmentPeriodDialogProps {
   clients: Client[];
   suppliers: Supplier[];
-  onSuccess: (newEntries: SegmentEntry[]) => Promise<void>;
+  onSuccess: () => Promise<void>;
 }
 
 export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
@@ -197,11 +197,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             alrawdatainSharePercentage: 50,
         }
     });
-    
-    const boxName = useMemo(() => {
-        if (!currentUser || !('boxId' in currentUser)) return 'غير محدد';
-        return navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد';
-    }, [currentUser, navData?.boxes]);
 
     const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
     const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
@@ -377,7 +372,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </DialogHeader>
                 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                    <div className="p-4 border rounded-lg">
+                    <div className="p-4 border rounded-lg bg-background/50">
                         <h3 className="font-semibold text-base mb-2">البيانات الأساسية للفترة والسكمنت</h3>
                         <Form {...companyForm}>
                             <form onSubmit={companyForm.handleSubmit(handleAddCompanyEntry)} className="space-y-4">
@@ -485,10 +480,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     <div className="flex justify-between w-full">
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4 text-primary"/> <span>{currentUser?.name || '...'}</span></div>
-                            {currentUser && 'role' in currentUser && currentUser.boxId && (
-                                <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary"/> <span>{boxName}</span></div>
-                            )}
-                            <div className="flex items-center gap-1.5"><Hash className="h-4 w-4 text-primary"/> <span>رقم الفاتورة: (تلقائي)</span></div>
                         </div>
                         <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
                             {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
@@ -500,5 +491,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
