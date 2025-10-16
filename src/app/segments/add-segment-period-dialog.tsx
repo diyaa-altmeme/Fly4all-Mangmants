@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import type { SegmentEntry, SegmentSettings, Client, Supplier } from '@/lib/types';
+import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -30,19 +30,30 @@ import { addSegmentEntries } from '@/app/segments/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { useAuth } from '@/lib/auth-context';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
 });
 
+const partnerSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    type: z.enum(['percentage', 'fixed']),
+    value: z.coerce.number().min(0, "القيمة يجب أن تكون موجبة."),
+    notes: z.string().optional(),
+});
+
 const companyEntrySchema = z.object({
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
-  partnerId: z.string().optional(),
   tickets: z.coerce.number().int().nonnegative().default(0),
   visas: z.coerce.number().int().nonnegative().default(0),
   hotels: z.coerce.number().int().nonnegative().default(0),
   groups: z.coerce.number().int().nonnegative().default(0),
+  notes: z.string().optional(),
+  
   ticketProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
   ticketProfitValue: z.coerce.number().min(0).default(50),
   visaProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
@@ -51,27 +62,15 @@ const companyEntrySchema = z.object({
   hotelProfitValue: z.coerce.number().min(0).default(100),
   groupProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
   groupProfitValue: z.coerce.number().min(0).default(100),
+
   hasPartner: z.boolean().default(false),
   distributionType: z.enum(['percentage', 'fixed']).default('percentage'),
-  partners: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    type: z.enum(['percentage', 'fixed']),
-    value: z.coerce.number().min(0)
-  })).optional(),
-  alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
-  notes: z.string().optional(),
+  partners: z.array(partnerSchema).optional(),
 });
-
-const InputWithPercentage = ({ field, ...props }: { field: any } & React.ComponentProps<typeof Input>) => (
-    <div className="relative">
-      <Input type="number" {...field} className="pe-7" {...props} />
-      <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-    </div>
-);
 
 type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
 type PeriodFormValues = z.infer<typeof periodSchema>;
+type PartnerFormValues = z.infer<typeof partnerSchema>;
 
 interface AddSegmentPeriodDialogProps {
   onSuccess: () => Promise<void>;
@@ -109,13 +108,13 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
         resolver: zodResolver(companyEntrySchema),
         defaultValues: {
             clientId: '',
-            partnerId: '',
             tickets: 0,
             visas: 0,
             hotels: 0,
             groups: 0,
             hasPartner: false,
             partners: [],
+            distributionType: 'percentage',
             ticketProfitType: 'percentage',
             ticketProfitValue: 50,
             visaProfitType: 'percentage',
@@ -124,7 +123,6 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
             hotelProfitValue: 100,
             groupProfitType: 'percentage',
             groupProfitValue: 100,
-            alrawdatainSharePercentage: 50,
             notes: ''
         }
     });
@@ -138,36 +136,27 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
              periodForm.reset({});
              companyForm.reset({
                 clientId: '',
-                partnerId: '',
                 tickets: 0,
                 visas: 0,
                 hotels: 0,
                 groups: 0,
                 hasPartner: false,
                 partners: [],
-                ticketProfitType: 'percentage',
-                ticketProfitValue: 50,
-                visaProfitType: 'percentage',
-                visaProfitValue: 100,
-                hotelProfitType: 'percentage',
-                hotelProfitValue: 100,
-                groupProfitType: 'percentage',
-                groupProfitValue: 100,
-                alrawdatainSharePercentage: 50,
-                notes: ''
+                distributionType: 'percentage',
+                notes: '',
             });
             setPeriodEntries([]);
         }
     }, [open, periodForm, companyForm]);
 
      const calculateShares = (data: CompanyEntryFormValues) => {
-        const client = allCompanyOptions.find(c => c.value === data.clientId);
-        const settings = client?.settings || {
+        const company = clients.find(c => c.id === data.clientId);
+        const settings = company?.segmentSettings || {
             ticketProfitValue: data.ticketProfitValue, ticketProfitType: data.ticketProfitType,
             visaProfitValue: data.visaProfitValue, visaProfitType: data.visaProfitType,
             hotelProfitValue: data.hotelProfitValue, hotelProfitType: data.hotelProfitType,
             groupProfitValue: data.groupProfitValue, groupProfitType: data.groupProfitType,
-            alrawdatainSharePercentage: data.alrawdatainSharePercentage,
+            alrawdatainSharePercentage: 50,
         };
 
         const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => {
@@ -185,25 +174,37 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
         
         let alrawdatainShare = total;
         let partnerShare = 0;
-        
-        if (data.hasPartner && data.distributionType === 'percentage' && data.partners) {
-             const totalPartnerPercentage = data.partners.reduce((sum, p) => sum + p.value, 0);
-             partnerShare = total * (totalPartnerPercentage / 100);
-             alrawdatainShare = total - partnerShare;
-        } else if (data.hasPartner && data.distributionType === 'fixed' && data.partners) {
-             partnerShare = data.partners.reduce((sum, p) => sum + p.value, 0);
-             alrawdatainShare = total - partnerShare;
+        const partnerSharesDetails: { partnerId: string, partnerName: string, share: number }[] = [];
+
+        if (data.hasPartner && data.partners) {
+            let totalDistributed = 0;
+            if (data.distributionType === 'percentage') {
+                data.partners.forEach(p => {
+                    const amount = total * (p.value / 100);
+                    partnerSharesDetails.push({ partnerId: p.id, partnerName: p.name, share: amount });
+                    totalDistributed += amount;
+                });
+            } else { // fixed
+                data.partners.forEach(p => {
+                    partnerSharesDetails.push({ partnerId: p.id, partnerName: p.name, share: p.value });
+                    totalDistributed += p.value;
+                });
+            }
+            alrawdatainShare = total - totalDistributed;
+            partnerShare = totalDistributed;
         }
 
-        return { 
+
+        return {
             ...data,
-            companyName: client?.label || '',
-            partnerName: data.partners?.map(p => p.name).join(', ') || '',
+            companyName: company?.name || '',
+            partnerName: partnerSharesDetails.map(p => p.partnerName).join(', ') || '',
             ticketProfits, 
             otherProfits, 
             total, 
             alrawdatainShare, 
             partnerShare,
+            partnerShares: partnerSharesDetails, // For detailed breakdown
         };
     }
 
@@ -271,7 +272,7 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
                 </DialogHeader>
                 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                    <div className="p-4 border rounded-lg bg-background/50">
+                    <div className="p-4 border rounded-lg bg-background/50 sticky top-0 z-10">
                         <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
                         <Form {...periodForm}>
                             <form className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
@@ -416,7 +417,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                      <div className="flex items-end gap-2">
                         <div className="flex-grow"><Label>الشريك</Label><Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريك..."/></div>
                         <div className="w-24"><Label>النوع</Label><Select value={currentPartnerType} onValueChange={(v: any) => setCurrentPartnerType(v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">مبلغ</SelectItem></SelectContent></Select></div>
-                        <div className="w-28"><Label>القيمة</Label><NumericInput value={currentPartnerValue} onValueChange={(v) => setCurrentPartnerValue(v || '')} /></div>
+                        <div className="w-28"><Label>القيمة</Label><Input type="number" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} /></div>
                         <Button type="button" size="icon" className="shrink-0" onClick={handleAddPartner}><PlusCircle className="h-4 w-4"/></Button>
                      </div>
                      {fields.length > 0 && (
@@ -430,15 +431,6 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                             ))}
                         </div>
                      )}
-                     <FormField control={control} name="distributionType" render={({ field }) => (
-                        <FormItem className="space-y-1"><FormLabel>نوع توزيع حصة الروضتين</FormLabel>
-                             <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                <SelectContent><SelectItem value="percentage">نسبة مئوية</SelectItem><SelectItem value="fixed">مبلغ ثابت</SelectItem></SelectContent>
-                            </Select>
-                        <FormMessage/></FormItem>
-                    )}/>
-                     {watch('distributionType') === 'percentage' && <FormField control={control} name="alrawdatainSharePercentage" render={({ field }) => (<FormItem><FormLabel>حصة الروضتين (%)</FormLabel><FormControl><InputWithPercentage field={field} /></FormControl><FormMessage/></FormItem>)}/>}
                 </div>
             )}
              <FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel>ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
