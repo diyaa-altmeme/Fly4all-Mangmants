@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -23,7 +22,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard, RefreshCw } from 'lucide-react';
 
-
 interface ReportGeneratorProps {
   boxes: Box[];
   clients: Client[];
@@ -33,13 +31,9 @@ interface ReportGeneratorProps {
 
 export default function ReportGenerator({ boxes, clients, suppliers, defaultAccountId }: ReportGeneratorProps) {
   const [report, setReport] = useState<ReportInfo | null>(null);
-  const [date, setDate] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 30),
-    to: new Date(),
-  });
-  const [accountId, setAccountId] = useState(defaultAccountId || "");
-
   const [filters, setFilters] = useState({
+    accountId: defaultAccountId || "",
+    dateRange: { from: subDays(new Date(), 30), to: new Date() } as DateRange | undefined,
     searchTerm: "",
     currency: "both" as Currency | "both",
     reportType: "summary" as "summary" | "detailed",
@@ -86,7 +80,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   };
 
   const handleGenerateReport = useCallback(async () => {
-    if (!accountId) {
+    if (!filters.accountId) {
       toast({ title: "خطأ", description: "الرجاء اختيار حساب.", variant: "destructive" });
       return;
     }
@@ -95,9 +89,9 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
 
     try {
       const reportData = await getAccountStatement({
-        accountId: accountId,
+        accountId: filters.accountId,
         currency: filters.currency,
-        dateRange: date || { from: undefined, to: undefined },
+        dateRange: filters.dateRange || { from: undefined, to: undefined },
         reportType: filters.reportType,
       });
 
@@ -114,11 +108,11 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     } finally {
       setIsLoading(false);
     }
-  }, [accountId, filters, date, allFilters, toast]);
+  }, [filters, allFilters, toast]);
 
   useEffect(() => {
     if (defaultAccountId) {
-      setAccountId(defaultAccountId);
+      setFilters(f => ({ ...f, accountId: defaultAccountId }));
       handleGenerateReport();
     }
   }, [defaultAccountId, handleGenerateReport]);
@@ -159,41 +153,56 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "كشف الحساب");
-    const accountName = allAccounts.find(a => a.value === accountId)?.label || "Account";
-    XLSX.writeFile(wb, `Statement-${accountName.replace(/:/g, '')}-${new Date().toISOString().split("T")[0]}.xlsx`);
+    const accountName = allAccounts.find(a => a.value === filters.accountId)?.label || "Account";
+    XLSX.writeFile(wb, `Statement-${accountName}-${new Date().toISOString().split("T")[0]}.xlsx`);
     toast({ title: "تم التصدير بنجاح" });
   };
 
   const handlePrint = () => window.print();
 
   return (
-    <div className="flex h-[calc(100vh-230px)] gap-4">
-      {/* Right Sidebar */}
+    <div className="flex h-[calc(100vh-160px)] gap-4 p-4 bg-muted/30">
+      {/* Sidebar */}
       <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4 bg-card p-4 rounded-lg shadow-sm">
         <div className="space-y-2">
           <Label className="font-semibold">الحساب</Label>
           <Autocomplete
-            value={accountId}
-            onValueChange={v => setAccountId(v)}
+            value={filters.accountId}
+            onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
             options={allAccounts}
             placeholder="اختر حسابًا..."
           />
         </div>
         <div className="flex-grow overflow-y-auto -mx-4 px-4">
-            <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
+          <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
         </div>
-        <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full mt-auto">
-          {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-          <Filter className="me-2 h-4 w-4" />
-          عرض الكشف
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
+            {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+            <Filter className="me-2 h-4 w-4" />
+            عرض الكشف
+          </Button>
+          <Button onClick={handleExport} variant="secondary" className="w-full">تصدير Excel</Button>
+          <Button onClick={handlePrint} variant="secondary" className="w-full">طباعة</Button>
+        </div>
       </aside>
-      
+
       {/* Main Content */}
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
-        <header className="flex-shrink-0 p-3 border-b flex items-center justify-between">
-          <div className="relative flex-1 max-w-lg">
+        <header className="flex items-center justify-between p-3 border-b">
+           <Popover>
+              <PopoverTrigger asChild>
+                  <Button id="date" variant={"outline"} className="w-[260px] justify-start text-right font-normal h-10">
+                      <CalendarIcon className="ms-2 h-4 w-4" />
+                      {filters.dateRange?.from ? (filters.dateRange.to ? (<>{format(filters.dateRange.from, "LLL dd, y")} - {format(filters.dateRange.to, "LLL dd, y")}</>) : (format(filters.dateRange.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
+                  </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar initialFocus mode="range" defaultMonth={filters.dateRange?.from} selected={filters.dateRange} onSelect={d => setFilters(f => ({ ...f, dateRange: d }))} numberOfMonths={2} />
+              </PopoverContent>
+          </Popover>
+          <div className="relative flex-1 max-w-lg mx-4">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="بحث في نتائج الكشف..."
@@ -202,17 +211,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
               className="pr-10 h-10"
             />
           </div>
-           <Popover>
-              <PopoverTrigger asChild>
-                  <Button id="date" variant={"outline"} className="w-[260px] justify-start text-right font-normal h-10 mx-2">
-                      <CalendarIcon className="ms-2 h-4 w-4" />
-                      {date?.from ? (date.to ? (<>{format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}</>) : (format(date.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
-                  </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2} />
-              </PopoverContent>
-          </Popover>
         </header>
 
         {/* Table */}
@@ -220,7 +218,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
           {isLoading ? (
             <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : report ? (
-            <ReportTable transactions={filteredTransactions} />
+            <ReportTable transactions={filteredTransactions} reportType={filters.reportType} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
               <FileText size={48} className="text-gray-300" />
@@ -231,12 +229,8 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         </div>
         
         {/* Footer */}
-        <footer className="flex-shrink-0 p-3 border-t bg-card flex items-center justify-between">
-            <div className="flex gap-2">
-                 <Button onClick={handleExport} variant="secondary" size="sm">تصدير Excel</Button>
-                 <Button onClick={handlePrint} variant="secondary" size="sm">طباعة</Button>
-            </div>
-            {report ? <ReportSummary report={report} /> : <p className="text-center text-muted-foreground text-sm">لم يتم إنشاء تقرير بعد.</p>}
+        <footer className="flex-shrink-0 p-3 border-t bg-card">
+          {report ? <ReportSummary report={report} /> : <p className="text-center text-muted-foreground text-sm">لم يتم إنشاء تقرير بعد.</p>}
         </footer>
       </main>
 
