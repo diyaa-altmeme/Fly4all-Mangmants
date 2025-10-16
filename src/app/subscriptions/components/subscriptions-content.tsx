@@ -45,12 +45,6 @@ export default function SubscriptionsContent({ initialSubscriptions, initialInst
                 <SubscriptionsSettingsDialog onSettingsChanged={handleSuccess}>
                     <Button variant="outline"><Settings className="me-2 h-4 w-4"/> الإعدادات</Button>
                 </SubscriptionsSettingsDialog>
-                <Button asChild variant="outline">
-                    <Link href="/system/activity-log"><History className="me-2 h-4 w-4"/> سجل النشاطات</Link>
-                </Button>
-                <Button asChild variant="outline">
-                    <Link href="/subscriptions/deleted-subscriptions"><Trash2 className="me-2 h-4 w-4"/> سجل المحذوفات</Link>
-                </Button>
                 <AddSubscriptionDialog onSubscriptionAdded={handleSuccess}>
                     <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة اشتراك</Button>
                 </AddSubscriptionDialog>

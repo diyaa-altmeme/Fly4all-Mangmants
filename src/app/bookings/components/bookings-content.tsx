@@ -151,12 +151,6 @@ export default function BookingsContent({
                   <Button><PlusCircle className="me-2 h-4 w-4" /> إضافة حجز جديد</Button>
                 </AddBookingDialog>
                  <TicketOperationsDialog onDataChanged={onDataChanged} />
-                 <Button asChild variant="outline">
-                    <Link href="/bookings/deleted-bookings">
-                        <History className="me-2 h-4 w-4"/>
-                        سجل المحذوفات
-                    </Link>
-                </Button>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="outline">إضافة سريعة <ChevronsUpDown className="ms-2 h-4 w-4" /></Button>

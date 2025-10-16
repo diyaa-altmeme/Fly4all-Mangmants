@@ -128,6 +128,12 @@ const systemItems = [
     { href: "/coming-soon", label: "الميزات القادمة", icon: Lightbulb, permission: 'public' },
 ];
 
+const deletedItemsLog = [
+    { href: "/bookings/deleted-bookings", label: "سجلات الحجوزات", icon: Ticket },
+    { href: "/subscriptions/deleted-subscriptions", label: "سجلات الاشتراكات", icon: Repeat },
+    { href: "/segments/deleted-segments", label: "سجلات السكمنت", icon: Layers3 },
+]
+
 const additionalServicesItems = [
     { href: "/chat", label: "المحادثات", icon: MessageSquare, permission: 'public' },
     { href: "/campaigns", label: "الحملات", icon: Send, permission: 'admin' },
@@ -139,6 +145,7 @@ const MobileSubItem = ({ href, icon: Icon, children }: { href: string; icon: Rea
         <Icon className="h-4 w-4" />
     </Link>
 );
+
 
 const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) => {
     const router = useRouter();
@@ -359,11 +366,34 @@ const MainNavContent = () => {
           activeRoutes: ['/settings', '/users', '/boxes', '/coming-soon', '/hr', '/system', '/templates', '/support'], 
           children: (
            <>
-             {filterItems(systemItems).map(item => (
-                 <DropdownMenuItem asChild key={item.label}>
-                    <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
-                </DropdownMenuItem>
-            ))}
+             {filterItems(systemItems).map(item => {
+                // Special case for deleted items log to make it a sub-menu
+                 if (item.href === '/system/deleted-log') { // A placeholder href
+                     return (
+                         <DropdownMenuSub key="deleted-log">
+                             <DropdownMenuSubTrigger>
+                                 <History className="me-2 h-4 w-4" />
+                                 <span>سجل المحذوفات</span>
+                             </DropdownMenuSubTrigger>
+                             <DropdownMenuSubContent>
+                                {deletedItemsLog.map(subItem => (
+                                     <DropdownMenuItem asChild key={subItem.href}>
+                                        <Link href={subItem.href} className="justify-between w-full">
+                                            <span>{subItem.label}</span>
+                                            <subItem.icon className="h-4 w-4" />
+                                        </Link>
+                                    </DropdownMenuItem>
+                                ))}
+                             </DropdownMenuSubContent>
+                         </DropdownMenuSub>
+                     );
+                 }
+                 return (
+                     <DropdownMenuItem asChild key={item.label}>
+                        <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
+                    </DropdownMenuItem>
+                 )
+            })}
           </>
       )},
   ].filter(menu => {
@@ -404,7 +434,28 @@ const MainNavContent = () => {
       if (menu.id === 'system') {
            return (
              <div className="flex flex-col gap-1">
-                {filterItems(systemItems).map(item => <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>)}
+                {filterItems(systemItems).map(item => {
+                    if (item.href === '/system/deleted-log') {
+                        return (
+                             <Accordion type="single" collapsible className="w-full" key="deleted-log-mobile">
+                                <AccordionItem value="deleted-log" className="border-b-0">
+                                    <AccordionTrigger className="hover:no-underline font-medium justify-end px-3 py-2">
+                                        <div className="flex items-center gap-2 justify-end">
+                                            سجل المحذوفات
+                                            <History className="h-5 w-5" />
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="pr-6">
+                                         <div className="flex flex-col gap-1">
+                                            {deletedItemsLog.map(subItem => <MobileSubItem key={subItem.href} href={subItem.href} icon={subItem.icon}>{subItem.label}</MobileSubItem>)}
+                                         </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            </Accordion>
+                        )
+                    }
+                    return <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>
+                })}
             </div>
            )
       }
