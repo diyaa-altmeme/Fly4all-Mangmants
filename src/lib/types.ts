@@ -121,6 +121,7 @@ export type Payment = {
   debtId?: string;
   subscriptionInstallmentId?: string;
   amount: number;
+  discount?: number;
   currency: Currency;
   date: string;
   clientName?: string;
@@ -136,7 +137,6 @@ export type Payment = {
   journalVoucherId?: string;
   paidBy?: string;
   notes?: string;
-  discount?: number;
 };
 
 
@@ -390,6 +390,8 @@ export type SegmentEntry = {
   alrawdatainSharePercentage: number;
   enteredBy: string;
   createdAt: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
 };
 
 export type RemittanceDistributionColumn = {
@@ -1106,7 +1108,7 @@ export type DataAuditIssue = {
   type: 'DUPLICATE_PNR' | 'NEGATIVE_PROFIT' | 'ZERO_PRICE' | 'COMMISSION_ERROR' | 'INVOICE_ERROR' | 'SAVE_ERROR' | 'COST_MISMATCH' | 'UNMATCHED_RETURN' | 'DUPLICATE_FILE';
   pnr?: string;
   description: string;
-  link: string;
+  link?: string;
   details?: any;
 };
 
@@ -1117,9 +1119,12 @@ export type MessageTemplate = {
 };
 
 export interface MonthlyProfit {
-  id: string; // Format: "YYYY-MM"
+  id: string; // Format: "YYYY-MM" or a Firestore ID for manual entries
+  invoiceNumber?: string;
   totalProfit: number;
   createdAt: string; // ISO string
+  createdBy?: string;
+  userName?: string;
   fromSystem: boolean;
   notes?: string;
   currency?: Currency;
