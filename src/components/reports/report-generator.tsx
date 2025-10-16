@@ -131,8 +131,8 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
 
   return (
      <div className="flex flex-col h-[calc(100vh-160px)] gap-4">
-      <main className="flex flex-row-reverse gap-4 overflow-hidden">
-        <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 overflow-y-auto">
+      <main className="flex flex-row gap-4 overflow-hidden">
+        <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 overflow-y-auto lg:sticky top-20">
           <Card>
             <CardHeader>
               <CardTitle>خيارات العرض</CardTitle>
