@@ -1,14 +1,14 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from '@/components/ui/label';
-import { CalendarIcon, Filter, SlidersHorizontal, CheckCheck, Undo } from 'lucide-react';
+import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Search, Filter, ArrowDown, ArrowUp, HandCoins, ListTree, FilePenLine, ChevronDown, FileSpreadsheet, FileBarChart, BookOpen, Book, SlidersHorizontal, Printer, Ticket, RefreshCw, Briefcase, BedDouble, Users as UsersIcon, Shield, Train, Settings, CreditCard, Wallet, GitBranch, Banknote, BookUser, FileDown, FileUp, ArrowRightLeft, Repeat, XCircle, CheckCheck, Undo, Loader2 } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays } from "date-fns";
 import type { Currency, ReportTransaction } from '@/lib/types';
@@ -48,7 +48,7 @@ export default function ReportFilters({ allAccounts, allFilters, onGenerateRepor
     const handleDeselectAll = () => setTypeFilter(new Set());
     
     const handleSubmit = () => {
-        onGenerateReport({ accountId, currency, dateRange, reportType, typeFilter });
+        onGenerateReport({ accountId, currency, dateRange, reportType, typeFilter: Array.from(typeFilter) });
     };
 
     return (
