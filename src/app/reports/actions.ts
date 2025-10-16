@@ -156,13 +156,7 @@ async function getTransactionsForAccount(
     const db = await getDb();
     if (!db) return [];
 
-    let journalQuery: FirebaseFirestore.Query = db.collection('journal-vouchers');
-
-    if (typeFilter.length > 0) {
-        journalQuery = journalQuery.where('voucherType', 'in', typeFilter);
-    }
-    
-    const journalSnapshot = await journalQuery.where('isDeleted', '!=', true).get();
+    const journalSnapshot = await db.collection('journal-vouchers').get();
     
     const transactions: ReportTransaction[] = [];
 
@@ -184,6 +178,11 @@ async function getTransactionsForAccount(
 
     for (const doc of journalSnapshot.docs) {
         const voucher = { id: doc.id, ...doc.data() } as JournalVoucher;
+
+        // Skip if voucher type is not in the filter list (if filters are provided)
+        if (typeFilter.length > 0 && !typeFilter.includes(voucher.voucherType)) {
+            continue;
+        }
 
         const debitEntry = (voucher.debitEntries || []).find(e => matchesAccount(e.accountId));
         const creditEntry = (voucher.creditEntries || []).find(e => matchesAccount(e.accountId));
