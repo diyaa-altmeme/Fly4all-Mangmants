@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -7,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, Printer, SlidersHorizontal, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard, ArrowRightLeft } from 'lucide-react';
+import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, Printer, SlidersHorizontal, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard, ArrowRightLeft, RefreshCw } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays } from "date-fns";
 import type { Box, ReportInfo, ReportTransaction, Currency, AccountType, Client, Supplier, StructuredDescription } from '@/lib/types';
@@ -153,7 +152,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     };
 
     return (
-        <div className="h-[calc(100vh-160px)] flex flex-col-reverse lg:flex-row bg-muted/30 gap-4 p-4">
+        <div className="h-[calc(100vh-160px)] flex flex-col lg:flex-row bg-muted/30 gap-4 p-4">
             
             {/* Main Content */}
             <main className="flex-1 flex flex-col overflow-hidden bg-card rounded-lg shadow-sm">
@@ -215,7 +214,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                     عرض الكشف
                 </Button>
             </aside>
-
         </div>
-    );
+    )
 }
