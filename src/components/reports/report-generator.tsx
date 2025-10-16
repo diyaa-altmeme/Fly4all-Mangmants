@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -55,22 +56,22 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     return [...clientOptions, ...supplierOptions, ...boxOptions, ...staticAccounts];
   }, [clients, suppliers, boxes]);
 
-  const allFilters = useMemo(() => [
-    { id: 'booking', label: 'حجز طيران', icon: Plane, group: 'basic' },
-    { id: 'visa', label: 'طلب فيزا', icon: CreditCard, group: 'basic' },
-    { id: 'subscription', label: 'اشتراك', icon: Repeat, group: 'basic' },
-    { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown, group: 'basic' },
-    { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
-    { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
-    { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
-    { id: 'segment', label: 'سكمنت', icon: Layers3, group: 'other' },
-    { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2, group: 'other' },
-    { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
-    { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser, group: 'other' },
-    { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw, group: 'other' },
-    { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw, group: 'other' },
-    { id: 'void', label: 'إلغاء (فويد)', icon: XCircle, group: 'other' },
-  ], []);
+    const allFilters = useMemo(() => [
+        { id: 'booking', label: 'حجز طيران', icon: Plane, group: 'basic' },
+        { id: 'visa', label: 'طلب فيزا', icon: CreditCard, group: 'basic' },
+        { id: 'subscription', label: 'اشتراك', icon: Repeat, group: 'basic' },
+        { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
+        { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown, group: 'basic' },
+        { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
+        { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
+        { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
+        { id: 'segment', label: 'سكمنت', icon: Layers3, group: 'other' },
+        { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2, group: 'other' },
+        { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser, group: 'other' },
+        { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw, group: 'other' },
+        { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw, group: 'other' },
+        { id: 'void', label: 'إلغاء (فويد)', icon: XCircle, group: 'other' },
+    ], []);
 
   const handleGenerateReport = useCallback(async () => {
     if (!filters.accountId) {
@@ -86,6 +87,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         currency: filters.currency,
         dateRange: filters.dateRange || { from: undefined, to: undefined },
         reportType: filters.reportType,
+        typeFilter: filters.typeFilter,
       });
       setReport(reportData);
     } catch (error: any) {
@@ -128,81 +130,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-    <div className="flex h-full flex-row gap-4">
-      {/* Sidebar */}
-      <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4">
-        <Card>
-            <CardHeader>
-                <CardTitle>خيارات العرض</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <Label className="font-semibold">الحساب</Label>
-                    <Autocomplete
-                        value={filters.accountId}
-                        onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
-                        options={allAccounts}
-                        placeholder="اختر حسابًا..."
-                    />
-                </div>
-                 <div className="space-y-2">
-                    <Label className="font-semibold">الفترة الزمنية</Label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                        <Button
-                            id="date"
-                            variant={"outline"}
-                            className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !filters.dateRange && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {filters.dateRange?.from ? (
-                            filters.dateRange.to ? (
-                                <>
-                                {format(filters.dateRange.from, "LLL dd, y")} -{" "}
-                                {format(filters.dateRange.to, "LLL dd, y")}
-                                </>
-                            ) : (
-                                format(filters.dateRange.from, "LLL dd, y")
-                            )
-                            ) : (
-                            <span>اختر فترة</span>
-                            )}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={filters.dateRange?.from}
-                            selected={filters.dateRange}
-                            onSelect={d => setFilters(f => ({...f, dateRange: d}))}
-                            numberOfMonths={2}
-                        />
-                        </PopoverContent>
-                    </Popover>
-                </div>
-            </CardContent>
-        </Card>
-        <Card className="flex-grow flex flex-col">
-          <CardHeader>
-            <CardTitle>فلترة الحركات</CardTitle>
-          </CardHeader>
-          <CardContent className="flex-grow overflow-y-auto pr-2 -mr-2">
-              <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
-          </CardContent>
-        </Card>
-         <div className="flex flex-col gap-2 mt-auto">
-          <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full">
-            {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-            <Filter className="me-2 h-4 w-4" />
-            عرض الكشف
-          </Button>
-        </div>
-      </aside>
-      
+    <div className="flex h-[calc(100vh-220px)] flex-row-reverse gap-4">
       {/* Main Content */}
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
@@ -231,15 +159,94 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
             </div>
           )}
         </div>
-        {/* Footer */}
-        <footer className="flex-shrink-0 p-3 border-t bg-card grid grid-cols-[1fr,auto] gap-4 items-center">
+      </main>
+
+      {/* Sidebar */}
+      <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
+        <div className="flex-grow flex flex-col gap-4 overflow-y-auto">
+            <Card>
+                <CardHeader>
+                    <CardTitle>خيارات التقرير</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label className="font-semibold">الحساب</Label>
+                        <Autocomplete
+                            value={filters.accountId}
+                            onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
+                            options={allAccounts}
+                            placeholder="اختر حسابًا..."
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label className="font-semibold">الفترة الزمنية</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                id="date"
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !filters.dateRange && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {filters.dateRange?.from ? (
+                                filters.dateRange.to ? (
+                                    <>
+                                    {format(filters.dateRange.from, "LLL dd, y")} -{" "}
+                                    {format(filters.dateRange.to, "LLL dd, y")}
+                                    </>
+                                ) : (
+                                    format(filters.dateRange.from, "LLL dd, y")
+                                )
+                                ) : (
+                                <span>اختر فترة</span>
+                                )}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={filters.dateRange?.from}
+                                selected={filters.dateRange}
+                                onSelect={d => setFilters(f => ({...f, dateRange: d}))}
+                                numberOfMonths={2}
+                            />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                     <div className="flex flex-col gap-2">
+                         <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
+                            {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                            <Filter className="me-2 h-4 w-4" />
+                            عرض الكشف
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+            <Card className="flex-grow flex flex-col">
+              <CardHeader>
+                <CardTitle>فلترة الحركات</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow overflow-y-auto pr-2 -mr-2">
+                  <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
+              </CardContent>
+            </Card>
+        </div>
+      </aside>
+
+       {/* Footer */}
+        <footer className="flex-shrink-0 p-3 border-t bg-card rounded-lg grid grid-cols-[1fr,auto] gap-4 items-center">
              {report ? <ReportSummary report={report} /> : <div className="text-center text-muted-foreground text-sm col-span-1 py-6">لم يتم إنشاء تقرير بعد.</div>}
              <div className="flex gap-2">
                 <Button onClick={handleExport} variant="secondary" disabled={!report}><Download className="me-2 h-4 w-4"/>Excel</Button>
                 <Button onClick={handlePrint} variant="secondary" disabled={!report}><Printer className="me-2 h-4 w-4"/>طباعة</Button>
             </div>
         </footer>
-      </main>
     </div>
   );
 }
+
+    
