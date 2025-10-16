@@ -92,6 +92,7 @@ export async function saveProfitShare(data: Omit<ProfitShare, 'id'>): Promise<{ 
 export async function saveManualProfitDistribution(data: {
     fromDate: string;
     toDate: string;
+    sourceAccountId: string;
     profit: number;
     currency: Currency;
     partners: Omit<ProfitShare, 'id' | 'profitMonthId'>[];
@@ -108,7 +109,6 @@ export async function saveManualProfitDistribution(data: {
     try {
         const invoiceNumber = await getNextVoucherNumber('PR');
         
-        // 1. Create the manual profit distribution record
         writeBatch.set(manualProfitRef, {
             ...data,
             invoiceNumber,
@@ -117,15 +117,27 @@ export async function saveManualProfitDistribution(data: {
             createdAt: new Date().toISOString(),
         });
         
-        // 2. Create the corresponding Journal Voucher
-        const creditEntries: JournalEntry[] = data.partners.map(p => ({
-            accountId: p.partnerId,
-            amount: p.amount,
-            description: `حصة من أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
-        }));
+        const alrawdatainShare = data.partners.find(p => p.partnerId === 'alrawdatain_share');
+        
+        const creditEntries: JournalEntry[] = data.partners
+            .filter(p => p.partnerId !== 'alrawdatain_share') // Exclude company share from partner liabilities
+            .map(p => ({
+                accountId: p.partnerId,
+                amount: p.amount,
+                description: `حصة من أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
+            }));
+            
+        // Add company's share to revenue
+        if (alrawdatainShare && alrawdatainShare.amount > 0) {
+             creditEntries.push({
+                accountId: 'revenue_profit_distribution', // Dedicated revenue account
+                amount: alrawdatainShare.amount,
+                description: `حصة الشركة من أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
+             });
+        }
         
         const debitEntries: JournalEntry[] = [{
-            accountId: 'retained_earnings', // A placeholder system account
+            accountId: data.sourceAccountId,
             amount: data.profit,
             description: `توزيع أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
         }];
@@ -134,7 +146,7 @@ export async function saveManualProfitDistribution(data: {
             invoiceNumber,
             date: new Date().toISOString(),
             currency: data.currency,
-            notes: `توزيع أرباح الفترة من ${data.fromDate} إلى ${data.toDate}`,
+            notes: `توزيع أرباح يدوية من ${data.sourceAccountId} للفترة ${data.fromDate} - ${data.toDate}`,
             createdBy: user.uid,
             officer: user.name,
             createdAt: new Date().toISOString(),
@@ -142,8 +154,8 @@ export async function saveManualProfitDistribution(data: {
             voucherType: "journal_from_profit_distribution",
             debitEntries,
             creditEntries,
-            isAudited: true, // Auto-audited
-            isConfirmed: true, // Auto-confirmed
+            isAudited: true,
+            isConfirmed: true,
             originalData: { ...data, manualProfitId: manualProfitRef.id },
         });
 
@@ -153,6 +165,7 @@ export async function saveManualProfitDistribution(data: {
         revalidatePath('/reports/account-statement');
         return { success: true };
     } catch (e: any) {
+        console.error("Error saving manual profit distribution:", e);
         return { success: false, error: e.message };
     }
 }
