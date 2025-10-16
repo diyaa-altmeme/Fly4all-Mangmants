@@ -2,19 +2,21 @@
 
 "use client";
 
-import type { Client, Supplier, Box, User, AppSettings } from '@/lib/types';
+import type { Client, Supplier, Box, User, AppSettings, Exchange } from '@/lib/types';
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { getClients } from '@/app/relations/actions';
 import { getBoxes } from '@/app/boxes/actions';
 import { getUsers } from '@/app/users/actions';
 import { getSettings } from '@/app/settings/actions';
 import { useAuth } from '@/lib/auth-context';
+import { getExchanges } from '@/app/exchanges/actions';
 
 type VoucherNavDataContext = {
     clients: Client[];
     suppliers: Supplier[];
     boxes: Box[];
     users: User[];
+    exchanges: Exchange[];
     settings: AppSettings;
 };
 
@@ -43,23 +45,26 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
 
         setIsFetching(true);
         try {
-            const [allRelationsRes, boxes, users, settings] = await Promise.all([
+            const [allRelationsRes, boxes, users, settings, exchangesRes] = await Promise.all([
                 getClients({ all: true, includeInactive: false }),
                 getBoxes(),
                 getUsers({ all: true }),
                 getSettings(),
+                getExchanges(),
             ]);
 
             const allRelations = allRelationsRes.clients;
 
             const clients = allRelations.filter(r => r.relationType === 'client' || r.relationType === 'both');
             const suppliers = allRelations.filter(r => r.relationType === 'supplier' || r.relationType === 'both');
+            const exchanges = exchangesRes.accounts || [];
 
             setData({
                 clients,
                 suppliers,
                 boxes,
                 users,
+                exchanges,
                 settings,
             });
             setLoaded(true);
