@@ -2,32 +2,12 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { Client, Supplier, Currency } from '@/lib/types';
+import type { Client, Supplier, Currency, MonthlyProfit, ProfitShare } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { format, parseISO } from 'date-fns';
-
-export interface MonthlyProfit {
-  id: string; // Format: "YYYY-MM" or a Firestore ID for manual entries
-  totalProfit: number;
-  createdAt: string; // ISO string
-  fromSystem: boolean;
-  notes?: string;
-  currency?: Currency;
-  partners?: ProfitShare[]; // For manual entries
-  fromDate?: string;
-  toDate?: string;
-}
-
-export interface ProfitShare {
-  id: string;
-  profitMonthId: string;
-  partnerId: string;
-  partnerName: string;
-  percentage: number;
-  amount: number;
-  notes?: string;
-}
+import { getNextVoucherNumber } from '@/lib/sequences';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
 export async function getMonthlyProfits(): Promise<MonthlyProfit[]> {
   const db = await getDb();
@@ -38,14 +18,17 @@ export async function getMonthlyProfits(): Promise<MonthlyProfit[]> {
         db.collection('manual_monthly_profits').orderBy('toDate', 'desc').get()
     ]);
     
-    const systemProfits = systemSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MonthlyProfit));
+    const systemProfits = systemSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), fromSystem: true } as MonthlyProfit));
     
     const manualProfits = manualSnapshot.docs.map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
+        invoiceNumber: data.invoiceNumber,
         totalProfit: data.profit,
         createdAt: data.createdAt,
+        createdBy: data.createdBy,
+        userName: data.userName,
         fromSystem: false,
         notes: `أرباح يدوية للفترة من ${data.fromDate} إلى ${data.toDate}`,
         currency: data.currency,
@@ -56,7 +39,6 @@ export async function getMonthlyProfits(): Promise<MonthlyProfit[]> {
     });
 
     const allProfits = [...systemProfits, ...manualProfits];
-    // A more robust sort that handles both "YYYY-MM" and full ISO dates
     allProfits.sort((a,b) => {
         const dateA = a.id.length === 7 ? parseISO(`${a.id}-01`) : parseISO(a.createdAt);
         const dateB = b.id.length === 7 ? parseISO(`${b.id}-01`) : parseISO(b.createdAt);
@@ -114,11 +96,18 @@ export async function saveManualProfitDistribution(data: {
     currency: Currency;
     partners: Omit<ProfitShare, 'id' | 'profitMonthId'>[];
 }): Promise<{ success: boolean; error?: string; }> {
-     const db = await getDb();
+    const db = await getDb();
     if (!db) return { success: false, error: 'Database not available' };
+    const user = await getCurrentUserFromSession();
+    if (!user) return { success: false, error: "User not authenticated." };
+
     try {
+        const invoiceNumber = await getNextVoucherNumber('PR');
         await db.collection('manual_monthly_profits').add({
             ...data,
+            invoiceNumber,
+            createdBy: user.uid,
+            userName: user.name,
             createdAt: new Date().toISOString(),
         });
         revalidatePath('/profit-sharing');

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { type ProfitShare } from "../actions";
-import { Loader2, Save, Percent, Edit, PlusCircle, Trash2, CalendarIcon, Wallet, Landmark, Users, ArrowLeft } from "lucide-react";
+import { Loader2, Save, Percent, Edit, PlusCircle, Trash2, CalendarIcon, Wallet, Landmark, Users, ArrowLeft, Hash, User as UserIcon } from "lucide-react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,6 +31,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Currency } from "@/lib/types";
 import { Label } from "@/components/ui/label";
+import { useVoucherNav } from "@/context/voucher-nav-context";
+import { useAuth } from "@/lib/auth-context";
 
 const partnerSchema = z.object({
   id: z.string().min(1, "اسم الشريك مطلوب."),
@@ -70,6 +72,9 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
+  const { data: navData } = useVoucherNav();
+
 
   const [currentPartnerId, setCurrentPartnerId] = useState('');
   const [currentPercentage, setCurrentPercentage] = useState<number | string>('');
@@ -105,6 +110,12 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
       setStep(1);
     }
   }, [open, resetForm]);
+  
+   const boxName = useMemo(() => {
+    if (!currentUser || !('boxId' in currentUser)) return 'غير محدد';
+    return navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد';
+  }, [currentUser, navData?.boxes]);
+
 
   const totalPartnerPercentage = useMemo(() => 
       (watchedPartners || []).reduce((acc, p) => acc + (Number(p.percentage) || 0), 0), 
@@ -229,7 +240,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                                     <Label>النسبة</Label>
                                     <div className="relative">
                                         <Input type="text" inputMode="decimal" value={currentPercentage} onChange={(e) => setCurrentPercentage(e.target.value)} placeholder="0.00" className="pe-7"/>
-                                        <Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                     </div>
                                 </div>
                                 <Button type="button" size="icon" className="shrink-0" onClick={onAddPartner} disabled={totalPartnerPercentage >= 100}>
@@ -254,7 +265,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                               </TableHeader>
                               <TableBody>
                                   {distribution.map((d, index) => (
-                                      <TableRow key={`${''}${d.id}-${index}`} className={d.id === 'alrawdatain' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
+                                      <TableRow key={`${d.id}-${index}`} className={d.id === 'alrawdatain' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
                                           <TableCell className="font-semibold flex items-center gap-2">
                                               {d.id === 'alrawdatain' && <Landmark className="h-4 w-4 text-green-600"/>}
                                               {d.name}
@@ -278,14 +289,21 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
             </form>
         </Form>
         <DialogFooter className="pt-4 border-t">
-          {step === 1 && <Button onClick={goToNextStep}>التالي</Button>}
+          {step === 1 && <div className="flex justify-end w-full"><Button onClick={goToNextStep}>التالي<ArrowLeft className="me-2 h-4 w-4" /></Button></div>}
           {step === 2 && (
               <div className="flex justify-between w-full">
-                  <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft className="me-2 h-4 w-4"/> رجوع</Button>
-                  <Button onClick={handleSubmit(handleSave)} disabled={isSubmitting}>
-                      {isSubmitting && <Loader2 className="me-2 h-4 w-4 animate-spin"/>}
-                      حفظ بيانات الفترة
-                  </Button>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4"/> <span>{currentUser?.name || '...'}</span></div>
+                    <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>{boxName}</span></div>
+                    <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                      <Button variant="outline" onClick={() => setStep(1)}><ArrowRight className="me-2 h-4 w-4"/> رجوع</Button>
+                      <Button onClick={handleSubmit(handleSave)} disabled={isSubmitting}>
+                          {isSubmitting && <Loader2 className="me-2 h-4 w-4 animate-spin"/>}
+                          حفظ بيانات الفترة
+                      </Button>
+                  </div>
               </div>
           )}
         </DialogFooter>

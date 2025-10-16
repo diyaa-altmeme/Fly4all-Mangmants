@@ -103,10 +103,11 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="font-semibold p-1">{description.split(' | ')[0]}</TableCell>
-                    <TableCell className="p-1 text-center">{fromDate}</TableCell>
-                    <TableCell className="p-1 text-center">{toDate}</TableCell>
-                    <TableCell className="text-right font-mono font-bold p-1">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
+                    <TableCell className="font-mono text-xs text-center p-2">{period.invoiceNumber || 'N/A'}</TableCell>
+                    <TableCell className="p-2">{description.split(' | ')[0]}</TableCell>
+                    <TableCell className="font-mono text-xs text-center p-2">{period.createdAt ? format(parseISO(period.createdAt), 'yyyy-MM-dd') : '-'}</TableCell>
+                    <TableCell className="p-2 text-center">{period.userName || 'غير معروف'}</TableCell>
+                    <TableCell className="text-right font-mono font-bold p-2">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
                     <TableCell className="p-1 text-center">
                         {!period.fromSystem && (
                             <DropdownMenu>
@@ -141,7 +142,7 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={6} className="p-0">
+                        <TableCell colSpan={7} className="p-0">
                             <div className="p-2 bg-muted/20">
                                 {isLoading ? (
                                     <div className="flex justify-center p-8"><Loader2 className="animate-spin h-6 w-6"/></div>
@@ -236,9 +237,10 @@ export default function ProfitSharingContent({ initialMonthlyProfits, partners, 
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px] p-2"></TableHead>
+                                <TableHead className="p-2">رقم الفاتورة</TableHead>
                                 <TableHead className="p-2">الوصف</TableHead>
-                                <TableHead className="p-2 text-center">تاريخ البدء</TableHead>
-                                <TableHead className="p-2 text-center">تاريخ الانتهاء</TableHead>
+                                <TableHead className="p-2">تاريخ الإنشاء</TableHead>
+                                <TableHead className="p-2">الموظف</TableHead>
                                 <TableHead className="text-right p-2">إجمالي الربح</TableHead>
                                 <TableHead className="text-center p-2">الإجراءات</TableHead>
                             </TableRow>
