@@ -1,7 +1,4 @@
 
-
-      
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
@@ -13,7 +10,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Label } from '@/components/ui/label';
 import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, ArrowDown, ArrowUp, HandCoins, ListTree, FilePenLine, ChevronDown, FileSpreadsheet, FileBarChart, BookOpen, Book, SlidersHorizontal, Printer, Ticket, RefreshCw, Briefcase, BedDouble, Users as UsersIcon, Shield, Train, Settings, CreditCard, Wallet, GitBranch, Banknote, BookUser, FileDown, FileUp, ArrowRightLeft, Repeat, XCircle, CheckCheck, Smartphone, MoreHorizontal, Layers3, Share2 } from 'lucide-react';
 import { DateRange } from "react-day-picker";
-import { format, subDays, parseISO } from "date-fns";
+import { format, subDays, parseISO, isValid } from "date-fns";
 import type { Box, ReportInfo, ReportTransaction, Currency, AccountType, Client, Supplier, StructuredDescription } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -21,27 +18,24 @@ import { useToast } from '@/hooks/use-toast';
 import { getAccountStatement } from '@/app/reports/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { Badge } from '@/components/ui/badge';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Controller, useForm } from 'react-hook-form';
 import * as XLSX from 'xlsx';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useSearchParams } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-
+// Utility and Sub-components
 const formatCurrencyDisplay = (amount: number, currency: string) => {
+    if (amount === null || amount === undefined) return `0.00 ${currency}`;
     const formattedAmount = new Intl.NumberFormat('en-US').format(Math.abs(amount));
     return `${amount < 0 ? `(${formattedAmount})` : formattedAmount} ${currency}`;
 };
 
 const StructuredDescriptionDisplay = ({ data, isDetailed }: { data: StructuredDescription, isDetailed: boolean }) => {
-    if (!isDetailed) {
-        return <span className="whitespace-pre-wrap">{data.title}</span>;
+    if (!isDetailed || !data) {
+        return <span className="whitespace-pre-wrap">{typeof data === 'string' ? data : data.title}</span>;
     }
 
     return (
@@ -49,7 +43,7 @@ const StructuredDescriptionDisplay = ({ data, isDetailed }: { data: StructuredDe
             <div className="flex items-center gap-2">
                 <Badge variant="secondary">{data.title}</Badge>
             </div>
-             {data.totalReceived && <span className="font-mono font-bold text-sm">{data.totalReceived}</span>}
+            {data.totalReceived && <span className="font-mono font-bold text-sm">{data.totalReceived}</span>}
             {data.selfReceipt && (
                 <div className="flex items-center gap-2 font-medium ps-2">
                     <HandCoins className="h-4 w-4 text-blue-500" />
@@ -99,16 +93,13 @@ const StatCard = ({ title, valueUSD, valueIQD, icon: Icon, colorClass, arrow }: 
     </Card>
 );
 
-const mainOperationsFilters = [
+const allFilters = [
     { id: 'booking', label: 'حجز طيران', icon: Ticket },
     { id: 'visa', label: 'طلب فيزا', icon: CreditCard },
     { id: 'subscription', label: 'اشتراك', icon: Repeat },
     { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft },
     { id: 'segment', label: 'سكمنت', icon: Layers3 },
     { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2 },
-];
-
-const voucherTypeFilters = [
     { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown },
     { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch },
     { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp },
@@ -120,17 +111,11 @@ const voucherTypeFilters = [
 ];
 
 
-export default function ReportGenerator({ boxes, clients, suppliers, defaultAccountId, transactionType }: { boxes: Box[], clients: Client[], suppliers: Supplier[], defaultAccountId?: string, transactionType?: 'profits' | 'expenses' | 'profit_distribution' }) {
+export default function ReportGenerator({ boxes, clients, suppliers, defaultAccountId }: { boxes: Box[], clients: Client[], suppliers: Supplier[], defaultAccountId?: string }) {
     
     const [report, setReport] = useState<ReportInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
-    const searchParams = useSearchParams();
-    
-    const allFilters = [...mainOperationsFilters, ...voucherTypeFilters];
-    const [typeFilter, setTypeFilter] = useState<Set<string>>(
-        new Set(allFilters.map(f => f.id))
-    );
 
     const { control, watch, handleSubmit, setValue } = useForm<{
         accountId: string;
@@ -145,14 +130,15 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
             reportType: 'summary',
         }
     });
+    
+    const [typeFilter, setTypeFilter] = useState<Set<string>>(new Set(allFilters.map(f => f.id)));
 
     const accountOptions = useMemo(() => {
         const clientOptions = clients.map(c => ({ value: c.id, label: `عميل: ${c.name}` }));
         const supplierOptions = suppliers.map(s => ({ value: s.id, label: `مورد: ${s.name}` }));
-        const boxOptions = boxes.map(b => ({ value: b.id, label: `صندوق: ${b.name}`}));
+        const boxOptions = boxes.map(b => ({ value: b.id, label: `صندوق: ${b.name}` }));
         return [...clientOptions, ...supplierOptions, ...boxOptions];
     }, [clients, suppliers, boxes]);
-
 
     const handleGenerateReport = useCallback(async (data: any) => {
         if (!data.accountId) {
@@ -168,7 +154,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                 currency: data.currency,
                 dateRange: { from: data.dateRange?.from, to: data.dateRange?.to },
                 reportType: data.reportType,
-                transactionType: transactionType,
             });
             setReport(reportData);
         } catch (error) {
@@ -176,112 +161,40 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         } finally {
             setIsLoading(false);
         }
-    }, [toast, transactionType]);
+    }, [toast]);
+    
+    useEffect(() => {
+        if (defaultAccountId) {
+            handleSubmit(handleGenerateReport)();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [defaultAccountId]);
+    
+    const getTransactionTypeName = (txType: string) => {
+      const allTransactionTypes = [
+          ...allFilters,
+          { id: 'journal_from_installment', label: 'دفعة قسط اشتراك' }
+      ];
+      return allTransactionTypes.find(f => f.label === txType)?.id || txType;
+    };
     
     const filteredTransactions = useMemo(() => {
         if (!report) return [];
         if (typeFilter.size === allFilters.length) return report.transactions;
-        const voucherTypeLabels = Array.from(typeFilter).map(typeKey => {
-            const mainOp = mainOperationsFilters.find(f => f.id === typeKey);
-            if (mainOp) return mainOp.label;
-            const voucherOp = voucherTypeFilters.find(f => f.id === typeKey);
-            if (voucherOp) return voucherOp.label;
-             if (typeKey === 'profit_distribution') {
-                return ['استلام أرباح فترة يدوية', 'دفع حصة شريك', 'إثبات حصة شركة'];
-            }
-            return typeKey;
-        }).flat();
-        return report.transactions.filter(tx => voucherTypeLabels.includes(tx.type));
+        return report.transactions.filter(tx => typeFilter.has(getTransactionTypeName(tx.type)));
     }, [report, typeFilter, allFilters]);
-
-    const handleExportExcel = () => {
-        if (!report) {
-            toast({ title: "لا يوجد تقرير لتصديره", variant: "destructive" });
-            return;
-        }
-
-        const reportTitle = report.title;
-        const dateRange = `From: ${format(watch('dateRange.from')!, 'yyyy-MM-dd')} To: ${format(watch('dateRange.to')!, 'yyyy-MM-dd')}`;
-        
-        const summaryData = [
-            [reportTitle],
-            [dateRange],
-            [], // Empty row for spacing
-            ["Balance", "USD", "IQD"],
-            ["Opening Balance", report.openingBalanceUSD, report.openingBalanceIQD],
-            ["Total Debit", report.totalDebitUSD, report.totalDebitIQD],
-            ["Total Credit", report.totalCreditUSD, report.totalCreditIQD],
-            ["Final Balance", report.finalBalanceUSD, report.finalBalanceIQD],
-        ];
-
-        const transactionsData = filteredTransactions.map((tx, index) => {
-            let description = tx.description;
-            if (typeof description === 'object') {
-                 description = `${description.title}: ${description.totalReceived}. ${description.notes}`;
-            }
-
-            return {
-                '#': index + 1,
-                'التاريخ': format(parseISO(tx.date), 'yyyy-MM-dd HH:mm'),
-                'نوع الحركة': tx.type,
-                'رقم السند': tx.invoiceNumber,
-                'البيان': description,
-                'مدين': tx.debit,
-                'دائن': tx.credit,
-                'الرصيد': tx.balance,
-                'العملة': tx.currency,
-                'الموظف': tx.officer
-            };
-        });
-
-        const ws = XLSX.utils.aoa_to_sheet(summaryData);
-        XLSX.utils.sheet_add_json(ws, transactionsData, { origin: "A10" });
-        
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Account Statement");
-        
-        XLSX.writeFile(wb, `Account_Statement_${report.title.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`);
-    };
-
-    const handlePrint = () => {
-        if (!report) return;
-        const formData = watch();
-        const params = new URLSearchParams({
-            accountId: formData.accountId,
-            currency: formData.currency,
-            from: formData.dateRange?.from?.toISOString() || '',
-            to: formData.dateRange?.to?.toISOString() || '',
-            reportType: formData.reportType,
-        });
-        window.open(`/reports/account-statement/print?${params.toString()}`, '_blank');
-    };
     
-    useEffect(() => {
-        const accountId = searchParams.get('accountId') || defaultAccountId;
-        if (accountId) {
-            setValue('accountId', accountId);
-            handleGenerateReport({ ...watch(), accountId });
-        }
-    }, [defaultAccountId, searchParams, setValue, handleGenerateReport, watch]);
-
-     const handleFilterChange = (filterId: string, checked: boolean) => {
+    const handleFilterChange = (filterId: string, checked: boolean) => {
         setTypeFilter(prev => {
             const newSet = new Set(prev);
-            if (checked) {
-                newSet.add(filterId);
-            } else {
-                newSet.delete(filterId);
-            }
+            if (checked) newSet.add(filterId); else newSet.delete(filterId);
             return newSet;
         });
     };
     
     const handleSelectAllGlobal = (checked: boolean) => {
-        if (checked) {
-            setTypeFilter(new Set(allFilters.map(f => f.id)));
-        } else {
-            setTypeFilter(new Set());
-        }
+        if (checked) setTypeFilter(new Set(allFilters.map(f => f.id)));
+        else setTypeFilter(new Set());
     };
     
     const isAllSelected = typeFilter.size === allFilters.length;
@@ -309,97 +222,55 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                                     )}
                                 />
                             </div>
-                        
                             <Separator />
-                        
-                            <div>
-                                 <div className="flex items-center justify-between mb-2">
-                                    <Label className="font-bold">فلترة الحركات</Label>
-                                    <div className="flex items-center gap-2">
-                                        <Checkbox id="select-all-filters" checked={isAllSelected} onCheckedChange={(c) => handleSelectAllGlobal(!!c)} />
-                                        <Label htmlFor="select-all-filters" className="text-xs font-semibold">تحديد الكل</Label>
+                            <Tabs defaultValue="filters">
+                                <TabsList className="grid w-full grid-cols-2">
+                                     <TabsTrigger value="filters"><Filter className="me-2 h-4 w-4"/>الفلاتر</TabsTrigger>
+                                     <TabsTrigger value="options"><SlidersHorizontal className="me-2 h-4 w-4"/>الخيارات</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="filters" className="mt-4">
+                                     <div className="flex items-center justify-between mb-2">
+                                        <Label className="font-bold">فلترة الحركات</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Checkbox id="select-all-filters" checked={isAllSelected} onCheckedChange={(c) => handleSelectAllGlobal(!!c)} />
+                                            <Label htmlFor="select-all-filters" className="text-xs font-semibold">تحديد الكل</Label>
+                                        </div>
                                     </div>
-                                </div>
-                                <Tabs defaultValue="main-ops">
-                                    <TabsList className="grid w-full grid-cols-2">
-                                        <TabsTrigger value="main-ops" className="text-right justify-center gap-2"><Smartphone className="me-2 h-4 w-4"/>العمليات الرئيسية</TabsTrigger>
-                                        <TabsTrigger value="vouchers" className="text-right justify-center gap-2"><FileText className="me-2 h-4 w-4"/>أنواع السندات</TabsTrigger>
-                                    </TabsList>
-                                    <TabsContent value="main-ops" className="mt-4 space-y-2">
-                                        {mainOperationsFilters.map(cat => (
-                                            <div key={cat.id} className="flex items-center justify-between">
-                                                <Label htmlFor={`filter-${cat.id}`} className="flex items-center gap-2 flex-grow justify-end cursor-pointer">{cat.label}<cat.icon className="h-4 w-4 text-muted-foreground" /></Label>
-                                                <Checkbox id={`filter-${cat.id}`} checked={typeFilter.has(cat.id)} onCheckedChange={(c) => handleFilterChange(cat.id, !!c)} className="mr-2"/>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                        {allFilters.map(cat => (
+                                            <div key={cat.id} className="flex items-center space-x-2 space-x-reverse">
+                                                <Checkbox id={`filter-${cat.id}`} checked={typeFilter.has(cat.id)} onCheckedChange={(c) => handleFilterChange(cat.id, !!c)} />
+                                                <Label htmlFor={`filter-${cat.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">{cat.label}</Label>
                                             </div>
                                         ))}
-                                    </TabsContent>
-                                    <TabsContent value="vouchers" className="mt-4 space-y-2">
-                                        {voucherTypeFilters.map(cat => (
-                                            <div key={cat.id} className="flex items-center justify-between">
-                                                <Label htmlFor={`filter-${cat.id}`} className="flex items-center gap-2 flex-grow justify-end cursor-pointer">{cat.label}<cat.icon className="h-4 w-4 text-muted-foreground" /></Label>
-                                                <Checkbox id={`filter-${cat.id}`} checked={typeFilter.has(cat.id)} onCheckedChange={(c) => handleFilterChange(cat.id, !!c)} className="mr-2"/>
-                                            </div>
-                                        ))}
-                                    </TabsContent>
-                                </Tabs>
-                            </div>
-                            
-                            <Separator />
-                            
-                            <div className="space-y-4">
-                                <h4 className="font-bold">خيارات إضافية</h4>
-                                <div className="space-y-1.5"><Label>عملة الكشف</Label>
-                                    <Controller name="currency" control={control} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="both">كلاهما</SelectItem><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select>)} />
-                                </div>
-                                <div className="space-y-1.5"><Label>نوع الكشف</Label>
-                                    <Controller name="reportType" control={control} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
-                                            <SelectItem value="summary"><div className="flex items-center gap-2 justify-end"><Book className="h-4 w-4"/><span>كشف مختصر</span></div></SelectItem>
-                                            <SelectItem value="detailed"><div className="flex items-center gap-2 justify-end"><BookOpen className="h-4 w-4"/><span>كشف تفصيلي</span></div></SelectItem>
-                                        </SelectContent></Select>
-                                    )} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-1.5"><Label>من تاريخ</Label>
-                                        <Controller
-                                            name="dateRange"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <Button id="date-from" variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value?.from && "text-muted-foreground")}>
-                                                            <CalendarIcon className="me-2 h-4 w-4" />
-                                                            {field.value?.from ? format(field.value.from, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0" align="end">
-                                                        <Calendar initialFocus mode="single" selected={field.value?.from} onSelect={(day) => field.onChange({ ...field.value, from: day })} />
-                                                    </PopoverContent>
-                                                </Popover>
-                                            )}
-                                        />
                                     </div>
-                                    <div className="space-y-1.5"><Label>إلى تاريخ</Label>
-                                        <Controller
-                                            name="dateRange"
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <Button id="date-to" variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value?.to && "text-muted-foreground")}>
-                                                            <CalendarIcon className="me-2 h-4 w-4" />
-                                                            {field.value?.to ? format(field.value.to, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0" align="end">
-                                                        <Calendar initialFocus mode="single" selected={field.value?.to} onSelect={(day) => field.onChange({ ...field.value, to: day })} />
-                                                    </PopoverContent>
-                                                </Popover>
-                                            )}
-                                        />
+                                </TabsContent>
+                                <TabsContent value="options" className="mt-4 space-y-4">
+                                     <div className="space-y-1.5"><Label>عملة الكشف</Label>
+                                        <Controller name="currency" control={control} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="both">كلاهما</SelectItem><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select>)} />
                                     </div>
-                                </div>
-                            </div>
-                            <Button size="lg" type="submit" disabled={isLoading || !watch('accountId')} className="w-full">
+                                    <div className="space-y-1.5"><Label>نوع الكشف</Label>
+                                        <Controller name="reportType" control={control} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>
+                                                <SelectItem value="summary"><div className="flex items-center gap-2 justify-end"><Book className="h-4 w-4"/><span>كشف مختصر</span></div></SelectItem>
+                                                <SelectItem value="detailed"><div className="flex items-center gap-2 justify-end"><BookOpen className="h-4 w-4"/><span>كشف تفصيلي</span></div></SelectItem>
+                                            </SelectContent></Select>
+                                        )} />
+                                    </div>
+                                     <div className="grid grid-cols-2 gap-2">
+                                        <div className="space-y-1.5"><Label>من تاريخ</Label>
+                                            <Controller name="dateRange" control={control} render={({ field }) => (
+                                                <Popover><PopoverTrigger asChild><Button id="date-from" variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value?.from && "text-muted-foreground")}><CalendarIcon className="me-2 h-4 w-4" />{field.value?.from ? format(field.value.from, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="end"><Calendar initialFocus mode="single" selected={field.value?.from} onSelect={(day) => field.onChange({ ...field.value, from: day })} /></PopoverContent></Popover>
+                                            )}/>
+                                        </div>
+                                        <div className="space-y-1.5"><Label>إلى تاريخ</Label>
+                                            <Controller name="dateRange" control={control} render={({ field }) => (
+                                                <Popover><PopoverTrigger asChild><Button id="date-to" variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value?.to && "text-muted-foreground")}><CalendarIcon className="me-2 h-4 w-4" />{field.value?.to ? format(field.value.to, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0" align="end"><Calendar initialFocus mode="single" selected={field.value?.to} onSelect={(day) => field.onChange({ ...field.value, to: day })} /></PopoverContent></Popover>
+                                            )}/>
+                                        </div>
+                                    </div>
+                                </TabsContent>
+                            </Tabs>
+                            <Button size="lg" type="submit" disabled={isLoading || !watch('accountId')} className="w-full mt-6">
                                 {isLoading ? <><Loader2 className="me-2 h-4 w-4 animate-spin"/> جاري العرض...</> : <><Search className="me-2 h-4 w-4"/>عرض التقرير</>}
                             </Button>
                         </form>
@@ -416,18 +287,10 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                             </div>
                             <div className="flex items-center gap-2">
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" disabled={!report}>
-                                            <Download className="me-2 h-4 w-4"/> التصدير والطباعة
-                                        </Button>
-                                    </DropdownMenuTrigger>
+                                    <DropdownMenuTrigger asChild><Button variant="outline" disabled={!report}><Download className="me-2 h-4 w-4"/> التصدير والطباعة</Button></DropdownMenuTrigger>
                                     <DropdownMenuContent>
-                                        <DropdownMenuItem onClick={handleExportExcel}>
-                                            <FileSpreadsheet className="me-2 h-4 w-4 text-green-600"/> تصدير Excel
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={handlePrint}>
-                                            <FileBarChart className="me-2 h-4 w-4 text-red-600"/> طباعة PDF
-                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => {}}><FileSpreadsheet className="me-2 h-4 w-4 text-green-600"/> تصدير Excel</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => {}}><Printer className="me-2 h-4 w-4 text-red-600"/> طباعة PDF</DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
@@ -468,15 +331,11 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                                 <TableCell colSpan={2}></TableCell>
                             </TableRow>
                             {isLoading ? (
-                                <TableRow>
-                                    <TableCell colSpan={11} className="h-48 text-center">
-                                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-                                    </TableCell>
-                                </TableRow>
+                                <TableRow><TableCell colSpan={11} className="h-48 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
                             ) : filteredTransactions.map((tx, index) => (
                                 <TableRow key={tx.id}>
                                     <TableCell>{index + 1}</TableCell>
-                                    <TableCell className="font-mono text-xs">{format(parseISO(tx.date), 'yyyy-MM-dd HH:mm')}</TableCell>
+                                    <TableCell className="font-mono text-xs">{isValid(parseISO(tx.date)) ? format(parseISO(tx.date), 'yyyy-MM-dd HH:mm') : tx.date}</TableCell>
                                     <TableCell><Badge variant="outline">{tx.type}</Badge></TableCell>
                                     <TableCell className="font-mono text-xs">{tx.invoiceNumber}</TableCell>
                                     <TableCell>
@@ -495,9 +354,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                                 </TableRow>
                             ))}
                              {!isLoading && report && filteredTransactions.length === 0 && (
-                                 <TableRow>
-                                    <TableCell colSpan={11} className="h-24 text-center">لا توجد حركات لهذه الفترة.</TableCell>
-                                </TableRow>
+                                 <TableRow><TableCell colSpan={11} className="h-24 text-center">لا توجد حركات لهذه الفترة أو الفلاتر المطبقة.</TableCell></TableRow>
                             )}
                             {!isLoading && !report && (
                                 <TableRow>
