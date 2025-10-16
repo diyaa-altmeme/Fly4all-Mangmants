@@ -102,18 +102,24 @@ export async function saveManualProfitDistribution(data: {
     const db = await getDb();
     if (!db) return { success: false, error: 'Database not available' };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+    if (!user || !('role' in user) || !user.boxId) return { success: false, error: "User not authenticated or box not assigned." };
 
     const writeBatch = db.batch();
     const manualProfitRef = db.collection('manual_monthly_profits').doc();
-    const journalVoucherRef = db.collection('journal-vouchers').doc();
 
     try {
-        const invoiceNumber = await getNextVoucherNumber('PR');
+        const [receiptInvoice, partnerPaymentInvoice, companyProfitInvoice] = await Promise.all([
+            getNextVoucherNumber('RC'),
+            getNextVoucherNumber('PV'),
+            getNextVoucherNumber('JE'),
+        ]);
+
+        const periodText = `للفترة من ${data.fromDate} إلى ${data.toDate}`;
         
+        // 1. Record the manual profit period details
         writeBatch.set(manualProfitRef, {
             ...data,
-            invoiceNumber,
+            invoiceNumber: receiptInvoice, // Main invoice number
             createdBy: user.uid,
             userName: user.name,
             createdAt: new Date().toISOString(),
@@ -121,46 +127,61 @@ export async function saveManualProfitDistribution(data: {
         
         const alrawdatainShare = data.partners.find(p => p.partnerId === 'alrawdatain_share');
         
-        const creditEntries: JournalEntry[] = data.partners
-            .filter(p => p.partnerId !== 'alrawdatain_share') // Exclude company share from partner liabilities
-            .map(p => ({
-                accountId: p.partnerId,
-                amount: p.amount,
-                description: `حصة الشريك ${p.partnerName} من أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
-            }));
-            
-        // Add company's share to revenue
-        if (alrawdatainShare && alrawdatainShare.amount > 0) {
-             creditEntries.push({
-                accountId: 'revenue_profit_distribution', // Dedicated revenue account
-                amount: alrawdatainShare.amount,
-                description: `حصة الشركة من أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
-             });
-        }
-        
-        const debitEntries: JournalEntry[] = [{
-            accountId: data.sourceAccountId,
-            amount: data.profit,
-            description: `توزيع أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
-        }];
-        
-        writeBatch.set(journalVoucherRef, {
-            invoiceNumber,
+        // 2. Create a "Receipt Voucher" from the source to the company's box
+        const receiptVoucherRef = db.collection('journal-vouchers').doc();
+        writeBatch.set(receiptVoucherRef, {
+            invoiceNumber: receiptInvoice,
             date: new Date().toISOString(),
             currency: data.currency,
-            notes: `توزيع أرباح يدوية من ${data.sourceAccountId} للفترة ${data.fromDate} - ${data.toDate}`,
+            notes: `استلام أرباح السكمنت ${periodText} من المصدر`,
             createdBy: user.uid,
             officer: user.name,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            voucherType: "journal_from_profit_distribution",
-            debitEntries,
-            creditEntries,
-            isAudited: true,
-            isConfirmed: true,
-            originalData: { ...data, manualProfitId: manualProfitRef.id },
+            voucherType: "journal_from_standard_receipt",
+            debitEntries: [{ accountId: user.boxId, amount: data.profit, description: `إيداع أرباح ${periodText}` }],
+            creditEntries: [{ accountId: data.sourceAccountId, amount: data.profit, description: `سحب أرباح ${periodText}` }],
+            isAudited: true, isConfirmed: true, originalData: { ...data, manualProfitId: manualProfitRef.id }
         });
 
+        // 3. Create "Payment Vouchers" for each partner's share
+        data.partners.filter(p => p.partnerId !== 'alrawdatain_share').forEach(p => {
+            const partnerPaymentRef = db.collection('journal-vouchers').doc();
+            writeBatch.set(partnerPaymentRef, {
+                invoiceNumber: partnerPaymentInvoice,
+                date: new Date().toISOString(),
+                currency: data.currency,
+                notes: `دفع حصة الشريك ${p.partnerName} عن أرباح ${periodText}`,
+                createdBy: user.uid,
+                officer: user.name,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                voucherType: "journal_from_payment",
+                debitEntries: [{ accountId: p.partnerId, amount: p.amount, description: `إيداع حصة أرباح ${periodText}` }],
+                creditEntries: [{ accountId: user.boxId, amount: p.amount, description: `دفع حصة أرباح للشريك ${p.partnerName}` }],
+                isAudited: true, isConfirmed: true, originalData: { ...data, manualProfitId: manualProfitRef.id, partnerId: p.partnerId }
+            });
+        });
+
+        // 4. Create a "Journal Entry" for the company's share
+        if (alrawdatainShare && alrawdatainShare.amount > 0) {
+            const companyProfitRef = db.collection('journal-vouchers').doc();
+            writeBatch.set(companyProfitRef, {
+                invoiceNumber: companyProfitInvoice,
+                date: new Date().toISOString(),
+                currency: data.currency,
+                notes: `إثبات حصة الشركة من أرباح السكمنت ${periodText}`,
+                createdBy: user.uid,
+                officer: user.name,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                voucherType: "journal_voucher",
+                debitEntries: [{ accountId: user.boxId, amount: alrawdatainShare.amount, description: `سحب حصة الشركة من الصندوق` }],
+                creditEntries: [{ accountId: 'revenue_profit_distribution', amount: alrawdatainShare.amount, description: `تسجيل إيراد حصة الشركة ${periodText}` }],
+                isAudited: true, isConfirmed: true, originalData: { ...data, manualProfitId: manualProfitRef.id }
+            });
+        }
+        
         await writeBatch.commit();
         
         revalidatePath('/profit-sharing');
