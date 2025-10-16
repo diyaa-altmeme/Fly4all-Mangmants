@@ -71,11 +71,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     { id: 'void', label: 'إلغاء (فويد)', icon: XCircle },
   ], []);
 
-  useEffect(() => {
-    // Select all filters by default on mount
-    setFilters(f => ({ ...f, typeFilter: new Set(allFilters.map(filter => filter.id)) }));
-  }, [allFilters]);
-
   const handleGenerateReport = useCallback(async () => {
     if (!filters.accountId) {
       toast({ title: "خطأ", description: "الرجاء اختيار حساب.", variant: "destructive" });
@@ -103,43 +98,17 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     if (defaultAccountId) handleGenerateReport();
   }, [defaultAccountId, handleGenerateReport]);
   
-  const filteredTransactions = useMemo(() => {
-    if (!report) return [];
-    
-    let transactions = report.transactions;
-
-    if (filters.typeFilter.size > 0 && filters.typeFilter.size < allFilters.length) {
-      transactions = transactions.filter(tx => {
-        const typeId = allFilters.find(f => f.label === tx.type)?.id || tx.type;
-        return filters.typeFilter.has(typeId);
-      });
-    }
-
-    if (filters.searchTerm) {
-      const lowercasedTerm = filters.searchTerm.toLowerCase();
-      transactions = transactions.filter(tx => {
-        return (
-          tx.invoiceNumber?.toLowerCase().includes(lowercasedTerm) ||
-          tx.type.toLowerCase().includes(lowercasedTerm) ||
-          (typeof tx.description === 'string' 
-            ? tx.description.toLowerCase().includes(lowercasedTerm)
-            : tx.description?.title?.toLowerCase().includes(lowercasedTerm)
-          ) ||
-          tx.officer?.toLowerCase().includes(lowercasedTerm)
-        );
-      });
-    }
-
-    return transactions;
-  }, [report, filters.searchTerm, filters.typeFilter, allFilters]);
-
+  useEffect(() => {
+    // Select all filters by default on mount
+    setFilters(f => ({ ...f, typeFilter: new Set(allFilters.map(filter => filter.id)) }));
+  }, [allFilters]);
 
   const handleExport = () => {
-    if (!report || filteredTransactions.length === 0) {
+    if (!report || report.transactions.length === 0) {
       toast({ title: "لا توجد بيانات للتصدير", variant: "destructive" });
       return;
     }
-    const data = filteredTransactions.map(tx => ({
+    const data = report.transactions.map(tx => ({
       'التاريخ': tx.date ? format(parseISO(tx.date), "yyyy-MM-dd") : "",
       'النوع': tx.type,
       'البيان': typeof tx.description === 'string' ? tx.description : tx.description?.title,
@@ -147,13 +116,12 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
       'دائن': tx.credit,
       'الرصيد': tx.balance,
       'العملة': tx.currency,
-      'الموظف': tx.officer,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "كشف الحساب");
     const accountName = allAccounts.find(a => a.value === filters.accountId)?.label || "Account";
-    XLSX.writeFile(wb, `Statement-${accountName.replace(/:/g, '')}-${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.writeFile(wb, `Statement-${accountName}-${new Date().toISOString().split("T")[0]}.xlsx`);
     toast({ title: "تم التصدير بنجاح" });
   };
 
@@ -216,24 +184,22 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                         </PopoverContent>
                     </Popover>
                 </div>
+                <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
+                    {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                    <Filter className="me-2 h-4 w-4" />
+                    عرض الكشف
+                </Button>
                 <ReportFilters 
                     filters={filters} 
                     onFiltersChange={setFilters} 
                     allFilters={allFilters} 
                 />
             </CardContent>
-            <CardFooter>
-                 <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full h-12 text-base">
-                    {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                    <Filter className="me-2 h-4 w-4" />
-                    عرض الكشف
-                </Button>
-            </CardFooter>
           </Card>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
+      <div className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
         <header className="flex items-center justify-between p-3 border-b">
           <div className="relative flex-1">
@@ -250,21 +216,16 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         <div className="flex-grow overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : report && filteredTransactions.length > 0 ? (
-            <ReportTable transactions={filteredTransactions} reportType={filters.reportType} />
+          ) : report ? (
+            <ReportTable transactions={report.transactions} />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center p-4">
-              <FileText size={48} className="text-gray-300 dark:text-gray-600" />
-              <p className="text-lg font-medium mt-4">
-                {report && filteredTransactions.length === 0 ? "لا توجد نتائج تطابق الفلترة" : "لا يوجد تقرير لعرضه"}
-              </p>
-              <p className="text-sm mt-1">
-                {report && filteredTransactions.length === 0 ? "جرّب تعديل الفلاتر أو فترة البحث." : "اختر الحساب والفترة ثم اضغط 'عرض الكشف'."}
-              </p>
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
+              <FileText size={48} className="text-gray-300" />
+              <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
+              <p className="text-sm mt-1">اختر الحساب والفترة ثم اضغط "عرض الكشف".</p>
             </div>
           )}
         </div>
-        
         {/* Footer */}
         <footer className="flex-shrink-0 p-3 border-t bg-card grid grid-cols-[1fr,auto] gap-4 items-center">
              {report ? <ReportSummary report={report} /> : <div className="text-center text-muted-foreground text-sm col-span-2 py-6">لم يتم إنشاء تقرير بعد.</div>}
@@ -273,7 +234,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                 <Button onClick={handlePrint} variant="secondary" disabled={!report}><Printer className="me-2 h-4 w-4"/>طباعة</Button>
             </div>
         </footer>
-      </main>
+      </div>
     </div>
   );
 }
