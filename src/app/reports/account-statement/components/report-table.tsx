@@ -25,6 +25,13 @@ const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => 
     const [isOpen, setIsOpen] = React.useState(false);
 
     const isDetailedDescription = typeof transaction.description === 'object';
+    let descriptionText = '';
+    if (isDetailedDescription) {
+        descriptionText = (transaction.description as StructuredDescription).title;
+    } else {
+        descriptionText = transaction.description;
+    }
+
 
     return (
         <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
@@ -42,6 +49,7 @@ const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => 
                     <TableCell className="p-2 font-mono">{format(parseISO(transaction.date), 'yyyy-MM-dd')}</TableCell>
                     <TableCell className="p-2">{transaction.invoiceNumber}</TableCell>
                     <TableCell className="p-2">{transaction.type}</TableCell>
+                    <TableCell className="p-2 text-right">{descriptionText}</TableCell>
                     <TableCell className="p-2 text-right font-mono text-red-600">{transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}</TableCell>
                     <TableCell className="p-2 text-right font-mono text-green-600">{transaction.credit > 0 ? formatCurrency(transaction.credit, transaction.currency) : '-'}</TableCell>
                     <TableCell className="p-2 text-right font-mono font-semibold">{formatCurrency(transaction.balance, transaction.currency)}</TableCell>
@@ -50,7 +58,7 @@ const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => 
                 {isDetailedDescription && (
                     <CollapsibleContent asChild>
                          <TableRow>
-                            <TableCell colSpan={8} className="p-0">
+                            <TableCell colSpan={9} className="p-0">
                                 <div className="p-3 bg-muted/50 text-xs">
                                     <h4 className="font-bold mb-1">{(transaction.description as StructuredDescription).title}</h4>
                                      {(transaction.description as StructuredDescription).totalReceived && <p className="text-muted-foreground">{(transaction.description as StructuredDescription).totalReceived}</p>}
@@ -83,6 +91,7 @@ export default function ReportTable({ transactions, reportType }: { transactions
                     <TableHead className="p-2">التاريخ</TableHead>
                     <TableHead className="p-2">رقم الفاتورة</TableHead>
                     <TableHead className="p-2">النوع</TableHead>
+                    <TableHead className="p-2 text-right">البيان</TableHead>
                     <TableHead className="p-2 text-right">مدين</TableHead>
                     <TableHead className="p-2 text-right">دائن</TableHead>
                     <TableHead className="p-2 text-right">الرصيد</TableHead>

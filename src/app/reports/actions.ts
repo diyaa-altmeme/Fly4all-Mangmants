@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import type { ReportInfo, AccountType, ReportTransaction, Currency, DebtsReportData, Client, Supplier, AppSettings, Box, StructuredDescription, BookingEntry, VisaBookingEntry, Subscription, JournalVoucher, JournalEntry, DebtsReportEntry, InvoiceReportItem, ClientTransactionSummary, TreeNode, Exchange, SegmentEntry } from '@/lib/types';
@@ -87,6 +86,7 @@ const buildDetailedSubscriptionDescription = (subscription: Subscription): Struc
         notes: subscription.notes || ''
     };
 };
+
 
 
 const buildDetailedDistributedReceiptDescription = async (voucher: JournalVoucher, accountsMap: Map<string, string>): Promise<StructuredDescription> => {
@@ -317,6 +317,10 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
     });
     accountsMap.set('revenue_segments', 'إيرادات السكمنت');
     accountsMap.set('revenue_profit_distribution', 'إيرادات توزيع الأرباح');
+    accountsMap.set('revenue_tickets', 'إيرادات التذاكر');
+    accountsMap.set('revenue_visa', 'إيرادات الفيزا');
+    accountsMap.set('expense_tickets', 'تكلفة التذاكر');
+    accountsMap.set('expense_visa', 'تكلفة الفيزا');
 
 
     const allTransactions = await getTransactionsForAccount(accountInfo.id, accountsMap, settings, params.reportType, params.typeFilter);
@@ -843,8 +847,8 @@ export async function getInvoicesReport(filters: {
             credit: creditAmount,
             debit: debitAmount,
             balance: 0,
-            details: voucher.notes || `حركة من نوع: ${getVoucherTypeLabel(voucher)}`,
-            type: getVoucherTypeLabel(voucher),
+            details: voucher.notes || `حركة من نوع: ${getVoucherTypeLabel(voucher.voucherType)}`,
+            type: getVoucherTypeLabel(voucher.voucherType),
         });
     });
 
@@ -981,4 +985,3 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
     return rootNodes;
 });
-
