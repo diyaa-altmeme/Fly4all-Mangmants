@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator, History } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
-import { getClients } from '@/app/relations/actions';
-import { getSuppliers } from '@/app/suppliers/actions';
 import AddSegmentPeriodDialog from './components/add-segment-period-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { produce } from 'immer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
+import { useVoucherNav } from '@/context/voucher-nav-context';
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
     <div className={cn("text-center p-3 rounded-lg bg-background border", className)}>
@@ -95,7 +94,7 @@ const ProfitBreakdownPopover = ({ period, type, children }: { period: any, type:
 };
 
 
-const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period: any, index: number, clients: Client[], suppliers: Supplier[], onDataChange: () => void }) => {
+const PeriodRow = ({ period, index, onDataChange }: { period: any, index: number, onDataChange: () => void }) => {
     const [isOpen, setIsOpen] = useState(false);
     const { toast } = useToast();
     const entryUser = period.entries[0]?.enteredBy || 'غير معروف';
@@ -173,8 +172,7 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
 
 export default function SegmentsPage() {
     const [segments, setSegments] = useState<SegmentEntry[]>([]);
-    const [clients, setClients] = useState<Client[]>([]);
-    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+    const { data: navData, loaded: navDataLoaded } = useVoucherNav();
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
@@ -184,14 +182,8 @@ export default function SegmentsPage() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [segmentData, clientData, supplierData] = await Promise.all([
-                getSegments(),
-                getClients({all: true}),
-                getSuppliers({all: true})
-            ]);
+            const segmentData = await getSegments();
             setSegments(segmentData);
-            setClients(clientData.clients);
-            setSuppliers(supplierData);
         } catch (e: any) {
             toast({ title: "خطأ في تحميل البيانات", description: e.message, variant: "destructive" });
         } finally {
@@ -199,10 +191,6 @@ export default function SegmentsPage() {
         }
     }, [toast]);
     
-    const handleSuccess = useCallback(async () => {
-      await fetchData();
-    }, [fetchData]);
-
     useEffect(() => {
         fetchData();
     }, [fetchData]);
@@ -270,7 +258,7 @@ export default function SegmentsPage() {
             }));
     }, [groupedByPeriod]);
 
-    if (loading) {
+    if (loading || !navDataLoaded) {
         return (
              <div className="space-y-4">
                 <Skeleton className="h-40 w-full" />
@@ -292,8 +280,8 @@ export default function SegmentsPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
-                                <Button onClick={fetchData} variant="outline" disabled={loading} className="w-full sm:w-auto">
+                                <AddSegmentPeriodDialog onSuccess={fetchData} />
+                                <Button onClick={fetchData} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
                                 </Button>
