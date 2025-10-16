@@ -16,7 +16,7 @@ import * as XLSX from "xlsx";
 import ReportTable from "@/app/reports/account-statement/components/report-table";
 import ReportFilters from "@/app/reports/account-statement/components/report-filters";
 import ReportSummary from "@/app/reports/account-statement/components/report-summary";
-import type { Box, Client, Supplier, ReportInfo, Currency } from "@/lib/types";
+import type { Box, Client, Supplier, ReportInfo, Currency, Exchange } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -27,10 +27,11 @@ interface ReportGeneratorProps {
   boxes: Box[];
   clients: Client[];
   suppliers: Supplier[];
+  exchanges: Exchange[];
   defaultAccountId?: string;
 }
 
-export default function ReportGenerator({ boxes, clients, suppliers, defaultAccountId }: ReportGeneratorProps) {
+export default function ReportGenerator({ boxes, clients, suppliers, exchanges, defaultAccountId }: ReportGeneratorProps) {
   const [report, setReport] = useState<ReportInfo | null>(null);
   const [filters, setFilters] = useState({
     accountId: defaultAccountId || "",
@@ -47,12 +48,13 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     const clientOptions = clients.map(c => ({ value: c.id, label: `عميل: ${c.name}` }));
     const supplierOptions = suppliers.map(s => ({ value: s.id, label: `مورد: ${s.name}` }));
     const boxOptions = boxes.map(b => ({ value: b.id, label: `صندوق: ${b.name}` }));
+    const exchangeOptions = exchanges.map(ex => ({ value: ex.id, label: `بورصة: ${ex.name}` }));
     const staticAccounts = [
       { value: "revenue_segments", label: "إيراد: السكمنت" },
       { value: "revenue_profit_distribution", label: "إيراد: توزيع الأرباح" },
     ];
-    return [...clientOptions, ...supplierOptions, ...boxOptions, ...staticAccounts];
-  }, [clients, suppliers, boxes]);
+    return [...clientOptions, ...supplierOptions, ...boxOptions, ...exchangeOptions, ...staticAccounts];
+  }, [clients, suppliers, boxes, exchanges]);
 
    const allFilters = useMemo(() => [
         { id: 'booking', label: 'حجز طيران', icon: Plane, group: 'basic' },
@@ -130,8 +132,8 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-     <div className="flex h-[calc(100vh-160px)] gap-4">
-      <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
+     <div className="flex flex-col lg:flex-row h-full lg:h-[calc(100vh-160px)] gap-4">
+      <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 sticky top-20">
         <Card>
           <CardHeader>
             <CardTitle>خيارات العرض</CardTitle>
