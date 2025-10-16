@@ -55,7 +55,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
             const dataWithUser: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
                 invoiceNumber,
-                enteredBy: user.name,
+                enteredBy: entryData.officerId ? (await getDb().collection('users').doc(entryData.officerId).get()).data()?.name : user.name,
                 createdAt: entryDate.toISOString(),
                 isDeleted: false,
             };
@@ -70,22 +70,29 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
             const detailsText = `${entryData.tickets} تذكرة، ${entryData.visas} فيزا، ${entryData.hotels} فندق، ${entryData.groups} جروبات`;
             
             const clientDescription = `قيد أرباح السكمنت عن ${periodText}. تفاصيل: ${detailsText}.`;
-            const partnerDescription = `حصة الشريك من أرباح سكمنت شركة ${entryData.companyName} ${periodText}.`;
-            const alrawdatainDescription = `حصة الروضتين من سكمنت شركة ${entryData.companyName} ${periodText}.`;
-
-            // CORRECTED LOGIC:
-            // Debit the client (source of segment) for the total profit (they owe us this amount).
+            
             const debitEntries: JournalEntry[] = [
                 { accountId: entryData.clientId, amount: entryData.total, description: clientDescription },
             ];
 
-            // Credit the partner for their share (a liability for us).
-            // Credit our revenue account for our share (income).
-            const creditEntries: JournalEntry[] = [
-                { accountId: entryData.partnerId, amount: entryData.partnerShare, description: partnerDescription },
-                { accountId: 'revenue_segments', amount: entryData.alrawdatainShare, description: alrawdatainDescription },
-            ];
+            const creditEntries: JournalEntry[] = [];
             
+            if (entryData.alrawdatainShare > 0) {
+                 creditEntries.push({
+                    accountId: 'revenue_segments',
+                    amount: entryData.alrawdatainShare,
+                    description: `حصة الروضتين من سكمنت شركة ${entryData.companyName} ${periodText}.`
+                });
+            }
+
+            (entryData.partnerShares || []).forEach(share => {
+                 creditEntries.push({
+                    accountId: share.partnerId,
+                    amount: share.share,
+                    description: `حصة الشريك ${share.partnerName} من سكمنت شركة ${entryData.companyName} ${periodText}.`
+                });
+            });
+
             const totalDebit = debitEntries.reduce((sum, e) => sum + e.amount, 0);
             const totalCredit = creditEntries.reduce((sum, e) => sum + e.amount, 0);
             if (Math.abs(totalDebit - totalCredit) > 0.01) {
@@ -100,7 +107,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                 exchangeRate: null,
                 notes: `قيد أرباح السكمنت لشركة ${entryData.companyName} عن الفترة من ${entryData.fromDate} إلى ${entryData.toDate}`,
                 createdBy: user.uid,
-                officer: user.name,
+                officer: dataWithUser.enteredBy,
                 createdAt: entryDate.toISOString(),
                 updatedAt: entryDate.toISOString(),
                 voucherType: "segment",
@@ -127,10 +134,10 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                     'useCount': FieldValue.increment(1)
                 });
             }
-             if (entryData.partnerId) {
-                 const partnerRef = db.collection('clients').doc(entryData.partnerId);
+             (entryData.partnerShares || []).forEach(share => {
+                 const partnerRef = db.collection('clients').doc(share.partnerId);
                  writeBatch.update(partnerRef, { 'useCount': FieldValue.increment(1) });
-             }
+             });
         }
 
         await writeBatch.commit();
@@ -257,3 +264,5 @@ export async function restoreSegmentPeriod(fromDate: string, toDate: string): Pr
         return { success: false, error: "Failed to restore segment period.", count: 0 };
     }
 }
+
+    
