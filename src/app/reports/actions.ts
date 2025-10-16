@@ -79,15 +79,15 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
     if (boxAccount) {
         switch (voucher.voucherType) {
             case 'journal_from_standard_receipt':
-                return `استلام دفعة من: ${accountsMap.get(originalData.from) || originalData.from}`;
+                return `استلام دفعة من: ${accountsMap.get(originalData?.from) || originalData?.from || 'طرف غير محدد'}`;
             case 'journal_from_payment':
-                return `دفع مبلغ إلى: ${accountsMap.get(originalData.toSupplierId) || originalData.toSupplierId}`;
+                return `دفع مبلغ إلى: ${accountsMap.get(originalData?.toSupplierId) || originalData?.toSupplierId || 'طرف غير محدد'}`;
             case 'journal_from_expense':
-                return `دفع مصروف: ${originalData.expenseType}`;
+                return `دفع مصروف: ${originalData?.expenseType || 'غير محدد'}`;
             case 'journal_from_remittance':
-                return `إيداع حوالة من ${originalData.companyName}`;
+                return `إيداع حوالة من ${originalData?.companyName || 'مكتب غير محدد'}`;
             case 'journal_from_distributed_receipt':
-                return `إيداع إجمالي سند قبض مخصص من ${accountsMap.get(originalData.accountId)}`;
+                return `إيداع إجمالي سند قبض مخصص من ${accountsMap.get(originalData?.accountId)}`;
             default:
                 if (isDebitAccount) return `قيد مدين من: ${getOtherParties(voucher.creditEntries) || 'غير محدد'}`;
                 if (isCreditAccount) return `قيد دائن إلى: ${getOtherParties(voucher.debitEntries) || 'غير محدد'}`;
@@ -1003,6 +1003,3 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
     return rootNodes;
 });
-
-
-      
