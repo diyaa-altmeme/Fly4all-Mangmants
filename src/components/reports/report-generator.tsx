@@ -60,18 +60,23 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         { id: 'booking', label: 'حجز طيران', icon: Plane, group: 'basic' },
         { id: 'visa', label: 'طلب فيزا', icon: CreditCard, group: 'basic' },
         { id: 'subscription', label: 'اشتراك', icon: Repeat, group: 'basic' },
-        { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
-        { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown, group: 'basic' },
-        { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
-        { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
         { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
         { id: 'segment', label: 'سكمنت', icon: Layers3, group: 'other' },
         { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2, group: 'other' },
+        { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown, group: 'basic' },
+        { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
+        { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
+        { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
         { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser, group: 'other' },
         { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw, group: 'other' },
         { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw, group: 'other' },
         { id: 'void', label: 'إلغاء (فويد)', icon: XCircle, group: 'other' },
     ], []);
+    
+    useEffect(() => {
+        // Initialize with all filters selected by default
+        setFilters(f => ({ ...f, typeFilter: new Set(allFilters.map(filter => filter.id)) }));
+    }, [allFilters]);
 
   const handleGenerateReport = useCallback(async () => {
     if (!filters.accountId) {
@@ -87,7 +92,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         currency: filters.currency,
         dateRange: filters.dateRange || { from: undefined, to: undefined },
         reportType: filters.reportType,
-        typeFilter: filters.typeFilter,
+        typeFilter: Array.from(filters.typeFilter), // Convert Set to Array for server action
       });
       setReport(reportData);
     } catch (error: any) {
@@ -98,12 +103,11 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   }, [filters, toast]);
 
   useEffect(() => {
-    if (defaultAccountId) handleGenerateReport();
+    if (defaultAccountId) {
+        handleGenerateReport();
+    }
   }, [defaultAccountId, handleGenerateReport]);
-  
-   useEffect(() => {
-    setFilters(f => ({ ...f, typeFilter: new Set(allFilters.map(filter => filter.id)) }));
-  }, [allFilters]);
+
 
   const handleExport = () => {
     if (!report || report.transactions.length === 0) {
@@ -123,7 +127,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "كشف الحساب");
     const accountName = allAccounts.find(a => a.value === filters.accountId)?.label || "Account";
-    XLSX.writeFile(wb, `Statement-${accountName}-${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.writeFile(wb, `Statement-${accountName.replace(/:/g, '')}-${new Date().toISOString().split("T")[0]}.xlsx`);
     toast({ title: "تم التصدير بنجاح" });
   };
 
@@ -131,9 +135,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
 
   return (
     <div className="flex h-[calc(100vh-220px)] flex-row-reverse gap-4">
-      {/* Main Content */}
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
-        {/* Header */}
         <header className="flex items-center justify-between p-3 border-b">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -145,7 +147,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
             />
           </div>
         </header>
-        {/* Table */}
         <div className="flex-grow overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
@@ -161,7 +162,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         </div>
       </main>
 
-      {/* Sidebar */}
       <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
         <div className="flex-grow flex flex-col gap-4 overflow-y-auto">
             <Card>
@@ -217,13 +217,11 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                             </PopoverContent>
                         </Popover>
                     </div>
-                     <div className="flex flex-col gap-2">
-                         <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
-                            {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                            <Filter className="me-2 h-4 w-4" />
-                            عرض الكشف
-                        </Button>
-                    </div>
+                    <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
+                        {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                        <Filter className="me-2 h-4 w-4" />
+                        عرض الكشف
+                    </Button>
                 </CardContent>
             </Card>
             <Card className="flex-grow flex flex-col">
@@ -237,8 +235,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         </div>
       </aside>
 
-       {/* Footer */}
-        <footer className="flex-shrink-0 p-3 border-t bg-card rounded-lg grid grid-cols-[1fr,auto] gap-4 items-center">
+        <footer className="fixed bottom-4 right-4 left-4 lg:left-auto flex-shrink-0 p-3 border bg-card rounded-lg grid grid-cols-[1fr,auto] gap-4 items-center shadow-lg z-20">
              {report ? <ReportSummary report={report} /> : <div className="text-center text-muted-foreground text-sm col-span-1 py-6">لم يتم إنشاء تقرير بعد.</div>}
              <div className="flex gap-2">
                 <Button onClick={handleExport} variant="secondary" disabled={!report}><Download className="me-2 h-4 w-4"/>Excel</Button>
@@ -248,5 +245,3 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     </div>
   );
 }
-
-    

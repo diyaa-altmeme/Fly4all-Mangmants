@@ -150,12 +150,19 @@ async function getTransactionsForAccount(
     accountId: string, 
     accountsMap: Map<string, string>, 
     settings: AppSettings, 
-    reportType: 'summary' | 'detailed'
+    reportType: 'summary' | 'detailed',
+    typeFilter: string[]
 ): Promise<ReportTransaction[]> {
     const db = await getDb();
     if (!db) return [];
 
-    const journalSnapshot = await db.collection('journal-vouchers').where('isDeleted', '!=', true).get();
+    let journalQuery: FirebaseFirestore.Query = db.collection('journal-vouchers');
+
+    if (typeFilter.length > 0) {
+        journalQuery = journalQuery.where('voucherType', 'in', typeFilter);
+    }
+    
+    const journalSnapshot = await journalQuery.where('isDeleted', '!=', true).get();
     
     const transactions: ReportTransaction[] = [];
 
@@ -169,11 +176,8 @@ async function getTransactionsForAccount(
 
     const matchesAccount = (entryAccountId: string) => {
         if (!entryAccountId) return false;
-        // exact match
         if (entryAccountId === accountId) return true;
-        // entry = "rawId" and requested = "expense_rawId"
         if (`expense_${entryAccountId}` === accountId) return true;
-        // entry = "expense_rawId" and requested = "rawId"
         if (entryAccountId === accountId.replace(/^expense_/, '')) return true;
         return false;
     };
@@ -185,7 +189,7 @@ async function getTransactionsForAccount(
         const creditEntry = (voucher.creditEntries || []).find(e => matchesAccount(e.accountId));
 
         if (!debitEntry && !creditEntry) {
-            continue; // Skip vouchers not related to this account
+            continue;
         }
 
         const voucherTypeLabel = getVoucherTypeLabel(voucher);
@@ -249,7 +253,7 @@ async function getTransactionsForAccount(
 }
 
 
-export const getAccountStatement = cache(async (params: { accountId: string, currency: Currency | 'both', dateRange: DateRange, reportType: 'summary' | 'detailed', typeFilter: Set<string> }): Promise<ReportInfo> => {
+export const getAccountStatement = cache(async (params: { accountId: string, currency: Currency | 'both', dateRange: DateRange, reportType: 'summary' | 'detailed', typeFilter: string[] }): Promise<ReportInfo> => {
     
     const db = await getDb();
     if (!db) throw new Error("Database not available.");
@@ -281,10 +285,8 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
         } else if (params.accountId === 'revenue_profit_distribution') {
             accountInfo = { id: 'revenue_profit_distribution', name: 'إيرادات توزيع الأرباح', type: 'revenue' };
         } else {
-            // support params like "expense_<id>" and also plain ids if needed
             const expenseAccount = settings.voucherSettings?.expenseAccounts?.find(a => `expense_${a.id}` === params.accountId || a.id === params.accountId);
             if (expenseAccount) {
-                // keep the incoming params.accountId verbatim so matching against voucher entries works
                 const resolvedId = params.accountId.startsWith('expense_') ? params.accountId : (`expense_${expenseAccount.id}`);
                 accountInfo = { id: resolvedId, name: expenseAccount.name, type: 'expense' };
             } else {
@@ -310,7 +312,6 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
         }
     });
 
-    // Map expense accounts (store both forms: raw id and expense_<id>)
     settings.voucherSettings?.expenseAccounts?.forEach(acc => {
         accountsMap.set(acc.id, acc.name);
         accountsMap.set(`expense_${acc.id}`, acc.name);
@@ -319,28 +320,20 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
     accountsMap.set('revenue_profit_distribution', 'إيرادات توزيع الأرباح');
 
 
-    const allTransactions = await getTransactionsForAccount(accountInfo.id, accountsMap, settings, params.reportType);
+    const allTransactions = await getTransactionsForAccount(accountInfo.id, accountsMap, settings, params.reportType, params.typeFilter);
     
     const interval = {
         start: params.dateRange.from ? startOfDay(params.dateRange.from) : new Date(0),
         end: params.dateRange.to ? endOfDay(params.dateRange.to) : new Date(8640000000000000)
     };
 
-    let finalFilteredTransactions = allTransactions
+    const finalFilteredTransactions = allTransactions
         .filter(tx => {
             const date = parseISO(tx.date);
             const inInterval = isWithinInterval(date, interval);
             const currencyMatch = params.currency === 'both' || tx.currency === params.currency;
             
-            // The issue was here. The `typeFilter` had the raw `voucherType` id (e.g. 'booking')
-            // but `tx.type` had the friendly label (e.g. 'حجز طيران').
-            // The filter should happen on the raw type. We can find the original voucher
-            // to get its `voucherType`.
-            // For now, let's disable type filtering to fix the main issue of no data.
-            // A better fix will involve passing the raw voucherType through.
-            const typeMatch = true; // Temporarily disable type filtering to show data.
-
-            return inInterval && currencyMatch && typeMatch;
+            return inInterval && currencyMatch;
         });
 
     const sortedTransactions = finalFilteredTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -990,12 +983,3 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
     return rootNodes;
 });
 
-
-
-
-    
-    
-
-    
-
-    
