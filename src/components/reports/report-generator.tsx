@@ -130,24 +130,23 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-     <div className="flex flex-col h-[calc(100vh-160px)] gap-4">
-      <main className="flex flex-row gap-4 overflow-hidden">
-        <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 overflow-y-auto lg:sticky top-20">
-          <Card>
-            <CardHeader>
-              <CardTitle>خيارات العرض</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="font-semibold">الحساب</Label>
-                <Autocomplete
-                  value={filters.accountId}
-                  onValueChange={(v) => setFilters(f => ({ ...f, accountId: v }))}
-                  options={allAccounts}
-                  placeholder="اختر حسابًا..."
-                />
-              </div>
-              <div className="space-y-2">
+     <div className="flex h-[calc(100vh-160px)] gap-4">
+      <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>خيارات العرض</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label className="font-semibold">الحساب</Label>
+              <Autocomplete
+                value={filters.accountId}
+                onValueChange={(v) => setFilters(f => ({ ...f, accountId: v }))}
+                options={allAccounts}
+                placeholder="اختر حسابًا..."
+              />
+            </div>
+            <div className="space-y-2">
                 <Label className="font-semibold">الفترة الزمنية</Label>
                 <div className="grid grid-cols-2 gap-2">
                     <Popover>
@@ -174,58 +173,56 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                     </Popover>
                 </div>
               </div>
-              <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full">
-                {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                <Filter className="me-2 h-4 w-4" />
-                عرض الكشف
-              </Button>
-            </CardContent>
-          </Card>
-          <Card className="flex-grow flex flex-col">
-            <CardHeader>
-              <CardTitle>فلترة الحركات</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-grow overflow-y-auto pr-2 -mr-2">
-              <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
-            </CardContent>
-          </Card>
-        </aside>
+            <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full">
+              {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+              <Filter className="me-2 h-4 w-4" />
+              عرض الكشف
+            </Button>
+          </CardContent>
+        </Card>
+        <Card className="flex-grow flex flex-col">
+          <CardHeader>
+            <CardTitle>فلترة الحركات</CardTitle>
+          </CardHeader>
+          <CardContent className="flex-grow overflow-y-auto pr-2 -mr-2">
+            <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
+          </CardContent>
+        </Card>
+      </aside>
 
-        <div className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
-          <header className="flex items-center justify-between p-3 border-b">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="بحث في النتائج..."
-                value={filters.searchTerm}
-                onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
-                className="ps-10 h-9"
-              />
-            </div>
-          </header>
-          <div className="flex-grow overflow-y-auto">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-            ) : report ? (
-              <ReportTable transactions={report.transactions} />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
-                <FileText size={48} className="text-gray-300" />
-                <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
-                <p className="text-sm mt-1">اختر الحساب والفترة ثم اضغط "عرض الكشف".</p>
-              </div>
-            )}
+      <div className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
+        <header className="flex items-center justify-between p-3 border-b">
+          <div className="flex gap-2">
+            <Button onClick={handleExport} variant="outline" disabled={!report}><Download className="me-2 h-4 w-4"/>Excel</Button>
+            <Button onClick={handlePrint} variant="outline" disabled={!report}><Printer className="me-2 h-4 w-4"/>طباعة</Button>
           </div>
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="بحث في النتائج..."
+              value={filters.searchTerm}
+              onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
+              className="ps-10 h-9"
+            />
+          </div>
+        </header>
+        <div className="flex-grow overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : report ? (
+            <ReportTable transactions={report.transactions} />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
+              <FileText size={48} className="text-gray-300" />
+              <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
+              <p className="text-sm mt-1">اختر الحساب والفترة ثم اضغط "عرض الكشف".</p>
+            </div>
+          )}
         </div>
-      </main>
-
-      <footer className="flex-shrink-0 p-3 border-t bg-card grid grid-cols-1 md:grid-cols-[1fr,auto] gap-4 items-center shadow-lg rounded-lg">
-        {report ? <ReportSummary report={report} /> : <div className="text-center text-muted-foreground text-sm col-span-1 py-6">لم يتم إنشاء تقرير بعد.</div>}
-        <div className="flex gap-2">
-          <Button onClick={handleExport} variant="secondary" disabled={!report}><Download className="me-2 h-4 w-4"/>Excel</Button>
-          <Button onClick={handlePrint} variant="secondary" disabled={!report}><Printer className="me-2 h-4 w-4"/>طباعة</Button>
-        </div>
-      </footer>
+        <footer className="p-3 border-t bg-card">
+            {report && <ReportSummary report={report} />}
+        </footer>
+      </div>
     </div>
   );
 }
