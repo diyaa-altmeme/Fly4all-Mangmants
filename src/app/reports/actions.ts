@@ -71,10 +71,10 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
         const debitParties = getOtherParties(voucher.creditEntries);
         const creditParties = getOtherParties(voucher.debitEntries);
         if (voucher.debitEntries.some(e => e.accountId === accountId)) {
-            return `${voucher.notes || 'حركة مدينة'} (من: ${creditParties || 'غير محدد'})`;
+            return `قيد مدين من: ${creditParties || 'غير محدد'}. البيان: ${voucher.notes || 'لا يوجد'}`;
         }
         if (voucher.creditEntries.some(e => e.accountId === accountId)) {
-            return `${voucher.notes || 'حركة دائنة'} (إلى: ${debitParties || 'غير محدد'})`;
+            return `قيد دائن إلى: ${debitParties || 'غير محدد'}. البيان: ${voucher.notes || 'لا يوجد'}`;
         }
         return voucher.notes || 'لا يوجد وصف';
     }
@@ -87,7 +87,7 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
             const isBooking = voucher.voucherType === 'booking';
             const details = isBooking 
                 ? (originalData.passengers || []).map((p: any) => `${p.name} (تذكرة: ${p.ticketNumber || 'N/A'})`).join(', ')
-                : (originalData.passengers || []).map((p: any) => `${p.name} (طلب: ${p.applicationNumber || 'N/A'})`).join(', ');
+                : (originalData.passengers || []).map((p: any) => `${p.name} (جواز: ${p.passportNumber || 'N/A'}, طلب: ${p.applicationNumber || 'N/A'})`).join(', ');
 
             if (accountId === originalData.clientId) {
                 return `قيد فاتورة ${isBooking ? 'حجز طيران' : 'فيزا'} برقم PNR: ${originalData.pnr || 'N/A'}. للمسافرين: ${details}.`;
@@ -156,8 +156,8 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
         default:
              const debited = getOtherParties(voucher.creditEntries);
              const credited = getOtherParties(voucher.debitEntries);
-            if (voucher.debitEntries.some(e => e.accountId === accountId)) return `${voucher.notes || 'حركة مدينة'} (من: ${credited || 'غير محدد'})`;
-            if (voucher.creditEntries.some(e => e.accountId === accountId)) return `${voucher.notes || 'حركة دائنة'} (إلى: ${debited || 'غير محدد'})`;
+            if (voucher.debitEntries.some(e => e.accountId === accountId)) return `قيد مدين من: ${credited || 'غير محدد'}. البيان: ${voucher.notes || 'لا يوجد'}`;
+            if (voucher.creditEntries.some(e => e.accountId === accountId)) return `قيد دائن إلى: ${debited || 'غير محدد'}. البيان: ${voucher.notes || 'لا يوجد'}`;
     }
     
     return voucher.notes || 'لا يوجد وصف';
@@ -821,8 +821,8 @@ export async function getInvoicesReport(filters: {
             credit: creditAmount,
             debit: debitAmount,
             balance: 0,
-            details: voucher.notes || `حركة من نوع: ${getVoucherTypeLabel(voucher.voucherType)}`,
-            type: getVoucherTypeLabel(voucher.voucherType),
+            details: voucher.notes || `حركة من نوع: ${getVoucherTypeLabel(voucher, '')}`,
+            type: getVoucherTypeLabel(voucher, ''),
         });
     });
 
@@ -959,3 +959,4 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
     return rootNodes;
 });
+
