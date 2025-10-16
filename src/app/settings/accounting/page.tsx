@@ -16,14 +16,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import CurrencySettings from '@/components/settings/currency-settings';
 import SubscriptionsSettings from '@/components/settings/subscriptions-settings';
-import ExchangeSettings from './exchange-settings';
+import ExchangeSettings from '@/app/settings/sections/exchange-settings';
 import ClientPermissionsPage from '@/app/settings/client-permissions/page';
+import { getSettings } from '@/app/settings/actions';
+import { Skeleton } from '@/components/ui/skeleton';
 
-
-interface AccountingSettingsProps {
-    settings: AppSettings;
-    onSettingsChanged: () => void;
-}
 
 const ChartOfAccountsTabContent = () => {
     const [data, setData] = useState<TreeNode[]>([]);
@@ -78,8 +75,41 @@ const ChartOfAccountsTabContent = () => {
     );
 }
 
+function AccountingSettingsPageContainer() {
+    const [settings, setSettings] = React.useState<AppSettings | null>(null);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
 
-export default function AccountingSettings({ settings, onSettingsChanged }: AccountingSettingsProps) {
+     const fetchData = React.useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await getSettings();
+            setSettings(data);
+        } catch (e: any) {
+            setError(e.message || "Failed to load settings.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    React.useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    if (loading || !settings) {
+        return <Skeleton className="h-[600px] w-full" />
+    }
+
+     if (error) {
+        return (
+            <Alert variant="destructive">
+                <Terminal className="h-4 w-4" />
+                <AlertTitle>حدث خطأ!</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+            </Alert>
+        );
+    }
+
     return (
         <div className="space-y-4">
             <Tabs defaultValue="chart_of_accounts">
@@ -97,10 +127,10 @@ export default function AccountingSettings({ settings, onSettingsChanged }: Acco
                      <InvoiceSequencesPage />
                 </TabsContent>
                  <TabsContent value="currencies" className="mt-4">
-                    <CurrencySettings settings={settings} onSettingsChanged={onSettingsChanged} />
+                    <CurrencySettings settings={settings} onSettingsChanged={fetchData} />
                 </TabsContent>
                  <TabsContent value="subscriptions" className="mt-4">
-                    <SubscriptionsSettings settings={settings} onSettingsChanged={onSettingsChanged} />
+                    <SubscriptionsSettings settings={settings} onSettingsChanged={fetchData} />
                 </TabsContent>
                  <TabsContent value="client_permissions" className="mt-4">
                     <ClientPermissionsPage />
@@ -110,4 +140,10 @@ export default function AccountingSettings({ settings, onSettingsChanged }: Acco
     );
 }
 
-    
+export default function AccountingSettingsPage() {
+    return (
+        <React.Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+            <AccountingSettingsPageContainer />
+        </React.Suspense>
+    )
+}
