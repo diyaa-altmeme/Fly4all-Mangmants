@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -92,7 +91,7 @@ const ProfitBreakdownPopover = ({ period, type, children }: { period: any, type:
                 </div>
             </PopoverContent>
         </Popover>
-    );
+    )
 };
 
 
@@ -295,12 +294,6 @@ export default function SegmentsPage() {
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
                                 <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
-                                 <Button asChild variant="outline">
-                                    <Link href="/segments/deleted-segments">
-                                        <History className="me-2 h-4 w-4"/>
-                                        سجل المحذوفات
-                                    </Link>
-                                </Button>
                                 <Button onClick={fetchData} variant="outline" disabled={loading} className="w-full sm:w-auto">
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
@@ -376,7 +369,7 @@ export default function SegmentsPage() {
                                     index={idx}
                                     clients={clients}
                                     suppliers={suppliers}
-                                    onDataChange={fetchData}
+                                    onDataChange={handleSuccess}
                                 />
                             ))}
                         </Table>
@@ -386,4 +379,3 @@ export default function SegmentsPage() {
         </div>
     )
 }
-
