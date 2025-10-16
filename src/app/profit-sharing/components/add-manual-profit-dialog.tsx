@@ -44,6 +44,7 @@ const partnerSchema = z.object({
 const formSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب" }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب" }),
+  sourceAccountId: z.string().min(1, { message: "مصدر الأرباح مطلوب."}),
   profit: z.coerce.number().positive("الربح يجب أن يكون أكبر من صفر"),
   currency: z.enum(['USD', 'IQD']),
   partners: z.array(partnerSchema).optional(),
@@ -53,7 +54,7 @@ type FormValues = z.infer<typeof formSchema>;
 export type PartnerShare = z.infer<typeof partnerSchema> & { amount: number };
 
 interface AddManualProfitDialogProps {
-  partners: { id: string; name: string }[];
+  partners: { id: string; name: string; type: string }[];
   onSuccess: () => void;
 }
 
@@ -98,6 +99,14 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
   const partnerOptions = useMemo(() => {
     return partnersFromProps.map(p => ({ value: p.id, label: p.name }));
   }, [partnersFromProps]);
+
+  const sourceAccountOptions = useMemo(() => {
+    if (!navData) return [];
+    return [
+      ...(navData.clients || []).map(c => ({ value: c.id, label: `عميل: ${c.name}` })),
+      ...(navData.suppliers || []).map(s => ({ value: s.id, label: `مورد: ${s.name}` }))
+    ];
+  }, [navData]);
 
   const watchedPartners = watch('partners');
   const watchedProfit = watch('profit');
@@ -147,7 +156,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
   }, [watchedPartners, watchedProfit, remainingPercentage, partnersFromProps]);
 
   const goToNextStep = async () => {
-    const isValid = await trigger(['fromDate', 'toDate', 'profit', 'currency']);
+    const isValid = await trigger(['fromDate', 'toDate', 'profit', 'currency', 'sourceAccountId']);
     if (isValid) setStep(2);
   };
   
@@ -160,6 +169,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     const payload = {
         fromDate: format(data.fromDate, 'yyyy-MM-dd'),
         toDate: format(data.toDate, 'yyyy-MM-dd'),
+        sourceAccountId: data.sourceAccountId,
         profit: data.profit,
         currency: data.currency,
         partners: distribution.map(({ id, name, percentage, amount }) => ({ 
@@ -220,7 +230,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
         <DialogHeader>
           <DialogTitle>إدخال توزيع أرباح يدوي</DialogTitle>
           <DialogDescription>
-             {step === 1 ? "الخطوة 1: أدخل تفاصيل الفترة وصافي الربح." : "الخطوة 2: وزع الحصص على الشركاء. النظام سيحسب المبالغ تلقائيًا."}
+             {step === 1 ? "الخطوة 1: أدخل تفاصيل الفترة وصافي الربح ومصدره." : "الخطوة 2: وزع الحصص على الشركاء. النظام سيحسب المبالغ تلقائيًا."}
           </DialogDescription>
         </DialogHeader>
 
@@ -232,6 +242,9 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                     <FormField control={control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem> )}/>
                     <FormField control={control} name="profit" render={({ field }) => ( <FormItem><FormLabel>صافي الربح للفترة</FormLabel><FormControl><AmountInput currency={watchedCurrency} {...field} /></FormControl><FormMessage /></FormItem> )}/>
                     <FormField control={control} name="currency" render={({ field }) => ( <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select><FormMessage /></FormItem> )}/>
+                     <div className="md:col-span-2">
+                       <FormField control={control} name="sourceAccountId" render={({ field }) => ( <FormItem><FormLabel>مصدر الأرباح</FormLabel><FormControl><Autocomplete options={sourceAccountOptions} value={field.value} onValueChange={field.onChange} placeholder="اختر حساب المصدر..."/></FormControl><FormMessage /></FormItem> )}/>
+                    </div>
                   </div>
               )}
               {step === 2 && (
