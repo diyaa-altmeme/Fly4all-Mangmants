@@ -78,7 +78,7 @@ const formSchema = z.object({
       otherProfits: z.number(),
       total: z.number(),
       alrawdatainShare: z.number(),
-      partnerShare: z.number(), // This will be the total share for all partners
+      partnerShare: z.number(),
       partnerShares: z.array(z.object({
           partnerId: z.string(),
           partnerName: z.string(),
@@ -125,7 +125,7 @@ const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
     return (
         <div className={cn("p-3 border-2 rounded-lg space-y-2", cardBorderColors[name])}>
             <p className="text-center font-bold">{name}</p>
-             <FormField control={control} name={countFieldName} render={({ field }) => (<FormItem><FormControl><Input type="number" placeholder="العدد" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} className="text-center font-bold text-lg h-10" /></FormControl></FormItem>)} />
+             <FormField control={control} name={countFieldName} render={({ field }) => (<FormItem><FormControl><Input type="text" placeholder="العدد" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} className="text-center font-bold text-lg h-10" /></FormControl></FormItem>)} />
             <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
                 <span className="font-mono text-green-600 text-sm flex-grow">usd {result.toFixed(2)}</span>
                 <span className="text-xs text-muted-foreground">الناتج</span>
@@ -268,7 +268,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                         </div>
                         <div className="w-28 space-y-1.5">
                             <Label>القيمة</Label>
-                            <Input type="number" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} />
+                            <Input type="text" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} />
                         </div>
                         <Button type="button" size="icon" className="shrink-0" onClick={handleAddPartner}><PlusCircle className="h-4 w-4"/></Button>
                     </div>
@@ -307,6 +307,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
     const companyForm = useForm<CompanyEntryFormValues>({ 
         resolver: zodResolver(companyEntrySchema),
         defaultValues: {
+            clientId: '',
             tickets: 0,
             visas: 0,
             hotels: 0,
@@ -463,7 +464,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                                                 <TableCell className="font-mono text-green-600">{form.watch(`entries.${index}.alrawdatainShare`)?.toFixed(2)}</TableCell>
                                                 <TableCell className="font-mono text-blue-600">{form.watch(`entries.${index}.partnerShare`)?.toFixed(2)}</TableCell>
                                                 <TableCell className='text-center'>
-                                                    <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => remove(index)}><Trash2 className='h-4 w-4'/></Button>
+                                                    <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -483,3 +484,5 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         </Dialog>
     );
 }
+
+    
