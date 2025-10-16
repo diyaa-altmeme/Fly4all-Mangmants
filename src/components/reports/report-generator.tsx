@@ -72,11 +72,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     { id: 'void', label: 'إلغاء (فويد)', icon: XCircle, group: 'other' },
   ], []);
 
-  useEffect(() => {
-    // Select all filters by default when the component mounts
-    setFilters(f => ({ ...f, typeFilter: new Set(allFilters.map(filter => filter.id)) }));
-  }, [allFilters]);
-
   const handleGenerateReport = useCallback(async () => {
     if (!filters.accountId) {
       toast({ title: "خطأ", description: "الرجاء اختيار حساب.", variant: "destructive" });
@@ -101,16 +96,12 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   }, [filters, toast]);
 
   useEffect(() => {
-    if (defaultAccountId) {
-      setFilters(f => ({ ...f, accountId: defaultAccountId }));
-    }
-  }, [defaultAccountId]);
+    if (defaultAccountId) handleGenerateReport();
+  }, [defaultAccountId, handleGenerateReport]);
   
-  useEffect(() => {
-      if (filters.accountId && isLoading === false && report === null) {
-          handleGenerateReport();
-      }
-  }, [filters.accountId, handleGenerateReport, isLoading, report]);
+   useEffect(() => {
+    setFilters(f => ({ ...f, typeFilter: new Set(allFilters.map(filter => filter.id)) }));
+  }, [allFilters]);
 
   const handleExport = () => {
     if (!report || report.transactions.length === 0) {
@@ -137,78 +128,30 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-    <div className="flex h-[calc(100vh-220px)] flex-row-reverse gap-4">
+    <div className="flex h-[calc(100vh-160px)] flex-row-reverse gap-4 p-4 bg-muted/30">
       {/* Sidebar */}
-      <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4">
-          <Card className="flex-1 flex flex-col">
-              <CardHeader>
-                  <CardTitle>خيارات التقرير</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-grow overflow-y-auto space-y-4">
-                  <div className="space-y-2">
-                      <Label className="font-semibold">الحساب</Label>
-                      <Autocomplete
-                          value={filters.accountId}
-                          onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
-                          options={allAccounts}
-                          placeholder="اختر حسابًا..."
-                      />
-                  </div>
-                   <div className="space-y-2">
-                    <Label className="font-semibold">الفترة الزمنية</Label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                id="date"
-                                variant={"outline"}
-                                className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !filters.dateRange && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {filters.dateRange?.from ? (
-                                filters.dateRange.to ? (
-                                    <>
-                                    {format(filters.dateRange.from, "LLL dd, y")} -{" "}
-                                    {format(filters.dateRange.to, "LLL dd, y")}
-                                    </>
-                                ) : (
-                                    format(filters.dateRange.from, "LLL dd, y")
-                                )
-                                ) : (
-                                <span>اختر فترة</span>
-                                )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={filters.dateRange?.from}
-                            selected={filters.dateRange}
-                            onSelect={date => setFilters(f => ({...f, dateRange: date}))}
-                            numberOfMonths={2}
-                        />
-                        </PopoverContent>
-                    </Popover>
-                  </div>
-                  <ReportFilters 
-                    filters={filters} 
-                    onFiltersChange={setFilters} 
-                    allFilters={allFilters} 
-                  />
-              </CardContent>
-              <CardFooter className="flex flex-col gap-2">
-                  <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
-                    {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                    <Filter className="me-2 h-4 w-4" />
-                    عرض الكشف
-                  </Button>
-              </CardFooter>
-          </Card>
+      <aside className="w-full lg:w-72 flex-shrink-0 bg-card p-4 rounded-lg shadow-sm flex flex-col gap-4">
+        <div className="space-y-2">
+          <Label className="font-semibold">الحساب</Label>
+          <Autocomplete
+            value={filters.accountId}
+            onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
+            options={allAccounts}
+            placeholder="اختر حسابًا..."
+          />
+        </div>
+        <div className="flex-grow overflow-y-auto pr-2 -mr-2">
+          <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full">
+            {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+            <Filter className="me-2 h-4 w-4" />
+            عرض الكشف
+          </Button>
+        </div>
       </aside>
-      
+
       {/* Main Content */}
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
@@ -219,7 +162,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
               placeholder="بحث في النتائج..."
               value={filters.searchTerm}
               onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
-              className="ps-10 h-10"
+              className="ps-10 h-9"
             />
           </div>
         </header>
@@ -228,7 +171,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
           {isLoading ? (
             <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : report ? (
-            <ReportTable transactions={report.transactions} />
+            <ReportTable transactions={report.transactions} reportType={filters.reportType} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
               <FileText size={48} className="text-gray-300" />
@@ -246,7 +189,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
             </div>
         </footer>
       </main>
-
     </div>
   );
 }
