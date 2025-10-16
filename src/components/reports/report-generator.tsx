@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -26,6 +27,7 @@ import ReportSummary from '@/app/reports/account-statement/components/report-sum
 import ReportTable from '@/app/reports/account-statement/components/report-table';
 import ReportFilters from '@/app/reports/account-statement/components/report-filters';
 import { useAuth } from '@/lib/auth-context';
+import { parseISO } from 'date-fns';
 
 export default function ReportGenerator({ boxes, clients, suppliers, defaultAccountId }: { boxes: Box[], clients: Client[], suppliers: Supplier[], defaultAccountId?: string }) {
     
@@ -190,7 +192,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                 </footer>
             </main>
 
-             {/* Right Sidebar */}
+            {/* Right Sidebar */}
              <aside className="w-full lg:w-72 lg:h-full flex-shrink-0 bg-card p-4 rounded-lg shadow-sm flex flex-col gap-4">
                 <div className="space-y-1.5">
                     <Label className="font-semibold">الحساب</Label>
