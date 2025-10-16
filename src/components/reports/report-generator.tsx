@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, Printer, SlidersHorizontal, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes } from 'lucide-react';
+import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, Printer, SlidersHorizontal, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays } from "date-fns";
 import type { Box, ReportInfo, ReportTransaction, Currency, AccountType, Client, Supplier, StructuredDescription } from '@/lib/types';
@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportSummary from '@/app/reports/account-statement/components/report-summary';
 import ReportTable from '@/app/reports/account-statement/components/report-table';
 import ReportFilters from '@/app/reports/account-statement/components/report-filters';
+import { useAuth } from '@/lib/auth-context';
 
 export default function ReportGenerator({ boxes, clients, suppliers, defaultAccountId }: { boxes: Box[], clients: Client[], suppliers: Supplier[], defaultAccountId?: string }) {
     
@@ -34,7 +35,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
     const [currentFilters, setCurrentFilters] = useState<any>(null);
-
+    const { hasPermission } = useAuth();
     
     const allAccounts = useMemo(() => {
         const clientOptions = clients.map(c => ({ value: c.id, label: `عميل: ${c.name}` }));
@@ -153,60 +154,49 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     };
 
     return (
-        <div className="h-[calc(100vh-180px)] flex flex-col items-stretch">
-            <header className="p-4 border-b shrink-0">
-                <ReportFilters 
-                    allAccounts={allAccounts}
-                    allFilters={allFilters}
-                    onGenerateReport={handleGenerateReport}
-                    isLoading={isLoading}
-                    defaultAccountId={defaultAccountId}
-                />
-            </header>
-             <div className="flex-grow overflow-hidden flex items-stretch">
-                 <main className="flex-1 overflow-y-auto p-4 space-y-4">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div>
-                                <CardTitle>{report?.title || "كشف الحساب"}</CardTitle>
-                                <CardDescription>
-                                    {report ? `يعرض ${report.transactions.length} حركة للفترة المحددة.` : 'اختر حسابًا لعرض كشف الحساب.'}
-                                </CardDescription>
-                            </div>
-                             <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" onClick={handleExport} disabled={!report}><Download className="me-2 h-4 w-4"/> تصدير Excel</Button>
-                                <Button variant="outline" size="sm" onClick={handlePrint} disabled={!report}><Printer className="me-2 h-4 w-4"/> طباعة</Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent>
-                             <div className="border rounded-lg overflow-x-auto bg-card">
-                                {isLoading ? (
-                                    <div className="flex items-center justify-center h-96">
-                                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                    </div>
-                                ) : report ? (
-                                    <ReportTable transactions={report.transactions} />
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center h-96 text-center text-gray-500">
-                                       <FileText size={48} className="text-gray-300" />
-                                       <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
-                                       <p className="text-sm">الرجاء اختيار حساب وتحديد فترة زمنية ثم الضغط على "عرض الكشف".</p>
-                                   </div>
-                                )}
-                             </div>
-                        </CardContent>
-                    </Card>
-                </main>
-                <aside className="w-80 border-r p-4 overflow-y-auto bg-muted/20">
-                     <h3 className="text-lg font-bold mb-4">الملخص المالي</h3>
-                     {report ? <ReportSummary report={report} /> : (
-                         <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
-                            <BarChart size={48} className="text-gray-300"/>
-                            <p className="mt-2">لم يتم إنشاء تقرير بعد.</p>
+        <div className="h-[calc(100vh-180px)] flex flex-row-reverse items-stretch">
+             <aside className="w-80 border-l p-4 overflow-y-auto bg-card shrink-0">
+                 <h3 className="text-lg font-bold mb-4">الملخص المالي</h3>
+                 {report ? <ReportSummary report={report} /> : (
+                     <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
+                        <BarChart size={48} className="text-gray-300"/>
+                        <p className="mt-2">لم يتم إنشاء تقرير بعد.</p>
+                     </div>
+                 )}
+            </aside>
+            <main className="flex-1 overflow-y-auto p-4 space-y-4">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <div>
+                            <CardTitle>{report?.title || "كشف الحساب"}</CardTitle>
+                            <CardDescription>
+                                {report ? `يعرض ${report.transactions.length} حركة للفترة المحددة.` : 'اختر حسابًا لعرض كشف الحساب.'}
+                            </CardDescription>
+                        </div>
+                         <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={handleExport} disabled={!report}><Download className="me-2 h-4 w-4"/> تصدير Excel</Button>
+                            <Button variant="outline" size="sm" onClick={handlePrint} disabled={!report}><Printer className="me-2 h-4 w-4"/> طباعة</Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="border rounded-lg overflow-x-auto bg-card">
+                            {isLoading ? (
+                                <div className="flex items-center justify-center h-96">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                            ) : report ? (
+                                <ReportTable transactions={report.transactions} />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-96 text-center text-gray-500">
+                                   <FileText size={48} className="text-gray-300" />
+                                   <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
+                                   <p className="text-sm">الرجاء اختيار حساب وتحديد فترة زمنية ثم الضغط على "عرض الكشف".</p>
+                               </div>
+                            )}
                          </div>
-                     )}
-                </aside>
-            </div>
+                    </CardContent>
+                </Card>
+            </main>
         </div>
     )
 }
