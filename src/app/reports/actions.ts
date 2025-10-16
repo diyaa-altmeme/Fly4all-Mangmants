@@ -123,12 +123,13 @@ const buildDetailedSegmentDescription = (voucher: JournalVoucher): StructuredDes
     if (!originalData) {
         return { title: 'قيد سكمنت', totalReceived: null, selfReceipt: null, distributions: [], notes: voucher.notes };
     }
+    const detailsText = `${originalData.tickets} تذكرة، ${originalData.visas} فيزا، ${originalData.hotels} فندق، ${originalData.groups} جروبات`;
     return {
         title: `قيد أرباح سكمنت لشركة: ${originalData.companyName}`,
         totalReceived: `إجمالي ربح السكمنت: ${formatCurrencyDisplay(originalData.total, originalData.currency)}`,
         selfReceipt: `حصة الروضتين: ${formatCurrencyDisplay(originalData.alrawdatainShare, originalData.currency)}`,
         distributions: [{
-            name: `حصة الشريك (${originalData.partnerName})`,
+            name: `حصة الشريك (${originalData.partnerName}) من ${detailsText}`,
             amount: formatCurrencyDisplay(originalData.partnerShare, originalData.currency),
         }],
         notes: `فترة السكمنت من ${originalData.fromDate} إلى ${originalData.toDate}`,
@@ -146,81 +147,97 @@ async function getTransactionsForAccount(
     const db = await getDb();
     if (!db) return [];
 
-    const debitQuery = db.collection('journal-vouchers').where('debitEntries', 'array-contains-any', [{ accountId: accountId }, { accountId: accountId.replace(/^expense_/, '') }]);
-    const creditQuery = db.collection('journal-vouchers').where('creditEntries', 'array-contains-any', [{ accountId: accountId }, { accountId: accountId.replace(/^expense_/, '') }]);
+    const journalSnapshot = await db.collection('journal-vouchers').where('isDeleted', '!=', true).get();
+    
+    const transactions: ReportTransaction[] = [];
 
-    const [debitSnapshot, creditSnapshot] = await Promise.all([debitQuery.get(), creditQuery.get()]);
-
-    const transactionsMap = new Map<string, ReportTransaction>();
-
-    const processSnapshot = async (snapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>, isDebit: boolean) => {
-        for (const doc of snapshot.docs) {
-            const voucher = { id: doc.id, ...doc.data() } as JournalVoucher;
-            if (voucher.isDeleted) continue;
-
-            const entry = (isDebit ? voucher.debitEntries : voucher.creditEntries).find(e => e.accountId === accountId || `expense_${e.accountId}` === accountId || e.accountId === accountId.replace(/^expense_/, ''));
-            if (!entry) continue;
-
-            const amount = entry.amount || 0;
-            const voucherTypeLabel = getVoucherTypeLabel(voucher.voucherType);
-            let description: string | StructuredDescription = voucher.notes;
-
-            const otherParties = (isDebit ? voucher.creditEntries : voucher.debitEntries)
-                .map(e => accountsMap.get(e.accountId) || e.accountId)
-                .join(', ');
-
-            if (reportType === 'detailed' && voucher.originalData) {
-                switch (voucher.voucherType) {
-                    case 'journal_from_distributed_receipt':
-                        description = await buildDetailedDistributedReceiptDescription(voucher, accountsMap);
-                        break;
-                    case 'booking':
-                        description = buildDetailedBookingDescription(voucher.originalData);
-                        break;
-                    case 'visa':
-                        description = buildDetailedVisaDescription(voucher.originalData);
-                        break;
-                    case 'segment':
-                        description = buildDetailedSegmentDescription(voucher);
-                        break;
-                     case 'subscription':
-                        description = buildDetailedSubscriptionDescription(voucher.originalData);
-                        break;
-                    default:
-                        description = `${voucher.notes || voucherTypeLabel} (الطرف المقابل: ${otherParties})`;
-                }
-            } else {
-                 description = `${voucher.notes || voucherTypeLabel} (الطرف المقابل: ${otherParties})`;
-            }
-
-            const dateIso = voucher.date ? (voucher.date.includes('T') ? voucher.date : parseISO(voucher.date).toISOString()) : new Date().toISOString();
-
-            if (transactionsMap.has(doc.id)) {
-                const existing = transactionsMap.get(doc.id)!;
-                if(isDebit) existing.debit += amount;
-                else existing.credit += amount;
-            } else {
-                transactionsMap.set(doc.id, {
-                    id: voucher.id,
-                    invoiceNumber: voucher.invoiceNumber || 'N/A',
-                    date: dateIso,
-                    description: description,
-                    type: voucherTypeLabel,
-                    debit: isDebit ? amount : 0,
-                    credit: isDebit ? 0 : amount,
-                    balance: 0,
-                    currency: voucher.currency,
-                    otherParty: otherParties,
-                    officer: voucher.officer,
-                });
-            }
-        }
+    const normalizeDateToISO = (d: any): string => {
+        if (!d) return new Date().toISOString();
+        if (d?.toDate) return d.toDate().toISOString();
+        if (typeof d === 'string' && d.length > 10) return d; // Assume ISO string
+        if (typeof d === 'string') return parseISO(d).toISOString();
+        return new Date(d).toISOString();
     };
 
-    await processSnapshot(debitSnapshot, true);
-    await processSnapshot(creditSnapshot, false);
+    const matchesAccount = (entryAccountId: string) => {
+        if (!entryAccountId) return false;
+        // exact match
+        if (entryAccountId === accountId) return true;
+        // entry = "rawId" and requested = "expense_rawId"
+        if (`expense_${entryAccountId}` === accountId) return true;
+        // entry = "expense_rawId" and requested = "rawId"
+        if (entryAccountId === accountId.replace(/^expense_/, '')) return true;
+        return false;
+    };
+
+    for (const doc of journalSnapshot.docs) {
+        const voucher = { id: doc.id, ...doc.data() } as JournalVoucher;
+
+        const debitEntry = (voucher.debitEntries || []).find(e => matchesAccount(e.accountId));
+        const creditEntry = (voucher.creditEntries || []).find(e => matchesAccount(e.accountId));
+
+        if (!debitEntry && !creditEntry) {
+            continue; // Skip vouchers not related to this account
+        }
+
+        const voucherTypeLabel = getVoucherTypeLabel(voucher.voucherType);
+        let description: string | StructuredDescription = voucher.notes;
+
+        let otherParties: string[] = [];
+
+        if (debitEntry) {
+            otherParties.push(...(voucher.creditEntries || []).map(e => accountsMap.get(e.accountId) || e.accountId));
+        }
+        if (creditEntry) {
+            otherParties.push(...(voucher.debitEntries || []).map(e => accountsMap.get(e.accountId) || e.accountId));
+        }
+
+        const uniqueOtherParties = [...new Set(otherParties)].join(', ');
+
+        if (reportType === 'detailed' && voucher.originalData) {
+            switch (voucher.voucherType) {
+                case 'journal_from_distributed_receipt':
+                    description = await buildDetailedDistributedReceiptDescription(voucher, accountsMap);
+                    break;
+                case 'booking':
+                    description = buildDetailedBookingDescription(voucher.originalData);
+                    break;
+                case 'visa':
+                    description = buildDetailedVisaDescription(voucher.originalData);
+                    break;
+                case 'segment':
+                    description = buildDetailedSegmentDescription(voucher);
+                    break;
+                 case 'subscription':
+                    description = buildDetailedSubscriptionDescription(voucher.originalData);
+                    break;
+                default:
+                    description = `${voucher.notes || voucherTypeLabel} (الطرف المقابل: ${uniqueOtherParties})`;
+            }
+        } else {
+            description = `${voucher.notes || voucherTypeLabel} (الطرف المقابل: ${uniqueOtherParties})`;
+        }
+
+        const dateIso = normalizeDateToISO(voucher.date);
+
+        const tx: ReportTransaction = {
+            id: voucher.id,
+            invoiceNumber: voucher.invoiceNumber || 'N/A',
+            date: dateIso,
+            description: description,
+            type: voucherTypeLabel,
+            debit: debitEntry?.amount || 0,
+            credit: creditEntry?.amount || 0,
+            balance: 0,
+            currency: voucher.currency,
+            otherParty: uniqueOtherParties,
+            officer: voucher.officer,
+        };
+
+        transactions.push(tx);
+    }
     
-    return Array.from(transactionsMap.values());
+    return transactions;
 }
 
 
@@ -261,7 +278,7 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
                 const resolvedId = params.accountId.startsWith('expense_') ? params.accountId : (`expense_${expenseAccount.id}`);
                 accountInfo = { id: resolvedId, name: expenseAccount.name, type: 'expense' };
             } else {
-                throw new Error(`Account with ID ${params.accountId} not found.`);
+                throw new Error(`لم يتم العثور على حساب بالمعرف: ${params.accountId}. قد يكون السبب أن الحساب لم يتم إنشاؤه بعد أو أن المعرف غير صحيح.`);
             }
         }
     }
@@ -412,8 +429,13 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         const balanceIQD = entry.balanceIQD || 0;
         
         // Let's define debit as 'they owe us' and credit as 'we owe them'
-        if (balanceUSD > 0) acc.totalCreditUSD += balanceUSD; else acc.totalDebitUSD -= balanceUSD;
-        if (balanceIQD > 0) acc.totalCreditIQD += balanceIQD; else acc.totalDebitIQD -= balanceIQD;
+        if ((entry.accountType === 'client' || entry.accountType === 'both')) {
+           if (balanceUSD > 0) acc.totalCreditUSD += balanceUSD; else acc.totalDebitUSD -= balanceUSD;
+           if (balanceIQD > 0) acc.totalCreditIQD += balanceIQD; else acc.totalDebitIQD -= balanceIQD;
+       } else { // Supplier
+           if (balanceUSD < 0) acc.totalCreditUSD -= balanceUSD; else acc.totalDebitUSD += balanceUSD;
+           if (balanceIQD < 0) acc.totalCreditIQD -= balanceIQD; else acc.totalDebitIQD += balanceIQD;
+       }
         
         return acc;
     }, { totalDebitUSD: 0, totalCreditUSD: 0, totalDebitIQD: 0, totalCreditIQD: 0 });
@@ -954,4 +976,5 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
     return rootNodes;
 });
+
 
