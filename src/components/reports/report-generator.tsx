@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -60,13 +59,13 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         { id: 'booking', label: 'حجز طيران', icon: Plane, group: 'basic' },
         { id: 'visa', label: 'طلب فيزا', icon: CreditCard, group: 'basic' },
         { id: 'subscription', label: 'اشتراك', icon: Repeat, group: 'basic' },
+        { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
+        { id: 'journal_from_standard_receipt', label: 'سند قبض', icon: FileDown, group: 'basic' },
+        { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
+        { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
         { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
         { id: 'segment', label: 'سكمنت', icon: Layers3, group: 'other' },
         { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2, group: 'other' },
-        { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown, group: 'basic' },
-        { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
-        { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
-        { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
         { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser, group: 'other' },
         { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw, group: 'other' },
         { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw, group: 'other' },
@@ -134,7 +133,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-    <div className="flex h-[calc(100vh-220px)] flex-row-reverse gap-4">
+    <div className="flex h-[calc(100vh-220px)] flex-row gap-4">
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         <header className="flex items-center justify-between p-3 border-b">
           <div className="relative flex-1">
@@ -235,7 +234,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         </div>
       </aside>
 
-        <footer className="fixed bottom-4 right-4 left-4 lg:left-auto flex-shrink-0 p-3 border bg-card rounded-lg grid grid-cols-[1fr,auto] gap-4 items-center shadow-lg z-20">
+        <footer className="fixed bottom-0 right-0 left-0 flex-shrink-0 p-3 border-t bg-card grid grid-cols-[1fr,auto] gap-4 items-center shadow-lg z-20">
              {report ? <ReportSummary report={report} /> : <div className="text-center text-muted-foreground text-sm col-span-1 py-6">لم يتم إنشاء تقرير بعد.</div>}
              <div className="flex gap-2">
                 <Button onClick={handleExport} variant="secondary" disabled={!report}><Download className="me-2 h-4 w-4"/>Excel</Button>
