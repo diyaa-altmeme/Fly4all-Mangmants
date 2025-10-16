@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Search, Filter, FileText, Download, Printer } from "lucide-react";
+import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, ArrowRightLeft, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, GitBranch, XCircle } from "lucide-react";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
@@ -21,7 +21,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { Calendar as CalendarIcon, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard, RefreshCw, ArrowRightLeft } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
 interface ReportGeneratorProps {
   boxes: Box[];
@@ -55,27 +55,27 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     return [...clientOptions, ...supplierOptions, ...boxOptions, ...staticAccounts];
   }, [clients, suppliers, boxes]);
 
-  const allFilters = useMemo(() => [
-    { id: 'booking', label: 'حجز طيران', icon: Plane },
-    { id: 'visa', label: 'طلب فيزا', icon: CreditCard },
-    { id: 'subscription', label: 'اشتراك', icon: Repeat },
-    { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft },
-    { id: 'segment', label: 'سكمنت', icon: Layers3 },
-    { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2 },
-    { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown },
-    { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch },
-    { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp },
-    { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote },
-    { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser },
-    { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw },
-    { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw },
-    { id: 'void', label: 'إلغاء (فويد)', icon: XCircle },
-  ], []);
+    const allFilters = [
+        { id: 'booking', label: 'حجز طيران', icon: Plane },
+        { id: 'visa', label: 'طلب فيزا', icon: CreditCard },
+        { id: 'subscription', label: 'اشتراك', icon: Repeat },
+        { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft },
+        { id: 'segment', label: 'سكمنت', icon: Layers3 },
+        { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2 },
+        { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown },
+        { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch },
+        { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp },
+        { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote },
+        { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser },
+        { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw },
+        { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw },
+        { id: 'void', label: 'إلغاء (فويد)', icon: XCircle },
+    ];
 
   const getTransactionTypeName = (txType: string) => {
       const allTransactionTypes = [
           ...allFilters,
-          { id: 'journal_from_installment', label: 'دفعة قسط اشتراك', icon: WalletCards }
+          { id: 'journal_from_installment', label: 'دفعة قسط اشتراك' }
       ];
       return allTransactionTypes.find(f => f.label === txType)?.id || txType;
   };
@@ -162,7 +162,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-    <div className="flex flex-row-reverse h-[calc(100vh-200px)] gap-4 p-4 bg-muted/30">
+    <div className="flex h-full flex-row-reverse gap-4 bg-muted/30">
       {/* Main Content */}
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
@@ -211,7 +211,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
       </main>
 
       {/* Sidebar */}
-      <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4 bg-card p-4 rounded-lg shadow-sm">
+      <aside className="w-full lg:w-72 lg:h-full flex-shrink-0 bg-card p-4 rounded-lg shadow-sm flex flex-col gap-4">
         <div className="space-y-2">
           <Label className="font-semibold">الحساب</Label>
           <Autocomplete
