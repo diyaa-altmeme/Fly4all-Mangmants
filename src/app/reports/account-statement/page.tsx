@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { Suspense, useEffect, useState, useCallback } from 'react';
@@ -39,7 +40,7 @@ function AccountStatementContainer() {
     }, [fetchData]);
 
     if (loading) {
-        return <Skeleton className="h-[600px] w-full" />;
+        return <Skeleton className="h-[calc(100vh-200px)] w-full" />;
     }
 
     if (error || !data) {
@@ -64,8 +65,10 @@ function AccountStatementContainer() {
 
 export default function AccountStatementPage() {
     return (
-        <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+        <Suspense fallback={<Skeleton className="h-[calc(100vh-200px)] w-full" />}>
             <AccountStatementContainer />
         </Suspense>
     );
 }
+
+    
