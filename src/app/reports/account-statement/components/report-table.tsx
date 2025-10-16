@@ -1,6 +1,7 @@
 
 "use client";
 
+import * as React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { ReportTransaction, StructuredDescription } from "@/lib/types";
 import { format, parseISO } from 'date-fns';
@@ -94,4 +95,3 @@ export default function ReportTable({ transactions, reportType }: { transactions
         </Table>
     );
 }
-
