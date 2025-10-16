@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -41,7 +40,6 @@ const DetailedDescription = ({ description }: { description: StructuredDescripti
                     ))}
                 </div>
             )}
-            {description.notes && <p className="text-muted-foreground border-t mt-1 pt-1">{description.notes}</p>}
         </div>
     );
 };
@@ -54,7 +52,12 @@ const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => 
             <td className="p-2">{transaction.invoiceNumber}</td>
             <td className="p-2"><Badge variant="outline">{transaction.type}</Badge></td>
             <td className="p-2 text-right text-xs">
-                <DetailedDescription description={transaction.description} />
+                {typeof transaction.description === 'string' ? transaction.description : (
+                    <DetailedDescription description={transaction.description} />
+                )}
+            </td>
+             <td className="p-2 text-right text-xs">
+                {transaction.notes}
             </td>
             <td className="p-2 font-mono font-bold text-red-600">{transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}</td>
             <td className="p-2 font-mono font-bold text-green-600">{transaction.credit > 0 ? formatCurrency(transaction.credit, transaction.currency) : '-'}</td>
@@ -82,7 +85,8 @@ export default function ReportTable({ transactions, reportType }: { transactions
                     <TableHead className="p-2 font-bold text-center">التاريخ</TableHead>
                     <TableHead className="p-2 font-bold text-center">رقم الفاتورة</TableHead>
                     <TableHead className="p-2 font-bold text-center">النوع</TableHead>
-                    <TableHead className="p-2 text-right font-bold w-[40%]">البيان</TableHead>
+                    <TableHead className="p-2 text-right font-bold w-[30%]">البيان</TableHead>
+                    <TableHead className="p-2 text-right font-bold w-[15%]">ملاحظات</TableHead>
                     <TableHead className="p-2 text-center font-bold">مدين</TableHead>
                     <TableHead className="p-2 text-center font-bold">دائن</TableHead>
                     <TableHead className="p-2 text-center font-bold">العملة</TableHead>
