@@ -132,7 +132,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-     <div className="flex h-[calc(100vh-220px)] flex-row gap-4">
+     <div className="flex h-[calc(100vh-220px)] flex-row-reverse gap-4">
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         <header className="flex items-center justify-between p-3 border-b">
           <div className="relative flex-1">
@@ -243,4 +243,3 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     </div>
   );
 }
-
