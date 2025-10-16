@@ -91,6 +91,8 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
     const description = period.notes || (period.fromSystem ? `أرباح شهر ${period.id}` : `فترة يدوية`);
     const fromDate = period.fromSystem ? format(parseISO(`${period.id}-01`), 'yyyy-MM-dd') : period.fromDate;
     const toDate = period.fromSystem ? '-' : period.toDate;
+    const sourceAccountName = partners.find(p => p.id === period.sourceAccountId)?.name || period.sourceAccountId || 'غير محدد';
+
 
     return (
         <Collapsible asChild open={isOpen} onOpenChange={setIsOpen}>
@@ -105,6 +107,9 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
                     </TableCell>
                     <TableCell className="font-mono text-xs text-center p-2">{period.invoiceNumber || 'N/A'}</TableCell>
                     <TableCell className="p-2">{description.split(' | ')[0]}</TableCell>
+                    <TableCell className="font-mono text-xs text-center p-2">{fromDate}</TableCell>
+                    <TableCell className="font-mono text-xs text-center p-2">{toDate}</TableCell>
+                     <TableCell className="font-semibold text-center p-2">{sourceAccountName}</TableCell>
                     <TableCell className="font-mono text-xs text-center p-2">{period.createdAt ? format(parseISO(period.createdAt), 'yyyy-MM-dd hh:mm a') : '-'}</TableCell>
                     <TableCell className="p-2 text-center">{period.userName || 'غير معروف'}</TableCell>
                     <TableCell className="text-right font-mono font-bold p-2">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
@@ -142,7 +147,7 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={7} className="p-0">
+                        <TableCell colSpan={10} className="p-0">
                             <div className="p-2 bg-muted/20">
                                 {isLoading ? (
                                     <div className="flex justify-center p-8"><Loader2 className="animate-spin h-6 w-6"/></div>
@@ -239,6 +244,9 @@ export default function ProfitSharingContent({ initialMonthlyProfits, partners, 
                                 <TableHead className="w-[50px] p-2"></TableHead>
                                 <TableHead className="p-2">رقم الفاتورة</TableHead>
                                 <TableHead className="p-2">الوصف</TableHead>
+                                <TableHead className="p-2">من</TableHead>
+                                <TableHead className="p-2">إلى</TableHead>
+                                <TableHead className="p-2">مصدر الربح</TableHead>
                                 <TableHead className="p-2">تاريخ الإنشاء</TableHead>
                                 <TableHead className="p-2">الموظف</TableHead>
                                 <TableHead className="text-right p-2">إجمالي الربح</TableHead>
