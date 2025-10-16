@@ -2,7 +2,7 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { Client, Supplier, Currency, MonthlyProfit, ProfitShare } from '@/lib/types';
+import type { Client, Supplier, Currency, MonthlyProfit, ProfitShare, JournalEntry } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { format, parseISO } from 'date-fns';
@@ -101,16 +101,56 @@ export async function saveManualProfitDistribution(data: {
     const user = await getCurrentUserFromSession();
     if (!user) return { success: false, error: "User not authenticated." };
 
+    const writeBatch = db.batch();
+    const manualProfitRef = db.collection('manual_monthly_profits').doc();
+    const journalVoucherRef = db.collection('journal-vouchers').doc();
+
     try {
         const invoiceNumber = await getNextVoucherNumber('PR');
-        await db.collection('manual_monthly_profits').add({
+        
+        // 1. Create the manual profit distribution record
+        writeBatch.set(manualProfitRef, {
             ...data,
             invoiceNumber,
             createdBy: user.uid,
             userName: user.name,
             createdAt: new Date().toISOString(),
         });
+        
+        // 2. Create the corresponding Journal Voucher
+        const creditEntries: JournalEntry[] = data.partners.map(p => ({
+            accountId: p.partnerId,
+            amount: p.amount,
+            description: `حصة من أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
+        }));
+        
+        const debitEntries: JournalEntry[] = [{
+            accountId: 'retained_earnings', // A placeholder system account
+            amount: data.profit,
+            description: `توزيع أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
+        }];
+        
+        writeBatch.set(journalVoucherRef, {
+            invoiceNumber,
+            date: new Date().toISOString(),
+            currency: data.currency,
+            notes: `توزيع أرباح الفترة من ${data.fromDate} إلى ${data.toDate}`,
+            createdBy: user.uid,
+            officer: user.name,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            voucherType: "journal_from_profit_distribution",
+            debitEntries,
+            creditEntries,
+            isAudited: true, // Auto-audited
+            isConfirmed: true, // Auto-confirmed
+            originalData: { ...data, manualProfitId: manualProfitRef.id },
+        });
+
+        await writeBatch.commit();
+        
         revalidatePath('/profit-sharing');
+        revalidatePath('/reports/account-statement');
         return { success: true };
     } catch (e: any) {
         return { success: false, error: e.message };

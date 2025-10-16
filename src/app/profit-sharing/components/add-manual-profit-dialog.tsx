@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { type ProfitShare } from "../actions";
+import { type ProfitShare, saveManualProfitDistribution } from "../actions";
 import { Loader2, Save, Percent, Edit, PlusCircle, Trash2, CalendarIcon, Wallet, Landmark, Users, ArrowLeft, Hash, User as UserIcon } from "lucide-react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { z } from "zod";
@@ -21,7 +21,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { saveManualProfitDistribution } from "@/app/profit-sharing/actions";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
@@ -38,12 +37,13 @@ const partnerSchema = z.object({
   id: z.string().min(1, "اسم الشريك مطلوب."),
   name: z.string(),
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
+  amount: z.coerce.number(), // Added for data consistency
 });
 
 const formSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب" }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب" }),
-  profit: z.coerce.number().positive("الربح يجب أن يكون أكبر من صفر").or(z.literal('')),
+  profit: z.coerce.number().positive("الربح يجب أن يكون أكبر من صفر"),
   currency: z.enum(['USD', 'IQD']),
   partners: z.array(partnerSchema).optional(),
 });
@@ -82,7 +82,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      profit: '',
+      profit: 0,
       currency: 'USD',
       partners: [],
     },
@@ -104,7 +104,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
 
   useEffect(() => {
     if (open) {
-      resetForm({ profit: '', currency: 'USD', partners: [] });
+      resetForm({ profit: 0, currency: 'USD', partners: [] });
       setCurrentPartnerId('');
       setCurrentPercentage('');
       setStep(1);
@@ -135,8 +135,8 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     
     if (remainingPercentage > 0) {
         calculatedPartners.push({
-            id: 'alrawdatain',
-            name: 'الروضتين',
+            id: 'alrawdatain_share',
+            name: 'حصة الروضتين',
             percentage: remainingPercentage,
             amount: ((Number(watchedProfit) || 0) * remainingPercentage) / 100
         });
@@ -161,7 +161,12 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
         toDate: format(data.toDate, 'yyyy-MM-dd'),
         profit: data.profit,
         currency: data.currency,
-        partners: distribution.map(({ id, name, percentage, amount }) => ({ id, name, percentage, amount })),
+        partners: distribution.map(({ id, name, percentage, amount }) => ({ 
+            partnerId: id, // Use partnerId to match ProfitShare type
+            partnerName: name, 
+            percentage, 
+            amount 
+        })),
     };
     
     const result = await saveManualProfitDistribution(payload as any);
@@ -195,7 +200,8 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
            toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
            return;
       }
-      const newPartner = { id: selectedPartner.id, name: selectedPartner.name, percentage: newPercentage };
+      const amount = ((Number(watchedProfit) || 0) * newPercentage) / 100;
+      const newPartner = { id: selectedPartner.id, name: selectedPartner.name, percentage: newPercentage, amount };
       append(newPartner);
       setCurrentPartnerId('');
       setCurrentPercentage('');
@@ -223,7 +229,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                   <div className="p-4 border rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem> )}/>
                     <FormField control={control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem> )}/>
-                    <FormField control={control} name="profit" render={({ field }) => ( <FormItem><FormLabel>صافي الربح للفترة</FormLabel><FormControl><AmountInput currency={watchedCurrency} {...field} value={field.value || ''} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={control} name="profit" render={({ field }) => ( <FormItem><FormLabel>صافي الربح للفترة</FormLabel><FormControl><AmountInput currency={watchedCurrency} {...field} /></FormControl><FormMessage /></FormItem> )}/>
                     <FormField control={control} name="currency" render={({ field }) => ( <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select><FormMessage /></FormItem> )}/>
                   </div>
               )}
