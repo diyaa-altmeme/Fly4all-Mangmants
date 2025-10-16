@@ -9,10 +9,11 @@ import { SlidersHorizontal, CheckCheck, Undo } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Currency } from '@/lib/types';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 interface ReportFiltersProps {
-    allFilters: { id: string, label: string, icon: React.ElementType }[];
+    allFilters: { id: string, label: string, icon: React.ElementType, group: 'basic' | 'other' }[];
     filters: {
         currency: Currency | 'both';
         reportType: 'summary' | 'detailed';
@@ -38,6 +39,9 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange }: 
     const handleSelectAll = () => onFiltersChange((prev: any) => ({ ...prev, typeFilter: new Set(allFilters.map(f => f.id)) }));
     const handleDeselectAll = () => onFiltersChange((prev: any) => ({ ...prev, typeFilter: new Set() }));
 
+    const basicOperations = allFilters.filter(f => f.group === 'basic');
+    const otherOperations = allFilters.filter(f => f.group === 'other');
+
     return (
         <div className="space-y-4">
             <div className="space-y-2">
@@ -60,36 +64,52 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange }: 
                     </Select>
                 </div>
             </div>
+            
+            <Accordion type="multiple" defaultValue={['basic_ops', 'other_ops']} className="w-full">
+                <div className="flex justify-between items-center mb-2 px-1">
+                     <Label className="font-semibold">فلترة الحركات</Label>
+                     <div className="flex items-center gap-2">
+                         <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={handleSelectAll}>تحديد الكل</Button>
+                         <Button variant="link" size="sm" className="p-0 h-auto text-xs text-destructive" onClick={handleDeselectAll}>إلغاء الكل</Button>
+                     </div>
+                </div>
 
-             <div className="space-y-2">
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                         <Button variant="outline" className="w-full justify-between">
-                            فلترة الحركات
-                            <SlidersHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56">
-                         <DropdownMenuItem onSelect={handleSelectAll}><CheckCheck className="ms-2 h-4 w-4"/> تحديد الكل</DropdownMenuItem>
-                         <DropdownMenuItem onSelect={handleDeselectAll}><Undo className="ms-2 h-4 w-4"/>إلغاء تحديد الكل</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {allFilters.map((type) => {
-                             const Icon = type.icon;
-                             return (
-                                <DropdownMenuCheckboxItem
-                                    key={type.id}
-                                    checked={filters.typeFilter.has(type.id)}
-                                    onCheckedChange={() => handleFilterToggle(type.id)}
-                                    className="justify-between"
-                                >
-                                    <span>{type.label}</span>
-                                    <Icon className="h-4 w-4 text-muted-foreground"/>
-                                </DropdownMenuCheckboxItem>
-                             )
-                         })}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
+                <AccordionItem value="basic_ops" className="border-t">
+                    <AccordionTrigger className="py-2 text-sm font-semibold hover:no-underline">عمليات أساسية</AccordionTrigger>
+                    <AccordionContent className="pt-2 space-y-2">
+                        {basicOperations.map(type => {
+                            const Icon = type.icon;
+                            return (
+                                <div key={type.id} className="flex items-center space-x-2 space-x-reverse">
+                                    <Checkbox id={`filter-${type.id}`} checked={filters.typeFilter.has(type.id)} onCheckedChange={() => handleFilterToggle(type.id)} />
+                                    <Label htmlFor={`filter-${type.id}`} className="flex items-center gap-2 cursor-pointer text-xs">
+                                        <Icon className="h-4 w-4 text-muted-foreground" />
+                                        {type.label}
+                                    </Label>
+                                </div>
+                            )
+                        })}
+                    </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="other_ops" className="border-t">
+                    <AccordionTrigger className="py-2 text-sm font-semibold hover:no-underline">عمليات أخرى</AccordionTrigger>
+                    <AccordionContent className="pt-2 space-y-2">
+                         {otherOperations.map(type => {
+                            const Icon = type.icon;
+                            return (
+                                <div key={type.id} className="flex items-center space-x-2 space-x-reverse">
+                                    <Checkbox id={`filter-${type.id}`} checked={filters.typeFilter.has(type.id)} onCheckedChange={() => handleFilterToggle(type.id)} />
+                                    <Label htmlFor={`filter-${type.id}`} className="flex items-center gap-2 cursor-pointer text-xs">
+                                        <Icon className="h-4 w-4 text-muted-foreground" />
+                                        {type.label}
+                                    </Label>
+                                </div>
+                            )
+                        })}
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
         </div>
     );
 }
