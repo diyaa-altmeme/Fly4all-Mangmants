@@ -94,7 +94,8 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
     if (!navData) return [];
     return [
       ...(navData.clients || []).map(c => ({ value: c.id, label: `عميل: ${c.name}` })),
-      ...(navData.suppliers || []).map(s => ({ value: s.id, label: `مورد: ${s.name}` }))
+      ...(navData.suppliers || []).map(s => ({ value: s.id, label: `مورد: ${s.name}` })),
+      ...(navData.exchanges || []).map(e => ({ value: e.id, label: `بورصة: ${e.name}` })),
     ];
   }, [navData]);
 
@@ -211,4 +212,3 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
   );
 }
 
-    

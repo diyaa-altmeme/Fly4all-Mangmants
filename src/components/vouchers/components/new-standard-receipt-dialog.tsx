@@ -28,7 +28,7 @@ export default function NewStandardReceiptDialog({ onVoucherAdded, children }: N
   const [dialogDimensions, setDialogDimensions] = useState({ width: '896px', height: '80vh' });
 
   const defaultCurrency = navData?.settings.currencySettings?.defaultCurrency || 'IQD';
-  const [currency, setCurrency] = useState<Currency>(defaultCurrency);
+  const [currency, setCurrency] = useState<Currency>(defaultCurrency as Currency);
 
   useEffect(() => {
     if (open && !isDataLoaded) {
