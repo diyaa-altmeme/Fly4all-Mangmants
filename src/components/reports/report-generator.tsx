@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, Printer, SlidersHorizontal, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard } from 'lucide-react';
+import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, Printer, SlidersHorizontal, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard, ArrowRightLeft } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays } from "date-fns";
 import type { Box, ReportInfo, ReportTransaction, Currency, AccountType, Client, Supplier, StructuredDescription } from '@/lib/types';
@@ -154,82 +154,109 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     };
 
     return (
-        <div className="h-[calc(100vh-160px)] flex flex-col bg-muted/30">
-            {/* Top Bar */}
-            <header className="flex-shrink-0 p-4 bg-card border-b">
-                 <div className="grid grid-cols-[1fr,250px,250px,auto] gap-4 items-end">
-                    <div className="space-y-1.5">
-                        <Label className="font-semibold">الحساب</Label>
-                        <Autocomplete
-                            value={filters.accountId}
-                            onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
-                            options={allAccounts}
-                            placeholder="اختر حسابًا..."
-                        />
-                    </div>
-                     <div className="space-y-1.5">
-                        <Label className="font-semibold">من تاريخ</Label>
+        <div className="h-[calc(100vh-160px)] flex flex-col-reverse lg:flex-row bg-muted/30 gap-4 p-4">
+            {/* Main Content */}
+            <main className="flex-1 flex flex-col overflow-hidden bg-card rounded-lg shadow-sm">
+                {/* Header */}
+                 <header className="flex-shrink-0 p-4 border-b flex justify-between items-center">
+                    <div className="flex items-center gap-2">
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" className="w-full justify-start text-left font-normal h-10"><CalendarIcon className="me-2 h-4 w-4" />{filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : <span>اختر تاريخ</span>}</Button>
+                                <Button
+                                    id="date"
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-[250px] justify-start text-left font-normal h-10",
+                                        !filters.dateRange && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="me-2 h-4 w-4" />
+                                    {filters.dateRange?.from ? (
+                                        filters.dateRange.to ? (
+                                            <>
+                                                {format(filters.dateRange.from, "LLL dd, y")} -{" "}
+                                                {format(filters.dateRange.to, "LLL dd, y")}
+                                            </>
+                                        ) : (
+                                            format(filters.dateRange.from, "LLL dd, y")
+                                        )
+                                    ) : (
+                                        <span>اختر فترة</span>
+                                    )}
+                                </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.dateRange?.from} onSelect={d => setFilters(f => ({ ...f, dateRange: { ...f.dateRange, from: d } }))} /></PopoverContent>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    initialFocus
+                                    mode="range"
+                                    defaultMonth={filters.dateRange?.from}
+                                    selected={filters.dateRange}
+                                    onSelect={(range) => setFilters(f => ({ ...f, dateRange: range }))}
+                                    numberOfMonths={2}
+                                />
+                            </PopoverContent>
                         </Popover>
+                         <div className="relative flex-grow">
+                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                             <Input
+                                placeholder="بحث في نتائج الكشف..."
+                                className="ps-10 h-10"
+                                value={filters.searchTerm}
+                                onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
+                            />
+                        </div>
                     </div>
-                     <div className="space-y-1.5">
-                        <Label className="font-semibold">إلى تاريخ</Label>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" className="w-full justify-start text-left font-normal h-10"><CalendarIcon className="me-2 h-4 w-4" />{filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : <span>اختر تاريخ</span>}</Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.dateRange?.to} onSelect={d => setFilters(f => ({ ...f, dateRange: { ...f.dateRange, to: d } }))} /></PopoverContent>
-                        </Popover>
+                     <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={handleExport} disabled={!report}><Download className="me-2 h-4 w-4"/> تصدير</Button>
+                        <Button variant="outline" size="sm" onClick={handlePrint} disabled={!report}><Printer className="me-2 h-4 w-4"/> طباعة</Button>
                     </div>
-                    <Button onClick={() => handleGenerateReport()} disabled={isLoading} className="h-10">
-                        {isLoading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4"/>}
-                        تطبيق الفلتر
-                    </Button>
+                </header>
+                {/* Table */}
+                <div className="flex-grow overflow-y-auto">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                    ) : report ? (
+                        <ReportTable transactions={report.transactions} />
+                    ) : (
+                         <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
+                                <FileText size={48} className="text-gray-300" />
+                                <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
+                                <p className="text-sm">الرجاء اختيار حساب وتحديد فترة زمنية ثم الضغط على "عرض الكشف".</p>
+                           </div>
+                    )}
                 </div>
-            </header>
-            
-            <div className="flex-1 flex overflow-hidden">
-                {/* Right Sidebar */}
-                 <aside className="w-64 border-l p-4 overflow-y-auto bg-card">
+                 {/* Footer */}
+                <footer className="flex-shrink-0 p-3 bg-card border-t">
+                    {report ? <ReportSummary report={report} /> : <div className="text-muted-foreground text-sm text-center">لم يتم إنشاء تقرير بعد.</div>}
+                </footer>
+            </main>
+
+             {/* Right Sidebar */}
+             <aside className="w-full lg:w-72 lg:h-full flex-shrink-0 bg-card p-4 rounded-lg shadow-sm flex flex-col gap-4">
+                <div className="space-y-1.5">
+                    <Label className="font-semibold">الحساب</Label>
+                    <Autocomplete
+                        value={filters.accountId}
+                        onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
+                        options={allAccounts}
+                        placeholder="اختر حسابًا..."
+                    />
+                </div>
+                 <div className="flex-grow overflow-y-auto -mx-4 px-4">
                     <ReportFilters 
                         allFilters={allFilters} 
                         filters={filters}
                         onFiltersChange={setFilters}
                     />
-                </aside>
-
-                {/* Main Content */}
-                <main className="flex-1 flex flex-col overflow-hidden">
-                    <div className="flex-grow overflow-y-auto p-4">
-                        {isLoading ? (
-                            <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-                        ) : report ? (
-                            <ReportTable transactions={report.transactions} />
-                        ) : (
-                             <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
-                                <FileText size={48} className="text-gray-300" />
-                                <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
-                                <p className="text-sm">الرجاء اختيار حساب وتحديد فترة زمنية ثم الضغط على "عرض الكشف".</p>
-                           </div>
-                        )}
-                    </div>
-                </main>
-            </div>
-
-            {/* Bottom Bar */}
-            <footer className="flex-shrink-0 p-4 bg-card border-t flex justify-between items-center">
-                 {report ? <ReportSummary report={report} /> : <div className="text-muted-foreground text-sm">لم يتم إنشاء تقرير بعد.</div>}
-                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={handleExport} disabled={!report}><Download className="me-2 h-4 w-4"/> تصدير</Button>
-                    <Button variant="outline" size="sm" onClick={handlePrint} disabled={!report}><Printer className="me-2 h-4 w-4"/> طباعة</Button>
                 </div>
-            </footer>
+                 <Button onClick={() => handleGenerateReport()} disabled={isLoading} className="w-full">
+                    {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin"/>}
+                    <Filter className="me-2 h-4 w-4"/>
+                    عرض الكشف
+                </Button>
+            </aside>
+
         </div>
     )
-}
 
     
