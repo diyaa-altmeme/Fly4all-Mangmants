@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 import { SlidersHorizontal, CheckCheck, Undo } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Currency } from '@/lib/types';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 interface ReportFiltersProps {
@@ -65,51 +64,54 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange }: 
                 </div>
             </div>
             
-            <Accordion type="multiple" defaultValue={['basic_ops', 'other_ops']} className="w-full">
-                <div className="flex justify-between items-center mb-2 px-1">
+            <div className="space-y-2">
+                <div className="flex justify-between items-center mb-2">
                      <Label className="font-semibold">فلترة الحركات</Label>
                      <div className="flex items-center gap-2">
                          <Button variant="link" size="sm" className="p-0 h-auto text-xs" onClick={handleSelectAll}>تحديد الكل</Button>
                          <Button variant="link" size="sm" className="p-0 h-auto text-xs text-destructive" onClick={handleDeselectAll}>إلغاء الكل</Button>
                      </div>
                 </div>
-
-                <AccordionItem value="basic_ops" className="border-t">
-                    <AccordionTrigger className="py-2 text-sm font-semibold hover:no-underline">عمليات أساسية</AccordionTrigger>
-                    <AccordionContent className="pt-2 space-y-2">
-                        {basicOperations.map(type => {
-                            const Icon = type.icon;
-                            return (
-                                <div key={type.id} className="flex items-center space-x-2 space-x-reverse">
-                                    <Checkbox id={`filter-${type.id}`} checked={filters.typeFilter.has(type.id)} onCheckedChange={() => handleFilterToggle(type.id)} />
-                                    <Label htmlFor={`filter-${type.id}`} className="flex items-center gap-2 cursor-pointer text-xs">
-                                        <Icon className="h-4 w-4 text-muted-foreground" />
-                                        {type.label}
-                                    </Label>
-                                </div>
-                            )
-                        })}
-                    </AccordionContent>
-                </AccordionItem>
-
-                <AccordionItem value="other_ops" className="border-t">
-                    <AccordionTrigger className="py-2 text-sm font-semibold hover:no-underline">عمليات أخرى</AccordionTrigger>
-                    <AccordionContent className="pt-2 space-y-2">
-                         {otherOperations.map(type => {
-                            const Icon = type.icon;
-                            return (
-                                <div key={type.id} className="flex items-center space-x-2 space-x-reverse">
-                                    <Checkbox id={`filter-${type.id}`} checked={filters.typeFilter.has(type.id)} onCheckedChange={() => handleFilterToggle(type.id)} />
-                                    <Label htmlFor={`filter-${type.id}`} className="flex items-center gap-2 cursor-pointer text-xs">
-                                        <Icon className="h-4 w-4 text-muted-foreground" />
-                                        {type.label}
-                                    </Label>
-                                </div>
-                            )
-                        })}
-                    </AccordionContent>
-                </AccordionItem>
-            </Accordion>
+                <Tabs defaultValue="basic_ops" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="basic_ops">عمليات أساسية</TabsTrigger>
+                        <TabsTrigger value="other_ops">عمليات أخرى</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="basic_ops" className="mt-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            {basicOperations.map(type => {
+                                const Icon = type.icon;
+                                return (
+                                    <div key={type.id} className="flex items-center space-x-2 space-x-reverse p-2 rounded-md bg-muted/50">
+                                        <Checkbox id={`filter-${type.id}`} checked={filters.typeFilter.has(type.id)} onCheckedChange={() => handleFilterToggle(type.id)} />
+                                        <Label htmlFor={`filter-${type.id}`} className="flex items-center gap-2 cursor-pointer text-xs">
+                                            <Icon className="h-4 w-4 text-muted-foreground" />
+                                            {type.label}
+                                        </Label>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="other_ops" className="mt-4">
+                         <div className="grid grid-cols-2 gap-3">
+                            {otherOperations.map(type => {
+                                const Icon = type.icon;
+                                return (
+                                    <div key={type.id} className="flex items-center space-x-2 space-x-reverse p-2 rounded-md bg-muted/50">
+                                        <Checkbox id={`filter-${type.id}`} checked={filters.typeFilter.has(type.id)} onCheckedChange={() => handleFilterToggle(type.id)} />
+                                        <Label htmlFor={`filter-${type.id}`} className="flex items-center gap-2 cursor-pointer text-xs">
+                                            <Icon className="h-4 w-4 text-muted-foreground" />
+                                            {type.label}
+                                        </Label>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </TabsContent>
+                </Tabs>
+            </div>
         </div>
     );
 }
+
