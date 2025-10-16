@@ -24,7 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { addSegmentEntries } from '@/app/segments/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
@@ -32,6 +32,7 @@ import { useVoucherNav } from '@/context/voucher-nav-context';
 import { useAuth } from '@/lib/auth-context';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -115,14 +116,6 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
             hasPartner: false,
             partners: [],
             distributionType: 'percentage',
-            ticketProfitType: 'percentage',
-            ticketProfitValue: 50,
-            visaProfitType: 'percentage',
-            visaProfitValue: 100,
-            hotelProfitType: 'percentage',
-            hotelProfitValue: 100,
-            groupProfitType: 'percentage',
-            groupProfitValue: 100,
             notes: ''
         }
     });
