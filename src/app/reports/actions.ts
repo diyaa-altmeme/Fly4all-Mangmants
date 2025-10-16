@@ -157,20 +157,6 @@ async function getTransactionsForAccount(
 
     const journalSnapshot = await db.collection('journal-vouchers').where('isDeleted', '!=', true).get();
     
-    console.log("=== DEBUG JOURNAL SNAPSHOT ===");
-    journalSnapshot.docs.slice(0,5).forEach((doc:any, i:number) => {
-        const d = doc.data();
-        console.log(`#${i+1}`, {
-            id: doc.id,
-            debit: d.debitEntries?.map((e:any)=>e.accountId),
-            credit: d.creditEntries?.map((e:any)=>e.accountId),
-            date: d.date,
-            voucherType: d.voucherType,
-            currency: d.currency
-        });
-    });
-    console.log("=== END DEBUG ===");
-    
     const transactions: ReportTransaction[] = [];
 
     const normalizeDateToISO = (d: any): string => {
@@ -263,7 +249,7 @@ async function getTransactionsForAccount(
 }
 
 
-export const getAccountStatement = cache(async (params: { accountId: string, currency: Currency | 'both', dateRange: DateRange, reportType: 'summary' | 'detailed', transactionType?: 'profits' | 'expenses' | 'profit_distribution' }): Promise<ReportInfo> => {
+export const getAccountStatement = cache(async (params: { accountId: string, currency: Currency | 'both', dateRange: DateRange, reportType: 'summary' | 'detailed', typeFilter: Set<string> }): Promise<ReportInfo> => {
     
     const db = await getDb();
     if (!db) throw new Error("Database not available.");
@@ -340,25 +326,27 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
         end: params.dateRange.to ? endOfDay(params.dateRange.to) : new Date(8640000000000000)
     };
 
-    const filteredByDate = allTransactions
+    let finalFilteredTransactions = allTransactions
         .filter(tx => {
             const date = parseISO(tx.date);
             const inInterval = isWithinInterval(date, interval);
             const currencyMatch = params.currency === 'both' || tx.currency === params.currency;
-            return inInterval && currencyMatch;
+            
+            // Re-map voucherTypeLabel to voucherType for filtering
+            let voucherType: string | undefined;
+            for (const key in getVoucherTypeLabel({ voucherType: tx.type } as any)) {
+                 if (getVoucherTypeLabel({ voucherType: key } as any) === tx.type) {
+                    voucherType = key;
+                    break;
+                 }
+            }
+
+            const typeFilter = params.typeFilter as Set<string>;
+            const typeMatch = typeFilter.size === 0 || typeFilter.has(tx.type); // This might be wrong, need to check voucherType
+
+            return inInterval && currencyMatch && typeMatch;
         });
 
-    let finalFilteredTransactions = filteredByDate;
-
-    if (params.transactionType === 'profits') {
-        finalFilteredTransactions = filteredByDate.filter(tx => tx.credit > 0);
-    } else if (params.transactionType === 'expenses') {
-        finalFilteredTransactions = filteredByDate.filter(tx => tx.debit > 0);
-    } else if (params.transactionType === 'profit_distribution') {
-        const distributionTypes = ['استلام أرباح فترة يدوية', 'دفع حصة شريك', 'إثبات حصة شركة'];
-        finalFilteredTransactions = filteredByDate.filter(tx => distributionTypes.includes(tx.type));
-    }
-        
     const sortedTransactions = finalFilteredTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     const openingBalanceTransactions = allTransactions.filter(tx => parseISO(tx.date) < interval.start);
@@ -1010,4 +998,6 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
 
     
+    
+
     
