@@ -475,18 +475,18 @@ export async function getClientTransactions(clientId: string): Promise<ClientTra
     let totalSales = 0;
     let paidAmount = 0;
     let totalProfit = 0;
-    const clientBookings = bookings.bookings.filter(b => b.originalData.clientId === clientId);
+    const clientBookings = bookings.bookings.filter(b => b.clientId === clientId);
     const clientVisas = visas.filter(v => v.clientId === clientId);
     const clientSubscriptions = subscriptions.filter(s => s.clientId === clientId);
 
     const transactions: ReportTransaction[] = [];
 
     clientBookings.forEach(b => {
-        const sale = b.originalData.passengers.reduce((sum: number, p: any) => sum + p.salePrice, 0);
-        const cost = b.originalData.passengers.reduce((sum: number, p: any) => sum + p.purchasePrice, 0);
+        const sale = b.passengers.reduce((sum, p) => sum + p.salePrice, 0);
+        const cost = b.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
         totalSales += sale;
         totalProfit += (sale - cost);
-        transactions.push({ id: b.id, date: b.originalData.issueDate, type: 'حجز طيران', description: `PNR: ${b.originalData.pnr}`, debit: sale, credit: 0, balance: 0, currency: b.originalData.passengers[0]?.currency, invoiceNumber: b.invoiceNumber });
+        transactions.push({ id: b.id, date: b.issueDate, type: 'حجز طيران', description: `PNR: ${b.pnr}`, debit: sale, credit: 0, balance: 0, currency: b.passengers[0]?.currency, invoiceNumber: b.invoiceNumber });
     });
 
     clientVisas.forEach(v => {
@@ -985,3 +985,4 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
     return rootNodes;
 });
+
