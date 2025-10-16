@@ -40,7 +40,7 @@ function AccountStatementContainer() {
     }, [fetchData]);
 
     if (loading) {
-        return <Skeleton className="h-[calc(100vh-200px)] w-full" />;
+        return <Skeleton className="h-[calc(100vh-120px)] w-full" />;
     }
 
     if (error || !data) {
@@ -65,7 +65,7 @@ function AccountStatementContainer() {
 
 export default function AccountStatementPage() {
     return (
-        <Suspense fallback={<Skeleton className="h-[calc(100vh-200px)] w-full" />}>
+        <Suspense fallback={<Skeleton className="h-[calc(100vh-120px)] w-full" />}>
             <AccountStatementContainer />
         </Suspense>
     );

@@ -31,6 +31,23 @@ interface ReportGeneratorProps {
 }
 
 export default function ReportGenerator({ boxes, clients, suppliers, defaultAccountId }: ReportGeneratorProps) {
+  const allFilters = useMemo(() => [
+    { id: 'booking', label: 'حجز طيران', icon: Plane },
+    { id: 'visa', label: 'طلب فيزا', icon: CreditCard },
+    { id: 'subscription', label: 'اشتراك', icon: Repeat },
+    { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft },
+    { id: 'segment', label: 'سكمنت', icon: Layers3 },
+    { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2 },
+    { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown },
+    { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch },
+    { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp },
+    { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote },
+    { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser },
+    { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw },
+    { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw },
+    { id: 'void', label: 'إلغاء (فويد)', icon: XCircle },
+  ], []);
+
   const [report, setReport] = useState<ReportInfo | null>(null);
   const [filters, setFilters] = useState({
     accountId: defaultAccountId || "",
@@ -38,7 +55,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     searchTerm: "",
     currency: "both" as Currency | "both",
     reportType: "summary" as "summary" | "detailed",
-    typeFilter: new Set<string>(),
+    typeFilter: new Set<string>(allFilters.map(f => f.id)), // Select all by default
   });
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -54,23 +71,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     ];
     return [...clientOptions, ...supplierOptions, ...boxOptions, ...staticAccounts];
   }, [clients, suppliers, boxes]);
-
-    const allFilters = [
-        { id: 'booking', label: 'حجز طيران', icon: Plane },
-        { id: 'visa', label: 'طلب فيزا', icon: CreditCard },
-        { id: 'subscription', label: 'اشتراك', icon: Repeat },
-        { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft },
-        { id: 'segment', label: 'سكمنت', icon: Layers3 },
-        { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2 },
-        { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown },
-        { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch },
-        { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp },
-        { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote },
-        { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser },
-        { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw },
-        { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw },
-        { id: 'void', label: 'إلغاء (فويد)', icon: XCircle },
-    ];
 
   const getTransactionTypeName = (txType: string) => {
       const allTransactionTypes = [
@@ -113,7 +113,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
 
   useEffect(() => {
     if (defaultAccountId) {
-      setFilters(f => ({ ...f, accountId: defaultAccountId }));
       handleGenerateReport();
     }
   }, [defaultAccountId, handleGenerateReport]);
@@ -162,82 +161,73 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-    <div className="flex h-[calc(100vh-120px)] flex-row-reverse gap-4">
-        {/* Main Content */}
-        <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
-            {/* Header */}
-            <header className="flex items-center justify-between p-3 border-b">
-                 <Popover>
-                    <PopoverTrigger asChild>
-                        <Button id="date" variant={"outline"} className="w-[260px] justify-start text-right font-normal h-10">
-                            <CalendarIcon className="ms-2 h-4 w-4" />
-                            {filters.dateRange?.from ? (filters.dateRange.to ? (<>{format(filters.dateRange.from, "LLL dd, y")} - {format(filters.dateRange.to, "LLL dd, y")}</>) : (format(filters.dateRange.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar initialFocus mode="range" defaultMonth={filters.dateRange?.from} selected={filters.dateRange} onSelect={d => setFilters(f => ({ ...f, dateRange: d }))} numberOfMonths={2} />
-                    </PopoverContent>
-                </Popover>
-                <div className="relative flex-1 max-w-lg mx-4">
-                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                    placeholder="بحث في نتائج الكشف..."
-                    value={filters.searchTerm}
-                    onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
-                    className="pr-10 h-10"
-                    />
-                </div>
-            </header>
+    <div className="flex h-full flex-row gap-4">
+      {/* Sidebar */}
+      <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4 bg-card p-4 rounded-lg shadow-sm">
+        <div className="space-y-2">
+          <Label className="font-semibold">الحساب</Label>
+          <Autocomplete
+            value={filters.accountId}
+            onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
+            options={allAccounts}
+            placeholder="اختر حسابًا..."
+          />
+        </div>
+        <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
+        
+        <div className="flex-grow" />
 
-            {/* Table */}
-            <div className="flex-grow overflow-y-auto">
-                {isLoading ? (
-                    <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-                ) : report ? (
-                    <ReportTable transactions={filteredTransactions} reportType={filters.reportType} />
-                ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
-                    <FileText size={48} className="text-gray-300" />
-                    <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
-                    <p className="text-sm mt-1">اختر الحساب والفترة ثم اضغط "عرض الكشف".</p>
-                    </div>
-                )}
-            </div>
-            
-            {/* Footer */}
-            <footer className="flex-shrink-0 p-3 border-t bg-card grid grid-cols-[1fr,auto] gap-4 items-center">
-                 {report ? <ReportSummary report={report} /> : <p className="text-center text-muted-foreground text-sm">لم يتم إنشاء تقرير بعد.</p>}
-                 <div className="flex gap-2">
-                    <Button onClick={handleExport} variant="secondary"><Download className="me-2 h-4 w-4"/>Excel</Button>
-                    <Button onClick={handlePrint} variant="secondary"><Printer className="me-2 h-4 w-4"/>طباعة</Button>
-                </div>
-            </footer>
-        </main>
-
-        {/* Sidebar */}
-        <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4 bg-card p-4 rounded-lg shadow-sm">
-            <div className="space-y-2">
-            <Label className="font-semibold">الحساب</Label>
-            <Autocomplete
-                value={filters.accountId}
-                onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
-                options={allAccounts}
-                placeholder="اختر حسابًا..."
-            />
-            </div>
-            <div className="flex-grow overflow-y-auto -mx-4 px-4">
-                <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
-            </div>
-            <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2">
             <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
                 {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                 <Filter className="me-2 h-4 w-4" />
                 عرض الكشف
             </Button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
+        {/* Header */}
+        <header className="flex items-center justify-between p-3 border-b">
+          <div className="relative flex-1">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="بحث في النتائج..."
+              value={filters.searchTerm}
+              onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
+              className="pr-10 h-10"
+            />
+          </div>
+        </header>
+        {/* Table */}
+        <div className="flex-grow overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : report && filteredTransactions.length > 0 ? (
+            <ReportTable transactions={filteredTransactions} reportType={filters.reportType} />
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
+              <FileText size={48} className="text-gray-300" />
+              <p className="text-lg font-medium mt-4">
+                {report && filteredTransactions.length === 0 ? "لا توجد نتائج تطابق الفلترة" : "لا يوجد تقرير لعرضه"}
+              </p>
+              <p className="text-sm mt-1">
+                {report && filteredTransactions.length === 0 ? "جرّب تعديل الفلاتر أو فترة البحث." : "اختر الحساب والفترة ثم اضغط 'عرض الكشف'."}
+              </p>
             </div>
-        </aside>
+          )}
+        </div>
+        
+        {/* Footer */}
+        <footer className="flex-shrink-0 p-3 border-t bg-card grid grid-cols-[1fr,auto] gap-4 items-center">
+             {report ? <ReportSummary report={report} /> : <p className="text-center text-muted-foreground text-sm">لم يتم إنشاء تقرير بعد.</p>}
+             <div className="flex gap-2">
+                <Button onClick={handleExport} variant="secondary"><Download className="me-2 h-4 w-4"/>Excel</Button>
+                <Button onClick={handlePrint} variant="secondary"><Printer className="me-2 h-4 w-4"/>طباعة</Button>
+            </div>
+        </footer>
+      </main>
     </div>
   );
 }
-
-    
