@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -20,32 +21,23 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import CredentialsDialog from '@/app/clients/components/credentials-dialog';
+import CredentialsDialog from './credentials-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DataTableColumnHeader } from '@/components/ui/data-table-column-header';
 
 
 const ActionsCell = ({ row, onDataChanged }: { 
     row: any, 
-    onDataChanged: (updatedClient?: Client) => void;
+    onDataChanged: (updatedClient?: Client, deletedId?: string) => void;
 }) => {
     const { toast } = useToast();
     const client = row.original as Client;
     
     const handleDelete = async (id: string) => {
-        if (client.useCount && client.useCount > 0) {
-            toast({
-                title: "لا يمكن الحذف",
-                description: "لا يمكن حذف هذه العلاقة لوجود معاملات مالية مرتبطة بها.",
-                variant: "destructive",
-            });
-            return;
-        }
-
         const result = await deleteClient(id);
         if (result.success) {
             toast({ title: "تم الحذف بنجاح" });
-            onDataChanged();
+            onDataChanged(undefined, id);
         } else {
             toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
         }
@@ -134,7 +126,7 @@ export const getColumns = (
     
     const visibleFields = relationSections
         .flatMap(s => s.fields)
-        .filter(field => field.visible && field.id !== 'name'); // Name is handled separately
+        .filter(field => field.visible && !['name', 'code'].includes(field.id));
 
     const columns: ColumnDef<Client>[] = [
         {
@@ -170,7 +162,7 @@ export const getColumns = (
                         <div className="text-right">
                             <div className="flex items-center gap-2">
                                  <p className="font-bold">{client.name}</p>
-                                 {client.password && (
+                                 {client.loginIdentifier && (
                                      <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
@@ -183,7 +175,7 @@ export const getColumns = (
                                     </TooltipProvider>
                                  )}
                             </div>
-                            {client.code && <p className="text-xs text-muted-foreground">({client.code})</p>}
+                            {client.code && <p className="text-xs text-muted-foreground font-mono">({client.code})</p>}
                         </div>
                     </div>
                 )
