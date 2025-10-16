@@ -1131,6 +1131,7 @@ export interface MonthlyProfit {
   partners?: ProfitShare[]; // For manual entries
   fromDate?: string;
   toDate?: string;
+  sourceAccountId?: string;
 }
 
 export interface ProfitShare {

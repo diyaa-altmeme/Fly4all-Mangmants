@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -35,6 +36,7 @@ export async function getMonthlyProfits(): Promise<MonthlyProfit[]> {
         partners: data.partners,
         fromDate: data.fromDate,
         toDate: data.toDate,
+        sourceAccountId: data.sourceAccountId,
       } as MonthlyProfit;
     });
 
@@ -124,7 +126,7 @@ export async function saveManualProfitDistribution(data: {
             .map(p => ({
                 accountId: p.partnerId,
                 amount: p.amount,
-                description: `حصة من أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
+                description: `حصة الشريك ${p.partnerName} من أرباح الفترة ${data.fromDate} إلى ${data.toDate}`,
             }));
             
         // Add company's share to revenue
