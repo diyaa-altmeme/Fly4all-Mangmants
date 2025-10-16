@@ -88,7 +88,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         accountId: filters.accountId,
         currency: filters.currency,
         dateRange: filters.dateRange || { from: undefined, to: undefined },
-        reportType: 'detailed',
         typeFilter: Array.from(filters.typeFilter),
       });
       setReport(reportData);
@@ -132,7 +131,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
 
   return (
      <div className="flex flex-col h-[calc(100vh-160px)] gap-4">
-      <main className="flex-1 flex flex-row-reverse gap-4 overflow-hidden">
+      <main className="flex flex-row-reverse gap-4 overflow-hidden">
         <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 overflow-y-auto">
           <Card>
             <CardHeader>
@@ -150,42 +149,30 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
               </div>
               <div className="space-y-2">
                 <Label className="font-semibold">الفترة الزمنية</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      id="date"
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !filters.dateRange && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filters.dateRange?.from ? (
-                        filters.dateRange.to ? (
-                          <>
-                            {format(filters.dateRange.from, "LLL dd, y")} -{" "}
-                            {format(filters.dateRange.to, "LLL dd, y")}
-                          </>
-                        ) : (
-                          format(filters.dateRange.from, "LLL dd, y")
-                        )
-                      ) : (
-                        <span>اختر فترة</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      initialFocus
-                      mode="range"
-                      defaultMonth={filters.dateRange?.from}
-                      selected={filters.dateRange}
-                      onSelect={(d) => setFilters(f => ({...f, dateRange: d}))}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
+                <div className="grid grid-cols-2 gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("justify-start text-left font-normal", !filters.dateRange?.from && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : <span>من تاريخ</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={filters.dateRange?.from} onSelect={(d) => setFilters(f => ({ ...f, dateRange: { ...f.dateRange, from: d } }))} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                     <Popover>
+                        <PopoverTrigger asChild>
+                             <Button variant="outline" className={cn("justify-start text-left font-normal", !filters.dateRange?.to && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : <span>إلى تاريخ</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={filters.dateRange?.to} onSelect={(d) => setFilters(f => ({ ...f, dateRange: { ...f.dateRange, to: d } }))} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                </div>
               </div>
               <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full">
                 {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
