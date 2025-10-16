@@ -47,15 +47,15 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
     
     try {
         const entryDate = new Date(); // Use a single timestamp for the entire batch
-        const invoiceNumber = await getNextVoucherNumber('SEG');
 
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
+            const invoiceNumber = await getNextVoucherNumber('SEG');
             
             const dataWithUser: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
                 invoiceNumber,
-                enteredBy: entryData.officerId ? (await getDb().collection('users').doc(entryData.officerId).get()).data()?.name : user.name,
+                enteredBy: user.name, // The user performing the action
                 createdAt: entryDate.toISOString(),
                 isDeleted: false,
             };
@@ -107,7 +107,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                 exchangeRate: null,
                 notes: `قيد أرباح السكمنت لشركة ${entryData.companyName} عن الفترة من ${entryData.fromDate} إلى ${entryData.toDate}`,
                 createdBy: user.uid,
-                officer: dataWithUser.enteredBy,
+                officer: user.name,
                 createdAt: entryDate.toISOString(),
                 updatedAt: entryDate.toISOString(),
                 voucherType: "segment",
@@ -264,5 +264,3 @@ export async function restoreSegmentPeriod(fromDate: string, toDate: string): Pr
         return { success: false, error: "Failed to restore segment period.", count: 0 };
     }
 }
-
-    
