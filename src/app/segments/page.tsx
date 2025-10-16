@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator, History } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
-import AddSegmentPeriodDialog from './components/add-segment-period-dialog';
+import AddSegmentPeriodDialog from './add-segment-period-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -94,7 +94,7 @@ const ProfitBreakdownPopover = ({ period, type, children }: { period: any, type:
 };
 
 
-const PeriodRow = ({ period, index, onDataChange }: { period: any, index: number, onDataChange: () => void }) => {
+const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period: any, index: number, onDataChange: () => void, clients: Client[], suppliers: Supplier[] }) => {
     const [isOpen, setIsOpen] = useState(false);
     const { toast } = useToast();
     const entryUser = period.entries[0]?.enteredBy || 'غير معروف';
@@ -178,6 +178,13 @@ export default function SegmentsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [periodFilter, setPeriodFilter] = useState<string>('all');
+
+    const clients = navData?.clients || [];
+    const suppliers = navData?.suppliers || [];
+    
+    const handleSuccess = useCallback(async () => {
+        await fetchData();
+    }, []);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -356,7 +363,7 @@ export default function SegmentsPage() {
                                     index={idx}
                                     clients={clients}
                                     suppliers={suppliers}
-                                    onDataChange={handleSuccess}
+                                    onDataChange={fetchData}
                                 />
                             ))}
                         </Table>
@@ -366,3 +373,5 @@ export default function SegmentsPage() {
         </div>
     )
 }
+
+    
