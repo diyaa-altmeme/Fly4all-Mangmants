@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -40,7 +41,9 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user || !('role' in user)) return { success: false, error: "User not authenticated or not an employee." };
+    if (!user || !('role' in user) || !user.boxId) {
+         return { success: false, error: "User not authenticated or box not assigned." };
+    }
 
     const writeBatch = db.batch();
     const newEntries: SegmentEntry[] = [];
@@ -50,11 +53,11 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
 
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
-            const invoiceNumber = await getNextVoucherNumber('SEG');
+            const segmentInvoiceNumber = await getNextVoucherNumber('SEG');
             
             const dataWithUser: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
-                invoiceNumber,
+                invoiceNumber: segmentInvoiceNumber,
                 enteredBy: user.name, // The user performing the action
                 createdAt: entryDate.toISOString(),
                 isDeleted: false,
@@ -63,81 +66,88 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
 
             newEntries.push({ ...dataWithUser, id: segmentDocRef.id });
 
-            // Create a dedicated Journal Entry for this specific segment entry
-            const journalVoucherRef = db.collection('journal-vouchers').doc();
-            
+            // 1. Create a Journal Entry for the TOTAL profit owed by the client
+            const totalProfitVoucherRef = db.collection('journal-vouchers').doc();
             const periodText = `للفترة من ${entryData.fromDate} إلى ${entryData.toDate}`;
             const detailsText = `${entryData.tickets} تذكرة، ${entryData.visas} فيزا، ${entryData.hotels} فندق، ${entryData.groups} جروبات`;
+            const clientDescription = `قيد استحقاق أرباح السكمنت ${periodText}. تفاصيل: ${detailsText}.`;
             
-            const clientDescription = `قيد أرباح السكمنت عن ${periodText}. تفاصيل: ${detailsText}.`;
-            
-            const debitEntries: JournalEntry[] = [
-                { accountId: entryData.clientId, amount: entryData.total, description: clientDescription },
-            ];
+            writeBatch.set(totalProfitVoucherRef, {
+                 invoiceNumber: segmentInvoiceNumber,
+                 date: entryDate.toISOString(),
+                 currency: entryData.currency,
+                 notes: clientDescription,
+                 createdBy: user.uid,
+                 officer: user.name,
+                 createdAt: entryDate.toISOString(),
+                 updatedAt: entryDate.toISOString(),
+                 voucherType: "segment",
+                 debitEntries: [{ accountId: entryData.clientId, amount: entryData.total, description: `استحقاق أرباح سكمنت ${entryData.companyName}` }],
+                 creditEntries: [{ accountId: 'revenue_segments', amount: entryData.total, description: `إثبات إيراد سكمنت من ${entryData.companyName}` }],
+                 isAudited: true, isConfirmed: true,
+                 originalData: { ...dataWithUser, segmentId: segmentDocRef.id, entryType: 'total_profit' }, 
+            });
 
-            const creditEntries: JournalEntry[] = [];
-            
+
+            // 2. Create Journal Entries for paying out partner shares
+            if (entryData.partnerShares && entryData.partnerShares.length > 0) {
+                 for (const share of entryData.partnerShares) {
+                    const partnerPaymentInvoice = await getNextVoucherNumber('PV');
+                    const partnerPaymentRef = db.collection('journal-vouchers').doc();
+                    writeBatch.set(partnerPaymentRef, {
+                        invoiceNumber: partnerPaymentInvoice,
+                        date: entryDate.toISOString(),
+                        currency: entryData.currency,
+                        notes: `دفع حصة الشريك ${share.partnerName} عن أرباح سكمنت شركة ${entryData.companyName} ${periodText}`,
+                        createdBy: user.uid,
+                        officer: user.name,
+                        createdAt: entryDate.toISOString(),
+                        updatedAt: entryDate.toISOString(),
+                        voucherType: "journal_from_payment",
+                        debitEntries: [{ accountId: share.partnerId, amount: share.share, description: `إيداع حصة أرباح سكمنت` }],
+                        creditEntries: [{ accountId: user.boxId, amount: share.share, description: `دفع حصة أرباح للشريك ${share.partnerName}` }],
+                        isAudited: true, isConfirmed: true,
+                        originalData: { ...dataWithUser, segmentId: segmentDocRef.id, partnerId: share.partnerId, entryType: 'partner_payout' }
+                    });
+                     // Increment use count for the partner
+                    writeBatch.update(db.collection('clients').doc(share.partnerId), { 'useCount': FieldValue.increment(1) });
+                }
+            }
+
+            // 3. Create a Journal Entry for Al-Rawdatain's share (moving from revenue to box)
             if (entryData.alrawdatainShare > 0) {
-                 creditEntries.push({
-                    accountId: 'revenue_segments',
-                    amount: entryData.alrawdatainShare,
-                    description: `حصة الروضتين من سكمنت شركة ${entryData.companyName} ${periodText}.`
+                 const companyProfitInvoice = await getNextVoucherNumber('JE');
+                 const companyProfitRef = db.collection('journal-vouchers').doc();
+                 writeBatch.set(companyProfitRef, {
+                    invoiceNumber: companyProfitInvoice,
+                    date: entryDate.toISOString(),
+                    currency: entryData.currency,
+                    notes: `إثبات حصة الشركة من أرباح سكمنت ${entryData.companyName} ${periodText}`,
+                    createdBy: user.uid,
+                    officer: user.name,
+                    createdAt: entryDate.toISOString(),
+                    updatedAt: entryDate.toISOString(),
+                    voucherType: "journal_voucher",
+                    debitEntries: [{ accountId: 'revenue_segments', amount: entryData.alrawdatainShare, description: 'عكس إيراد سكمنت' }],
+                    creditEntries: [{ accountId: 'revenue_profit_distribution', amount: entryData.alrawdatainShare, description: 'تسجيل إيراد حصة الشركة' }],
+                    isAudited: true, isConfirmed: true,
+                    originalData: { ...dataWithUser, segmentId: segmentDocRef.id, entryType: 'company_share' }
                 });
             }
 
-            (entryData.partnerShares || []).forEach(share => {
-                 creditEntries.push({
-                    accountId: share.partnerId,
-                    amount: share.share,
-                    description: `حصة الشريك ${share.partnerName} من سكمنت شركة ${entryData.companyName} ${periodText}.`
-                });
+            // Increment use count for the client
+            writeBatch.update(db.collection('clients').doc(entryData.clientId), { 
+                'segmentSettings.ticketProfitType': entryData.ticketProfitType,
+                'segmentSettings.ticketProfitValue': entryData.ticketProfitValue,
+                'segmentSettings.visaProfitType': entryData.visaProfitType,
+                'segmentSettings.visaProfitValue': entryData.visaProfitValue,
+                'segmentSettings.hotelProfitType': entryData.hotelProfitType,
+                'segmentSettings.hotelProfitValue': entryData.hotelProfitValue,
+                'segmentSettings.groupProfitType': entryData.groupProfitType,
+                'segmentSettings.groupProfitValue': entryData.groupProfitValue,
+                'segmentSettings.alrawdatainSharePercentage': entryData.alrawdatainSharePercentage,
+                'useCount': FieldValue.increment(1)
             });
-
-            const totalDebit = debitEntries.reduce((sum, e) => sum + e.amount, 0);
-            const totalCredit = creditEntries.reduce((sum, e) => sum + e.amount, 0);
-            if (Math.abs(totalDebit - totalCredit) > 0.01) {
-                console.error(`Journal entry for segment of ${entryData.companyName} is not balanced. Debit: ${totalDebit}, Credit: ${totalCredit}`);
-                continue; 
-            }
-
-             writeBatch.set(journalVoucherRef, {
-                invoiceNumber: invoiceNumber,
-                date: entryDate.toISOString(),
-                currency: entryData.currency,
-                exchangeRate: null,
-                notes: `قيد أرباح السكمنت لشركة ${entryData.companyName} عن الفترة من ${entryData.fromDate} إلى ${entryData.toDate}`,
-                createdBy: user.uid,
-                officer: user.name,
-                createdAt: entryDate.toISOString(),
-                updatedAt: entryDate.toISOString(),
-                voucherType: "segment",
-                debitEntries,
-                creditEntries,
-                isAudited: true,
-                isConfirmed: true,
-                isDeleted: false,
-                originalData: { ...dataWithUser, segmentId: segmentDocRef.id }, 
-            });
-
-            if (entryData.clientId) {
-                const clientRef = db.collection('clients').doc(entryData.clientId);
-                writeBatch.update(clientRef, { 
-                    'segmentSettings.ticketProfitType': entryData.ticketProfitType,
-                    'segmentSettings.ticketProfitValue': entryData.ticketProfitValue,
-                    'segmentSettings.visaProfitType': entryData.visaProfitType,
-                    'segmentSettings.visaProfitValue': entryData.visaProfitValue,
-                    'segmentSettings.hotelProfitType': entryData.hotelProfitType,
-                    'segmentSettings.hotelProfitValue': entryData.hotelProfitValue,
-                    'segmentSettings.groupProfitType': entryData.groupProfitType,
-                    'segmentSettings.groupProfitValue': entryData.groupProfitValue,
-                    'segmentSettings.alrawdatainSharePercentage': entryData.alrawdatainSharePercentage,
-                    'useCount': FieldValue.increment(1)
-                });
-            }
-             (entryData.partnerShares || []).forEach(share => {
-                 const partnerRef = db.collection('clients').doc(share.partnerId);
-                 writeBatch.update(partnerRef, { 'useCount': FieldValue.increment(1) });
-             });
         }
 
         await writeBatch.commit();
