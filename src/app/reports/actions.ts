@@ -149,6 +149,20 @@ async function getTransactionsForAccount(
 
     const journalSnapshot = await db.collection('journal-vouchers').where('isDeleted', '!=', true).get();
     
+    console.log("=== DEBUG JOURNAL SNAPSHOT ===");
+    journalSnapshot.docs.slice(0,5).forEach((doc:any, i:number) => {
+        const d = doc.data();
+        console.log(`#${i+1}`, {
+            id: doc.id,
+            debit: d.debitEntries?.map((e:any)=>e.accountId),
+            credit: d.creditEntries?.map((e:any)=>e.accountId),
+            date: d.date,
+            voucherType: d.voucherType,
+            currency: d.currency
+        });
+    });
+    console.log("=== END DEBUG ===");
+    
     const transactions: ReportTransaction[] = [];
 
     const normalizeDateToISO = (d: any): string => {
@@ -300,6 +314,7 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
         }
     });
 
+    // Map expense accounts (store both forms: raw id and expense_<id>)
     settings.voucherSettings?.expenseAccounts?.forEach(acc => {
         accountsMap.set(acc.id, acc.name);
         accountsMap.set(`expense_${acc.id}`, acc.name);
@@ -451,7 +466,7 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
 }
 
 export async function getClientTransactions(clientId: string): Promise<ClientTransactionSummary> {
-    const [bookings, visas, subscriptions, allVouchers, clients, suppliers, boxes, users, settings] = await Promise.all([
+    const [bookings, visas, subscriptions, allVouchers, clients, suppliers, boxes, users, settings] = await Promise::all([
         getBookings({}),
         getVisaBookings(),
         getSubscriptions(),
@@ -770,7 +785,7 @@ export async function getInvoicesReport(filters: {
     if (!db) return [];
 
     // Fetch all relevant collections
-    const [bookings, visas, allVouchers] = await Promise.all([
+    const [bookings, visas, allVouchers] = await Promise::all([
         db.collection('bookings').where('clientId', '==', filters.userFilter).get(),
         db.collection('visaBookings').where('clientId', '==', filters.userFilter).get(),
         db.collection('journal-vouchers').get(), // Fetch all to filter in code
@@ -877,7 +892,7 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
     const db = await getDb();
     if (!db) throw new Error("Database not available.");
 
-    const [clientsSnap, suppliersSnap, boxesSnap, exchangesSnap, vouchersSnap] = await Promise.all([
+    const [clientsSnap, suppliersSnap, boxesSnap, exchangesSnap, vouchersSnap] = await Promise::all([
         db.collection('clients').get(),
         db.collection('suppliers').get(),
         db.collection('boxes').get(),
@@ -978,3 +993,6 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 });
 
 
+
+
+    
