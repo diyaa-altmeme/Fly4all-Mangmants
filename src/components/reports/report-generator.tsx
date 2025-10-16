@@ -55,7 +55,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     return [...clientOptions, ...supplierOptions, ...boxOptions, ...staticAccounts];
   }, [clients, suppliers, boxes]);
 
-    const allFilters = useMemo(() => [
+   const allFilters = useMemo(() => [
         { id: 'booking', label: 'حجز طيران', icon: Plane, group: 'basic' },
         { id: 'visa', label: 'طلب فيزا', icon: CreditCard, group: 'basic' },
         { id: 'subscription', label: 'اشتراك', icon: Repeat, group: 'basic' },
@@ -73,7 +73,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     ], []);
     
     useEffect(() => {
-        // Initialize with all filters selected by default
         setFilters(f => ({ ...f, typeFilter: new Set(allFilters.map(filter => filter.id)) }));
     }, [allFilters]);
 
@@ -91,7 +90,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         currency: filters.currency,
         dateRange: filters.dateRange || { from: undefined, to: undefined },
         reportType: filters.reportType,
-        typeFilter: Array.from(filters.typeFilter), // Convert Set to Array for server action
+        typeFilter: Array.from(filters.typeFilter),
       });
       setReport(reportData);
     } catch (error: any) {
@@ -133,7 +132,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-    <div className="flex h-[calc(100vh-220px)] flex-row gap-4">
+     <div className="flex h-[calc(100vh-220px)] flex-row gap-4">
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         <header className="flex items-center justify-between p-3 border-b">
           <div className="relative flex-1">
@@ -165,7 +164,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         <div className="flex-grow flex flex-col gap-4 overflow-y-auto">
             <Card>
                 <CardHeader>
-                    <CardTitle>خيارات التقرير</CardTitle>
+                    <CardTitle>خيارات العرض</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
@@ -216,7 +215,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                             </PopoverContent>
                         </Popover>
                     </div>
-                    <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
+                     <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full">
                         {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                         <Filter className="me-2 h-4 w-4" />
                         عرض الكشف
@@ -234,7 +233,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         </div>
       </aside>
 
-        <footer className="fixed bottom-0 right-0 left-0 flex-shrink-0 p-3 border-t bg-card grid grid-cols-[1fr,auto] gap-4 items-center shadow-lg z-20">
+        <footer className="fixed bottom-0 right-0 left-0 flex-shrink-0 p-3 border-t bg-card grid grid-cols-1 md:grid-cols-[1fr,auto] gap-4 items-center shadow-lg z-20">
              {report ? <ReportSummary report={report} /> : <div className="text-center text-muted-foreground text-sm col-span-1 py-6">لم يتم إنشاء تقرير بعد.</div>}
              <div className="flex gap-2">
                 <Button onClick={handleExport} variant="secondary" disabled={!report}><Download className="me-2 h-4 w-4"/>Excel</Button>
@@ -244,3 +243,4 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     </div>
   );
 }
+
