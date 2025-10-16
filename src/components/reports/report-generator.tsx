@@ -115,7 +115,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     };
 
     return (
-        <div className="flex flex-col lg:flex-row-reverse gap-6 items-start">
+        <div className="flex flex-col lg:flex-row gap-6 items-start">
             <aside className="sticky top-20 w-full lg:w-96 shrink-0">
                 <ReportFilters 
                     allAccounts={allAccounts}
