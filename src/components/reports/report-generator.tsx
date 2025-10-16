@@ -22,6 +22,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Calendar as CalendarIcon } from 'lucide-react';
+import { Separator } from "../ui/separator";
 
 interface ReportGeneratorProps {
   boxes: Box[];
@@ -52,6 +53,10 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     const staticAccounts = [
       { value: "revenue_segments", label: "إيراد: السكمنت" },
       { value: "revenue_profit_distribution", label: "إيراد: توزيع الأرباح" },
+      { value: "revenue_tickets", label: "إيرادات التذاكر" },
+      { value: "revenue_visa", label: "إيرادات الفيزا" },
+      { value: "expense_tickets", label: "تكلفة التذاكر" },
+      { value: "expense_visa", label: "تكلفة الفيزا" },
     ];
     return [...clientOptions, ...supplierOptions, ...boxOptions, ...exchangeOptions, ...staticAccounts];
   }, [clients, suppliers, boxes, exchanges]);
@@ -134,7 +139,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
   const handlePrint = () => window.print();
 
   return (
-     <div className="flex flex-col lg:flex-row-reverse h-full lg:h-[calc(100vh-160px)] gap-4">
+     <div className="flex flex-col lg:flex-row h-full lg:h-[calc(100vh-160px)] gap-4">
       <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 lg:sticky top-20">
         <Card>
           <CardHeader>
@@ -150,7 +155,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
                 placeholder="اختر حسابًا..."
               />
             </div>
-            <div className="space-y-2">
+             <div className="space-y-2">
                 <Label className="font-semibold">الفترة الزمنية</Label>
                  <div className="grid grid-cols-2 gap-2">
                     <Popover>
@@ -182,13 +187,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
               <Filter className="me-2 h-4 w-4" />
               عرض الكشف
             </Button>
-          </CardContent>
-        </Card>
-        <Card className="flex-grow flex flex-col">
-          <CardHeader>
-            <CardTitle>فلترة الحركات</CardTitle>
-          </CardHeader>
-          <CardContent className="flex-grow overflow-y-auto pr-2 -mr-2">
+            <Separator />
             <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
           </CardContent>
         </Card>
@@ -230,5 +229,3 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     </div>
   );
 }
-
-    
