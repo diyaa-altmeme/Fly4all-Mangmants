@@ -105,7 +105,7 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
                     </TableCell>
                     <TableCell className="font-mono text-xs text-center p-2">{period.invoiceNumber || 'N/A'}</TableCell>
                     <TableCell className="p-2">{description.split(' | ')[0]}</TableCell>
-                    <TableCell className="font-mono text-xs text-center p-2">{period.createdAt ? format(parseISO(period.createdAt), 'yyyy-MM-dd') : '-'}</TableCell>
+                    <TableCell className="font-mono text-xs text-center p-2">{period.createdAt ? format(parseISO(period.createdAt), 'yyyy-MM-dd hh:mm a') : '-'}</TableCell>
                     <TableCell className="p-2 text-center">{period.userName || 'غير معروف'}</TableCell>
                     <TableCell className="text-right font-mono font-bold p-2">{period.totalProfit.toLocaleString()} {period.currency || 'USD'}</TableCell>
                     <TableCell className="p-1 text-center">
