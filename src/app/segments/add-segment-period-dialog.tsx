@@ -102,7 +102,7 @@ const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
     typeFieldName: `entries.${number}.${'ticketProfitType' | 'visaProfitType' | 'hotelProfitType' | 'groupProfitType'}`,
     valueFieldName: `entries.${number}.${'ticketProfitValue' | 'visaProfitValue' | 'hotelProfitValue' | 'groupProfitValue'}`
 }) => {
-    const { control, watch } = useFormContext<PeriodFormValues>();
+    const { control, watch } = useFormContext<CompanyEntryFormValues>();
     const count = watch(countFieldName) as number;
     const type = watch(typeFieldName);
     const value = watch(valueFieldName) as number;
@@ -203,7 +203,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
     };
 
     return (
-        <form onSubmit={handleSubmit(onAddEntry)} className="space-y-4">
+        <div className="space-y-4">
              <FormField control={control} name="clientId" render={({ field }) => (
                 <FormItem><FormLabel>الشركة المصدرة للسكمنت</FormLabel><FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شركة..."/></FormControl><FormMessage /></FormItem>
             )} />
@@ -281,12 +281,11 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
             )}
              <FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel>ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
             <div className='flex justify-end'>
-                <Button type="submit"><PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة</Button>
+                <Button type="button" onClick={handleSubmit(onAddEntry)}><PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة</Button>
             </div>
-        </form>
+        </div>
     );
 }
-
 
 export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegmentPeriodDialogProps) {
     const [open, setOpen] = useState(false);
@@ -303,7 +302,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         resolver: zodResolver(companyEntrySchema),
     });
 
-    const { fields, append, remove } = useFieldArray({ control: form.control, name: "entries" });
+    const { fields, append, remove, replace } = useFieldArray({ control: form.control, name: "entries" });
 
     useEffect(() => {
         if (open) {
@@ -321,7 +320,13 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
     const partnerOptions = useMemo(() => {
         const allRelations = [...(navData?.clients || []), ...(navData?.suppliers || [])];
         const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-        return uniqueRelations.map(r => ({ value: r.id, label: `${r.relationType === 'client' ? 'عميل' : 'مورد'}: ${r.name}` }));
+        return uniqueRelations.map(r => {
+            let labelPrefix = '';
+            if (r.relationType === 'client') labelPrefix = 'عميل: ';
+            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
+            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
+            return { value: r.id, label: `${labelPrefix}${r.name}` };
+        });
     }, [navData?.clients, navData?.suppliers]);
 
     const calculateShares = useCallback((data: CompanyEntryFormValues) => {
@@ -341,20 +346,11 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
             alrawdatainShare = total * (settings.alrawdatainSharePercentage / 100);
             const remainingForPartners = total - alrawdatainShare;
             
-            if (data.distributionType === 'percentage') {
-                data.partners.forEach(p => {
-                    const amount = remainingForPartners * (p.value / 100);
-                    partnerSharesDetails.push({ partnerId: p.id, partnerName: p.name, share: amount });
-                    partnerTotalShare += amount;
-                });
-            } else { // fixed
-                data.partners.forEach(p => {
-                    partnerSharesDetails.push({ partnerId: p.id, partnerName: p.name, share: p.value });
-                    partnerTotalShare += p.value;
-                });
-            }
-        } else {
-             partnerTotalShare = 0; // No partners, company takes all
+            data.partners.forEach(p => {
+                const amount = p.shareType === 'percentage' ? remainingForPartners * (p.shareValue / 100) : p.shareValue;
+                partnerSharesDetails.push({ partnerId: p.partnerId, partnerName: p.partnerName, share: amount });
+                partnerTotalShare += amount;
+            });
         }
 
         return { ...data, companyName: company?.name || '', ticketProfits, otherProfits, total, alrawdatainShare, partnerShare: partnerTotalShare, partnerShares: partnerSharesDetails };
@@ -367,19 +363,23 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         companyForm.reset();
     };
     
+    const removeEntry = (index: number) => {
+        remove(index);
+    }
+
     const handleSavePeriod = async (data: PeriodFormValues) => {
         if (data.entries.length === 0) {
             toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
             return;
         }
-        if (!currentUser || !('uid' in currentUser) || !('boxId' in currentUser && currentUser.boxId)) {
-            toast({ title: 'خطأ', description: 'الصندوق غير محدد للمستخدم الحالي.', variant: 'destructive'});
+        if (!currentUser || !('uid' in currentUser)) {
+            toast({ title: 'خطأ', description: 'المستخدم غير معرف.', variant: 'destructive'});
             return;
         }
 
         setIsSaving(true);
         try {
-            const finalEntries = data.entries.map((entry) => ({ ...entry, fromDate: format(data.fromDate!, 'yyyy-MM-dd'), toDate: format(data.toDate!, 'yyyy-MM-dd'), currency: data.currency, boxId: currentUser.boxId, officerId: currentUser.uid }));
+            const finalEntries = data.entries.map((entry) => ({ ...entry, fromDate: format(data.fromDate!, 'yyyy-MM-dd'), toDate: format(data.toDate!, 'yyyy-MM-dd'), currency: data.currency }));
             const result = await addSegmentEntries(finalEntries as any);
             if (!result.success) throw new Error(result.error);
             toast({ title: "تم حفظ بيانات الفترة بنجاح" });
@@ -401,7 +401,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                     <DialogDescription>أدخل بيانات الفترة المحاسبية، ثم أضف سجلات الشركات.</DialogDescription>
                 </DialogHeader>
                 <FormProvider {...form}>
-                    <form onSubmit={form.handleSubmit(handleSavePeriod)} className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
+                    <form className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
                         <div className="p-4 border rounded-lg bg-background/50 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                             <FormField control={form.control} name="fromDate" render={({ field }) => <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>} />
                             <FormField control={form.control} name="toDate" render={({ field }) => <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>} />
@@ -457,3 +457,5 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         </Dialog>
     );
 }
+
+    
