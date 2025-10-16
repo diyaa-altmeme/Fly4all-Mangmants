@@ -1,13 +1,14 @@
+
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, ArrowDown, ArrowUp, HandCoins, ListTree, FilePenLine, ChevronDown, FileSpreadsheet, FileBarChart, BookOpen, Book, SlidersHorizontal, Printer, Ticket, RefreshCw, Briefcase, BedDouble, Users as UsersIcon, Shield, Train, Settings, CreditCard, Wallet, GitBranch, Banknote, BookUser, FileDown, FileUp, ArrowRightLeft, Repeat, XCircle, CheckCheck, Smartphone, MoreHorizontal, Layers3, Share2 } from 'lucide-react';
+import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, ArrowDown, ArrowUp, HandCoins, ListTree, FilePenLine, ChevronDown, FileSpreadsheet, FileBarChart, BookOpen, Book, SlidersHorizontal, Printer, Ticket, RefreshCw, Briefcase, BedDouble, Users as UsersIcon, Shield, Train, Settings, CreditCard, Wallet, GitBranch, Banknote, BookUser, FileDown, FileUp, ArrowRightLeft, Repeat, XCircle, CheckCheck, Smartphone, MoreHorizontal, Layers3, Share2, Undo } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, parseISO, isValid } from "date-fns";
 import type { Box, ReportInfo, ReportTransaction, Currency, AccountType, Client, Supplier, StructuredDescription } from '@/lib/types';
@@ -24,9 +25,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import ReportSummary from '@/components/reports/report-summary';
-import ReportTable from '@/components/reports/report-table';
-import ReportFilters from '@/components/reports/report-filters';
+import ReportSummary from '@/app/reports/account-statement/components/report-summary';
+import ReportTable from '@/app/reports/account-statement/components/report-table';
+import ReportFilters from '@/app/reports/account-statement/components/report-filters';
 
 export default function ReportGenerator({ boxes, clients, suppliers, defaultAccountId }: { boxes: Box[], clients: Client[], suppliers: Supplier[], defaultAccountId?: string }) {
     
@@ -59,7 +60,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                 reportType: filters.reportType,
             });
             
-            // Filter transactions after fetching
             const transactionTypeFilter = filters.typeFilter || new Set();
             if (transactionTypeFilter.size > 0 && transactionTypeFilter.size < allFilters.length) {
                 reportData.transactions = reportData.transactions.filter(tx => {
@@ -76,7 +76,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         }
     }, [toast]);
     
-     useEffect(() => {
+     React.useEffect(() => {
         if (defaultAccountId) {
             handleGenerateReport({
                 accountId: defaultAccountId,
@@ -126,21 +126,16 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                 />
             </aside>
              <div className="space-y-6 w-full">
-                <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <CardTitle>كشف الحساب</CardTitle>
-                                <CardDescription>عرض تفصيلي لجميع الحركات المالية المتعلقة بالحساب المحدد.</CardDescription>
-                            </div>
-                        </div>
-                    </CardHeader>
-                </Card>
-                
                 {report && <ReportSummary report={report} />}
 
                  <div className="border rounded-lg overflow-x-auto bg-card">
-                     {!report && !isLoading && (
+                    {isLoading ? (
+                        <div className="flex items-center justify-center h-96">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : report ? (
+                        <ReportTable transactions={report.transactions} />
+                    ) : (
                         <div className="flex flex-col items-center justify-center h-96 text-center text-gray-500">
                            <FileText size={48} className="text-gray-300" />
                            <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
