@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
 import { SlidersHorizontal, CheckCheck, Undo } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Currency } from '@/lib/types';
 
@@ -39,7 +39,7 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange }: 
     const handleDeselectAll = () => onFiltersChange((prev: any) => ({ ...prev, typeFilter: new Set() }));
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <div className="space-y-2">
                 <Label className="font-semibold">خيارات العرض</Label>
                 <div className="flex flex-col gap-2">
@@ -61,38 +61,35 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange }: 
                 </div>
             </div>
 
-            <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                    <Label className="font-semibold">فلترة الحركات</Label>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><SlidersHorizontal className="h-4 w-4"/></Button></DropdownMenuTrigger>
-                        <DropdownMenuContent>
-                            <DropdownMenuItem onClick={handleSelectAll}><CheckCheck className="me-2 h-4 w-4"/> تحديد الكل</DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleDeselectAll}><Undo className="me-2 h-4 w-4"/>إلغاء تحديد الكل</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                    {allFilters.map((type) => {
-                        const Icon = type.icon;
-                        return (
-                            <div key={type.id} className="flex items-center space-x-2 space-x-reverse rounded-md border p-2 bg-background">
-                                <Checkbox
-                                    id={type.id}
+             <div className="space-y-2">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                         <Button variant="outline" className="w-full justify-between">
+                            فلترة الحركات
+                            <SlidersHorizontal className="h-4 w-4" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56">
+                         <DropdownMenuItem onSelect={handleSelectAll}><CheckCheck className="ms-2 h-4 w-4"/> تحديد الكل</DropdownMenuItem>
+                         <DropdownMenuItem onSelect={handleDeselectAll}><Undo className="ms-2 h-4 w-4"/>إلغاء تحديد الكل</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {allFilters.map((type) => {
+                             const Icon = type.icon;
+                             return (
+                                <DropdownMenuCheckboxItem
+                                    key={type.id}
                                     checked={filters.typeFilter.has(type.id)}
                                     onCheckedChange={() => handleFilterToggle(type.id)}
-                                />
-                                <Label htmlFor={type.id} className="flex items-center gap-1.5 cursor-pointer text-xs">
-                                    <Icon className="h-3 w-3 text-muted-foreground"/> {type.label}
-                                </Label>
-                            </div>
-                        )
-                    })}
-                </div>
+                                    className="justify-between"
+                                >
+                                    <span>{type.label}</span>
+                                    <Icon className="h-4 w-4 text-muted-foreground"/>
+                                </DropdownMenuCheckboxItem>
+                             )
+                         })}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </div>
     );
 }
-
-
-    
