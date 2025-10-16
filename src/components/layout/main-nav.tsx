@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -124,6 +123,7 @@ const systemItems = [
     { href: "/system/activity-log", label: "سجل النشاطات", icon: History, permission: 'system:audit_log:read' },
     { href: "/system/error-log", label: "سجل الأخطاء", icon: FileWarning, permission: 'system:error_log:read' },
     { href: "/system/data-audit", label: "فحص البيانات", icon: ScanSearch, permission: 'system:data_audit:run' },
+    { href: "/system/deleted-log", label: "سجل المحذوفات", icon: History, permission: 'admin' }, // Placeholder for sub-menu
     { href: "/support", label: "الدعم والمساعدة", icon: HelpCircle, permission: 'public' },
     { href: "/coming-soon", label: "الميزات القادمة", icon: Lightbulb, permission: 'public' },
 ];
