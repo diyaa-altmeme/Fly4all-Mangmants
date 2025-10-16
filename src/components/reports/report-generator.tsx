@@ -56,21 +56,26 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   }, [clients, suppliers, boxes]);
 
   const allFilters = useMemo(() => [
-    { id: 'booking', label: 'حجز طيران', icon: Plane },
-    { id: 'visa', label: 'طلب فيزا', icon: CreditCard },
-    { id: 'subscription', label: 'اشتراك', icon: Repeat },
-    { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft },
-    { id: 'segment', label: 'سكمنت', icon: Layers3 },
-    { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2 },
-    { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown },
-    { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch },
-    { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp },
-    { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote },
-    { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser },
-    { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw },
-    { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw },
-    { id: 'void', label: 'إلغاء (فويد)', icon: XCircle },
+    { id: 'booking', label: 'حجز طيران', icon: Plane, group: 'basic' },
+    { id: 'visa', label: 'طلب فيزا', icon: CreditCard, group: 'basic' },
+    { id: 'subscription', label: 'اشتراك', icon: Repeat, group: 'basic' },
+    { id: 'journal_from_standard_receipt', label: 'سند قبض عادي', icon: FileDown, group: 'basic' },
+    { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
+    { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
+    { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
+    { id: 'segment', label: 'سكمنت', icon: Layers3, group: 'other' },
+    { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2, group: 'other' },
+    { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
+    { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser, group: 'other' },
+    { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw, group: 'other' },
+    { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw, group: 'other' },
+    { id: 'void', label: 'إلغاء (فويد)', icon: XCircle, group: 'other' },
   ], []);
+
+  useEffect(() => {
+    // Select all filters by default when the component mounts
+    setFilters(f => ({ ...f, typeFilter: new Set(allFilters.map(filter => filter.id)) }));
+  }, [allFilters]);
 
   const handleGenerateReport = useCallback(async () => {
     if (!filters.accountId) {
@@ -97,13 +102,11 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
 
   useEffect(() => {
     if (defaultAccountId) {
-      // Set the account ID and then generate the report
       setFilters(f => ({ ...f, accountId: defaultAccountId }));
     }
   }, [defaultAccountId]);
   
   useEffect(() => {
-      // Automatically generate report when accountId is set from default
       if (filters.accountId && isLoading === false && report === null) {
           handleGenerateReport();
       }
@@ -134,8 +137,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-    <div className="flex h-full flex-row-reverse gap-4">
-      
+    <div className="flex h-[calc(100vh-220px)] flex-row-reverse gap-4">
       {/* Sidebar */}
       <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4">
           <Card className="flex-1 flex flex-col">
@@ -198,7 +200,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                   />
               </CardContent>
               <CardFooter className="flex flex-col gap-2">
-                 <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
+                  <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
                     {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                     <Filter className="me-2 h-4 w-4" />
                     عرض الكشف
@@ -206,7 +208,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
               </CardFooter>
           </Card>
       </aside>
-
+      
       {/* Main Content */}
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
@@ -237,7 +239,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         </div>
         {/* Footer */}
         <footer className="flex-shrink-0 p-3 border-t bg-card grid grid-cols-[1fr,auto] gap-4 items-center">
-             {report ? <ReportSummary report={report} /> : <div className="text-center text-muted-foreground text-sm col-span-2 py-6">لم يتم إنشاء تقرير بعد.</div>}
+             {report ? <ReportSummary report={report} /> : <div className="text-center text-muted-foreground text-sm col-span-1 py-6">لم يتم إنشاء تقرير بعد.</div>}
              <div className="flex gap-2">
                 <Button onClick={handleExport} variant="secondary" disabled={!report}><Download className="me-2 h-4 w-4"/>Excel</Button>
                 <Button onClick={handlePrint} variant="secondary" disabled={!report}><Printer className="me-2 h-4 w-4"/>طباعة</Button>
