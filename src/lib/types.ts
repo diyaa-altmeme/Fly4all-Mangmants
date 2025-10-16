@@ -511,11 +511,6 @@ export type CreditPolicySettings = {
     defaultGracePeriodDays: number;
 };
 
-export type RequiredFieldsSettings = {
-    client: string[];
-    supplier: string[];
-};
-
 export type DatabaseStatusSettings = {
     isDatabaseConnected: boolean;
 };
@@ -1142,6 +1137,7 @@ export interface ProfitShare {
   percentage: number;
   amount: number;
   notes?: string;
+  invoiceNumber?: string;
 }
 
 export type ExtractedPassenger = {

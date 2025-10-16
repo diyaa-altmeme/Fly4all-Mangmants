@@ -26,6 +26,7 @@ const DEFAULT_SEQUENCES: Omit<VoucherSequence, 'value'>[] = [
     { id: "EXT", label: "معاملة بورصة", prefix: "EXT" },
     { id: "EXP", label: "تسديد بورصة", prefix: "EXP" },
     { id: "SEG", label: "سكمنت", prefix: "SEG" },
+    { id: "CL", label: "علاقة (عميل/مورد)", prefix: "CL" },
 ];
 
 
