@@ -32,6 +32,7 @@ import type { Currency } from "@/lib/types";
 import { Label } from "@/components/ui/label";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useAuth } from "@/lib/auth-context";
+import { ArrowRight } from "lucide-react";
 
 const partnerSchema = z.object({
   id: z.string().min(1, "اسم الشريك مطلوب."),
@@ -271,15 +272,15 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                               </TableHeader>
                               <TableBody>
                                   {distribution.map((d, index) => (
-                                      <TableRow key={`${d.id}-${index}`} className={d.id === 'alrawdatain' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
+                                      <TableRow key={`${d.id}-${index}`} className={d.id === 'alrawdatain_share' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
                                           <TableCell className="font-semibold flex items-center gap-2">
-                                              {d.id === 'alrawdatain' && <Landmark className="h-4 w-4 text-green-600"/>}
+                                              {d.id === 'alrawdatain_share' && <Landmark className="h-4 w-4 text-green-600"/>}
                                               {d.name}
                                           </TableCell>
                                           <TableCell className="text-center font-mono">{Number(d.percentage).toFixed(2)}%</TableCell>
                                           <TableCell className="text-right font-mono font-bold">{d.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {watchedCurrency}</TableCell>
                                            <TableCell className="text-center">
-                                            {d.id !== 'alrawdatain' && (
+                                            {d.id !== 'alrawdatain_share' && (
                                               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(fields.findIndex(f => f.id === d.id))}>
                                                   <Trash2 className="h-4 w-4" />
                                               </Button>
