@@ -1,3 +1,4 @@
+
 'use server';
 
 import type { ReportInfo, AccountType, ReportTransaction, Currency, DebtsReportData, Client, Supplier, AppSettings, Box, StructuredDescription, BookingEntry, VisaBookingEntry, Subscription, JournalVoucher, JournalEntry, DebtsReportEntry, InvoiceReportItem, ClientTransactionSummary, TreeNode, Exchange } from '@/lib/types';
@@ -64,7 +65,6 @@ const getVoucherTypeLabel = (voucher: JournalVoucher, accountId: string): string
 const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accountId: string, accountsMap: Map<string, string>): Promise<string | StructuredDescription> => {
     const originalData = voucher.originalData;
     
-    // Helper to find the "other side" of the transaction from the perspective of the current account.
     const getOtherParties = (entries: JournalEntry[]) => 
         [...new Set(
             entries
@@ -72,12 +72,11 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
             .map(e => accountsMap.get(e.accountId) || e.accountId)
         )].join(', ');
 
-    // Determine if the current account is on the debit or credit side
     const isDebitAccount = voucher.debitEntries.some(e => e.accountId === accountId);
     const isCreditAccount = voucher.creditEntries.some(e => e.accountId === accountId);
+    const boxAccount = Array.from(accountsMap.entries()).find(([id, name]) => id === accountId && name.startsWith('صندوق:'));
 
-    // Logic for Box accounts
-    if (accountsMap.get(accountId)?.startsWith('صندوق:')) {
+    if (boxAccount) {
         switch (voucher.voucherType) {
             case 'journal_from_standard_receipt':
                 return `استلام دفعة من: ${accountsMap.get(originalData.from) || originalData.from}`;
@@ -95,7 +94,7 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
         }
     }
     
-    if (!originalData) { // Fallback for generic journal entries or missing data
+    if (!originalData) { 
         if (isDebitAccount) return `قيد مدين من: ${getOtherParties(voucher.creditEntries) || 'غير محدد'}`;
         if (isCreditAccount) return `قيد دائن إلى: ${getOtherParties(voucher.debitEntries) || 'غير محدد'}`;
         return voucher.notes || 'لا يوجد وصف';
@@ -132,12 +131,10 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
             return `حركة متعلقة بسكمنت ${originalData.companyName} ${periodText}.`;
 
         case 'journal_from_standard_receipt':
-            const from = accountsMap.get(originalData.from) || originalData.from;
-            return `تسديد دفعة. ${originalData.details || ''}`.trim();
+            return `تسديد دفعة.`;
             
         case 'journal_from_payment':
-            const toSupplier = accountsMap.get(originalData.toSupplierId) || originalData.toSupplierId;
-            return `استلام دفعة. ${originalData.details || ''}`.trim();
+            return `استلام دفعة.`;
         
         case 'journal_from_distributed_receipt':
             const appSettings = await getSettings();
@@ -1006,3 +1003,6 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
     return rootNodes;
 });
+
+
+      
