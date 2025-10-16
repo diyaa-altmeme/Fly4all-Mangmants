@@ -172,7 +172,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
 
 export default function SegmentsPage() {
     const [segments, setSegments] = useState<SegmentEntry[]>([]);
-    const { data: navData, loaded: navDataLoaded } = useVoucherNav();
+    const { data: navData, loaded: navDataLoaded, fetchData } = useVoucherNav();
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
@@ -182,11 +182,16 @@ export default function SegmentsPage() {
     const clients = navData?.clients || [];
     const suppliers = navData?.suppliers || [];
     
-    const handleSuccess = useCallback(async () => {
-        await fetchData();
-    }, []);
-
-    const fetchData = useCallback(async () => {
+    useEffect(() => {
+        if (!navDataLoaded) {
+          fetchData();
+        }
+        if(navDataLoaded) {
+            fetchSegmentData();
+        }
+    }, [navDataLoaded, fetchData]);
+    
+    const fetchSegmentData = useCallback(async () => {
         setLoading(true);
         try {
             const segmentData = await getSegments();
@@ -198,9 +203,9 @@ export default function SegmentsPage() {
         }
     }, [toast]);
     
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    const handleSuccess = useCallback(async () => {
+        await fetchSegmentData();
+    }, [fetchSegmentData]);
     
     const groupedByPeriod = useMemo(() => {
         return segments.reduce((acc, entry) => {
@@ -287,7 +292,7 @@ export default function SegmentsPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog onSuccess={fetchData} />
+                                <AddSegmentPeriodDialog onSuccess={handleSuccess} />
                                 <Button onClick={fetchData} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
