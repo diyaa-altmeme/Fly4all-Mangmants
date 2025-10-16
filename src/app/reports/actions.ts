@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import type { ReportInfo, AccountType, ReportTransaction, Currency, DebtsReportData, Client, Supplier, AppSettings, Box, StructuredDescription, BookingEntry, VisaBookingEntry, Subscription, JournalVoucher, JournalEntry, DebtsReportEntry, InvoiceReportItem, ClientTransactionSummary, TreeNode, Exchange } from '@/lib/types';
@@ -16,7 +17,7 @@ import { getUsers } from '../users/actions';
 import { getBookings } from '../bookings/actions';
 import { getVisaBookings } from '../visas/actions';
 import { getAllVouchers } from '../accounts/vouchers/list/actions';
-import { getExchanges } from '../exchanges/actions';
+import { getExchanges, getUnifiedExchangeLedger, type UnifiedLedgerEntry } from '../exchanges/actions';
 
 const formatCurrencyDisplay = (amount: number, currency: string) => {
     const formattedAmount = new Intl.NumberFormat('en-US').format(Math.abs(amount));
@@ -71,7 +72,7 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
         const debitParties = getOtherParties(voucher.creditEntries);
         const creditParties = getOtherParties(voucher.debitEntries);
         if (voucher.debitEntries.some(e => e.accountId === accountId)) {
-            return `قيد مدين من: ${creditParties || 'غير محدد'}. البيان: ${voucher.notes || 'لا يوجد'}`;
+             return `قيد مدين من: ${creditParties || 'غير محدد'}. البيان: ${voucher.notes || 'لا يوجد'}`;
         }
         if (voucher.creditEntries.some(e => e.accountId === accountId)) {
             return `قيد دائن إلى: ${debitParties || 'غير محدد'}. البيان: ${voucher.notes || 'لا يوجد'}`;
@@ -85,14 +86,15 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
         case 'booking':
         case 'visa':
             const isBooking = voucher.voucherType === 'booking';
+            const pnrText = originalData.pnr ? `برقم PNR: ${originalData.pnr}` : `برقم فاتورة: ${voucher.invoiceNumber}`;
             const details = isBooking 
                 ? (originalData.passengers || []).map((p: any) => `${p.name} (تذكرة: ${p.ticketNumber || 'N/A'})`).join(', ')
                 : (originalData.passengers || []).map((p: any) => `${p.name} (جواز: ${p.passportNumber || 'N/A'}, طلب: ${p.applicationNumber || 'N/A'})`).join(', ');
 
             if (accountId === originalData.clientId) {
-                return `قيد فاتورة ${isBooking ? 'حجز طيران' : 'فيزا'} برقم PNR: ${originalData.pnr || 'N/A'}. للمسافرين: ${details}.`;
+                return `قيد فاتورة ${isBooking ? 'حجز طيران' : 'فيزا'} ${pnrText}. للمسافرين: ${details}.`;
             } else if (accountId === originalData.supplierId) {
-                return `إثبات تكلفة ${isBooking ? 'حجز طيران' : 'فيزا'} برقم PNR: ${originalData.pnr || 'N/A'}.`;
+                return `إثبات تكلفة ${isBooking ? 'حجز طيران' : 'فيزا'} ${pnrText}.`;
             }
             return `حركة متعلقة بـ ${isBooking ? 'حجز' : 'فيزا'} ${originalData.pnr || voucher.invoiceNumber}.`;
         
@@ -103,10 +105,9 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
 
         case 'segment':
             const periodText = `عن الفترة (${originalData.fromDate} – ${originalData.toDate})`;
-            const itemDetails = `${originalData.tickets} تذكرة، ${originalData.visas} فيزا، ${originalData.hotels} فندق، ${originalData.groups} جروبات`;
             
             if (accountId === originalData.clientId) {
-                return `قيد أرباح السكمنت لشركة ${originalData.companyName} ${periodText}. تفاصيل: ${itemDetails}.`;
+                 return `تسوية رصيد أرباح السكمنت ${periodText}.`;
             }
             if (accountId === originalData.partnerId) {
                 return `استلام حصة أرباح السكمنت من شركة ${originalData.companyName} ${periodText}.`;
@@ -194,6 +195,7 @@ async function getTransactionsForAccount(accountId: string, accountsMap: Map<str
                 invoiceNumber: voucher.invoiceNumber || 'N/A',
                 date: dateIso,
                 description: description,
+                notes: voucher.notes || '',
                 type: voucherTypeLabel,
                 debit: relevantDebit.amount,
                 credit: 0, 
@@ -208,6 +210,7 @@ async function getTransactionsForAccount(accountId: string, accountsMap: Map<str
                 invoiceNumber: voucher.invoiceNumber || 'N/A',
                 date: dateIso,
                 description: description,
+                notes: voucher.notes || '',
                 type: voucherTypeLabel,
                 debit: 0, 
                 credit: relevantCredit.amount,
@@ -220,6 +223,26 @@ async function getTransactionsForAccount(accountId: string, accountsMap: Map<str
     
     return transactions;
 }
+
+const getExchangeTransactionsForAccount = async (exchangeId: string): Promise<ReportTransaction[]> => {
+    const ledger = await getUnifiedExchangeLedger(exchangeId);
+    return ledger.map(entry => {
+        return {
+            id: entry.id,
+            invoiceNumber: entry.invoiceNumber || 'N/A',
+            date: entry.createdAt,
+            description: entry.description,
+            notes: '',
+            type: entry.entryType === 'transaction' ? 'معاملة بورصة' : 'تسديد بورصة',
+            debit: entry.totalAmount! < 0 ? Math.abs(entry.totalAmount!) : 0,
+            credit: entry.totalAmount! > 0 ? entry.totalAmount! : 0,
+            balance: entry.balance || 0,
+            currency: 'USD', // Exchanges are always USD for now
+            officer: entry.userName,
+            details: entry.details,
+        };
+    }).reverse(); // The ledger is naturally reverse chronological
+};
 
 
 export const getAccountStatement = cache(async (params: { accountId: string, currency: Currency | 'both', dateRange: DateRange, typeFilter: string[] }): Promise<ReportInfo> => {
@@ -242,7 +265,7 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
             const exchangeDoc = await db.collection('exchanges').doc(params.accountId).get();
              if (exchangeDoc.exists) {
                 const data = exchangeDoc.data() as Exchange;
-                accountInfo = { id: exchangeDoc.id, name: data.name, type: 'exchange' as AccountType };
+                accountInfo = { id: exchangeDoc.id, name: data.name, type: 'exchange' };
             }
         }
     }
@@ -265,6 +288,28 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
         } else {
             throw new Error(`لم يتم العثور على حساب بالمعرف: ${params.accountId}.`);
         }
+    }
+    
+    if (accountInfo.type === 'exchange') {
+        const exchangeTransactions = await getExchangeTransactionsForAccount(params.accountId);
+        
+        const openingBalance = exchangeTransactions[0]?.balance - (exchangeTransactions[0]?.credit - exchangeTransactions[0]?.debit) || 0;
+
+        return {
+            title: `كشف حساب لـ: ${accountInfo.name}`,
+            accountType: accountInfo.type as AccountType,
+            openingBalanceUSD: openingBalance,
+            openingBalanceIQD: 0,
+            transactions: exchangeTransactions,
+            totalDebitUSD: exchangeTransactions.reduce((sum, tx) => sum + tx.debit, 0),
+            totalCreditUSD: exchangeTransactions.reduce((sum, tx) => sum + tx.credit, 0),
+            finalBalanceUSD: exchangeTransactions[exchangeTransactions.length - 1]?.balance || 0,
+            totalDebitIQD: 0,
+            totalCreditIQD: 0,
+            finalBalanceIQD: 0,
+            currency: 'USD',
+            balanceMode: 'liability'
+        };
     }
     
     const [clientsRes, suppliers, boxes] = await Promise.all([

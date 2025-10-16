@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -65,6 +66,8 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
         { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
         { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
         { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
+        { id: 'exchange_transaction', label: 'معاملة بورصة', icon: ChevronsRightLeft, group: 'other' },
+        { id: 'exchange_payment', label: 'تسديد بورصة', icon: ChevronsRightLeft, group: 'other' },
         { id: 'segment', label: 'سكمنت', icon: Layers3, group: 'other' },
         { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2, group: 'other' },
         { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser, group: 'other' },
@@ -132,7 +135,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
   const handlePrint = () => window.print();
 
   return (
-     <div className="flex flex-col lg:flex-row h-full lg:h-[calc(100vh-160px)] gap-4">
+     <div className="flex flex-col lg:flex-row-reverse h-full lg:h-[calc(100vh-160px)] gap-4">
       <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 sticky top-20">
         <Card>
           <CardHeader>
@@ -150,7 +153,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
             </div>
             <div className="space-y-2">
                 <Label className="font-semibold">الفترة الزمنية</Label>
-                <div className="grid grid-cols-2 gap-2">
+                 <div className="grid grid-cols-2 gap-2">
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button variant="outline" className={cn("justify-start text-left font-normal", !filters.dateRange?.from && "text-muted-foreground")}>
