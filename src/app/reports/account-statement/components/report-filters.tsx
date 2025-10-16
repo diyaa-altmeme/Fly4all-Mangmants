@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React from 'react';
@@ -16,7 +15,6 @@ interface ReportFiltersProps {
     allFilters: { id: string, label: string, icon: React.ElementType, group: 'basic' | 'other' }[];
     filters: {
         currency: Currency | 'both';
-        reportType: 'summary' | 'detailed';
         typeFilter: Set<string>;
     };
     onFiltersChange: (filters: any) => void;
@@ -53,13 +51,6 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange }: 
                             <SelectItem value="both">كل العملات</SelectItem>
                             <SelectItem value="USD">USD</SelectItem>
                             <SelectItem value="IQD">IQD</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Select value={filters.reportType} onValueChange={(v) => onFiltersChange((prev: any) => ({...prev, reportType: v}))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="summary">موجز</SelectItem>
-                            <SelectItem value="detailed">مفصل</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

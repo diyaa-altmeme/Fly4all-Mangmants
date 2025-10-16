@@ -847,8 +847,8 @@ export async function getInvoicesReport(filters: {
             credit: creditAmount,
             debit: debitAmount,
             balance: 0,
-            details: voucher.notes || `حركة من نوع: ${getVoucherTypeLabel(voucher.voucherType)}`,
-            type: getVoucherTypeLabel(voucher.voucherType),
+            details: voucher.notes || `حركة من نوع: ${getVoucherTypeLabel(voucher)}`,
+            type: getVoucherTypeLabel(voucher),
         });
     });
 

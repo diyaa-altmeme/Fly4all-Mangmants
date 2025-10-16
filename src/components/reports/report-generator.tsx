@@ -37,7 +37,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
     dateRange: { from: subDays(new Date(), 30), to: new Date() } as DateRange | undefined,
     searchTerm: "",
     currency: "both" as Currency | "both",
-    reportType: "summary" as "summary" | "detailed",
     typeFilter: new Set<string>(),
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -89,7 +88,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         accountId: filters.accountId,
         currency: filters.currency,
         dateRange: filters.dateRange || { from: undefined, to: undefined },
-        reportType: filters.reportType,
+        reportType: 'detailed',
         typeFilter: Array.from(filters.typeFilter),
       });
       setReport(reportData);
@@ -132,7 +131,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-     <div className="flex h-[calc(100vh-220px)] flex-row-reverse gap-4">
+     <div className="flex flex-row-reverse h-[calc(100vh-160px)] gap-4">
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         <header className="flex items-center justify-between p-3 border-b">
           <div className="relative flex-1">
@@ -149,7 +148,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
           {isLoading ? (
             <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : report ? (
-            <ReportTable transactions={report.transactions} reportType={filters.reportType} />
+            <ReportTable transactions={report.transactions} />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
               <FileText size={48} className="text-gray-300" />
