@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, ArrowDown, ArrowUp, HandCoins, ListTree, FilePenLine, ChevronDown, FileSpreadsheet, FileBarChart, BookOpen, Book, SlidersHorizontal, Printer, Ticket, RefreshCw, Briefcase, BedDouble, Users as UsersIcon, Shield, Train, Settings, CreditCard, Wallet, GitBranch, Banknote, BookUser, FileDown, FileUp, ArrowRightLeft, Repeat, XCircle, CheckCheck, Smartphone, MoreHorizontal, Layers3 } from 'lucide-react';
+import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, ArrowDown, ArrowUp, HandCoins, ListTree, FilePenLine, ChevronDown, FileSpreadsheet, FileBarChart, BookOpen, Book, SlidersHorizontal, Printer, Ticket, RefreshCw, Briefcase, BedDouble, Users as UsersIcon, Shield, Train, Settings, CreditCard, Wallet, GitBranch, Banknote, BookUser, FileDown, FileUp, ArrowRightLeft, Repeat, XCircle, CheckCheck, Smartphone, MoreHorizontal, Layers3, Share2 } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays, parseISO } from "date-fns";
 import type { Box, ReportInfo, ReportTransaction, Currency, AccountType, Client, Supplier, StructuredDescription } from '@/lib/types';
@@ -105,6 +105,7 @@ const mainOperationsFilters = [
     { id: 'subscription', label: 'اشتراك', icon: Repeat },
     { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft },
     { id: 'segment', label: 'سكمنت', icon: Layers3 },
+    { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2 },
 ];
 
 const voucherTypeFilters = [
@@ -119,7 +120,7 @@ const voucherTypeFilters = [
 ];
 
 
-export default function ReportGenerator({ boxes, clients, suppliers, defaultAccountId, transactionType }: { boxes: Box[], clients: Client[], suppliers: Supplier[], defaultAccountId?: string, transactionType?: 'profits' | 'expenses' }) {
+export default function ReportGenerator({ boxes, clients, suppliers, defaultAccountId, transactionType }: { boxes: Box[], clients: Client[], suppliers: Supplier[], defaultAccountId?: string, transactionType?: 'profits' | 'expenses' | 'profit_distribution' }) {
     
     const [report, setReport] = useState<ReportInfo | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -185,8 +186,11 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
             if (mainOp) return mainOp.label;
             const voucherOp = voucherTypeFilters.find(f => f.id === typeKey);
             if (voucherOp) return voucherOp.label;
+             if (typeKey === 'profit_distribution') {
+                return ['استلام أرباح فترة يدوية', 'دفع حصة شريك', 'إثبات حصة شركة'];
+            }
             return typeKey;
-        });
+        }).flat();
         return report.transactions.filter(tx => voucherTypeLabels.includes(tx.type));
     }, [report, typeFilter, allFilters]);
 
