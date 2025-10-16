@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -58,19 +57,37 @@ export async function getProfitSharesForMonth(monthId: string): Promise<ProfitSh
   const db = await getDb();
   if (!db) return [];
   try {
-    // Check if it's a manual profit ID
     const manualDoc = await db.collection('manual_monthly_profits').doc(monthId).get();
     if (manualDoc.exists) {
         const data = manualDoc.data();
-        return (data?.partners || []).map((p: any, index: number) => ({
+        const partnersData = data?.partners || [];
+        
+        const journalVouchersSnap = await db.collection('journal-vouchers')
+            .where('originalData.manualProfitId', '==', monthId)
+            .get();
+        
+        const invoiceNumbersByPartnerId: Record<string, string> = {};
+        journalVouchersSnap.forEach(doc => {
+            const voucher = doc.data();
+            const partnerId = voucher.originalData?.partnerId;
+            if (partnerId) {
+                invoiceNumbersByPartnerId[partnerId] = voucher.invoiceNumber;
+            }
+            // For alrawdatain share
+            if(voucher.creditEntries?.some((e: any) => e.accountId === 'revenue_profit_distribution')) {
+                invoiceNumbersByPartnerId['alrawdatain_share'] = voucher.invoiceNumber;
+            }
+        });
+
+        return partnersData.map((p: any, index: number) => ({
             ...p,
-            id: p.id || `${monthId}-${index}`, // Ensure a unique ID
+            id: p.id || `${monthId}-${index}`, 
             profitMonthId: monthId,
+            invoiceNumber: invoiceNumbersByPartnerId[p.partnerId] || null,
             notes: 'حصة من توزيع يدوي',
         }));
     }
 
-    // Otherwise, fetch from profit_shares
     const snapshot = await db.collection('profit_shares').where('profitMonthId', '==', monthId).get();
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ProfitShare));
   } catch (e) {
@@ -116,10 +133,9 @@ export async function saveManualProfitDistribution(data: {
 
         const periodText = `للفترة من ${data.fromDate} إلى ${data.toDate}`;
         
-        // 1. Record the manual profit period details
         writeBatch.set(manualProfitRef, {
             ...data,
-            invoiceNumber: receiptInvoice, // Main invoice number
+            invoiceNumber: receiptInvoice, // Main invoice number for the period
             createdBy: user.uid,
             userName: user.name,
             createdAt: new Date().toISOString(),
@@ -127,7 +143,6 @@ export async function saveManualProfitDistribution(data: {
         
         const alrawdatainShare = data.partners.find(p => p.partnerId === 'alrawdatain_share');
         
-        // 2. Create a "Receipt Voucher" from the source to the company's box
         const receiptVoucherRef = db.collection('journal-vouchers').doc();
         writeBatch.set(receiptVoucherRef, {
             invoiceNumber: receiptInvoice,
@@ -144,11 +159,10 @@ export async function saveManualProfitDistribution(data: {
             isAudited: true, isConfirmed: true, originalData: { ...data, manualProfitId: manualProfitRef.id }
         });
 
-        // 3. Create "Payment Vouchers" for each partner's share
         data.partners.filter(p => p.partnerId !== 'alrawdatain_share').forEach(p => {
             const partnerPaymentRef = db.collection('journal-vouchers').doc();
             writeBatch.set(partnerPaymentRef, {
-                invoiceNumber: partnerPaymentInvoice,
+                invoiceNumber: partnerPaymentInvoice, // Should be unique per partner
                 date: new Date().toISOString(),
                 currency: data.currency,
                 notes: `دفع حصة الشريك ${p.partnerName} عن أرباح ${periodText}`,
@@ -163,7 +177,6 @@ export async function saveManualProfitDistribution(data: {
             });
         });
 
-        // 4. Create a "Journal Entry" for the company's share
         if (alrawdatainShare && alrawdatainShare.amount > 0) {
             const companyProfitRef = db.collection('journal-vouchers').doc();
             writeBatch.set(companyProfitRef, {
@@ -178,7 +191,7 @@ export async function saveManualProfitDistribution(data: {
                 voucherType: "journal_voucher",
                 debitEntries: [{ accountId: user.boxId, amount: alrawdatainShare.amount, description: `سحب حصة الشركة من الصندوق` }],
                 creditEntries: [{ accountId: 'revenue_profit_distribution', amount: alrawdatainShare.amount, description: `تسجيل إيراد حصة الشركة ${periodText}` }],
-                isAudited: true, isConfirmed: true, originalData: { ...data, manualProfitId: manualProfitRef.id }
+                isAudited: true, isConfirmed: true, originalData: { ...data, manualProfitId: manualProfitRef.id, partnerId: 'alrawdatain_share' }
             });
         }
         
