@@ -43,6 +43,7 @@ const partnerSchema = z.object({
   name: z.string(),
   type: z.enum(['percentage', 'fixed']),
   value: z.coerce.number().min(0, "القيمة يجب أن تكون موجبة."),
+  notes: z.string().optional(),
 });
 
 const companyEntrySchema = z.object({
@@ -82,6 +83,7 @@ type PartnerFormValues = z.infer<typeof partnerSchema>;
 
 interface AddSegmentPeriodDialogProps {
   onSuccess: () => Promise<void>;
+  children: React.ReactNode;
 }
 
 const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
@@ -171,18 +173,28 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
     const [currentPartnerType, setCurrentPartnerType] = useState<'percentage' | 'fixed'>('percentage');
 
     const handleAddPartner = () => {
-        if (!currentPartnerId || currentPartnerValue === '') return;
-        const partner = partnerOptions.find(p => p.value === currentPartnerId);
-        if (!partner) return;
-        append({
-            id: currentPartnerId,
-            name: partner.label,
-            type: currentPartnerType,
-            value: Number(currentPartnerValue)
-        });
+        if (!currentPartnerId || currentPartnerValue === '') {
+            toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
+            return;
+        }
+        const newPercentage = Number(currentPartnerValue);
+        if (isNaN(newPercentage) || newPercentage <= 0) {
+            toast({ title: "القيمة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
+            return;
+        }
+
+        const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
+        if(!selectedPartner) {
+           toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
+           return;
+        }
+        const newPartner = { id: selectedPartner.id, name: selectedPartner.name, type: currentPartnerType, value: newPercentage, notes: '' };
+        append(newPartner);
         setCurrentPartnerId('');
         setCurrentPartnerValue('');
     };
+
+    const { toast } = useToast();
 
     return (
         <form onSubmit={handleSubmit(onAddEntry)} className="space-y-4">
@@ -221,7 +233,13 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                      </div>
                      <div className="space-y-1.5 flex-grow">
                         <Label>نسبة الأرباح لنا (%)</Label>
-                        <NumericInput {...form.register('alrawdatainSharePercentage')} placeholder="50"/>
+                        <Controller
+                            name="alrawdatainSharePercentage"
+                            control={control}
+                            render={({ field }) => (
+                                <NumericInput {...field} onValueChange={field.onChange} placeholder="50"/>
+                            )}
+                        />
                      </div>
                 </div>
             </Collapsible>
@@ -264,7 +282,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
     );
 }
 
-export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDialogProps) {
+export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegmentPeriodDialogProps) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
@@ -360,6 +378,10 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
         companyForm.reset();
     };
     
+    const removeEntry = (index: number) => {
+        remove(index);
+    };
+    
     const handleSavePeriod = async (data: PeriodFormValues) => {
         if (data.entries.length === 0) {
             toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
@@ -384,7 +406,7 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                 <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
+                 {children}
             </DialogTrigger>
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
@@ -431,11 +453,11 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
                                             <TableRow><TableCell colSpan={6} className="text-center h-24">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
                                         ) : fields.map((entry, index) => (
                                             <TableRow key={index}>
-                                                <TableCell className="font-semibold">{watch(`entries.${index}.companyName`)}</TableCell>
-                                                <TableCell>{watch(`entries.${index}.partnerName`)}</TableCell>
-                                                <TableCell className="font-mono">{watch(`entries.${index}.total`)?.toFixed(2)}</TableCell>
-                                                <TableCell className="font-mono text-green-600">{watch(`entries.${index}.alrawdatainShare`)?.toFixed(2)}</TableCell>
-                                                <TableCell className="font-mono text-blue-600">{watch(`entries.${index}.partnerShare`)?.toFixed(2)}</TableCell>
+                                                <TableCell className="font-semibold">{form.watch(`entries.${index}.companyName`)}</TableCell>
+                                                <TableCell>{form.watch(`entries.${index}.partnerName`)}</TableCell>
+                                                <TableCell className="font-mono">{form.watch(`entries.${index}.total`)?.toFixed(2)}</TableCell>
+                                                <TableCell className="font-mono text-green-600">{form.watch(`entries.${index}.alrawdatainShare`)?.toFixed(2)}</TableCell>
+                                                <TableCell className="font-mono text-blue-600">{form.watch(`entries.${index}.partnerShare`)?.toFixed(2)}</TableCell>
                                                 <TableCell className='text-center'>
                                                     <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => remove(index)}><Trash2 className='h-4 w-4'/></Button>
                                                 </TableCell>
