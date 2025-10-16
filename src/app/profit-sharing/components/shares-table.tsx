@@ -3,7 +3,7 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Edit, Trash2, Landmark } from "lucide-react";
+import { MoreVertical, Edit, Trash2, Landmark, FileText } from "lucide-react";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import type { ProfitShare } from "../actions";
 import AddEditShareDialog from "./add-edit-share-dialog";
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import type { Currency } from "@/lib/types";
 import React from "react";
+import Link from 'next/link';
 
 
 interface SharesTableProps {
@@ -62,6 +63,7 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
       percentage: companyPercentage > 0.001 ? companyPercentage : 0,
       amount: companyAmount > 0.001 ? companyAmount : 0,
       notes: 'الحصة المتبقية للشركة',
+      invoiceNumber: shares.find(s => s.partnerId === 'alrawdatain_share')?.invoiceNumber,
     };
 
     return {
@@ -80,6 +82,7 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
         <TableHeader>
           <TableRow>
             <TableHead className="font-bold p-2 text-right">الشريك</TableHead>
+            <TableHead className="font-bold p-2 text-right">رقم الفاتورة</TableHead>
             <TableHead className="text-center font-bold p-2">النسبة</TableHead>
             <TableHead className="text-right font-bold p-2">المبلغ</TableHead>
             <TableHead className="font-bold text-right p-2">ملاحظات</TableHead>
@@ -103,6 +106,9 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
                     <Landmark className="h-4 w-4 text-green-600"/>
                     حصالة الشركة
                 </TableCell>
+                <TableCell className="text-center font-mono p-2">
+                    -
+                </TableCell>
                 <TableCell className="text-center font-mono p-2">100.00%</TableCell>
                 <TableCell className="text-right font-mono font-bold p-2">{totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {currency}</TableCell>
                 <TableCell className="text-right p-2"> كامل الربح للشركة </TableCell>
@@ -114,6 +120,13 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
                 <TableCell className="font-semibold p-2 text-right flex items-center gap-2">
                     {share.id === 'company-share' && <Landmark className="h-4 w-4 text-green-600"/>}
                     {share.partnerName}
+                </TableCell>
+                 <TableCell className="text-center font-mono p-2 text-xs">
+                    {share.invoiceNumber ? (
+                        <Button asChild variant="link" className="p-0 h-auto text-xs">
+                            <Link href={`/accounts/vouchers/list`}>{share.invoiceNumber}</Link>
+                        </Button>
+                    ) : '-'}
                 </TableCell>
                 <TableCell className="text-center font-mono p-2">{share.percentage.toFixed(2)}%</TableCell>
                 <TableCell className="text-right font-mono font-bold p-2">{share.amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {currency}</TableCell>
@@ -156,7 +169,7 @@ export default function SharesTable({ shares, partners, totalProfit, onDataChang
         </TableBody>
          <TableFooter>
             <TableRow>
-                <TableCell className="font-bold">المجموع</TableCell>
+                <TableCell colSpan={2} className="font-bold">المجموع</TableCell>
                 <TableCell className="text-center font-bold font-mono">100.00%</TableCell>
                 <TableCell className="text-right font-bold font-mono">{totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {currency}</TableCell>
                 <TableCell colSpan={2}></TableCell>
