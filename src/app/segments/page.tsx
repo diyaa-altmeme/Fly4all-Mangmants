@@ -292,7 +292,9 @@ export default function SegmentsPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog onSuccess={handleSuccess} />
+                                <AddSegmentPeriodDialog onSuccess={handleSuccess}>
+                                     <Button className="w-full"><PlusCircle className="me-2 h-4 w-4"/>إضافة سجل جديد</Button>
+                                </AddSegmentPeriodDialog>
                                 <Button onClick={fetchData} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
@@ -341,7 +343,7 @@ export default function SegmentsPage() {
                         <Table>
                              <TableHeader>
                                 <TableRow>
-                                    <TableHead className="w-[40px] p-1"></TableHead>
+                                    <TableHead className="w-[50px] p-1"></TableHead>
                                     <TableHead className="font-bold text-center p-2">رقم الفاتورة</TableHead>
                                     <TableHead className="font-bold text-center p-2">الشركات</TableHead>
                                     <TableHead className="font-bold text-center p-2">من</TableHead>
@@ -368,7 +370,7 @@ export default function SegmentsPage() {
                                     index={idx}
                                     clients={clients}
                                     suppliers={suppliers}
-                                    onDataChange={fetchData}
+                                    onDataChange={handleSuccess}
                                 />
                             ))}
                         </Table>
@@ -378,5 +380,3 @@ export default function SegmentsPage() {
         </div>
     )
 }
-
-    
