@@ -466,7 +466,7 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
 }
 
 export async function getClientTransactions(clientId: string): Promise<ClientTransactionSummary> {
-    const [bookings, visas, subscriptions, allVouchers, clients, suppliers, boxes, users, settings] = await Promise::all([
+    const [bookings, visas, subscriptions, allVouchers, clients, suppliers, boxes, users, settings] = await Promise.all([
         getBookings({}),
         getVisaBookings(),
         getSubscriptions(),
@@ -785,7 +785,7 @@ export async function getInvoicesReport(filters: {
     if (!db) return [];
 
     // Fetch all relevant collections
-    const [bookings, visas, allVouchers] = await Promise::all([
+    const [bookings, visas, allVouchers] = await Promise.all([
         db.collection('bookings').where('clientId', '==', filters.userFilter).get(),
         db.collection('visaBookings').where('clientId', '==', filters.userFilter).get(),
         db.collection('journal-vouchers').get(), // Fetch all to filter in code
@@ -892,7 +892,7 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
     const db = await getDb();
     if (!db) throw new Error("Database not available.");
 
-    const [clientsSnap, suppliersSnap, boxesSnap, exchangesSnap, vouchersSnap] = await Promise::all([
+    const [clientsSnap, suppliersSnap, boxesSnap, exchangesSnap, vouchersSnap] = await Promise.all([
         db.collection('clients').get(),
         db.collection('suppliers').get(),
         db.collection('boxes').get(),
@@ -995,4 +995,5 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
 
 
+    
     
