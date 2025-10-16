@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -7,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft } from "lucide-react";
+import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft, ChevronsRightLeft } from "lucide-react";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
@@ -136,7 +135,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
 
   return (
      <div className="flex flex-col lg:flex-row-reverse h-full lg:h-[calc(100vh-160px)] gap-4">
-      <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 sticky top-20">
+      <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 lg:sticky top-20">
         <Card>
           <CardHeader>
             <CardTitle>خيارات العرض</CardTitle>
@@ -231,3 +230,5 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     </div>
   );
 }
+
+    
