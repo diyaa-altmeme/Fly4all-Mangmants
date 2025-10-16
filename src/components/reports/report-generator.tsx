@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -20,7 +21,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { CalendarIcon, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard, RefreshCw } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard, RefreshCw, ArrowRightLeft } from 'lucide-react';
 
 interface ReportGeneratorProps {
   boxes: Box[];
@@ -74,7 +75,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const getTransactionTypeName = (txType: string) => {
       const allTransactionTypes = [
           ...allFilters,
-          { id: 'journal_from_installment', label: 'دفعة قسط اشتراك' }
+          { id: 'journal_from_installment', label: 'دفعة قسط اشتراك', icon: WalletCards }
       ];
       return allTransactionTypes.find(f => f.label === txType)?.id || txType;
   };
@@ -161,32 +162,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   const handlePrint = () => window.print();
 
   return (
-    <div className="flex h-[calc(100vh-160px)] gap-4 p-4 bg-muted/30">
-      {/* Sidebar */}
-      <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4 bg-card p-4 rounded-lg shadow-sm">
-        <div className="space-y-2">
-          <Label className="font-semibold">الحساب</Label>
-          <Autocomplete
-            value={filters.accountId}
-            onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
-            options={allAccounts}
-            placeholder="اختر حسابًا..."
-          />
-        </div>
-        <div className="flex-grow overflow-y-auto -mx-4 px-4">
-          <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
-            {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-            <Filter className="me-2 h-4 w-4" />
-            عرض الكشف
-          </Button>
-          <Button onClick={handleExport} variant="secondary" className="w-full">تصدير Excel</Button>
-          <Button onClick={handlePrint} variant="secondary" className="w-full">طباعة</Button>
-        </div>
-      </aside>
-
+    <div className="flex flex-row-reverse h-[calc(100vh-200px)] gap-4 p-4 bg-muted/30">
       {/* Main Content */}
       <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
@@ -234,6 +210,38 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
         </footer>
       </main>
 
+      {/* Sidebar */}
+      <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4 bg-card p-4 rounded-lg shadow-sm">
+        <div className="space-y-2">
+          <Label className="font-semibold">الحساب</Label>
+          <Autocomplete
+            value={filters.accountId}
+            onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
+            options={allAccounts}
+            placeholder="اختر حسابًا..."
+          />
+        </div>
+        <div className="flex-grow overflow-y-auto -mx-4 px-4">
+          <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
+            {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+            <Filter className="me-2 h-4 w-4" />
+            عرض الكشف
+          </Button>
+          <div className="grid grid-cols-2 gap-2">
+             <Button onClick={handleExport} variant="secondary" className="w-full">
+                <Download className="me-2 h-4 w-4"/>
+                Excel
+            </Button>
+            <Button onClick={handlePrint} variant="secondary" className="w-full">
+                <Printer className="me-2 h-4 w-4"/>
+                طباعة
+            </Button>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }
