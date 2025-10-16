@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -5,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowLeft, ArrowRight, ArrowRightLeft } from "lucide-react";
+import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft, ChevronsUpDown } from "lucide-react";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
@@ -95,13 +96,18 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
   }, [filters, toast]);
 
   useEffect(() => {
-    if (defaultAccountId) handleGenerateReport();
-  }, [defaultAccountId, handleGenerateReport]);
+    if (defaultAccountId) {
+      // Set the account ID and then generate the report
+      setFilters(f => ({ ...f, accountId: defaultAccountId }));
+    }
+  }, [defaultAccountId]);
   
   useEffect(() => {
-    // Select all filters by default on mount
-    setFilters(f => ({ ...f, typeFilter: new Set(allFilters.map(filter => filter.id)) }));
-  }, [allFilters]);
+      // Automatically generate report when accountId is set from default
+      if (filters.accountId && isLoading === false && report === null) {
+          handleGenerateReport();
+      }
+  }, [filters.accountId, handleGenerateReport, isLoading, report]);
 
   const handleExport = () => {
     if (!report || report.transactions.length === 0) {
@@ -129,23 +135,24 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
 
   return (
     <div className="flex h-full flex-row-reverse gap-4">
+      
       {/* Sidebar */}
       <aside className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-4">
-          <Card>
-            <CardHeader>
-                <CardTitle>خيارات التقرير</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <Label className="font-semibold">الحساب</Label>
-                    <Autocomplete
-                        value={filters.accountId}
-                        onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
-                        options={allAccounts}
-                        placeholder="اختر حسابًا..."
-                    />
-                </div>
-                 <div className="space-y-2">
+          <Card className="flex-1 flex flex-col">
+              <CardHeader>
+                  <CardTitle>خيارات التقرير</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow overflow-y-auto space-y-4">
+                  <div className="space-y-2">
+                      <Label className="font-semibold">الحساب</Label>
+                      <Autocomplete
+                          value={filters.accountId}
+                          onValueChange={v => setFilters(f => ({ ...f, accountId: v }))}
+                          options={allAccounts}
+                          placeholder="اختر حسابًا..."
+                      />
+                  </div>
+                   <div className="space-y-2">
                     <Label className="font-semibold">الفترة الزمنية</Label>
                     <Popover>
                         <PopoverTrigger asChild>
@@ -183,32 +190,34 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                         />
                         </PopoverContent>
                     </Popover>
-                </div>
-                <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
-                    {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                    <Filter className="me-2 h-4 w-4" />
-                    عرض الكشف
-                </Button>
-                <ReportFilters 
+                  </div>
+                  <ReportFilters 
                     filters={filters} 
                     onFiltersChange={setFilters} 
                     allFilters={allFilters} 
-                />
-            </CardContent>
+                  />
+              </CardContent>
+              <CardFooter className="flex flex-col gap-2">
+                 <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full flex items-center justify-center">
+                    {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                    <Filter className="me-2 h-4 w-4" />
+                    عرض الكشف
+                  </Button>
+              </CardFooter>
           </Card>
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
+      <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         {/* Header */}
         <header className="flex items-center justify-between p-3 border-b">
           <div className="relative flex-1">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="بحث في النتائج..."
               value={filters.searchTerm}
               onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
-              className="pr-10 h-10"
+              className="ps-10 h-10"
             />
           </div>
         </header>
@@ -234,7 +243,8 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                 <Button onClick={handlePrint} variant="secondary" disabled={!report}><Printer className="me-2 h-4 w-4"/>طباعة</Button>
             </div>
         </footer>
-      </div>
+      </main>
+
     </div>
   );
 }
