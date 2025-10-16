@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, Printer, SlidersHorizontal, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard, ArrowRightLeft, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Search, Filter, Printer, SlidersHorizontal, ChevronsRightLeft, Repeat, ListChecks, BookUser, Banknote, FileUp, FileDown, GitBranch, Plane, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, ArrowUp, ArrowDown, HandCoins, XCircle, CreditCard, RefreshCw } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { format, subDays } from "date-fns";
 import type { Box, ReportInfo, ReportTransaction, Currency, AccountType, Client, Supplier, StructuredDescription } from '@/lib/types';
@@ -155,45 +155,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
 
     return (
         <div className="h-[calc(100vh-160px)] flex flex-col lg:flex-row bg-muted/30 gap-4 p-4">
-            
-            {/* Main Content */}
-            <main className="flex-1 flex flex-col overflow-hidden bg-card rounded-lg shadow-sm">
-                {/* Header */}
-                 <header className="flex-shrink-0 p-4 border-b flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                         <div className="relative flex-grow">
-                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                             <Input
-                                placeholder="بحث في نتائج الكشف..."
-                                className="ps-10 h-10"
-                                value={filters.searchTerm}
-                                onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
-                            />
-                        </div>
-                    </div>
-                </header>
-                {/* Table */}
-                <div className="flex-grow overflow-y-auto">
-                    {isLoading ? (
-                        <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-                    ) : report ? (
-                        <ReportTable transactions={report.transactions} />
-                    ) : (
-                         <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
-                                <FileText size={48} className="text-gray-300" />
-                                <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
-                                <p className="text-sm">الرجاء اختيار حساب وتحديد فترة زمنية ثم الضغط على "عرض الكشف".</p>
-                           </div>
-                    )}
-                </div>
-                 {/* Footer */}
-                <footer className="flex-shrink-0 p-3 bg-card border-t">
-                    {report ? <ReportSummary report={report} /> : <div className="text-muted-foreground text-sm text-center">لم يتم إنشاء تقرير بعد.</div>}
-                </footer>
-            </main>
-
-            {/* Right Sidebar */}
-             <aside className="w-full lg:w-72 lg:h-full flex-shrink-0 bg-card p-4 rounded-lg shadow-sm flex flex-col gap-4">
+            <aside className="w-full lg:w-72 lg:h-full flex-shrink-0 bg-card p-4 rounded-lg shadow-sm flex flex-col gap-4">
                 <div className="space-y-1.5">
                     <Label className="font-semibold">الحساب</Label>
                     <Autocomplete
@@ -216,6 +178,45 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                     عرض الكشف
                 </Button>
             </aside>
+            {/* Main Content */}
+            <main className="flex-1 flex flex-col overflow-hidden bg-card rounded-lg shadow-sm">
+                {/* Header */}
+                 <header className="flex-shrink-0 p-4 border-b flex justify-between items-center">
+                    <div className="flex items-center gap-2">
+                         <div className="relative flex-grow">
+                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                             <Input
+                                placeholder="بحث في نتائج الكشف..."
+                                className="ps-10 h-10"
+                                value={filters.searchTerm}
+                                onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
+                            />
+                        </div>
+                    </div>
+                     <div className="flex items-center gap-2">
+                        <Button variant="outline" onClick={handleExport} disabled={!report}><Download className="me-2 h-4 w-4"/>تصدير</Button>
+                        <Button variant="outline" onClick={handlePrint} disabled={!report}><Printer className="me-2 h-4 w-4"/>طباعة</Button>
+                    </div>
+                </header>
+                {/* Table */}
+                <div className="flex-grow overflow-y-auto">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                    ) : report ? (
+                        <ReportTable transactions={report.transactions} />
+                    ) : (
+                         <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
+                                <FileText size={48} className="text-gray-300" />
+                                <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
+                                <p className="text-sm">الرجاء اختيار حساب وتحديد فترة زمنية ثم الضغط على "عرض الكشف".</p>
+                           </div>
+                    )}
+                </div>
+                 {/* Footer */}
+                <footer className="flex-shrink-0 p-3 bg-card border-t">
+                    {report ? <ReportSummary report={report} /> : <div className="text-muted-foreground text-sm text-center">لم يتم إنشاء تقرير بعد.</div>}
+                </footer>
+            </main>
         </div>
     )
 }
