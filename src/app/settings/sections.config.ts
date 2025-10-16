@@ -26,10 +26,9 @@ export const settingSections = [
         name: 'الإعدادات المحاسبية والمالية', 
         icon: GitBranch,
         subItems: [
-            { id: 'accounting_chart', name: 'شجرة الحسابات', icon: GitBranch, component: AccountingSettings },
+            { id: 'accounting_chart', name: 'الدليل المحاسبي', icon: GitBranch, component: AccountingSettings },
             { id: 'accounting_sequences', name: 'تسلسل الفواتير', icon: FileBarChart, component: InvoiceSequencesPage },
             { id: 'accounting_currencies', name: 'العملات', icon: Banknote, component: CurrencySettings },
-            { id: 'client_permissions', name: 'صلاحيات العملاء', icon: Shield, component: ClientPermissionsPage },
         ],
     },
     { 
@@ -38,6 +37,7 @@ export const settingSections = [
         icon: Users,
         subItems: [
             { id: 'relations_fields', name: 'إدارة الحقول والاستيراد', icon: SlidersHorizontal, component: RelationsSettings },
+            { id: 'client_permissions', name: 'صلاحيات العملاء', icon: Shield, component: ClientPermissionsPage },
         ],
     },
     { 
