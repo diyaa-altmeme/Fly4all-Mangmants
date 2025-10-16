@@ -28,15 +28,16 @@ import { format, parseISO } from 'date-fns';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { addSegmentEntries } from '@/app/segments/actions';
 import { Autocomplete } from '@/components/ui/autocomplete';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { NumericInput } from "@/components/ui/numeric-input";
+import { Label } from '@/components/ui/label';
 import { useVoucherNav } from '@/context/voucher-nav-context';
+import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/lib/auth-context';
+import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { NumericInput } from '@/components/ui/numeric-input';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { Separator } from '@/components/ui/separator';
 
 const partnerSchema = z.object({
   partnerId: z.string().min(1, "اسم الشريك مطلوب."),
@@ -98,9 +99,9 @@ interface AddSegmentPeriodDialogProps {
 
 const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
     name: string,
-    countFieldName: `entries.${number}.${'tickets' | 'visas' | 'hotels' | 'groups'}`,
-    typeFieldName: `entries.${number}.${'ticketProfitType' | 'visaProfitType' | 'hotelProfitType' | 'groupProfitType'}`,
-    valueFieldName: `entries.${number}.${'ticketProfitValue' | 'visaProfitValue' | 'hotelProfitValue' | 'groupProfitValue'}`
+    countFieldName: `tickets` | `visas` | `hotels` | `groups`,
+    typeFieldName: `ticketProfitType` | `visaProfitType` | `hotelProfitType` | `groupProfitType`,
+    valueFieldName: `ticketProfitValue` | `visaProfitValue` | `hotelProfitValue` | `groupProfitValue`
 }) => {
     const { control, watch } = useFormContext<CompanyEntryFormValues>();
     const count = watch(countFieldName) as number;
@@ -158,7 +159,7 @@ const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
 }
 
 function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry }: { allCompanyOptions: any[], partnerOptions: any[], onAddEntry: (data: CompanyEntryFormValues) => void }) {
-    const { control, watch, setValue, handleSubmit } = useFormContext<CompanyEntryFormValues>();
+    const { control, watch, setValue, handleSubmit, reset } = useFormContext<CompanyEntryFormValues>();
     const { toast } = useToast();
 
     const selectedClientId = watch('clientId');
@@ -196,8 +197,9 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
            toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
            return;
         }
+        
         const newPartner: PartnerFormValues = { partnerId: selectedPartner.value, partnerName: selectedPartner.label, shareType: currentPartnerType, shareValue: newValue };
-        append(newPartner as any); // Type assertion needed for RHF
+        append(newPartner as any);
         setCurrentPartnerId('');
         setCurrentPartnerValue('');
     };
@@ -233,9 +235,13 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                      </div>
                      <div className="space-y-1.5 flex-grow">
                         <Label>نسبة الأرباح لنا (%)</Label>
-                        <Controller name="alrawdatainSharePercentage" control={control} render={({ field }) => (
-                             <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="50"/>
-                        )} />
+                         <Controller
+                            name="alrawdatainSharePercentage"
+                            control={control}
+                            render={({ field }) => (
+                                <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="50"/>
+                            )}
+                         />
                      </div>
                 </div>
             </Collapsible>
@@ -300,9 +306,28 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
 
     const companyForm = useForm<CompanyEntryFormValues>({ 
         resolver: zodResolver(companyEntrySchema),
+        defaultValues: {
+            tickets: 0,
+            visas: 0,
+            hotels: 0,
+            groups: 0,
+            hasPartner: false,
+            partners: [],
+            distributionType: 'percentage',
+            notes: '',
+            ticketProfitType: 'percentage',
+            ticketProfitValue: 50,
+            visaProfitType: 'percentage',
+            visaProfitValue: 100,
+            hotelProfitType: 'percentage',
+            hotelProfitValue: 100,
+            groupProfitType: 'percentage',
+            groupProfitValue: 100,
+            alrawdatainSharePercentage: 50
+        }
     });
 
-    const { fields, append, remove, replace } = useFieldArray({ control: form.control, name: "entries" });
+    const { fields, append, remove } = useFieldArray({ control: form.control, name: "entries" });
 
     useEffect(() => {
         if (open) {
@@ -333,7 +358,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         const company = (navData?.clients || []).find(c => c.id === data.clientId);
         const settings = company?.segmentSettings || data;
 
-        const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => (type === 'percentage') ? count * (value / 100) : count * value;
+        const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => (type === 'percentage') ? (count || 0) * (value / 100) : (count || 0) * value;
         const ticketProfits = getProfit(data.tickets, settings.ticketProfitType, settings.ticketProfitValue);
         const otherProfits = getProfit(data.visas, settings.visaProfitType, settings.visaProfitValue) + getProfit(data.hotels, settings.hotelProfitType, settings.hotelProfitValue) + getProfit(data.groups, settings.groupProfitType, settings.groupProfitValue);
         const total = ticketProfits + otherProfits;
@@ -343,7 +368,8 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         const partnerSharesDetails: { partnerId: string; partnerName: string; share: number }[] = [];
 
         if (data.hasPartner && data.partners) {
-            alrawdatainShare = total * (settings.alrawdatainSharePercentage / 100);
+            const alrawdatainPercentage = data.alrawdatainSharePercentage !== undefined ? data.alrawdatainSharePercentage : (settings.alrawdatainSharePercentage || 50);
+            alrawdatainShare = total * (alrawdatainPercentage / 100);
             const remainingForPartners = total - alrawdatainShare;
             
             data.partners.forEach(p => {
@@ -401,7 +427,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                     <DialogDescription>أدخل بيانات الفترة المحاسبية، ثم أضف سجلات الشركات.</DialogDescription>
                 </DialogHeader>
                 <FormProvider {...form}>
-                    <form className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
+                    <form onSubmit={form.handleSubmit(handleSavePeriod)} className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
                         <div className="p-4 border rounded-lg bg-background/50 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                             <FormField control={form.control} name="fromDate" render={({ field }) => <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>} />
                             <FormField control={form.control} name="toDate" render={({ field }) => <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>} />
@@ -445,17 +471,15 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                                 </Table>
                             </div>
                         </div>
-                        <DialogFooter className="pt-4 border-t flex-shrink-0">
-                            <Button type="submit" disabled={isSaving || fields.length === 0} className="w-full sm:w-auto">
-                                {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                                حفظ بيانات الفترة ({fields.length} سجلات)
-                            </Button>
-                        </DialogFooter>
                     </form>
                 </FormProvider>
+                 <DialogFooter className="pt-4 border-t flex-shrink-0">
+                    <Button type="button" onClick={form.handleSubmit(handleSavePeriod)} disabled={isSaving || fields.length === 0} className="w-full sm:w-auto">
+                        {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                        حفظ بيانات الفترة ({fields.length} سجلات)
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
-
-    
