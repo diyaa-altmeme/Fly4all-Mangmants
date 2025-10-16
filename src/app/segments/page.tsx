@@ -101,7 +101,6 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
     const entryUser = period.entries[0]?.enteredBy || 'غير معروف';
     const entryDate = period.entries[0]?.createdAt ? format(parseISO(period.entries[0].createdAt), 'yyyy-MM-dd hh:mm a') : 'N/A';
     
-    // All entries in a period share the same invoice number now
     const invoiceNumber = period.entries[0]?.invoiceNumber || 'N/A';
 
     const handleDeletePeriod = async (fromDate: string, toDate: string) => {
@@ -141,7 +140,7 @@ const PeriodRow = ({ period, index, clients, suppliers, onDataChange }: { period
                     </TableCell>
                     <TableCell className="font-mono text-center text-green-600 p-2">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
-                    <TableCell className="font-mono text-center text-xs p-2">{entryUser}</TableCell>
+                    <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{entryDate}</TableCell>
                     <TableCell className="p-1 text-center">
                         <div className="flex items-center justify-center">
@@ -379,5 +378,3 @@ export default function SegmentsPage() {
         </div>
     )
 }
-
-    
