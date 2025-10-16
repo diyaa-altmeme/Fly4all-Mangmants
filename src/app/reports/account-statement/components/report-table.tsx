@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -48,7 +49,7 @@ const DetailedDescription = ({ description }: { description: StructuredDescripti
 const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => {
     return (
         <tr className="text-sm text-center font-medium">
-            <td className="p-2 font-mono">{format(parseISO(transaction.date), 'yyyy-MM-dd')}</td>
+            <td className="p-2 font-mono">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd') : '-'}</td>
             <td className="p-2">{transaction.invoiceNumber}</td>
             <td className="p-2"><Badge variant="outline">{transaction.type}</Badge></td>
             <td className="p-2 text-right text-xs">
@@ -103,3 +104,5 @@ export default function ReportTable({ transactions, reportType }: { transactions
         </Table>
     );
 }
+
+      
