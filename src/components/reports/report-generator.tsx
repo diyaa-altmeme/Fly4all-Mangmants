@@ -11,7 +11,6 @@ import { AlertTriangle, CalendarIcon, FileText, BarChart, Download, Loader2, Sea
 import { DateRange } from "react-day-picker";
 import { format, subDays } from "date-fns";
 import type { Box, ReportInfo, ReportTransaction, Currency, AccountType, Client, Supplier, StructuredDescription } from '@/lib/types';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { getAccountStatement } from '@/app/reports/actions';
@@ -155,47 +154,12 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
 
     return (
         <div className="h-[calc(100vh-160px)] flex flex-col-reverse lg:flex-row bg-muted/30 gap-4 p-4">
+            
             {/* Main Content */}
             <main className="flex-1 flex flex-col overflow-hidden bg-card rounded-lg shadow-sm">
                 {/* Header */}
                  <header className="flex-shrink-0 p-4 border-b flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button
-                                    id="date"
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-[250px] justify-start text-left font-normal h-10",
-                                        !filters.dateRange && "text-muted-foreground"
-                                    )}
-                                >
-                                    <CalendarIcon className="me-2 h-4 w-4" />
-                                    {filters.dateRange?.from ? (
-                                        filters.dateRange.to ? (
-                                            <>
-                                                {format(filters.dateRange.from, "LLL dd, y")} -{" "}
-                                                {format(filters.dateRange.to, "LLL dd, y")}
-                                            </>
-                                        ) : (
-                                            format(filters.dateRange.from, "LLL dd, y")
-                                        )
-                                    ) : (
-                                        <span>اختر فترة</span>
-                                    )}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                    initialFocus
-                                    mode="range"
-                                    defaultMonth={filters.dateRange?.from}
-                                    selected={filters.dateRange}
-                                    onSelect={(range) => setFilters(f => ({ ...f, dateRange: range }))}
-                                    numberOfMonths={2}
-                                />
-                            </PopoverContent>
-                        </Popover>
                          <div className="relative flex-grow">
                              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                              <Input
@@ -205,10 +169,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
                                 onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
                             />
                         </div>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={handleExport} disabled={!report}><Download className="me-2 h-4 w-4"/> تصدير</Button>
-                        <Button variant="outline" size="sm" onClick={handlePrint} disabled={!report}><Printer className="me-2 h-4 w-4"/> طباعة</Button>
                     </div>
                 </header>
                 {/* Table */}
@@ -257,6 +217,5 @@ export default function ReportGenerator({ boxes, clients, suppliers, defaultAcco
             </aside>
 
         </div>
-    )
-
-    
+    );
+}
