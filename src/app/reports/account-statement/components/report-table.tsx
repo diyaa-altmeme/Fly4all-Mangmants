@@ -4,7 +4,7 @@
 import * as React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { ReportTransaction, StructuredDescription } from "@/lib/types";
-import { format, parseISO } from 'date-fns';
+import { format, isValid, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,7 +13,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Info } from "lucide-react";
+import { ChevronDown, Info, MoreHorizontal } from "lucide-react";
 
 
 const formatCurrency = (amount: number, currency: string) => {
@@ -22,7 +22,7 @@ const formatCurrency = (amount: number, currency: string) => {
 };
 
 const DetailedDescription = ({ description }: { description: StructuredDescription }) => (
-    <div className="space-y-1 text-xs">
+    <div className="space-y-1 text-xs text-right p-2 bg-muted/50 rounded-md">
         <p className="font-bold">{description.title}</p>
         {description.totalReceived && <p className="text-muted-foreground">{description.totalReceived}</p>}
         {description.selfReceipt && <p className="text-green-600 font-semibold">{description.selfReceipt}</p>}
@@ -45,21 +45,26 @@ const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => 
     const isDetailedDescription = typeof transaction.description === 'object' && transaction.description !== null;
 
     return (
-        <tr className="text-sm">
+        <tr className="text-sm text-center font-medium">
             <td className="p-2 font-mono">{format(parseISO(transaction.date), 'yyyy-MM-dd')}</td>
             <td className="p-2">{transaction.invoiceNumber}</td>
-            <td className="p-2">{transaction.type}</td>
-            <td className="p-2 text-right">
+            <td className="p-2"><Badge variant="outline">{transaction.type}</Badge></td>
+            <td className="p-2 text-right text-xs">
                 {isDetailedDescription ? (
                     <DetailedDescription description={transaction.description as StructuredDescription} />
                 ) : (
                     transaction.description
                 )}
             </td>
-            <td className="p-2 text-right font-mono text-red-600">{transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}</td>
-            <td className="p-2 text-right font-mono text-green-600">{transaction.credit > 0 ? formatCurrency(transaction.credit, transaction.currency) : '-'}</td>
-            <td className={cn("p-2 text-right font-mono font-semibold", transaction.balance < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balance, transaction.currency)}</td>
+            <td className="p-2 font-mono font-bold text-red-600">{transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}</td>
+            <td className="p-2 font-mono font-bold text-green-600">{transaction.credit > 0 ? formatCurrency(transaction.credit, transaction.currency) : '-'}</td>
+            <td className={cn("p-2 font-mono font-bold", transaction.balance < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balance, transaction.currency)}</td>
             <td className="p-2 text-xs">{transaction.officer}</td>
+             <td className="p-2 text-center">
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                </Button>
+            </td>
         </tr>
     );
 };
@@ -71,14 +76,15 @@ export default function ReportTable({ transactions, reportType }: { transactions
         <Table>
             <TableHeader>
                 <TableRow>
-                    <TableHead className="p-2">التاريخ</TableHead>
-                    <TableHead className="p-2">رقم الفاتورة</TableHead>
-                    <TableHead className="p-2">النوع</TableHead>
-                    <TableHead className="p-2 text-right w-[40%]">البيان</TableHead>
-                    <TableHead className="p-2 text-right">مدين</TableHead>
-                    <TableHead className="p-2 text-right">دائن</TableHead>
-                    <TableHead className="p-2 text-right">الرصيد</TableHead>
-                    <TableHead className="p-2">الموظف</TableHead>
+                    <TableHead className="p-2 font-bold text-center">التاريخ</TableHead>
+                    <TableHead className="p-2 font-bold text-center">رقم الفاتورة</TableHead>
+                    <TableHead className="p-2 font-bold text-center">النوع</TableHead>
+                    <TableHead className="p-2 text-right font-bold w-[40%]">البيان</TableHead>
+                    <TableHead className="p-2 text-center font-bold">مدين</TableHead>
+                    <TableHead className="p-2 text-center font-bold">دائن</TableHead>
+                    <TableHead className="p-2 text-center font-bold">الرصيد</TableHead>
+                    <TableHead className="p-2 font-bold text-center">الموظف</TableHead>
+                    <TableHead className="p-2 font-bold text-center">الإجراءات</TableHead>
                 </TableRow>
             </TableHeader>
              <TableBody>
