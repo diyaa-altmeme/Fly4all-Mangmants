@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -36,6 +35,9 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { theme: mode, setTheme } = useTheme();
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const { unreadChatCount } = useAuth();
+    const pathname = usePathname();
+
+    const isAccountStatementPage = pathname === '/reports/account-statement';
 
     React.useEffect(() => {
         if (typeof window === 'undefined' || !activeTheme) return;
@@ -116,7 +118,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 </div>
             </header>
             <TopLoader />
-            <main className="flex-1 p-2 sm:p-4 md:p-6">{children}</main>
+            <main className={cn(
+                "flex-1", 
+                !isAccountStatementPage && "p-2 sm:p-4 md:p-6"
+            )}>
+                {children}
+            </main>
             <div className="fixed bottom-6 left-6 z-50">
                 <ThemeToggle />
             </div>
