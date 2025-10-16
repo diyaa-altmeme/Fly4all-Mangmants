@@ -125,12 +125,7 @@ export async function saveManualProfitDistribution(data: {
     const manualProfitRef = db.collection('manual_monthly_profits').doc();
 
     try {
-        const [receiptInvoice, partnerPaymentInvoice, companyProfitInvoice] = await Promise.all([
-            getNextVoucherNumber('RC'),
-            getNextVoucherNumber('PV'),
-            getNextVoucherNumber('JE'),
-        ]);
-
+        const receiptInvoice = await getNextVoucherNumber('RC');
         const periodText = `للفترة من ${data.fromDate} إلى ${data.toDate}`;
         
         writeBatch.set(manualProfitRef, {
@@ -140,8 +135,6 @@ export async function saveManualProfitDistribution(data: {
             userName: user.name,
             createdAt: new Date().toISOString(),
         });
-        
-        const alrawdatainShare = data.partners.find(p => p.partnerId === 'alrawdatain_share');
         
         const receiptVoucherRef = db.collection('journal-vouchers').doc();
         writeBatch.set(receiptVoucherRef, {
@@ -159,10 +152,12 @@ export async function saveManualProfitDistribution(data: {
             isAudited: true, isConfirmed: true, originalData: { ...data, manualProfitId: manualProfitRef.id }
         });
 
-        data.partners.filter(p => p.partnerId !== 'alrawdatain_share').forEach(p => {
+        // Pay out partner shares
+        for (const p of data.partners.filter(p => p.partnerId !== 'alrawdatain_share')) {
+            const partnerPaymentInvoice = await getNextVoucherNumber('PV');
             const partnerPaymentRef = db.collection('journal-vouchers').doc();
             writeBatch.set(partnerPaymentRef, {
-                invoiceNumber: partnerPaymentInvoice, // Should be unique per partner
+                invoiceNumber: partnerPaymentInvoice,
                 date: new Date().toISOString(),
                 currency: data.currency,
                 notes: `دفع حصة الشريك ${p.partnerName} عن أرباح ${periodText}`,
@@ -175,9 +170,11 @@ export async function saveManualProfitDistribution(data: {
                 creditEntries: [{ accountId: user.boxId, amount: p.amount, description: `دفع حصة أرباح للشريك ${p.partnerName}` }],
                 isAudited: true, isConfirmed: true, originalData: { ...data, manualProfitId: manualProfitRef.id, partnerId: p.partnerId }
             });
-        });
-
+        }
+        
+        const alrawdatainShare = data.partners.find(p => p.partnerId === 'alrawdatain_share');
         if (alrawdatainShare && alrawdatainShare.amount > 0) {
+            const companyProfitInvoice = await getNextVoucherNumber('JE');
             const companyProfitRef = db.collection('journal-vouchers').doc();
             writeBatch.set(companyProfitRef, {
                 invoiceNumber: companyProfitInvoice,
