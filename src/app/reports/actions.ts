@@ -24,7 +24,15 @@ const formatCurrencyDisplay = (amount: number, currency: string) => {
     return `${amount < 0 ? `(${formattedAmount})` : formattedAmount} ${currency}`;
 };
 
-const getVoucherTypeLabel = (type: string) => {
+const getVoucherTypeLabel = (voucher: JournalVoucher) => {
+    const type = voucher.voucherType;
+    // Handle manual profit distribution specifically
+    if (voucher.originalData?.manualProfitId) {
+        if (type === 'journal_from_standard_receipt') return 'استلام أرباح فترة يدوية';
+        if (type === 'journal_from_payment') return 'دفع حصة شريك';
+        if (type === 'journal_voucher') return 'إثبات حصة شركة';
+    }
+
     switch(type) {
         case 'journal_from_standard_receipt': return 'سند قبض عادي';
         case 'journal_from_distributed_receipt': return 'سند قبض مخصص';
@@ -147,9 +155,6 @@ async function getTransactionsForAccount(
     const db = await getDb();
     if (!db) return [];
 
-    const debugSnapshot = await db.collection('journal-vouchers').limit(5).get();
-    debugSnapshot.docs.forEach((d) => console.log('DEBUG', d.id, d.data()));
-
     const journalSnapshot = await db.collection('journal-vouchers').where('isDeleted', '!=', true).get();
     
     console.log("=== DEBUG JOURNAL SNAPSHOT ===");
@@ -197,7 +202,7 @@ async function getTransactionsForAccount(
             continue; // Skip vouchers not related to this account
         }
 
-        const voucherTypeLabel = getVoucherTypeLabel(voucher.voucherType);
+        const voucherTypeLabel = getVoucherTypeLabel(voucher);
         let description: string | StructuredDescription = voucher.notes;
 
         let otherParties: string[] = [];
@@ -258,7 +263,7 @@ async function getTransactionsForAccount(
 }
 
 
-export const getAccountStatement = cache(async (params: { accountId: string, currency: Currency | 'both', dateRange: DateRange, reportType: 'summary' | 'detailed', transactionType?: 'profits' | 'expenses' }): Promise<ReportInfo> => {
+export const getAccountStatement = cache(async (params: { accountId: string, currency: Currency | 'both', dateRange: DateRange, reportType: 'summary' | 'detailed', transactionType?: 'profits' | 'expenses' | 'profit_distribution' }): Promise<ReportInfo> => {
     
     const db = await getDb();
     if (!db) throw new Error("Database not available.");
@@ -287,6 +292,8 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
     if (!accountInfo) {
         if (params.accountId === 'revenue_segments') {
             accountInfo = { id: 'revenue_segments', name: 'إيرادات السكمنت', type: 'revenue' };
+        } else if (params.accountId === 'revenue_profit_distribution') {
+            accountInfo = { id: 'revenue_profit_distribution', name: 'إيرادات توزيع الأرباح', type: 'revenue' };
         } else {
             // support params like "expense_<id>" and also plain ids if needed
             const expenseAccount = settings.voucherSettings?.expenseAccounts?.find(a => `expense_${a.id}` === params.accountId || a.id === params.accountId);
@@ -323,6 +330,7 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
         accountsMap.set(`expense_${acc.id}`, acc.name);
     });
     accountsMap.set('revenue_segments', 'إيرادات السكمنت');
+    accountsMap.set('revenue_profit_distribution', 'إيرادات توزيع الأرباح');
 
 
     const allTransactions = await getTransactionsForAccount(accountInfo.id, accountsMap, settings, params.reportType);
@@ -346,6 +354,9 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
         finalFilteredTransactions = filteredByDate.filter(tx => tx.credit > 0);
     } else if (params.transactionType === 'expenses') {
         finalFilteredTransactions = filteredByDate.filter(tx => tx.debit > 0);
+    } else if (params.transactionType === 'profit_distribution') {
+        const distributionTypes = ['استلام أرباح فترة يدوية', 'دفع حصة شريك', 'إثبات حصة شركة'];
+        finalFilteredTransactions = filteredByDate.filter(tx => distributionTypes.includes(tx.type));
     }
         
     const sortedTransactions = finalFilteredTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -484,18 +495,18 @@ export async function getClientTransactions(clientId: string): Promise<ClientTra
     let totalSales = 0;
     let paidAmount = 0;
     let totalProfit = 0;
-    const clientBookings = bookings.bookings.filter(b => b.clientId === clientId);
+    const clientBookings = bookings.bookings.filter(b => b.originalData.clientId === clientId);
     const clientVisas = visas.filter(v => v.clientId === clientId);
     const clientSubscriptions = subscriptions.filter(s => s.clientId === clientId);
 
     const transactions: ReportTransaction[] = [];
 
     clientBookings.forEach(b => {
-        const sale = b.passengers.reduce((sum, p) => sum + p.salePrice, 0);
-        const cost = b.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
+        const sale = b.originalData.passengers.reduce((sum: number, p: any) => sum + p.salePrice, 0);
+        const cost = b.originalData.passengers.reduce((sum: number, p: any) => sum + p.purchasePrice, 0);
         totalSales += sale;
         totalProfit += (sale - cost);
-        transactions.push({ id: b.id, date: b.issueDate, type: 'حجز طيران', description: `PNR: ${b.pnr}`, debit: sale, credit: 0, balance: 0, currency: b.passengers[0]?.currency, invoiceNumber: b.invoiceNumber });
+        transactions.push({ id: b.id, date: b.originalData.issueDate, type: 'حجز طيران', description: `PNR: ${b.originalData.pnr}`, debit: sale, credit: 0, balance: 0, currency: b.originalData.passengers[0]?.currency, invoiceNumber: b.invoiceNumber });
     });
 
     clientVisas.forEach(v => {
@@ -856,8 +867,8 @@ export async function getInvoicesReport(filters: {
             credit: creditAmount,
             debit: debitAmount,
             balance: 0,
-            details: voucher.notes || `حركة من نوع: ${getVoucherTypeLabel(voucher.voucherType)}`,
-            type: getVoucherTypeLabel(voucher.voucherType),
+            details: voucher.notes || `حركة من نوع: ${getVoucherTypeLabel(voucher)}`,
+            type: getVoucherTypeLabel(voucher),
         });
     });
 
