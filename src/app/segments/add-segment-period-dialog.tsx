@@ -18,9 +18,9 @@ import type { Currency, Client, Supplier, Subscription, User, Box, SegmentEntry,
 import { Loader2, Calendar as CalendarIcon, PlusCircle, User as UserIcon, Hash, Wallet, ArrowLeft, ArrowRight, X, Building, Store, Settings2, Save, Trash2, Percent, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator } from 'lucide-react';
 import { addSegmentEntries } from '@/app/segments/actions';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from 'next/navigation';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
@@ -259,7 +259,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
 
     return (
         <FormProvider {...companyForm}>
-            <form onSubmit={handleCompanyFormSubmit(onAddEntry)} className="space-y-4">
+            <div className="space-y-4">
                 <div className="p-4 border rounded-lg bg-background/50 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={control} name="clientId" render={({ field }) => (
                         <FormItem><FormLabel>الشركة المصدرة للسكمنت</FormLabel><FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شركة..."/></FormControl><FormMessage /></FormItem>
@@ -361,16 +361,16 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                     <StatCard title="حصة الروضتين الصافية" value={alrawdatainShareAmount} currency={periodForm.getValues('currency')} symbol={periodForm.getValues('currency') === 'IQD' ? 'ع.د' : '$'} className="border-green-500/50" />
                 </div>
                 <div className='flex justify-end'>
-                     <Button type="submit">
+                     <Button type="button" onClick={handleCompanyFormSubmit(onAddEntry)}>
                         <PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة
                      </Button>
                 </div>
-            </form>
+            </div>
         </FormProvider>
     );
 }
 
-export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
+export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess, children }: AddSegmentPeriodDialogProps) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
@@ -471,7 +471,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button><PlusCircle className="me-2 h-4 w-4"/>إضافة سجل جديد</Button>
+                {children}
             </DialogTrigger>
             <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
@@ -497,7 +497,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                             )}/>
                         </div>
                         
-                        <AddCompanyToSegmentForm allCompanyOptions={clients.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }))} partnerOptions={partnerOptions} onAddEntry={handleAddCompanyEntry} />
+                        <AddCompanyToSegmentForm allCompanyOptions={clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }))} partnerOptions={partnerOptions} onAddEntry={handleAddCompanyEntry} />
                         
                         <div className='p-4 border rounded-lg'>
                             <h3 className="font-semibold text-base mb-2">الشركات المضافة ({companyFields.length})</h3>
@@ -554,7 +554,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     </form>
                 </FormProvider>
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <Button onClick={periodForm.handleSubmit(handleSavePeriod)} disabled={isSaving || companyFields.length === 0} className="w-full sm:w-auto">
+                     <Button type="button" onClick={periodForm.handleSubmit(handleSavePeriod)} disabled={isSaving || companyFields.length === 0} className="w-full sm:w-auto">
                         {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                         حفظ بيانات الفترة ({companyFields.length} سجلات)
                     </Button>
