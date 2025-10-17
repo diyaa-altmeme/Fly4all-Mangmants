@@ -355,7 +355,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                 )}
                  <FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel>ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
                  <Separator/>
-                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <StatCard title="إجمالي الأرباح" value={calculatedTotalProfit} currency={periodForm.getValues('currency')} symbol={periodForm.getValues('currency') === 'IQD' ? 'ع.د' : '$'} className="border-blue-500/50" />
                     <StatCard title="إجمالي حصص الشركاء" value={totalPartnerShareAmount} currency={periodForm.getValues('currency')} symbol={periodForm.getValues('currency') === 'IQD' ? 'ع.د' : '$'} className="border-purple-500/50" />
                     <StatCard title="حصة الروضتين الصافية" value={alrawdatainShareAmount} currency={periodForm.getValues('currency')} symbol={periodForm.getValues('currency') === 'IQD' ? 'ع.د' : '$'} className="border-green-500/50" />
@@ -456,6 +456,17 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
     
     const currencyOptions = navData?.settings?.currencySettings?.currencies || [{ code: 'USD', name: 'US Dollar', symbol: '$' }, { code: 'IQD', name: 'Iraqi Dinar', symbol: 'ع.د' }];
+    const partnerOptions = useMemo(() => {
+        const allRelations = [...clients, ...suppliers];
+        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+        return uniqueRelations.map(r => {
+            let labelPrefix = '';
+            if (r.relationType === 'client') labelPrefix = 'عميل: ';
+            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
+            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
+            return { value: r.id, label: `${labelPrefix}${r.name}` };
+        });
+    }, [clients, suppliers]);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -552,3 +563,4 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
