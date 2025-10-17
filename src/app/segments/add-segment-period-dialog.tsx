@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -16,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Currency, Client, Supplier, Subscription, User, Box, SegmentEntry, SegmentSettings, PartnerShareSetting } from '@/lib/types';
-import { Loader2, Calendar as CalendarIcon, PlusCircle, User as UserIcon, Hash, Wallet, ArrowLeft, ArrowRight, X, Building, Store, Settings2, Save, Trash2, Percent } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, PlusCircle, User as UserIcon, Hash, Wallet, ArrowLeft, ArrowRight, X, Building, Store, Settings2, Save, Trash2, Percent, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator } from 'lucide-react';
 import { addSegmentEntries } from '@/app/segments/actions';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -41,6 +40,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Switch } from '@/components/ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
@@ -54,6 +56,7 @@ const partnerSchema = z.object({
   partnerName: z.string(),
   shareType: z.enum(['percentage', 'fixed']),
   shareValue: z.coerce.number().min(0, "القيمة يجب أن تكون موجبة."),
+  notes: z.string().optional(),
 });
 
 const companyEntrySchema = z.object({
@@ -246,7 +249,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
             {hasPartner && (
                 <div className="p-3 border rounded-md bg-muted/50 space-y-3">
                     <h4 className="font-semibold text-sm">توزيع حصص الشركاء</h4>
-                    <div className="flex items-end gap-2">
+                    <div className="flex items-end gap-2 mb-2 p-2 rounded-lg bg-background">
                         <div className="flex-grow space-y-1.5">
                             <Label>الشريك</Label>
                             <Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريك..."/>
@@ -290,6 +293,8 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
     const [isSaving, setIsSaving] = useState(false);
     const { data: navData, loaded: navLoaded, fetchData } = useVoucherNav();
     const { user: currentUser } = useAuth();
+    
+    const [periodEntries, setPeriodEntries] = useState<any[]>([]);
 
     const periodForm = useForm<PeriodFormValues>({
         resolver: zodResolver(periodSchema),
@@ -320,9 +325,8 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
     });
 
     const { control: periodControl, handleSubmit: handlePeriodSubmit, trigger: triggerPeriod } = periodForm;
-    const { control: companyControl, handleSubmit: handleCompanySubmit, watch: watchCompany, reset: resetCompanyForm } = companyForm;
 
-    const { fields, append, remove } = useFieldArray({ control: periodForm.control, name: "entries" });
+    const { fields: companyFields, append, remove } = useFieldArray({ control: periodForm.control, name: "entries" });
 
     useEffect(() => {
         if (open) {
@@ -333,6 +337,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                 entries: [],
             });
             companyForm.reset();
+            setPeriodEntries([]);
         }
     }, [open, periodForm, companyForm]);
 
@@ -369,12 +374,13 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                 const remainingForPartners = total - alrawdatainShare;
                 
                 const totalPartnerPercentage = data.partners.reduce((sum, p) => sum + p.shareValue, 0);
-
-                data.partners.forEach(p => {
-                    const amount = remainingForPartners * (p.shareValue / totalPartnerPercentage);
-                    partnerSharesDetails.push({ partnerId: p.partnerId, partnerName: p.partnerName, share: amount });
-                    partnerTotalShare += amount;
-                });
+                if (totalPartnerPercentage > 0) { // Avoid division by zero
+                    data.partners.forEach(p => {
+                        const amount = remainingForPartners * (p.shareValue / totalPartnerPercentage);
+                        partnerSharesDetails.push({ partnerId: p.partnerId, partnerName: p.partnerName, share: amount });
+                        partnerTotalShare += amount;
+                    });
+                }
             } else { // fixed
                 const totalFixedPartnerShare = data.partners.reduce((sum, p) => sum + p.shareValue, 0);
                 if (totalFixedPartnerShare > total) {
@@ -396,7 +402,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         const newEntry = calculateShares(data);
         append(newEntry as any);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
-        resetCompanyForm();
+        companyForm.reset();
     };
     
     const removeEntry = (index: number) => remove(index);
@@ -413,7 +419,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
 
         setIsSaving(true);
         try {
-            const finalEntries = data.entries.map((entry) => ({ ...entry, fromDate: format(data.fromDate!, 'yyyy-MM-dd'), toDate: format(data.toDate!, 'yyyy-MM-dd'), currency: data.currency }));
+            const finalEntries = data.entries.map((entry: any) => ({ ...entry, fromDate: format(data.fromDate!, 'yyyy-MM-dd'), toDate: format(data.toDate!, 'yyyy-MM-dd'), currency: data.currency }));
             const result = await addSegmentEntries(finalEntries as any);
             if (!result.success) throw new Error(result.error);
             toast({ title: "تم حفظ بيانات الفترة بنجاح" });
@@ -449,7 +455,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                         </div>
                         
                         <div className='p-4 border rounded-lg'>
-                            <h3 className="font-semibold text-base mb-2">الشركات المضافة ({fields.length})</h3>
+                            <h3 className="font-semibold text-base mb-2">الشركات المضافة ({companyFields.length})</h3>
                             <div className='border rounded-lg overflow-hidden'>
                                 <Table>
                                     <TableHeader>
@@ -462,9 +468,9 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {fields.length === 0 ? (
+                                        {companyFields.length === 0 ? (
                                             <TableRow><TableCell colSpan={5} className="text-center h-24">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
-                                        ) : fields.map((entry, index) => (
+                                        ) : companyFields.map((entry, index) => (
                                             <TableRow key={index}>
                                                 <TableCell className="font-semibold">{periodForm.watch(`entries.${index}.companyName`)}</TableCell>
                                                 <TableCell className="font-mono">{periodForm.watch(`entries.${index}.total`)?.toFixed(2)}</TableCell>
@@ -482,14 +488,12 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                     </form>
                 </FormProvider>
                  <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <Button type="submit" onClick={periodForm.handleSubmit(handleSavePeriod)} disabled={isSaving || fields.length === 0} className="w-full sm:w-auto">
+                    <Button type="submit" onClick={periodForm.handleSubmit(handleSavePeriod)} disabled={isSaving || companyFields.length === 0} className="w-full sm:w-auto">
                         {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                        حفظ بيانات الفترة ({fields.length} سجلات)
+                        حفظ بيانات الفترة ({companyFields.length} سجلات)
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
-
-    
