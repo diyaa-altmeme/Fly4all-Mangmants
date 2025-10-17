@@ -52,12 +52,12 @@ const periodSchema = z.object({
 });
 
 const partnerSchema = z.object({
-    partnerId: z.string().min(1, "اسم الشريك مطلوب."),
-    partnerName: z.string(),
-    shareType: z.enum(['percentage', 'fixed']),
-    shareValue: z.coerce.number().min(0, "القيمة يجب أن تكون موجبة."),
-    shareAmount: z.coerce.number(),
+    id: z.string().min(1, "اسم الشريك مطلوب."),
+    name: z.string(),
+    type: z.enum(['percentage', 'fixed']),
+    value: z.coerce.number().min(0, "القيمة يجب أن تكون موجبة."),
     notes: z.string().optional(),
+    shareAmount: z.coerce.number(),
 });
 
 const companyEntrySchema = z.object({
@@ -236,14 +236,14 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
         let remainingForPartners;
         const alrawdatainPercentage = watch('alrawdatainSharePercentage');
 
-        if (alrawdatainPercentage !== undefined && alrawdatainPercentage !== null) {
-            remainingForPartners = calculatedTotalProfit * ((100 - alrawdatainPercentage) / 100);
-        } else {
+        if (hasPartner) {
             remainingForPartners = calculatedTotalProfit - totalPartnerShareAmount;
+        } else {
+             remainingForPartners = calculatedTotalProfit * ((100 - (alrawdatainPercentage || 0)) / 100);
         }
 
         return remainingForPartners * (Number(currentPartnerValue) / 100);
-    }, [currentPartnerValue, currentPartnerType, calculatedTotalProfit, totalPartnerShareAmount, watch]);
+    }, [currentPartnerValue, currentPartnerType, calculatedTotalProfit, totalPartnerShareAmount, watch, hasPartner]);
 
 
     const handleAddPartner = () => {
@@ -258,7 +258,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
       }
       
       const totalPartnerSharesAfterAdd = totalPartnerShareAmount + currentPartnerShareAmount;
-      if (totalPartnerSharesAfterAdd > calculatedTotalProfit) {
+      if (totalPartnerSharesAfterAdd > calculatedTotalProfit + 0.01) {
           toast({ title: "تجاوز إجمالي الربح", description: "مجموع حصص الشركاء يتجاوز إجمالي الربح المتاح.", variant: 'destructive' });
           return;
       }
@@ -269,7 +269,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
            return;
       }
       
-      const newPartner: PartnerFormValues = { partnerId: selectedPartner.value, partnerName: selectedPartner.label, shareType: currentPartnerType, shareValue: newValue, shareAmount: currentPartnerShareAmount, id: selectedPartner.value };
+      const newPartner: PartnerFormValues = { id: selectedPartner.value, name: selectedPartner.label, type: currentPartnerType, value: newValue, shareAmount: currentPartnerShareAmount, notes: '' };
       append(newPartner);
       setCurrentPartnerId('');
       setCurrentPartnerValue('');
@@ -349,8 +349,8 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                             <div className="space-y-2">
                                 {fields.map((field, index) => (
                                     <div key={field.id} className="flex items-center gap-2 bg-background p-2 rounded-md">
-                                        <span className="font-semibold flex-grow">{watch(`partners.${index}.partnerName`)}</span>
-                                        <Badge variant="secondary">{watch(`partners.${index}.shareValue`)} {watch(`partners.${index}.shareType`) === 'percentage' ? '%' : '$'}</Badge>
+                                        <span className="font-semibold flex-grow">{watch(`partners.${index}.name`)}</span>
+                                        <Badge variant="secondary">{watch(`partners.${index}.value`)} {watch(`partners.${index}.type`) === 'percentage' ? '%' : '$'}</Badge>
                                         <Badge className="font-mono">{watch(`partners.${index}.shareAmount`)?.toFixed(2)} {periodForm.getValues('currency')}</Badge>
                                         <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
                                     </div>
@@ -434,23 +434,21 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const otherProfits = getProfit(data.visas, data.visaProfitType, data.visaProfitValue) + getProfit(data.hotels, data.hotelProfitType, data.hotelProfitValue) + getProfit(data.groups, data.groupProfitType, data.groupProfitValue);
         const total = ticketProfits + otherProfits;
         
-        let alrawdatainShare = total;
+        let alrawdatainShare;
         let partnerShareAmount = 0;
         let partnerShares: {partnerId: string; partnerName: string; share: number}[] = [];
 
         if (data.hasPartner && data.partners) {
             data.partners.forEach(p => {
-                partnerShares.push({ partnerId: p.partnerId, partnerName: p.partnerName, share: p.shareAmount });
-                partnerShareAmount += p.shareAmount;
+                 const shareAmount = p.type === 'fixed' ? p.value : (total * (p.value / 100));
+                partnerShares.push({ partnerId: p.id, partnerName: p.name, share: shareAmount });
+                partnerShareAmount += shareAmount;
             });
              alrawdatainShare = total - partnerShareAmount;
         } else {
              const alrawdatainPercentage = data.alrawdatainSharePercentage || 50;
              alrawdatainShare = total * (alrawdatainPercentage / 100);
              partnerShareAmount = total - alrawdatainShare;
-             if (data.partnerId) {
-                partnerShares.push({ partnerId: data.partnerId, partnerName: partnerOptions.find(p => p.value === data.partnerId)?.label || '', share: partnerShareAmount });
-             }
         }
 
         const newEntry = {
@@ -555,6 +553,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
+                                                    <TableHead className="w-12"></TableHead>
                                                     <TableHead>الشركة</TableHead>
                                                     <TableHead>إجمالي الربح</TableHead>
                                                     <TableHead>حصة الروضتين</TableHead>
@@ -562,21 +561,52 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                     <TableHead className='w-[60px] text-center'>حذف</TableHead>
                                                 </TableRow>
                                             </TableHeader>
-                                            <TableBody>
                                                 {companyFields.length === 0 ? (
-                                                    <TableRow><TableCell colSpan={5} className="text-center h-24">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
-                                                ) : companyFields.map((entry, index) => (
-                                                    <TableRow key={index}>
-                                                        <TableCell className="font-semibold">{(entry as any).companyName}</TableCell>
-                                                        <TableCell className="font-mono">{((entry as any).total || 0).toFixed(2)} {watchedCurrency}</TableCell>
-                                                        <TableCell className="font-mono text-green-600">{((entry as any).alrawdatainShare || 0).toFixed(2)} {watchedCurrency}</TableCell>
-                                                        <TableCell className="font-mono text-blue-600">{((entry as any).partnerShare || 0).toFixed(2)} {watchedCurrency}</TableCell>
-                                                        <TableCell className='text-center'>
-                                                            <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
+                                                    <TableBody><TableRow><TableCell colSpan={6} className="text-center h-24">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow></TableBody>
+                                                ) : (
+                                                    companyFields.map((entry, index) => (
+                                                        <Collapsible asChild key={entry.id}>
+                                                            <tbody className='border-t'>
+                                                            <TableRow>
+                                                                <TableCell><CollapsibleTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><ChevronDown className="h-4 w-4" /></Button></CollapsibleTrigger></TableCell>
+                                                                <TableCell className="font-semibold">{(entry as any).companyName}</TableCell>
+                                                                <TableCell className="font-mono">{((entry as any).total || 0).toFixed(2)} {watchedCurrency}</TableCell>
+                                                                <TableCell className="font-mono text-green-600">{((entry as any).alrawdatainShare || 0).toFixed(2)} {watchedCurrency}</TableCell>
+                                                                <TableCell className="font-mono text-blue-600">{((entry as any).partnerShare || 0).toFixed(2)} {watchedCurrency}</TableCell>
+                                                                <TableCell className='text-center'>
+                                                                    <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                            <CollapsibleContent asChild>
+                                                                <TableRow>
+                                                                    <TableCell colSpan={6} className="p-2 bg-muted/50">
+                                                                        <div className="p-2 space-y-2">
+                                                                            <h5 className="font-semibold text-sm">تفاصيل الأرباح:</h5>
+                                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                                                                <p>تذاكر: <strong>{((entry as any).ticketProfits || 0).toFixed(2)}</strong></p>
+                                                                                <p>فيزا: <strong>{(((entry as any).visas || 0) * ((entry as any).visaProfitValue || 0)).toFixed(2)}</strong></p>
+                                                                                <p>فنادق: <strong>{(((entry as any).hotels || 0) * ((entry as any).hotelProfitValue || 0)).toFixed(2)}</strong></p>
+                                                                                <p>كروبات: <strong>{(((entry as any).groups || 0) * ((entry as any).groupProfitValue || 0)).toFixed(2)}</strong></p>
+                                                                            </div>
+                                                                            <h5 className="font-semibold text-sm pt-2 border-t mt-2">توزيع حصص الشركاء:</h5>
+                                                                            {(entry as any).partnerShares?.length > 0 ? (
+                                                                                <div className="flex flex-col gap-1">
+                                                                                {(entry as any).partnerShares.map((share: any, i: number) => (
+                                                                                    <div key={i} className="flex justify-between items-center text-xs p-1 bg-background rounded">
+                                                                                        <span>{share.partnerName}</span>
+                                                                                        <Badge className="font-mono">{share.share.toFixed(2)} {watchedCurrency}</Badge>
+                                                                                    </div>
+                                                                                ))}
+                                                                                </div>
+                                                                            ) : <p className="text-xs text-muted-foreground">لا يوجد شركاء لهذه الشركة.</p>}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            </CollapsibleContent>
+                                                            </tbody>
+                                                        </Collapsible>
+                                                    ))
+                                                )}
                                         </Table>
                                     </div>
                                 </div>
