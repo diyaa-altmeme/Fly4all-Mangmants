@@ -28,6 +28,7 @@ import { produce } from 'immer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 import { useVoucherNav } from '@/context/voucher-nav-context';
+import EditSegmentPeriodDialog from '@/components/segments/edit-segment-period-dialog';
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
     <div className={cn("text-center p-3 rounded-lg bg-background border", className)}>
@@ -37,62 +38,6 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
         </p>
     </div>
 );
-
-const ProfitBreakdownPopover = ({ period, type, children }: { period: any, type: 'tickets' | 'other', children: React.ReactNode }) => {
-    const entriesToShow = period.entries.filter((e: any) => type === 'tickets' ? e.ticketProfits > 0 : e.otherProfits > 0);
-
-    if (entriesToShow.length === 0) {
-        return <>{children}</>;
-    }
-
-    return (
-        <Popover>
-            <PopoverTrigger asChild>
-                <button className="w-full text-center hover:underline font-mono font-bold">
-                    {children}
-                </button>
-            </PopoverTrigger>
-            <PopoverContent>
-                <div className="space-y-2 text-sm">
-                    <h4 className="font-bold">تفاصيل أرباح {type === 'tickets' ? 'التذاكر' : 'أخرى'}</h4>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>الشركة</TableHead>
-                                <TableHead className="text-center">العدد</TableHead>
-                                <TableHead className="text-center">العمولة</TableHead>
-                                <TableHead className="text-right">الناتج</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {entriesToShow.map((entry: any, index: number) => {
-                                const isTickets = type === 'tickets';
-                                const count = isTickets ? entry.tickets : (entry.visas + entry.hotels + entry.groups);
-                                const profitType = isTickets ? entry.ticketProfitType : 'مبالغ متفرقة';
-                                const profitValue = isTickets ? entry.ticketProfitValue : '';
-                                const result = isTickets ? entry.ticketProfits : entry.otherProfits;
-
-                                return (
-                                    <TableRow key={index}>
-                                        <TableCell>{entry.companyName}</TableCell>
-                                        <TableCell className="text-center">{count}</TableCell>
-                                        <TableCell className="text-center">
-                                            {isTickets ? (
-                                                profitType === 'percentage' ? `${profitValue}%` : `$${profitValue}`
-                                            ) : '-'}
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono">{result.toFixed(2)}</TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
-                </div>
-            </PopoverContent>
-        </Popover>
-    )
-};
-
 
 const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period: any, index: number, onDataChange: () => void, clients: Client[], suppliers: Supplier[] }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -127,16 +72,8 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                     <TableCell className="p-2 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
-                    <TableCell className="font-mono text-center p-2">
-                        <ProfitBreakdownPopover period={period} type="tickets">
-                            {period.totalTickets.toFixed(2)}
-                        </ProfitBreakdownPopover>
-                    </TableCell>
-                    <TableCell className="font-mono text-center p-2">
-                         <ProfitBreakdownPopover period={period} type="other">
-                            {period.totalOther.toFixed(2)}
-                        </ProfitBreakdownPopover>
-                    </TableCell>
+                    <TableCell className="font-mono text-center p-2">{period.totalTickets.toFixed(2)}</TableCell>
+                    <TableCell className="font-mono text-center p-2">{period.totalOther.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-green-600 p-2">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
@@ -148,6 +85,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                                     <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
+                                    <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
                                     <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -292,12 +230,15 @@ export default function SegmentsPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog onSuccess={handleSuccess}>
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
                                      <Button className="w-full"><PlusCircle className="me-2 h-4 w-4"/>إضافة سجل جديد</Button>
                                 </AddSegmentPeriodDialog>
                                 <Button onClick={fetchData} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
+                                </Button>
+                                <Button asChild variant="outline">
+                                    <Link href="/segments/deleted-segments"><History className="me-2 h-4 w-4"/>سجل المحذوفات</Link>
                                 </Button>
                             </div>
                         </div>
@@ -359,9 +300,7 @@ export default function SegmentsPage() {
                             </TableHeader>
                             {sortedAndFilteredPeriods.length === 0 ? (
                                 <TableBody>
-                                    <TableRow>
-                                        <TableCell colSpan={12} className="text-center h-24">لا توجد بيانات للفترة المحددة.</TableCell>
-                                    </TableRow>
+                                    <TableRow><TableCell colSpan={12} className="text-center h-24">لا توجد بيانات للفترة المحددة.</TableCell></TableRow>
                                 </TableBody>
                             ) : sortedAndFilteredPeriods.map((period, idx) => (
                                 <PeriodRow

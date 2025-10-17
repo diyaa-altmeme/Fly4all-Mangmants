@@ -18,18 +18,6 @@ const formatCurrency = (amount?: number, currency?: string): string => {
 };
 
 
-interface SegmentDetailsTableProps {
-  period: {
-    entries: SegmentEntry[];
-    totalProfit: number;
-    totalAlrawdatainShare: number;
-    totalPartnerShare: number;
-    totalTickets: number;
-    totalOther: number;
-  };
-  onDeleteEntry: (id: string) => void;
-}
-
 const CalculationDetailsPopover = ({ entry }: { entry: SegmentEntry }) => {
     return (
         <Popover>
@@ -50,6 +38,18 @@ const CalculationDetailsPopover = ({ entry }: { entry: SegmentEntry }) => {
     )
 }
 
+interface SegmentDetailsTableProps {
+  period: {
+    entries: SegmentEntry[];
+    totalProfit: number;
+    totalAlrawdatainShare: number;
+    totalPartnerShare: number;
+    totalTickets: number;
+    totalOther: number;
+  };
+  onDeleteEntry: (id: string) => void;
+}
+
 export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDetailsTableProps) {
   return (
     <Table>
@@ -60,7 +60,7 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
           <TableHead className="text-center p-2">أرباح التذاكر</TableHead>
           <TableHead className="text-center p-2">أرباح أخرى</TableHead>
           <TableHead className="text-center p-2">حصة الروضتين</TableHead>
-          <TableHead className="text-center p-2">حصة الشريك</TableHead>
+          <TableHead className="text-center p-2">حصص الشركاء</TableHead>
           <TableHead className="text-center p-2">الحسبة</TableHead>
         </TableRow>
       </TableHeader>
@@ -69,7 +69,16 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
             return (
               <TableRow key={entry.id}>
                 <TableCell className="font-semibold p-2">{entry.companyName}</TableCell>
-                <TableCell className="p-2">{entry.partnerName}</TableCell>
+                <TableCell className="p-2">
+                   <div className="flex flex-col gap-1">
+                      {(entry.partnerShares || []).map((share, i) => (
+                          <Badge key={i} variant="secondary" className="justify-between">
+                            <span>{share.partnerName}</span>
+                            <span className="font-mono">{formatCurrency(share.share, entry.currency)}</span>
+                          </Badge>
+                      ))}
+                    </div>
+                </TableCell>
                 <TableCell className="font-mono text-center p-2">{formatCurrency(entry.ticketProfits, entry.currency)}</TableCell>
                 <TableCell className="font-mono text-center p-2">{formatCurrency(entry.otherProfits, entry.currency)}</TableCell>
                 <TableCell className="font-mono text-center text-green-600 p-2">{formatCurrency(entry.alrawdatainShare, entry.currency)}</TableCell>
