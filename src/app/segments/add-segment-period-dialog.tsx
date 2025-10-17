@@ -41,7 +41,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import { Calendar } from "@/components/ui/calendar";
 import { Badge } from '@/components/ui/badge';
 
 
@@ -53,11 +53,12 @@ const periodSchema = z.object({
 });
 
 const partnerSchema = z.object({
-  partnerId: z.string().min(1, "اسم الشريك مطلوب."),
-  partnerName: z.string(),
-  shareType: z.enum(['percentage', 'fixed']),
-  shareValue: z.coerce.number().min(0, "القيمة يجب أن تكون موجبة."),
-  notes: z.string().optional(),
+    partnerId: z.string().min(1, "اسم الشريك مطلوب."),
+    partnerName: z.string(),
+    shareType: z.enum(['percentage', 'fixed']),
+    shareValue: z.coerce.number().min(0, "القيمة يجب أن تكون موجبة."),
+    shareAmount: z.coerce.number(),
+    notes: z.string().optional(),
 });
 
 const companyEntrySchema = z.object({
@@ -174,27 +175,59 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
     const [currentPartnerValue, setCurrentPartnerValue] = useState<number | ''>('');
     const [currentPartnerType, setCurrentPartnerType] = useState<'percentage' | 'fixed'>('percentage');
 
-    const handleAddPartner = () => {
-        if(!currentPartnerId || currentPartnerValue === '') {
-            toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
-            return;
-        }
-        const newValue = Number(currentPartnerValue);
-        if (isNaN(newValue) || newValue <= 0) {
-            toast({ title: "القيمة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
-            return;
-        }
+    const calculatedTotalProfit = useMemo(() => {
+        const data = watch();
+        const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => 
+            type === 'percentage' ? (count || 0) * (value / 100) : (count || 0) * value;
 
-        const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
-        if(!selectedPartner) {
+        return getProfit(data.tickets, data.ticketProfitType, data.ticketProfitValue) +
+               getProfit(data.visas, data.visaProfitType, data.visaProfitValue) +
+               getProfit(data.hotels, data.hotelProfitType, data.hotelProfitValue) +
+               getProfit(data.groups, data.groupProfitType, data.groupProfitValue);
+    }, [watch]);
+
+    const totalPartnerShareAmount = useMemo(() => 
+        (watch('partners') || []).reduce((acc, p) => acc + (p.shareAmount || 0), 0), 
+    [watch]);
+
+    const alrawdatainShareAmount = calculatedTotalProfit - totalPartnerShareAmount;
+
+    const currentPartnerShareAmount = useMemo(() => {
+        if (!currentPartnerValue) return 0;
+        if (currentPartnerType === 'fixed') return Number(currentPartnerValue);
+        const alrawdatainShare = calculatedTotalProfit * (watch('alrawdatainSharePercentage') / 100);
+        const remainingForPartners = calculatedTotalProfit - alrawdatainShare;
+        return remainingForPartners * (Number(currentPartnerValue) / 100);
+    }, [currentPartnerValue, currentPartnerType, calculatedTotalProfit, watch]);
+
+
+    const handleAddPartner = () => {
+      if(!currentPartnerId || currentPartnerValue === '') {
+          toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
+          return;
+      }
+      const newValue = Number(currentPartnerValue);
+      if (isNaN(newValue) || newValue <= 0) {
+          toast({ title: "القيمة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
+          return;
+      }
+      
+      const totalPartnerSharesAfterAdd = totalPartnerShareAmount + currentPartnerShareAmount;
+      if (totalPartnerSharesAfterAdd > calculatedTotalProfit) {
+          toast({ title: "تجاوز إجمالي الربح", description: "مجموع حصص الشركاء يتجاوز إجمالي الربح المتاح.", variant: 'destructive' });
+          return;
+      }
+
+      const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
+      if(!selectedPartner) {
            toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
            return;
-        }
-        
-        const newPartner: PartnerFormValues = { partnerId: selectedPartner.value, partnerName: selectedPartner.label, shareType: currentPartnerType, shareValue: newValue };
-        append(newPartner as any);
-        setCurrentPartnerId('');
-        setCurrentPartnerValue('');
+      }
+      
+      const newPartner = { partnerId: selectedPartner.value, partnerName: selectedPartner.label, shareType: currentPartnerType, shareValue: newValue, shareAmount: currentPartnerShareAmount };
+      append(newPartner as any);
+      setCurrentPartnerId('');
+      setCurrentPartnerValue('');
     };
 
     return (
@@ -226,16 +259,6 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                             <SelectContent><SelectItem value="percentage">نسبة مئوية (%)</SelectItem><SelectItem value="fixed">مبلغ ثابت ($)</SelectItem></SelectContent>
                         </Select>
                      </div>
-                     <div className="space-y-1.5 flex-grow">
-                        <Label>نسبة الأرباح لنا (%)</Label>
-                         <Controller
-                            name="alrawdatainSharePercentage"
-                            control={control}
-                            render={({ field }) => (
-                                 <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="50"/>
-                            )}
-                         />
-                     </div>
                 </div>
             </Collapsible>
             
@@ -261,7 +284,14 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                         </div>
                         <div className="w-28 space-y-1.5">
                             <Label>القيمة</Label>
-                            <Input type="text" inputMode="decimal" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} />
+                            <div className="relative">
+                                <Input type="text" inputMode="decimal" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} />
+                                <span className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">{currentPartnerType === 'percentage' ? '%' : '$'}</span>
+                            </div>
+                        </div>
+                         <div className="w-32 space-y-1.5">
+                            <Label>المبلغ المحسوب</Label>
+                             <Input value={`${currentPartnerShareAmount.toFixed(2)}`} readOnly disabled className="font-mono" />
                         </div>
                         <Button type="button" size="icon" className="shrink-0" onClick={handleAddPartner}><PlusCircle className="h-4 w-4"/></Button>
                     </div>
@@ -271,6 +301,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                                 <div key={field.id} className="flex items-center gap-2 bg-background p-2 rounded-md">
                                     <span className="font-semibold flex-grow">{watch(`partners.${index}.partnerName`)}</span>
                                     <Badge variant="secondary">{watch(`partners.${index}.shareValue`)} {watch(`partners.${index}.shareType`) === 'percentage' ? '%' : '$'}</Badge>
+                                    <Badge className="font-mono">{watch(`partners.${index}.shareAmount`)?.toFixed(2)}</Badge>
                                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                             ))}
@@ -279,6 +310,12 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                 </div>
             )}
              <FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel>ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
+             <Separator/>
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <StatCard title="إجمالي الأرباح" value={calculatedTotalProfit} currency={periodForm.getValues('currency')} className="border-blue-500/50" />
+                <StatCard title="إجمالي حصص الشركاء" value={totalPartnerShareAmount} currency={periodForm.getValues('currency')} className="border-purple-500/50" />
+                <StatCard title="حصة الروضتين الصافية" value={alrawdatainShareAmount} currency={periodForm.getValues('currency')} className="border-green-500/50" />
+            </div>
             <div className='flex justify-end'>
                  <Button type="button" onClick={handleCompanyFormSubmit(onAddEntry)}>
                     <PlusCircle className='me-2 h-4 w-4' /> إضافة للفترة
@@ -292,11 +329,11 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
-    const { data: navData, loaded: navLoaded, fetchData } = useVoucherNav();
-    const { user: currentUser } = useAuth();
     
     const [periodEntries, setPeriodEntries] = useState<any[]>([]);
-
+    const { data: navData, loaded: navDataLoaded, fetchData } = useVoucherNav();
+    const { user: currentUser } = useAuth();
+    
     const periodForm = useForm<PeriodFormValues>({
         resolver: zodResolver(periodSchema),
     });
@@ -304,24 +341,13 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
     const companyForm = useForm<CompanyEntryFormValues>({ 
         resolver: zodResolver(companyEntrySchema),
         defaultValues: {
-            clientId: '',
-            tickets: 0,
-            visas: 0,
-            hotels: 0,
-            groups: 0,
-            hasPartner: false,
-            partners: [],
-            distributionType: 'percentage',
-            notes: '',
-            ticketProfitType: 'percentage',
-            ticketProfitValue: 50,
-            visaProfitType: 'percentage',
-            visaProfitValue: 100,
-            hotelProfitType: 'percentage',
-            hotelProfitValue: 100,
-            groupProfitType: 'percentage',
-            groupProfitValue: 100,
-            alrawdatainSharePercentage: 50
+            clientId: '', tickets: 0, visas: 0, hotels: 0, groups: 0,
+            hasPartner: false, partners: [], distributionType: 'percentage', notes: '',
+            ticketProfitType: 'percentage', ticketProfitValue: 50,
+            visaProfitType: 'percentage', visaProfitValue: 100,
+            hotelProfitType: 'percentage', hotelProfitValue: 100,
+            groupProfitType: 'percentage', groupProfitValue: 100,
+            alrawdatainSharePercentage: 50,
         }
     });
 
@@ -364,39 +390,11 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         const otherProfits = getProfit(data.visas, settings.visaProfitType, settings.visaProfitValue) + getProfit(data.hotels, settings.hotelProfitType, settings.hotelProfitValue) + getProfit(data.groups, settings.groupProfitType, settings.groupProfitValue);
         const total = ticketProfits + otherProfits;
         
-        let alrawdatainShare = total;
-        let partnerTotalShare = 0;
-        const partnerSharesDetails: { partnerId: string; partnerName: string; share: number }[] = [];
+        const partnerTotalShare = (data.partners || []).reduce((sum, p) => sum + p.shareAmount, 0);
+        const alrawdatainShare = total - partnerTotalShare;
 
-        if (data.hasPartner && data.partners && data.partners.length > 0) {
-            if (data.distributionType === 'percentage') {
-                const alrawdatainPercentage = data.alrawdatainSharePercentage !== undefined ? data.alrawdatainSharePercentage : 50;
-                alrawdatainShare = total * (alrawdatainPercentage / 100);
-                const remainingForPartners = total - alrawdatainShare;
-                
-                const totalPartnerPercentage = data.partners.reduce((sum, p) => sum + p.shareValue, 0);
-                if (totalPartnerPercentage > 0) { // Avoid division by zero
-                    data.partners.forEach(p => {
-                        const amount = remainingForPartners * (p.shareValue / totalPartnerPercentage);
-                        partnerSharesDetails.push({ partnerId: p.partnerId, partnerName: p.partnerName, share: amount });
-                        partnerTotalShare += amount;
-                    });
-                }
-            } else { // fixed
-                const totalFixedPartnerShare = data.partners.reduce((sum, p) => sum + p.shareValue, 0);
-                if (totalFixedPartnerShare > total) {
-                    toast({ title: 'خطأ في التوزيع', description: 'مجموع الحصص الثابتة للشركاء أكبر من إجمالي الربح.', variant: 'destructive'});
-                }
-                alrawdatainShare = total - totalFixedPartnerShare;
-                partnerTotalShare = totalFixedPartnerShare;
-                data.partners.forEach(p => {
-                     partnerSharesDetails.push({ partnerId: p.partnerId, partnerName: p.partnerName, share: p.shareValue });
-                });
-            }
-        }
-
-        return { ...data, companyName: company?.label || '', ticketProfits, otherProfits, total, alrawdatainShare, partnerShare: partnerTotalShare, partnerShares: partnerSharesDetails };
-    }, [allCompanyOptions, toast]);
+        return { ...data, companyName: company?.label || '', ticketProfits, otherProfits, total, alrawdatainShare, partnerShare: partnerTotalShare, partnerShares: data.partners };
+    }, [allCompanyOptions]);
 
 
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
@@ -443,9 +441,10 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                 </DialogHeader>
                 <FormProvider {...periodForm}>
                     <form onSubmit={periodForm.handleSubmit(handleSavePeriod)} className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                        <div className="p-4 border rounded-lg bg-background/50 grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div className="p-4 border rounded-lg bg-background/50 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                             <FormField control={periodControl} name="fromDate" render={({ field }) => <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>} />
                             <FormField control={periodControl} name="toDate" render={({ field }) => <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>} />
+                            <FormField control={periodControl} name="currency" render={({ field }) => ( <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select><FormMessage /></FormItem> )}/>
                         </div>
                         
                         <div className="p-4 border rounded-lg">
@@ -498,3 +497,5 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         </Dialog>
     );
 }
+
+    
