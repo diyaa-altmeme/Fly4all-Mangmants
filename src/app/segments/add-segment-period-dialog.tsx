@@ -49,7 +49,7 @@ const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
   currency: z.enum(['USD', 'IQD']).default('USD'),
-  entries: z.array(z.any()), // Keep this for type consistency, but min(1) is removed
+  entries: z.array(z.any()).optional(),
 });
 
 const partnerSchema = z.object({
@@ -142,30 +142,37 @@ const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
                         render={({ field }) => <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="العدد" />}
                     />
                 </div>
-                <div className="grid grid-cols-2 gap-2 items-end">
-                     <div className="space-y-1.5">
-                        <Label>العمولة</Label>
-                        <Controller
-                            control={control}
-                            name={valueFieldName as any}
-                            render={({ field }) => <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />}
-                        />
-                    </div>
-                    <Controller
-                        control={control}
-                        name={typeFieldName as any}
-                        render={({ field }) => (
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="percentage">%</SelectItem>
-                                    <SelectItem value="fixed">{currencySymbol}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        )}
-                    />
-                </div>
-                 <div className="space-y-1.5">
+                 <Collapsible>
+                    <CollapsibleTrigger asChild>
+                         <Button type="button" variant="ghost" size="sm" className="text-xs text-muted-foreground"><Settings2 className="me-2 h-3 w-3"/>التفاصيل المالية</Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                        <div className="grid grid-cols-2 gap-2 items-end pt-2">
+                             <div className="space-y-1.5">
+                                <Label>العمولة</Label>
+                                <Controller
+                                    control={control}
+                                    name={valueFieldName as any}
+                                    render={({ field }) => <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />}
+                                />
+                            </div>
+                            <Controller
+                                control={control}
+                                name={typeFieldName as any}
+                                render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="percentage">%</SelectItem>
+                                            <SelectItem value="fixed">{currencySymbol}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                        </div>
+                    </CollapsibleContent>
+                 </Collapsible>
+                 <div className="space-y-1.5 pt-2 border-t">
                     <Label className="text-muted-foreground">الربح المحسوب</Label>
                     <Input value={`${calculatedProfit.toFixed(2)} ${currency}`} readOnly disabled className="font-mono bg-muted/50"/>
                 </div>
@@ -285,35 +292,12 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                     <FormItem><FormLabel>الشركة المصدرة للسكمنت</FormLabel><FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شركة..."/></FormControl><FormMessage /></FormItem>
                 )} />
                 
-                 <Collapsible>
-                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <ServiceCard name='التذاكر' countFieldName='tickets' typeFieldName='ticketProfitType' valueFieldName='ticketProfitValue' />
-                        <ServiceCard name='الفيزا' countFieldName='visas' typeFieldName='visaProfitType' valueFieldName='visaProfitValue' />
-                        <ServiceCard name='الفنادق' countFieldName='hotels' typeFieldName='hotelProfitType' valueFieldName='hotelProfitValue' />
-                        <ServiceCard name='الكروبات' countFieldName='groups' typeFieldName='groupProfitType' valueFieldName='groupProfitValue' />
-                    </div>
-                    <div className="flex items-end gap-4 p-4 mt-4 border rounded-lg bg-muted/50">
-                        <CollapsibleTrigger asChild>
-                             <Button type="button" variant="outline"><Settings2 className="me-2 h-4 w-4"/>الإعدادات المالية المتقدمة</Button>
-                        </CollapsibleTrigger>
-                         <div className="space-y-1.5 w-48">
-                            <Label>نوع العمولة للكل</Label>
-                            <Select onValueChange={v => {
-                                setValue('ticketProfitType', v as 'fixed' | 'percentage');
-                                setValue('visaProfitType', v as 'fixed' | 'percentage');
-                                setValue('hotelProfitType', v as 'fixed' | 'percentage');
-                                setValue('groupProfitType', v as 'fixed' | 'percentage');
-                            }}>
-                                <SelectTrigger><SelectValue placeholder="اختر..."/></SelectTrigger>
-                                <SelectContent><SelectItem value="percentage">نسبة مئوية (%)</SelectItem><SelectItem value="fixed">مبلغ ثابت ({periodForm.getValues('currency') === 'IQD' ? 'ع.د' : '$'})</SelectItem></SelectContent>
-                            </Select>
-                         </div>
-                         <div className="space-y-1.5 flex-grow">
-                            <Label>نسبة الأرباح لنا (%)</Label>
-                            <Controller control={control} name="alrawdatainSharePercentage" render={({ field }) => <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="50"/>} />
-                         </div>
-                    </div>
-                </Collapsible>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <ServiceCard name='التذاكر' countFieldName='tickets' typeFieldName='ticketProfitType' valueFieldName='ticketProfitValue' />
+                    <ServiceCard name='الفيزا' countFieldName='visas' typeFieldName='visaProfitType' valueFieldName='visaProfitValue' />
+                    <ServiceCard name='الفنادق' countFieldName='hotels' typeFieldName='hotelProfitType' valueFieldName='hotelProfitValue' />
+                    <ServiceCard name='الكروبات' countFieldName='groups' typeFieldName='groupProfitType' valueFieldName='groupProfitValue' />
+                </div>
                 
                  <div className="pt-2">
                     <FormField control={control} name="hasPartner" render={({ field }) => (
@@ -631,3 +615,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
