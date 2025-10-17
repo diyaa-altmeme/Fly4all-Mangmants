@@ -18,8 +18,8 @@ import type { Currency, Client, Supplier, Subscription, User, Box, SegmentEntry,
 import { Loader2, Calendar as CalendarIcon, PlusCircle, User as UserIcon, Hash, Wallet, ArrowLeft, ArrowRight, X, Building, Store, Settings2, Save, Trash2, Percent, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator } from 'lucide-react';
 import { addSegmentEntries } from '@/app/segments/actions';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useRouter } from 'next/navigation';
 import { Autocomplete } from '@/components/ui/autocomplete';
@@ -90,7 +90,7 @@ interface AddSegmentPeriodDialogProps {
   clients: Client[];
   suppliers: Supplier[];
   onSuccess: () => Promise<void>;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 const StatCard = ({ title, value, currency, symbol, className }: { title: string; value: number; currency: string; symbol: string; className?: string }) => (
@@ -181,22 +181,22 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
     const calculatedTicketProfit = useMemo(() => {
         const { tickets, ticketProfitType, ticketProfitValue } = watch();
         return ticketProfitType === 'fixed' ? (tickets || 0) * (ticketProfitValue || 0) : 0;
-    }, [watch()]);
+    }, [watch]);
 
     const calculatedVisaProfit = useMemo(() => {
         const { visas, visaProfitType, visaProfitValue } = watch();
         return visaProfitType === 'fixed' ? (visas || 0) * (visaProfitValue || 0) : 0;
-    }, [watch()]);
+    }, [watch]);
     
     const calculatedHotelProfit = useMemo(() => {
         const { hotels, hotelProfitType, hotelProfitValue } = watch();
         return hotelProfitType === 'fixed' ? (hotels || 0) * (hotelProfitValue || 0) : 0;
-    }, [watch()]);
+    }, [watch]);
 
     const calculatedGroupProfit = useMemo(() => {
         const { groups, groupProfitType, groupProfitValue } = watch();
         return groupProfitType === 'fixed' ? (groups || 0) * (groupProfitValue || 0) : 0;
-    }, [watch()]);
+    }, [watch]);
 
     const calculatedTotalProfit = useMemo(() => {
         return calculatedTicketProfit + calculatedVisaProfit + calculatedHotelProfit + calculatedGroupProfit;
@@ -468,13 +468,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </DialogHeader>
                 <FormProvider {...periodForm}>
                     <form onSubmit={periodForm.handleSubmit(handleSavePeriod)} className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                        {/* Period and Currency Section */}
                         <div className="p-4 border rounded-lg bg-background/50 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                              <FormField control={periodControl} name="fromDate" render={({ field }) => (
-                                <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>
+                                <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                             )}/>
                             <FormField control={periodControl} name="toDate" render={({ field }) => (
-                                <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>
+                                <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                             )}/>
                              <FormField control={periodControl} name="currency" render={({ field }) => (
                                 <FormItem><FormLabel>العملة</FormLabel>
@@ -519,12 +518,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                                         <p>أخرى: <strong>{entry.otherProfits.toFixed(2)}</strong></p>
                                                                     </div>
                                                                     <h5 className="font-semibold text-sm pt-2 border-t mt-2">توزيع حصص الشركاء:</h5>
-                                                                    {(entry.partnerShares || []).length > 0 ? (
+                                                                    {(entry.partners || []).length > 0 ? (
                                                                         <div className="flex flex-col gap-1">
-                                                                            {entry.partnerShares.map((share: any, i: number) => (
+                                                                            {entry.partners.map((share: any, i: number) => (
                                                                                 <div key={i} className="flex justify-between items-center text-xs p-1 bg-background rounded">
-                                                                                    <span>{share.partnerName}</span>
-                                                                                    <Badge className="font-mono">{share.share.toFixed(2)}</Badge>
+                                                                                    <span>{share.name}</span>
+                                                                                    <Badge className="font-mono">{share.shareAmount.toFixed(2)}</Badge>
                                                                                 </div>
                                                                             ))}
                                                                         </div>
@@ -553,5 +552,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-```
