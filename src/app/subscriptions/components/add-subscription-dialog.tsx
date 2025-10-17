@@ -45,7 +45,7 @@ const installmentSchema = z.object({
 });
 
 const formSchema = z.object({
-  supplierId: z.string().min(1, "الرجاء اختيار مورد."),
+  supplierId: z.string().optional(),
   serviceName: z.string().min(2, { message: "اسم الاشتراك مطلوب." }),
   purchaseDate: z.date({ required_error: "تاريخ الشراء مطلوب." }),
   clientId: z.string().min(1, "الرجاء اختيار عميل."),
@@ -60,6 +60,9 @@ const formSchema = z.object({
   installments: z.array(installmentSchema).optional(),
   boxId: z.string().optional(),
   notes: z.string().optional(),
+  hasPartner: z.boolean().default(false),
+  partnerId: z.string().optional(),
+  partnerSharePercentage: z.coerce.number().min(0).max(100).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -115,6 +118,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
         installments: [],
         notes: '',
         boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
+        hasPartner: false,
       });
       setNumInstallments(subscriptionSettings?.defaultInstallments || 2);
     }
@@ -128,9 +132,18 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
   const discount = watch('discount');
   const installmentsArray = watch('installments');
   const startDate = watch('startDate');
+  const hasPartner = watch('hasPartner');
+  const partnerSharePercentage = watch('partnerSharePercentage');
+
 
   const totalPurchase = (quantity || 0) * (purchaseUnitPrice || 0);
   const totalSale = ((quantity || 0) * (saleUnitPrice || 0)) - (discount || 0);
+  const totalProfit = totalSale - totalPurchase;
+  
+  const partnerShareAmount = (hasPartner && partnerSharePercentage) ? totalProfit * (partnerSharePercentage / 100) : 0;
+  const alrawdatainShare = totalProfit - partnerShareAmount;
+
+
   const distributedAmount = (installmentsArray || []).reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
   const remainingToDistribute = totalSale - distributedAmount;
 
@@ -143,6 +156,11 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
 
   const supplierOptions = React.useMemo(() => (navData?.suppliers || []).map(s => ({ value: s.id, label: s.name })), [navData?.suppliers]);
   const clientOptions = React.useMemo(() => (navData?.clients || []).map(c => ({ value: c.id, label: `${c.name} ${c.code ? `(${c.code})` : ''}` })), [navData?.clients]);
+   const partnerOptions = React.useMemo(() => {
+    if (!navData) return [];
+    return [...(navData.clients || []), ...(navData.suppliers || [])].map(p => ({value: p.id, label: p.name}));
+  }, [navData]);
+
   
   const handleGenerateInstallments = useCallback(() => {
     if (numInstallments > 0 && totalSale > 0) {
@@ -177,8 +195,8 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
       const client = navData?.clients?.find(c => c.id === data.clientId);
       const supplier = navData?.suppliers?.find(s => s.id === data.supplierId);
 
-      if (!client || !supplier) {
-          toast({ title: "العميل أو المورد غير موجود", variant: "destructive" });
+      if (!client) {
+          toast({ title: "العميل غير موجود", variant: "destructive" });
           setIsSaving(false);
           return;
       }
@@ -190,7 +208,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
         deferredDueDate: data.deferredDueDate ? data.deferredDueDate.toISOString() : undefined,
         installments: (data.installments || []).map(inst => ({ ...inst, dueDate: inst.dueDate.toISOString() })),
         clientName: client.name,
-        supplierName: supplier.name,
+        supplierName: supplier?.name,
       };
       
       const result = await addSubscriptionAction(newSubscriptionData as any);
@@ -268,10 +286,10 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                 )}/>
                                 <div className="grid grid-cols-2 gap-4">
                                      <FormField control={control} name="supplierId" render={({ field }) => (
-                                        <FormItem><FormLabel className="font-bold">المورد</FormLabel><FormControl><Autocomplete searchAction="suppliers" options={supplierOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..."/></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel className="font-bold">المورد (المصدر)</FormLabel><FormControl><Autocomplete searchAction="suppliers" options={supplierOptions} value={field.value} onValueChange={field.onChange} placeholder="اختياري"/></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={control} name="clientId" render={({ field }) => (
-                                        <FormItem><FormLabel className="font-bold">العميل</FormLabel><FormControl><Autocomplete searchAction="clients" options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel className="font-bold">العميل (المستفيد)</FormLabel><FormControl><Autocomplete searchAction="clients" options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                 </div>
                                  <FormField control={control} name="purchaseDate" render={({ field }) => (
@@ -279,18 +297,42 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
                                 )}/>
                             </Section>
 
-                            <Section title="التفاصيل المالية">
+                            <Section title="التفاصيل المالية وتوزيع الأرباح">
                                 <div className="grid grid-cols-2 gap-4">
                                     <FormField control={control} name="quantity" render={({ field }) => (<FormItem><FormLabel className="font-bold">الكمية</FormLabel><FormControl><NumericInput onValueChange={(val) => field.onChange(val || 0)} value={field.value} placeholder="أدخل الكمية" /></FormControl><FormMessage /></FormItem>)}/>
                                     <FormField control={control} name="discount" render={({ field }) => (<FormItem><FormLabel className="font-bold">الخصم</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل الخصم" /></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={control} name="purchasePrice" render={({ field }) => (<FormItem><FormLabel className="font-bold">سعر شراء الوحدة</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل سعر الشراء" /></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={control} name="unitPrice" render={({ field }) => (<FormItem><FormLabel className="font-bold">سعر بيع الوحدة</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل سعر البيع" /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={control} name="purchasePrice" render={({ field }) => (<FormItem><FormLabel className="font-bold">الكلفة</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل سعر الشراء" /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={control} name="unitPrice" render={({ field }) => (<FormItem><FormLabel className="font-bold">البيع</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل سعر البيع" /></FormControl><FormMessage /></FormItem>)}/>
                                 </div>
                                 <Separator className="my-4"/>
-                                <div className="grid grid-cols-3 gap-4 text-center">
-                                     <div><Label className="text-muted-foreground">إجمالي الشراء</Label><p className="font-bold text-lg">{totalPurchase.toLocaleString()} {watchedCurrency}</p></div>
-                                     <div><Label className="text-muted-foreground">إجمالي البيع</Label><p className="font-bold text-lg">{totalSale.toLocaleString()} {watchedCurrency}</p></div>
-                                     <div><Label className="text-muted-foreground">الربح</Label><p className="font-bold text-lg text-green-600">{(totalSale - totalPurchase).toLocaleString()} {watchedCurrency}</p></div>
+                                 <div className="space-y-3">
+                                    <div className="grid grid-cols-3 gap-2 text-center">
+                                        <div className="bg-red-50 p-2 rounded-md"><p className="text-xs font-semibold text-muted-foreground">إجمالي الكلفة</p><p className="font-bold">{totalPurchase.toLocaleString()} {watchedCurrency}</p></div>
+                                        <div className="bg-blue-50 p-2 rounded-md"><p className="text-xs font-semibold text-muted-foreground">إجمالي المبيع</p><p className="font-bold">{totalSale.toLocaleString()} {watchedCurrency}</p></div>
+                                        <div className="bg-green-50 p-2 rounded-md"><p className="text-xs font-semibold text-muted-foreground">إجمالي الربح</p><p className="font-bold">{totalProfit.toLocaleString()} {watchedCurrency}</p></div>
+                                    </div>
+                                    <FormField control={control} name="hasPartner" render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                            <Label className="font-semibold">هل يوجد شريك في الربح؟</Label>
+                                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                        </FormItem>
+                                    )}/>
+                                    {hasPartner && (
+                                        <div className="grid grid-cols-3 gap-2 text-center p-2 border rounded-lg">
+                                            <FormField control={control} name="partnerId" render={({field}) => (
+                                                <FormItem className="col-span-1 text-right space-y-1"><FormLabel className="text-xs">الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="اختر شريك"/></FormControl></FormItem>
+                                            )}/>
+                                            <FormField control={control} name="partnerSharePercentage" render={({field}) => (
+                                                <FormItem className="col-span-2 text-right space-y-1"><FormLabel className="text-xs">حصة الشريك من الربح (%)</FormLabel>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <NumericInput value={field.value} onValueChange={v => field.onChange(v || 0)} />
+                                                    <div className="font-bold p-2 rounded-md bg-blue-50 text-blue-800">{partnerShareAmount.toLocaleString()} {watchedCurrency}</div>
+                                                </div>
+                                                </FormItem>
+                                            )}/>
+                                             <div className="col-span-3 bg-green-50 p-2 rounded-md font-bold text-green-800">حصة الروضتين: {alrawdatainShare.toLocaleString()} {watchedCurrency}</div>
+                                        </div>
+                                    )}
                                 </div>
                             </Section>
 

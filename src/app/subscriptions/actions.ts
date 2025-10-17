@@ -105,6 +105,9 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     
     const user = await getCurrentUserFromSession();
     if (!user) return { success: false, error: "User not authenticated" };
+    
+    const settings = await getSettings();
+    const subSettings = settings.subscriptionSettings;
 
     const batch = db.batch();
     const subscriptionRef = db.collection('subscriptions').doc();
@@ -173,12 +176,17 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         
         const debitEntries: JournalEntry[] = [
             { accountId: finalSubscriptionData.clientId, amount: totalSale, description: `اشتراك خدمة: ${finalSubscriptionData.serviceName}` },
-            { accountId: 'expense_subscriptions', amount: totalPurchase, description: `تكلفة اشتراك: ${finalSubscriptionData.serviceName}` }
         ];
+        if (totalPurchase > 0) {
+            debitEntries.push({ accountId: subSettings?.costAccountId || 'expense_subscriptions', amount: totalPurchase, description: `تكلفة اشتراك: ${finalSubscriptionData.serviceName}` });
+        }
+        
         const creditEntries: JournalEntry[] = [
-            { accountId: finalSubscriptionData.supplierId, amount: totalPurchase, description: `مستحقات اشتراك: ${finalSubscriptionData.serviceName}` },
-            { accountId: 'revenue_subscriptions', amount: totalSale, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` }
+            { accountId: subSettings?.revenueAccountId || 'revenue_subscriptions', amount: totalSale, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` }
         ];
+        if (totalPurchase > 0) {
+            creditEntries.push({ accountId: finalSubscriptionData.supplierId, amount: totalPurchase, description: `مستحقات اشتراك: ${finalSubscriptionData.serviceName}` });
+        }
 
         batch.set(journalVoucherRef, {
             invoiceNumber: newInvoiceNumber,
@@ -199,7 +207,9 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         });
 
         batch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });
-        batch.update(db.collection('clients').doc(finalSubscriptionData.supplierId), { useCount: FieldValue.increment(1) });
+        if (finalSubscriptionData.supplierId) {
+            batch.update(db.collection('clients').doc(finalSubscriptionData.supplierId), { useCount: FieldValue.increment(1) });
+        }
         if(finalSubscriptionData.boxId) {
              batch.update(db.collection('boxes').doc(finalSubscriptionData.boxId), { useCount: FieldValue.increment(1) });
         }
