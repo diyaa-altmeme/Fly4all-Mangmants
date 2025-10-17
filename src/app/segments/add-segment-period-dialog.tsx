@@ -71,14 +71,14 @@ const companyEntrySchema = z.object({
   hotels: z.coerce.number().int().nonnegative().default(0),
   groups: z.coerce.number().int().nonnegative().default(0),
   notes: z.string().optional(),
-  ticketProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
-  ticketProfitValue: z.coerce.number().min(0).default(50),
-  visaProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
-  visaProfitValue: z.coerce.number().min(0).default(100),
-  hotelProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
-  hotelProfitValue: z.coerce.number().min(0).default(100),
-  groupProfitType: z.enum(['percentage', 'fixed']).default('percentage'),
-  groupProfitValue: z.coerce.number().min(0).default(100),
+  ticketProfitType: z.enum(['percentage', 'fixed']).default('fixed'),
+  ticketProfitValue: z.coerce.number().min(0).default(1),
+  visaProfitType: z.enum(['percentage', 'fixed']).default('fixed'),
+  visaProfitValue: z.coerce.number().min(0).default(1),
+  hotelProfitType: z.enum(['percentage', 'fixed']).default('fixed'),
+  hotelProfitValue: z.coerce.number().min(0).default(1),
+  groupProfitType: z.enum(['percentage', 'fixed']).default('fixed'),
+  groupProfitValue: z.coerce.number().min(0).default(1),
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
 });
 
@@ -94,10 +94,10 @@ interface AddSegmentPeriodDialogProps {
 }
 
 const StatCard = ({ title, value, currency, symbol, className }: { title: string; value: number; currency: string; symbol: string; className?: string }) => (
-    <div className={cn("text-center p-3 rounded-lg bg-background border", className)}>
-        <p className="text-sm text-muted-foreground font-bold">{title}</p>
+    <div className={cn("text-center p-2 rounded-lg bg-background border", className)}>
+        <p className="text-xs font-bold text-muted-foreground">{title}</p>
         <div className="flex items-center justify-center gap-2">
-            <p className="font-bold font-mono text-lg">
+            <p className="font-bold font-mono text-base">
                 {value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
              <span className="text-sm font-semibold">{symbol}</span>
@@ -105,29 +105,19 @@ const StatCard = ({ title, value, currency, symbol, className }: { title: string
     </div>
 );
 
-const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName, borderColorClass }: {
+
+const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName, borderColorClass, calculatedProfit }: {
     name: string;
     countFieldName: keyof CompanyEntryFormValues;
     typeFieldName: keyof CompanyEntryFormValues;
     valueFieldName: keyof CompanyEntryFormValues;
     borderColorClass: string;
+    calculatedProfit: number;
 }) => {
-    const { control, watch } = useFormContext<CompanyEntryFormValues>();
-    const count = watch(countFieldName as any) || 0;
-    const type = watch(typeFieldName as any) || 'percentage';
-    const value = watch(valueFieldName as any) || 0;
+    const { control } = useFormContext<CompanyEntryFormValues>();
     const periodForm = useFormContext<PeriodFormValues>();
     const currency = periodForm.watch('currency');
     const currencySymbol = currency === 'IQD' ? 'ع.د' : '$';
-
-    const calculatedProfit = useMemo(() => {
-        const numCount = Number(count) || 0;
-        const numValue = Number(value) || 0;
-        if (type === 'percentage') {
-            return 0; // Or calculate based on a total sale price if available
-        }
-        return numCount * numValue;
-    }, [count, type, value]);
 
     return (
         <div className={cn("rounded-2xl border-2 p-3 space-y-2 bg-card", borderColorClass)}>
@@ -146,36 +136,6 @@ const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName, bord
             <div className="text-center text-sm font-mono text-green-600 font-bold bg-muted/50 p-1 rounded-md">
                 الناتج: {calculatedProfit.toFixed(2)} {currencySymbol}
             </div>
-            <Collapsible>
-                <CollapsibleTrigger asChild>
-                     <Button type="button" variant="ghost" size="sm" className="text-xs w-full mt-2 text-muted-foreground"><Settings2 className="me-2 h-3 w-3"/>الإعدادات المالية</Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                    <div className="grid grid-cols-2 gap-2 items-end pt-2">
-                         <div className="space-y-1.5">
-                            <Label className="text-xs">العمولة</Label>
-                            <Controller
-                                control={control}
-                                name={valueFieldName as any}
-                                render={({ field }) => <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />}
-                            />
-                        </div>
-                        <Controller
-                            control={control}
-                            name={typeFieldName as any}
-                            render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="percentage">%</SelectItem>
-                                        <SelectItem value="fixed">{currencySymbol}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        />
-                    </div>
-                </CollapsibleContent>
-             </Collapsible>
         </div>
     );
 };
@@ -188,10 +148,10 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
         defaultValues: {
             clientId: '', tickets: 0, visas: 0, hotels: 0, groups: 0,
             hasPartner: false, partners: [], distributionType: 'percentage', notes: '',
-            ticketProfitType: 'percentage', ticketProfitValue: 50,
-            visaProfitType: 'percentage', visaProfitValue: 100,
-            hotelProfitType: 'percentage', hotelProfitValue: 100,
-            groupProfitType: 'percentage', groupProfitValue: 100,
+            ticketProfitType: 'fixed', ticketProfitValue: 1,
+            visaProfitType: 'fixed', visaProfitValue: 1,
+            hotelProfitType: 'fixed', hotelProfitValue: 1,
+            groupProfitType: 'fixed', groupProfitValue: 1,
             alrawdatainSharePercentage: 50,
         }
     });
@@ -218,16 +178,29 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
     const [currentPartnerValue, setCurrentPartnerValue] = useState<number | ''>('');
     const [currentPartnerType, setCurrentPartnerType] = useState<'percentage' | 'fixed'>('percentage');
 
-    const calculatedTotalProfit = useMemo(() => {
-        const data = watch();
-        const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => 
-            type === 'percentage' ? 0 : (count || 0) * value;
+    const calculatedTicketProfit = useMemo(() => {
+        const { tickets, ticketProfitType, ticketProfitValue } = watch();
+        return ticketProfitType === 'fixed' ? (tickets || 0) * (ticketProfitValue || 0) : 0;
+    }, [watch()]);
 
-        return getProfit(data.tickets, data.ticketProfitType, data.ticketProfitValue) +
-               getProfit(data.visas, data.visaProfitType, data.visaProfitValue) +
-               getProfit(data.hotels, data.hotelProfitType, data.hotelProfitValue) +
-               getProfit(data.groups, data.groupProfitType, data.groupProfitValue);
-    }, [watch]);
+    const calculatedVisaProfit = useMemo(() => {
+        const { visas, visaProfitType, visaProfitValue } = watch();
+        return visaProfitType === 'fixed' ? (visas || 0) * (visaProfitValue || 0) : 0;
+    }, [watch()]);
+    
+    const calculatedHotelProfit = useMemo(() => {
+        const { hotels, hotelProfitType, hotelProfitValue } = watch();
+        return hotelProfitType === 'fixed' ? (hotels || 0) * (hotelProfitValue || 0) : 0;
+    }, [watch()]);
+
+    const calculatedGroupProfit = useMemo(() => {
+        const { groups, groupProfitType, groupProfitValue } = watch();
+        return groupProfitType === 'fixed' ? (groups || 0) * (groupProfitValue || 0) : 0;
+    }, [watch()]);
+
+    const calculatedTotalProfit = useMemo(() => {
+        return calculatedTicketProfit + calculatedVisaProfit + calculatedHotelProfit + calculatedGroupProfit;
+    }, [calculatedTicketProfit, calculatedVisaProfit, calculatedHotelProfit, calculatedGroupProfit]);
 
     const totalPartnerShareAmount = useMemo(() => 
         (watch('partners') || []).reduce((acc, p) => acc + (p.shareAmount || 0), 0), 
@@ -277,59 +250,109 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
       setCurrentPartnerValue('');
     };
 
+     const handleCentralProfitTypeChange = (type: 'percentage' | 'fixed') => {
+        setValue('ticketProfitType', type);
+        setValue('visaProfitType', type);
+        setValue('hotelProfitType', type);
+        setValue('groupProfitType', type);
+    };
+
     return (
         <FormProvider {...companyForm}>
             <form onSubmit={handleCompanyFormSubmit(onAddEntry)} className="space-y-4">
-                <div className="p-4 border rounded-lg bg-background/50">
+                <div className="p-4 border rounded-lg bg-background/50 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={control} name="clientId" render={({ field }) => (
                         <FormItem><FormLabel>الشركة المصدرة للسكمنت</FormLabel><FormControl><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن شركة..."/></FormControl><FormMessage /></FormItem>
                     )} />
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <ServiceCard name='التذاكر' countFieldName='tickets' typeFieldName='ticketProfitType' valueFieldName='ticketProfitValue' borderColorClass="border-blue-300" />
-                    <ServiceCard name='الفيزا' countFieldName='visas' typeFieldName='visaProfitType' valueFieldName='visaProfitValue' borderColorClass="border-green-300" />
-                    <ServiceCard name='الفنادق' countFieldName='hotels' typeFieldName='hotelProfitType' valueFieldName='hotelProfitValue' borderColorClass="border-orange-300" />
-                    <ServiceCard name='الكروبات' countFieldName='groups' typeFieldName='groupProfitType' valueFieldName='groupProfitValue' borderColorClass="border-purple-300" />
-                </div>
-                
-                <div className="p-4 border rounded-lg space-y-3">
                     <FormField control={control} name="hasPartner" render={({ field }) => (
-                        <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background mt-3">
+                            <Label className="font-semibold">هل يوجد شركاء في توزيع أرباح هذه الشركة؟</Label>
                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                             <FormLabel className="font-semibold">هل يوجد شركاء في توزيع أرباح هذه الشركة؟</FormLabel>
                         </FormItem>
                     )} />
-                    {hasPartner && (
-                        <div className="p-3 border rounded-md bg-muted/50 space-y-3">
-                            <div className="flex items-end gap-2 mb-2 p-2 rounded-lg bg-background">
-                                <div className="flex-grow space-y-1.5"><Label>الشريك</Label><Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريك..."/></div>
-                                <div className="w-24 space-y-1.5"><Label>النوع</Label><Select value={currentPartnerType} onValueChange={(v: any) => setCurrentPartnerType(v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">مبلغ</SelectItem></SelectContent></Select></div>
-                                <div className="w-28 space-y-1.5">
-                                    <Label>القيمة</Label>
-                                    <div className="relative">
-                                        <Input type="text" inputMode="decimal" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} />
-                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">{currentPartnerType === 'percentage' ? '%' : '$'}</span>
-                                    </div>
-                                </div>
-                                <div className="w-32 space-y-1.5"><Label>المبلغ المحسوب</Label><Input value={`${currentPartnerShareAmount.toFixed(2)} ${periodForm.getValues('currency')}`} readOnly disabled className="font-mono" /></div>
-                                <Button type="button" size="icon" className="shrink-0" onClick={handleAddPartner}><PlusCircle className="h-4 w-4"/></Button>
-                            </div>
-                            {fields.length > 0 && (
-                                <div className="space-y-2">
-                                    {fields.map((field, index) => (
-                                        <div key={field.id} className="flex items-center gap-2 bg-background p-2 rounded-md">
-                                            <span className="font-semibold flex-grow">{watch(`partners.${index}.name`)}</span>
-                                            <Badge variant="secondary">{watch(`partners.${index}.value`)} {watch(`partners.${index}.type`) === 'percentage' ? '%' : '$'}</Badge>
-                                            <Badge className="font-mono">{watch(`partners.${index}.shareAmount`)?.toFixed(2)} {periodForm.getValues('currency')}</Badge>
-                                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
+                
+                 <Collapsible>
+                     <CollapsibleTrigger asChild>
+                         <Button type="button" variant="outline" className="w-full">
+                            <Settings2 className="me-2 h-4 w-4"/>
+                            الإعدادات المالية المتقدمة
+                         </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                        <div className="p-4 border rounded-lg mt-2 space-y-4">
+                            <div className="flex items-center gap-4">
+                                <Label>نوع العمولة المركزي</Label>
+                                <RadioGroup onValueChange={handleCentralProfitTypeChange} defaultValue="fixed" className="flex">
+                                    <FormItem className="flex items-center space-x-2 space-x-reverse"><FormControl><RadioGroupItem value="fixed" id="central-fixed" /></FormControl><Label htmlFor="central-fixed">مبلغ ثابت</Label></FormItem>
+                                    <FormItem className="flex items-center space-x-2 space-x-reverse"><FormControl><RadioGroupItem value="percentage" id="central-percent" /></FormControl><Label htmlFor="central-percent">نسبة %</Label></FormItem>
+                                </RadioGroup>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label>عمولة التذاكر</Label>
+                                    <Controller control={control} name="ticketProfitValue" render={({field}) => <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label>عمولة الفيزا</Label>
+                                    <Controller control={control} name="visaProfitValue" render={({field}) => <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label>عمولة الفنادق</Label>
+                                    <Controller control={control} name="hotelProfitValue" render={({field}) => <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label>عمولة الكروبات</Label>
+                                    <Controller control={control} name="groupProfitValue" render={({field}) => <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />} />
+                                </div>
+                            </div>
+                        </div>
+                    </CollapsibleContent>
+                 </Collapsible>
+
+                <div className="p-4 border rounded-lg">
+                    <h3 className="font-semibold text-base mb-2">إدخال الكميات</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <ServiceCard name='التذاكر' countFieldName='tickets' typeFieldName='ticketProfitType' valueFieldName='ticketProfitValue' borderColorClass="border-blue-300" calculatedProfit={calculatedTicketProfit} />
+                        <ServiceCard name='الفيزا' countFieldName='visas' typeFieldName='visaProfitType' valueFieldName='visaProfitValue' borderColorClass="border-green-300" calculatedProfit={calculatedVisaProfit} />
+                        <ServiceCard name='الفنادق' countFieldName='hotels' typeFieldName='hotelProfitType' valueFieldName='hotelProfitValue' borderColorClass="border-orange-300" calculatedProfit={calculatedHotelProfit} />
+                        <ServiceCard name='الكروبات' countFieldName='groups' typeFieldName='groupProfitType' valueFieldName='groupProfitValue' borderColorClass="border-purple-300" calculatedProfit={calculatedGroupProfit} />
+                    </div>
+                </div>
+                
+                {hasPartner && (
+                    <div className="p-4 border rounded-lg space-y-3">
+                        <h3 className="font-semibold text-base">توزيع حصص الشركاء</h3>
+                        <div className="flex items-end gap-2 mb-2 p-2 rounded-lg bg-muted/50">
+                            <div className="flex-grow space-y-1.5">
+                                <Label>الشريك</Label>
+                                <Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريك..."/>
+                            </div>
+                            <div className="w-24 space-y-1.5"><Label>النوع</Label><Select value={currentPartnerType} onValueChange={(v: any) => setCurrentPartnerType(v)}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">مبلغ</SelectItem></SelectContent></Select></div>
+                            <div className="w-28 space-y-1.5">
+                                <Label>القيمة</Label>
+                                <div className="relative">
+                                    <Input type="text" inputMode="decimal" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} placeholder="0.00" className="pe-7"/>
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">{currentPartnerType === 'percentage' ? '%' : '$'}</span>
+                                </div>
+                            </div>
+                            <div className="w-32 space-y-1.5"><Label>المبلغ المحسوب</Label><Input value={`${currentPartnerShareAmount.toFixed(2)} ${periodForm.getValues('currency')}`} readOnly disabled className="font-mono" /></div>
+                            <Button type="button" size="icon" className="shrink-0" onClick={handleAddPartner} disabled={calculatedTotalProfit <= 0}><PlusCircle className="h-4 w-4"/></Button>
+                        </div>
+                        {fields.length > 0 && (
+                            <div className="space-y-2">
+                                {fields.map((field, index) => (
+                                    <div key={field.id} className="flex items-center gap-2 bg-background p-2 rounded-md">
+                                        <span className="font-semibold flex-grow">{watch(`partners.${index}.name`)}</span>
+                                        <Badge variant="secondary">{watch(`partners.${index}.value`)} {watch(`partners.${index}.type`) === 'percentage' ? '%' : '$'}</Badge>
+                                        <Badge className="font-mono">{watch(`partners.${index}.shareAmount`)?.toFixed(2)} {periodForm.getValues('currency')}</Badge>
+                                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
                  <FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel>ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)} />
                  <Separator/>
                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -347,7 +370,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
     );
 }
 
-export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess, children }: AddSegmentPeriodDialogProps) {
+export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
@@ -376,59 +399,30 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         }
     }, [open, periodForm, navData]);
 
-    const allCompanyOptions = useMemo(() => (clients || []).filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings })), [clients]);
-    const partnerOptions = useMemo(() => {
-        const allRelations = [...(clients || []), ...(suppliers || [])];
-        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-        return uniqueRelations.map(r => {
-            let labelPrefix = '';
-            if (r.relationType === 'client') labelPrefix = 'عميل: ';
-            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
-            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
-            return { value: r.id, label: `${labelPrefix}${r.name}` };
-        });
-    }, [clients, suppliers]);
-    
-    const boxName = useMemo(() => {
-        if (!currentUser || !('boxId' in currentUser)) return 'غير محدد';
-        return navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد';
-    }, [currentUser, navData?.boxes]);
-
-
     const handleAddCompanyEntry = (data: CompanyEntryFormValues) => {
-        const company = allCompanyOptions.find(c => c.value === data.clientId);
-        const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => type === 'percentage' ? 0 : (count || 0) * value;
+        const company = clients.find(c => c.id === data.clientId);
+        
+        const getProfit = (count: number, type: 'percentage' | 'fixed', value: number) => 
+            type === 'fixed' ? (count || 0) * value : 0; // Only fixed profit for now based on UI
 
         const ticketProfits = getProfit(data.tickets, data.ticketProfitType, data.ticketProfitValue);
-        const otherProfits = getProfit(data.visas, data.visaProfitType, data.visaProfitValue) + getProfit(data.hotels, data.hotelProfitType, data.hotelProfitValue) + getProfit(data.groups, data.groupProfitType, data.groupProfitValue);
+        const visaProfits = getProfit(data.visas, data.visaProfitType, data.visaProfitValue);
+        const hotelProfits = getProfit(data.hotels, data.hotelProfitType, data.hotelProfitValue);
+        const groupProfits = getProfit(data.groups, data.groupProfitType, data.groupProfitValue);
+        const otherProfits = visaProfits + hotelProfits + groupProfits;
         const total = ticketProfits + otherProfits;
         
-        let alrawdatainShare;
-        let partnerShareAmount = 0;
-        let partnerShares: {partnerId: string; partnerName: string; share: number}[] = [];
-
-        if (data.hasPartner && data.partners) {
-            data.partners.forEach(p => {
-                 const shareAmount = p.type === 'fixed' ? p.value : (total * (p.value / 100));
-                partnerShares.push({ partnerId: p.id, partnerName: p.name, share: shareAmount });
-                partnerShareAmount += shareAmount;
-            });
-             alrawdatainShare = total - partnerShareAmount;
-        } else {
-             const alrawdatainPercentage = data.alrawdatainSharePercentage || 50;
-             alrawdatainShare = total * (alrawdatainPercentage / 100);
-             partnerShareAmount = total - alrawdatainShare;
-        }
+        const partnerSharesValue = (data.partners || []).reduce((acc, p) => acc + (p.shareAmount || 0), 0);
+        const alrawdatainShare = total - partnerSharesValue;
 
         const newEntry = {
             ...data,
-            companyName: company?.label || '',
+            companyName: company?.name || '',
             ticketProfits,
             otherProfits,
             total,
             alrawdatainShare,
-            partnerShare: partnerShareAmount,
-            partnerShares,
+            partnerShare: partnerSharesValue,
         };
         append(newEntry as any);
         toast({ title: "تمت إضافة الشركة", description: `تمت إضافة ${newEntry.companyName} إلى الفترة الحالية.` });
@@ -462,76 +456,58 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
     
     const currencyOptions = navData?.settings?.currencySettings?.currencies || [{ code: 'USD', name: 'US Dollar', symbol: '$' }, { code: 'IQD', name: 'Iraqi Dinar', symbol: 'ع.د' }];
-    const watchedCurrency = watchPeriod('currency');
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogTrigger asChild>
+                <Button><PlusCircle className="me-2 h-4 w-4"/>إضافة سجل جديد</Button>
+            </DialogTrigger>
             <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>إضافة سجل سكمنت جديد</DialogTitle>
-                    <DialogDescription>
-                        أدخل تفاصيل الفترة، ثم أضف بيانات الشركات لهذه الفترة.
-                    </DialogDescription>
                 </DialogHeader>
                 <FormProvider {...periodForm}>
                     <form onSubmit={periodForm.handleSubmit(handleSavePeriod)} className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
+                        {/* Period and Currency Section */}
                         <div className="p-4 border rounded-lg bg-background/50 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                            <FormField control={periodControl} name="fromDate" render={({ field }) => (
-                                <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
-                                </Popover><FormMessage /></FormItem>
+                             <FormField control={periodControl} name="fromDate" render={({ field }) => (
+                                <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>
                             )}/>
                             <FormField control={periodControl} name="toDate" render={({ field }) => (
-                                <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
-                                </Popover><FormMessage /></FormItem>
+                                <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>
                             )}/>
                              <FormField control={periodControl} name="currency" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>العملة</FormLabel>
+                                <FormItem><FormLabel>العملة</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name} ({c.symbol})</SelectItem>)}
-                                        </SelectContent>
+                                        <SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name} ({c.symbol})</SelectItem>)}</SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}/>
                         </div>
                         
-                        <AddCompanyToSegmentForm allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions} onAddEntry={handleAddCompanyEntry} />
+                        <AddCompanyToSegmentForm allCompanyOptions={clients.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }))} partnerOptions={partnerOptions} onAddEntry={handleAddCompanyEntry} />
                         
                         <div className='p-4 border rounded-lg'>
                             <h3 className="font-semibold text-base mb-2">الشركات المضافة ({companyFields.length})</h3>
-                            <div className='border rounded-lg overflow-hidden'>
+                             <div className='border rounded-lg overflow-hidden'>
                                 <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="w-12"></TableHead>
-                                            <TableHead>الشركة</TableHead>
-                                            <TableHead>إجمالي الربح</TableHead>
-                                            <TableHead>حصة الروضتين</TableHead>
-                                            <TableHead>حصص الشركاء</TableHead>
-                                            <TableHead className='w-[60px] text-center'>حذف</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
+                                    <TableHeader><TableRow><TableHead className="w-12"></TableHead><TableHead>الشركة</TableHead><TableHead>إجمالي الربح</TableHead><TableHead>حصة الروضتين</TableHead><TableHead>حصص الشركاء</TableHead><TableHead className='w-[60px] text-center'>حذف</TableHead></TableRow></TableHeader>
+                                    <TableBody>
                                         {companyFields.length === 0 ? (
-                                            <TableBody><TableRow><TableCell colSpan={6} className="text-center h-24">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow></TableBody>
+                                            <TableRow><TableCell colSpan={6} className="text-center h-24">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
                                         ) : (
-                                            companyFields.map((entry, index) => (
+                                            companyFields.map((entry: any, index) => (
                                                 <Collapsible asChild key={entry.id}>
                                                     <tbody className='border-t'>
                                                     <TableRow>
                                                         <TableCell><CollapsibleTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><ChevronDown className="h-4 w-4" /></Button></CollapsibleTrigger></TableCell>
-                                                        <TableCell className="font-semibold">{(entry as any).companyName}</TableCell>
-                                                        <TableCell className="font-mono">{((entry as any).total || 0).toFixed(2)} {watchedCurrency}</TableCell>
-                                                        <TableCell className="font-mono text-green-600">{((entry as any).alrawdatainShare || 0).toFixed(2)} {watchedCurrency}</TableCell>
-                                                        <TableCell className="font-mono text-blue-600">{((entry as any).partnerShare || 0).toFixed(2)} {watchedCurrency}</TableCell>
-                                                        <TableCell className='text-center'>
-                                                            <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button>
-                                                        </TableCell>
+                                                        <TableCell className="font-semibold">{entry.companyName}</TableCell>
+                                                        <TableCell className="font-mono">{entry.total.toFixed(2)}</TableCell>
+                                                        <TableCell className="font-mono text-green-600">{entry.alrawdatainShare.toFixed(2)}</TableCell>
+                                                        <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)}</TableCell>
+                                                        <TableCell className='text-center'><Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button></TableCell>
                                                     </TableRow>
                                                     <CollapsibleContent asChild>
                                                         <TableRow>
@@ -539,18 +515,18 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                                 <div className="p-2 space-y-2">
                                                                     <h5 className="font-semibold text-sm">تفاصيل الأرباح:</h5>
                                                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-                                                                        <p>تذاكر: <strong>{((entry as any).ticketProfits || 0).toFixed(2)}</strong></p>
-                                                                        <p>فيزا: <strong>{((entry as any).otherProfits || 0).toFixed(2)}</strong></p>
+                                                                        <p>تذاكر: <strong>{entry.ticketProfits.toFixed(2)}</strong></p>
+                                                                        <p>أخرى: <strong>{entry.otherProfits.toFixed(2)}</strong></p>
                                                                     </div>
                                                                     <h5 className="font-semibold text-sm pt-2 border-t mt-2">توزيع حصص الشركاء:</h5>
-                                                                    {(entry as any).partnerShares?.length > 0 ? (
+                                                                    {(entry.partnerShares || []).length > 0 ? (
                                                                         <div className="flex flex-col gap-1">
-                                                                        {(entry as any).partnerShares.map((share: any, i: number) => (
-                                                                            <div key={i} className="flex justify-between items-center text-xs p-1 bg-background rounded">
-                                                                                <span>{share.partnerName}</span>
-                                                                                <Badge className="font-mono">{share.share.toFixed(2)} {watchedCurrency}</Badge>
-                                                                            </div>
-                                                                        ))}
+                                                                            {entry.partnerShares.map((share: any, i: number) => (
+                                                                                <div key={i} className="flex justify-between items-center text-xs p-1 bg-background rounded">
+                                                                                    <span>{share.partnerName}</span>
+                                                                                    <Badge className="font-mono">{share.share.toFixed(2)}</Badge>
+                                                                                </div>
+                                                                            ))}
                                                                         </div>
                                                                     ) : <p className="text-xs text-muted-foreground">لا يوجد شركاء لهذه الشركة.</p>}
                                                                 </div>
@@ -561,21 +537,21 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                 </Collapsible>
                                             ))
                                         )}
+                                </TableBody>
                                 </Table>
                             </div>
                         </div>
                     </form>
                 </FormProvider>
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <div className="flex justify-between w-full">
-                        <div></div>
-                        <Button type="button" onClick={periodForm.handleSubmit(handleSavePeriod)} disabled={isSaving || companyFields.length === 0} className="sm:w-auto">
-                            {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                            حفظ بيانات الفترة ({companyFields.length} سجلات)
-                        </Button>
-                    </div>
+                    <Button onClick={periodForm.handleSubmit(handleSavePeriod)} disabled={isSaving || companyFields.length === 0} className="w-full sm:w-auto">
+                        {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                        حفظ بيانات الفترة ({companyFields.length} سجلات)
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
+
+```
