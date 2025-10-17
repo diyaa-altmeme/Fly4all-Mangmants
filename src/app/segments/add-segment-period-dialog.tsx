@@ -152,8 +152,18 @@ const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
     )
 }
 
+const StatCard = ({ title, value, currency, className }: { title: string; value: number; currency: string; className?: string }) => (
+    <div className={cn("text-center p-3 rounded-lg bg-background border", className)}>
+        <p className="text-sm text-muted-foreground font-bold">{title}</p>
+        <p className="font-bold font-mono text-lg">
+            {value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+        </p>
+    </div>
+);
+
 function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry }: { allCompanyOptions: any[], partnerOptions: any[], onAddEntry: (data: CompanyEntryFormValues) => void }) {
-    const { control, watch, setValue, handleSubmit: handleCompanyFormSubmit, reset: resetCompanyForm } = useFormContext<CompanyEntryFormValues>();
+    const periodForm = useFormContext<PeriodFormValues>();
+    const { control, watch, setValue, handleSubmit: handleCompanyFormSubmit, formState: { errors } } = useFormContext<CompanyEntryFormValues>();
     const { toast } = useToast();
 
     const selectedClientId = watch('clientId');
@@ -258,6 +268,10 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                             <SelectTrigger><SelectValue placeholder="اختر..."/></SelectTrigger>
                             <SelectContent><SelectItem value="percentage">نسبة مئوية (%)</SelectItem><SelectItem value="fixed">مبلغ ثابت ($)</SelectItem></SelectContent>
                         </Select>
+                     </div>
+                     <div className="space-y-1.5 flex-grow">
+                        <Label>نسبة الأرباح لنا (%)</Label>
+                        <Controller control={control} name="alrawdatainSharePercentage" render={({ field }) => <NumericInput {...field} onValueChange={field.onChange} placeholder="50"/>} />
                      </div>
                 </div>
             </Collapsible>
@@ -497,5 +511,3 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
         </Dialog>
     );
 }
-
-    
