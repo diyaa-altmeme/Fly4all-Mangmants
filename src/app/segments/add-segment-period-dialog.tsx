@@ -42,6 +42,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Badge } from '@/components/ui/badge';
 
 
 const periodSchema = z.object({
@@ -260,7 +261,7 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
                         </div>
                         <div className="w-28 space-y-1.5">
                             <Label>القيمة</Label>
-                            <Input type="number" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} />
+                            <Input type="text" inputMode="decimal" value={currentPartnerValue} onChange={(e) => setCurrentPartnerValue(Number(e.target.value))} />
                         </div>
                         <Button type="button" size="icon" className="shrink-0" onClick={handleAddPartner}><PlusCircle className="h-4 w-4"/></Button>
                     </div>
@@ -488,7 +489,7 @@ export default function AddSegmentPeriodDialog({ onSuccess, children }: AddSegme
                     </form>
                 </FormProvider>
                  <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <Button type="submit" onClick={periodForm.handleSubmit(handleSavePeriod)} disabled={isSaving || companyFields.length === 0} className="w-full sm:w-auto">
+                    <Button type="button" onClick={periodForm.handleSubmit(handleSavePeriod)} disabled={isSaving || companyFields.length === 0} className="w-full sm:w-auto">
                         {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                         حفظ بيانات الفترة ({companyFields.length} سجلات)
                     </Button>
