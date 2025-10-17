@@ -44,11 +44,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from '@/components/ui/badge';
 
+
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
   currency: z.enum(['USD', 'IQD']).default('USD'),
-  entries: z.array(z.any()).min(1, "يجب إضافة شركة واحدة على الأقل."),
+  entries: z.array(z.any()), // Keep this for type consistency, but min(1) is removed
 });
 
 const partnerSchema = z.object({
@@ -56,8 +57,8 @@ const partnerSchema = z.object({
     name: z.string(),
     type: z.enum(['percentage', 'fixed']),
     value: z.coerce.number().min(0, "القيمة يجب أن تكون موجبة."),
-    notes: z.string().optional(),
     shareAmount: z.coerce.number(),
+    notes: z.string().optional(),
 });
 
 const companyEntrySchema = z.object({
@@ -104,7 +105,6 @@ const StatCard = ({ title, value, currency, symbol, className }: { title: string
     </div>
 );
 
-
 const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
     name: string;
     countFieldName: keyof CompanyEntryFormValues;
@@ -123,7 +123,7 @@ const ServiceCard = ({ name, countFieldName, typeFieldName, valueFieldName }: {
         const numCount = Number(count) || 0;
         const numValue = Number(value) || 0;
         if (type === 'percentage') {
-            return 0;
+            return 0; // Or calculate based on a total sale price if available
         }
         return numCount * numValue;
     }, [count, type, value]);
@@ -237,8 +237,11 @@ function AddCompanyToSegmentForm({ allCompanyOptions, partnerOptions, onAddEntry
         const alrawdatainPercentage = watch('alrawdatainSharePercentage');
 
         if (hasPartner) {
-            remainingForPartners = calculatedTotalProfit - totalPartnerShareAmount;
+            // When partners exist, their percentage is from the total profit AFTER the company share
+            const companyShare = calculatedTotalProfit * ((alrawdatainPercentage || 0) / 100);
+            remainingForPartners = calculatedTotalProfit - companyShare - totalPartnerShareAmount;
         } else {
+             // If no partners, the partner share is based on the remaining profit after company share
              remainingForPartners = calculatedTotalProfit * ((100 - (alrawdatainPercentage || 0)) / 100);
         }
 
@@ -493,7 +496,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
     
      const goToNextStep = async () => {
-        const isValid = await periodForm.trigger();
+        const isValid = await periodForm.trigger(['fromDate', 'toDate', 'currency']);
         if (isValid) {
             setStep(2);
         }
@@ -584,9 +587,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                                             <h5 className="font-semibold text-sm">تفاصيل الأرباح:</h5>
                                                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                                                                                 <p>تذاكر: <strong>{((entry as any).ticketProfits || 0).toFixed(2)}</strong></p>
-                                                                                <p>فيزا: <strong>{(((entry as any).visas || 0) * ((entry as any).visaProfitValue || 0)).toFixed(2)}</strong></p>
-                                                                                <p>فنادق: <strong>{(((entry as any).hotels || 0) * ((entry as any).hotelProfitValue || 0)).toFixed(2)}</strong></p>
-                                                                                <p>كروبات: <strong>{(((entry as any).groups || 0) * ((entry as any).groupProfitValue || 0)).toFixed(2)}</strong></p>
+                                                                                <p>فيزا: <strong>{((entry as any).otherProfits || 0).toFixed(2)}</strong></p>
                                                                             </div>
                                                                             <h5 className="font-semibold text-sm pt-2 border-t mt-2">توزيع حصص الشركاء:</h5>
                                                                             {(entry as any).partnerShares?.length > 0 ? (
@@ -620,7 +621,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         <div className="flex justify-between w-full">
                             <Button variant="outline" onClick={() => setStep(1)}><ArrowRight className="me-2 h-4 w-4"/> رجوع</Button>
                             <Button type="button" onClick={periodForm.handleSubmit(handleSavePeriod)} disabled={isSaving || companyFields.length === 0} className="sm:w-auto">
-                                {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                                 حفظ بيانات الفترة ({companyFields.length} سجلات)
                             </Button>
                         </div>
@@ -630,5 +631,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
