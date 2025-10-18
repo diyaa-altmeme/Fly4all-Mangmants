@@ -33,7 +33,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import { useAuth } from "@/lib/auth-context";
 
-import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight } from "lucide-react";
+import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -311,7 +311,20 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     if (!currentClientId) return;
     const prefs = loadClientPrefs(user?.uid ?? null, currentClientId);
     if (prefs) {
-      form.reset({ ...form.getValues(), ...prefs });
+        form.reset({
+            ...form.getValues(),
+            unifiedType: prefs.unifiedType,
+            unifiedValue: prefs.unifiedValue,
+            perServiceOverride: prefs.perServiceOverride,
+            ticketProfitType: prefs.ticketProfitType,
+            ticketProfitValue: prefs.ticketProfitValue,
+            visaProfitType: prefs.visaProfitType,
+            visaProfitValue: prefs.visaProfitValue,
+            hotelProfitType: prefs.hotelProfitType,
+            hotelProfitValue: prefs.hotelProfitValue,
+            groupProfitType: prefs.groupProfitType,
+            groupProfitValue: prefs.groupProfitValue,
+        });
     }
   }, [currentClientId, form, user?.uid]);
 
@@ -391,10 +404,17 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
               <Input placeholder="وصف مختصر لهذا الإدخال" />
             </div>
           </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <ServiceLine label="التذاكر" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" compact />
+            <ServiceLine label="الفيزا"   countField="visas"   typeField="visaProfitType"   valueField="visaProfitValue"   compact />
+            <ServiceLine label="الفنادق"  countField="hotels"  typeField="hotelProfitType"  valueField="hotelProfitValue"  compact />
+            <ServiceLine label="الكروبات" countField="groups"  typeField="groupProfitType"  valueField="groupProfitValue"  compact />
+          </div>
 
           <Collapsible defaultOpen>
             <div className="flex items-center justify-between">
-              <Label className="font-semibold">إعدادات مالية</Label>
+              <Label className="font-semibold">الإعدادات المالية المتقدمة</Label>
               <CollapsibleTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" className="gap-1">
                   <Settings2 className="h-4 w-4" />
@@ -475,13 +495,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
               </div>
             </CollapsibleContent>
           </Collapsible>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <ServiceLine label="التذاكر" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" compact />
-            <ServiceLine label="الفيزا"   countField="visas"   typeField="visaProfitType"   valueField="visaProfitValue"   compact />
-            <ServiceLine label="الفنادق"  countField="hotels"  typeField="hotelProfitType"  valueField="hotelProfitValue"  compact />
-            <ServiceLine label="الكروبات" countField="groups"  typeField="groupProfitType"  valueField="groupProfitValue"  compact />
-          </div>
 
           <Separator />
 
@@ -653,6 +666,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
 // ---------- Wrapper: AddSegmentPeriodDialog ----------
 
 export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () => Promise<void> }) {
+  const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const { data: navData } = useVoucherNav();
   const { user } = useAuth() || {};
@@ -661,7 +675,6 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
   const form = useForm<PeriodFormValues>({
     resolver: zodResolver(periodSchema),
     defaultValues: {
-      periodNote: "",
       currency: (navData?.settings?.currencySettings?.defaultCurrency || "USD"),
       entries: [],
     },
@@ -683,7 +696,7 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
   const handleSave = async () => {
     const v = await form.trigger();
     if (!v) {
-      toast({ title: "أكمل ملاحظة الفترة والعملة.", variant: "destructive" });
+      toast({ title: "أكمل حقول الفترة والعملة.", variant: "destructive" });
       return;
     }
     if (fields.length === 0) {
@@ -694,7 +707,6 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
     const values = getValues();
     const userId = user?.uid || null;
     
-    // Use the user's assigned box, or a default/fallback.
     const fundBoxId = (user && 'boxId' in user) ? user.boxId : null;
 
     if (!fundBoxId) {
@@ -707,107 +719,75 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
       fromDate: format(values.fromDate!, 'yyyy-MM-dd'),
       toDate: format(values.toDate!, 'yyyy-MM-dd'),
       currency: values.currency,
-      // Include metadata for the transaction
-      enteredBy: user?.name,
-      createdAt: new Date().toISOString(),
       userId,
       fundBoxId,
+      createdAt: new Date().toISOString(),
+      alrawdatainShare: f.computed?.rodatainShare,
+      partnerShare: f.computed?.partnersTotal,
+      total: f.computed?.net,
+      ticketProfits: f.computed?.perService.totalTickets,
+      otherProfits: f.computed?.perService.totalVisas + f.computed?.perService.totalHotels + f.computed?.perService.totalGroups,
+      partnerShares: f.computed?.partnerBreakdown.map((p: any) => ({ partnerId: p.relationId, partnerName: p.relationName, share: p.share })),
     }));
+    
 
     try {
       const res = await addSegmentEntries(payload as any);
       if (!res?.success) throw new Error(res?.error || "فشل الحفظ");
-      toast({ title: "تم حفظ بيانات الفترة بنجاح." });
-      reset({ periodNote: values.periodNote, currency: values.currency, entries: [] });
+      toast({ title: "تم حفظ بيانات الفترة بنجاح" });
+      reset({ fromDate: values.fromDate, toDate: values.toDate, currency: values.currency, entries: [] });
       await onSuccess();
+      setOpen(false);
     } catch (e: any) {
       toast({ title: "خطأ في الحفظ", description: e?.message || "حصل خطأ غير متوقع", variant: "destructive" });
     }
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button><PlusCircle className="me-2 h-4 w-4" /> إضافة سجل جديد</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-6xl max-h-[90vh] flex flex-col">
-        <DialogHeader><DialogTitle>إضافة سجل سيجمنت جديد</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>إضافة سجل سكمنت جديد</DialogTitle></DialogHeader>
 
         <FormProvider {...form}>
           <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-4">
-            {/* شريط علوي: ملاحظة الفترة + العملة */}
             <Card className="border rounded-lg">
               <CardContent className="grid md:grid-cols-3 gap-3 py-4">
-                <Controller
-                  control={control}
-                  name="fromDate"
-                  render={({ field }) => (
+                <FormField control={control} name="fromDate" render={({ field }) => (
                     <FormItem>
                       <FormLabel>من تاريخ</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                              {field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}
-                              <CalendarIcon className="ms-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                        </PopoverContent>
-                      </Popover>
+                      <Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-                 <Controller
-                  control={control}
-                  name="toDate"
-                  render={({ field }) => (
+                )}/>
+                 <FormField control={control} name="toDate" render={({ field }) => (
                     <FormItem>
                       <FormLabel>إلى تاريخ</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                              {field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}
-                              <CalendarIcon className="ms-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                        </PopoverContent>
-                      </Popover>
+                      <Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>
                       <FormMessage />
                     </FormItem>
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="currency"
-                  render={({ field }) => (
-                    <div className="space-y-1">
-                      <Label>العملة</Label>
+                )}/>
+                <FormField control={control} name="currency" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>العملة</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
                           {currencyList.map((c) => (
                             <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
+                    </FormItem>
                   )}
                 />
               </CardContent>
             </Card>
 
-            {/* نموذج الشركة */}
             <AddCompanyToSegmentForm onAddEntry={addEntry} ref={addCompanyFormRef} />
 
-            {/* الشركات المضافة */}
             <Card className="border rounded-lg">
               <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
               <CardContent className="pt-0">
@@ -863,3 +843,4 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
     </Dialog>
   );
 }
+
