@@ -72,6 +72,13 @@ const companyEntrySchema = z.object({
   hasPartners: z.boolean().default(false),
   alrawdatainSharePct: z.coerce.number().min(0).max(100).default(100), 
   partners: z.array(partnerSchema).default([]),
+}).refine(data => {
+    if (!data.hasPartners) return true;
+    const totals = computeTotals(data);
+    return totals.partnersTotal <= totals.partnerPool + 0.01; // Add tolerance
+}, {
+    message: "إجمالي حصص الشركاء يتجاوز المبلغ المتاح لهم.",
+    path: ["partners"],
 });
 
 const periodSchema = z.object({
@@ -92,20 +99,15 @@ function computeService(count: number, type: "fixed" | "percentage", value: numb
 }
 
 function computeTotals(d: CompanyEntryFormValues) {
-  const tType = d.ticketProfitType;
-  const vType = d.visaProfitType;
-  const hType = d.hotelProfitType;
-  const gType = d.groupProfitType;
-
   const tVal = d.ticketProfitValue;
   const vVal = d.visaProfitValue;
   const hVal = d.hotelProfitValue;
   const gVal = d.groupProfitValue;
 
-  const totalTickets = computeService(d.tickets, tType, tVal);
-  const totalVisas   = computeService(d.visas,   vType, vVal);
-  const totalHotels  = computeService(d.hotels,  hType, hVal);
-  const totalGroups  = computeService(d.groups,  gType, gVal);
+  const totalTickets = computeService(d.tickets, d.ticketProfitType, tVal);
+  const totalVisas   = computeService(d.visas,   d.visaProfitType, vVal);
+  const totalHotels  = computeService(d.hotels,  d.hotelProfitType, hVal);
+  const totalGroups  = computeService(d.groups,  d.groupProfitType, gVal);
 
   const gross = totalTickets + totalVisas + totalHotels + totalGroups;
 
@@ -119,8 +121,9 @@ function computeTotals(d: CompanyEntryFormValues) {
   const rodatainShare = (net * (d.hasPartners ? d.alrawdatainSharePct : 100)) / 100;
   const partnerPool   = Math.max(0, net - rodatainShare);
 
+  // توزيع الشركاء
   let percentSum = 0, fixedSum = 0;
-  d.partners.forEach(p => {
+  (d.partners || []).forEach(p => {
     if (p.type === "percentage") percentSum += p.value;
     else fixedSum += p.value;
   });
@@ -129,7 +132,7 @@ function computeTotals(d: CompanyEntryFormValues) {
   const fixedAllocation   = Math.min(Math.max(0, partnerPool - percentAllocation), fixedSum);
   const fixedScale        = fixedSum > 0 ? (fixedAllocation / fixedSum) : 0;
 
-  const partnerBreakdown = d.partners.map(p => ({
+  const partnerBreakdown = (d.partners || []).map(p => ({
     ...p,
     share: p.type === "percentage" ? partnerPool * (p.value / 100) : p.value * fixedScale
   }));
@@ -149,6 +152,7 @@ function computeTotals(d: CompanyEntryFormValues) {
     remainder,
   };
 }
+
 
 function useCurrencySymbol(currency?: string) {
   if (!currency) return "";
@@ -187,23 +191,23 @@ function saveClientPrefs(userId: string | null, clientId: string | null, prefs: 
 function ServiceLine({
   label,
   icon: Icon,
+  color,
   countField,
   typeField,
   valueField,
-  color,
 }: {
   label: string;
   icon: React.ElementType;
+  color: string;
   countField: keyof CompanyEntryFormValues;
   typeField: keyof CompanyEntryFormValues;
   valueField: keyof CompanyEntryFormValues;
-  color: string;
 }) {
   const { control } = useFormContext<CompanyEntryFormValues>();
 
   const count = Number(useWatch({ name: countField as any }) || 0);
-  const type = useWatch({ name: typeField as any }) as "fixed" | "percentage" || "fixed";
-  const val = Number(useWatch({ name: valueField as any }) || 0);
+  const type = (useWatch({ name: typeField as any }) as "fixed" | "percentage") || "fixed";
+  const val  = Number(useWatch({ name: valueField as any }) || 0);
 
   const result = useMemo(() => computeService(count, type, val), [count, type, val]);
   const currencySymbol = useCurrencySymbol(useFormContext<PeriodFormValues>().getValues('currency'));
@@ -273,7 +277,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   const { data: navData } = useVoucherNav();
   const { user } = useAuth() || {};
   const parent = useFormContext<PeriodFormValues>();
-  const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
 
   const relationOptions =
     [
@@ -332,6 +335,8 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     name: "partners",
   });
 
+  const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
+
   const handleAddPartner = () => {
     appendPartner({ relationId: "", relationName: "", type: "percentage", value: 0 });
   };
@@ -348,9 +353,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             hotelProfitValue: data.hotelProfitValue,
             groupProfitType: data.groupProfitType,
             groupProfitValue: data.groupProfitValue,
-            perServiceOverride: false, // This field is removed from UI
-            unifiedType: 'fixed', // This field is removed from UI
-            unifiedValue: 0, // This field is removed from UI
         });
     }
 
@@ -404,11 +406,18 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
               <Input placeholder="وصف مختصر لهذا الإدخال" />
             </div>
           </div>
-          
-          <Collapsible>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <ServiceLine label="التذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
+            <ServiceLine label="الفيزا" icon={CreditCard} color="bg-orange-500" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
+            <ServiceLine label="الفنادق" icon={Hotel} color="bg-purple-500" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
+            <ServiceLine label="الكروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
+          </div>
+
+          <Collapsible defaultOpen>
             <div className="flex items-center justify-between">
               <Label className="font-semibold">الإعدادات المالية</Label>
-               <CollapsibleTrigger asChild>
+              <CollapsibleTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" className="gap-1">
                   <Settings2 className="h-4 w-4" />
                   إظهار/إخفاء
@@ -417,42 +426,43 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
               </CollapsibleTrigger>
             </div>
             <CollapsibleContent className="pt-3">
-              <div className="grid md:grid-cols-4 gap-3">
-                  <div className="space-y-1">
-                    <Label>نوع الخصم</Label>
-                    <Controller control={form.control} name="discountType" render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">بدون</SelectItem><SelectItem value="fixed">مبلغ ثابت</SelectItem><SelectItem value="percentage">نسبة %</SelectItem></SelectContent></Select>)}/>
-                  </div>
-                  <div className="space-y-1">
-                    <Label>قيمة الخصم</Label>
-                    <Controller control={form.control} name="discountValue" render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/>
-                  </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>نوع الخصم</Label>
+                  <Controller control={form.control} name="discountType" render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">بدون</SelectItem><SelectItem value="fixed">مبلغ ثابت</SelectItem><SelectItem value="percentage">نسبة %</SelectItem></SelectContent></Select>)}/>
+                </div>
+                <div className="space-y-1">
+                  <Label>قيمة الخصم</Label>
+                  <Controller control={form.control} name="discountValue" render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/>
+                </div>
               </div>
             </CollapsibleContent>
           </Collapsible>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <ServiceLine label="التذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
-            <ServiceLine label="الفيزا" icon={CreditCard} color="bg-orange-500" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
-            <ServiceLine label="الفنادق" icon={Hotel} color="bg-purple-500" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
-            <ServiceLine label="الكروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
-          </div>
           
           <Separator />
 
           <Collapsible defaultOpen={false}>
-            <CollapsibleTrigger asChild>
-                 <div className="flex items-center gap-3 cursor-pointer">
-                    <Controller
-                        control={form.control}
-                        name="hasPartners"
-                        render={({ field }) => (
-                            <Switch id="has-partners-switch" checked={field.value} onCheckedChange={field.onChange} />
-                        )}
-                    />
-                    <Label htmlFor="has-partners-switch" className="font-semibold cursor-pointer">إدارة وتوزيع حصص الشركاء</Label>
-                    <ChevronDown className="h-4 w-4" />
-                </div>
-            </CollapsibleTrigger>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Controller
+                    control={form.control}
+                    name="hasPartners"
+                    render={({ field }) => (
+                        <div className="flex items-center gap-2">
+                          <Switch id="has-partners-switch" checked={field.value} onCheckedChange={field.onChange} />
+                          <Label htmlFor="has-partners-switch" className="font-semibold cursor-pointer">إدارة وتوزيع حصص الشركاء</Label>
+                        </div>
+                    )}
+                />
+              </div>
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="gap-1">
+                  التفاصيل
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+
             <CollapsibleContent className="pt-3 space-y-3">
               <div className="grid md:grid-cols-3 gap-3">
                 <Controller
@@ -473,6 +483,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                   </Button>
                 </div>
               </div>
+
               {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Select value={field.value} onValueChange={(v) => { field.onChange(v); const rel = relationOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}}><SelectTrigger><SelectValue placeholder="اختر شريكاً" /></SelectTrigger><SelectContent>{relationOptions.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}</SelectContent></Select>)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
             </CollapsibleContent>
           </Collapsible>
@@ -525,6 +536,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     </FormProvider>
   );
 });
+
 
 // ---------- Wrapper: AddSegmentPeriodDialog ----------
 
@@ -593,7 +605,7 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
       const res = await addSegmentEntries(finalEntries as any);
       if (!res?.success) throw new Error(res?.error || "فشل الحفظ");
       toast({ title: "تم حفظ بيانات الفترة بنجاح" });
-      reset({ currency: periodData.currency, entries: [] });
+      reset({ fromDate: periodData.fromDate, toDate: periodData.toDate, currency: periodData.currency, entries: [] });
       await onSuccess();
       setOpen(false);
     } catch (e: any) {
@@ -682,12 +694,15 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
           {step === 1 && (
             <div className="flex justify-between w-full">
               <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-              <Button type="button" onClick={goToNextStep}>التالي <ArrowLeft className="me-2 h-4 w-4" /></Button>
+              <Button type="button" onClick={goToNextStep}>التالي</Button>
             </div>
           )}
           {step === 2 && (
             <div className="flex justify-between w-full">
-              <Button variant="outline" onClick={() => setStep(1)}><ArrowRight className="me-2 h-4 w-4" /> رجوع</Button>
+              <Button variant="outline" onClick={() => setStep(1)}>
+                <ArrowRight className="me-2 h-4 w-4" />
+                رجوع
+              </Button>
               <Button type="button" onClick={handleSave} disabled={isSaving || fields.length === 0} className="sm:w-auto">
                 {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                 حفظ الفترة ({fields.length} سجلات)
@@ -700,4 +715,4 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
   );
 }
 
-    
+```
