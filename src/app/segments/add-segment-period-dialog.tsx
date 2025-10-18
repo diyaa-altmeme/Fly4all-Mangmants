@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
@@ -34,7 +35,7 @@ import { useAuth } from "@/lib/auth-context";
 
 import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 // ---------- Schemas ----------
@@ -54,12 +55,7 @@ const companyEntrySchema = z.object({
   visas: z.coerce.number().int().nonnegative().default(0),
   hotels: z.coerce.number().int().nonnegative().default(0),
   groups: z.coerce.number().int().nonnegative().default(0),
-
-  // unifiedType and unifiedValue are kept for logic but not shown in UI anymore
-  unifiedType: z.enum(["fixed", "percentage"]).default("fixed"),
-  unifiedValue: z.coerce.number().min(0).default(1),
-  perServiceOverride: z.boolean().default(true), // This will be always true now
-
+  
   ticketProfitType: z.enum(["fixed", "percentage"]).default("fixed"),
   ticketProfitValue: z.coerce.number().min(0).default(1),
   visaProfitType: z.enum(["fixed", "percentage"]).default("fixed"),
@@ -95,10 +91,20 @@ function computeService(count: number, type: "fixed" | "percentage", value: numb
 }
 
 function computeTotals(d: CompanyEntryFormValues) {
-  const totalTickets = computeService(d.tickets, d.ticketProfitType, d.ticketProfitValue);
-  const totalVisas   = computeService(d.visas,   d.visaProfitType,   d.visaProfitValue);
-  const totalHotels  = computeService(d.hotels,  d.hotelProfitType,  d.hotelProfitValue);
-  const totalGroups  = computeService(d.groups,  d.groupProfitType,  d.groupProfitValue);
+  const tType = d.ticketProfitType;
+  const vType = d.visaProfitType;
+  const hType = d.hotelProfitType;
+  const gType = d.groupProfitType;
+
+  const tVal = d.ticketProfitValue;
+  const vVal = d.visaProfitValue;
+  const hVal = d.hotelProfitValue;
+  const gVal = d.groupProfitValue;
+
+  const totalTickets = computeService(d.tickets, tType, tVal);
+  const totalVisas   = computeService(d.visas,   vType, vVal);
+  const totalHotels  = computeService(d.hotels,  hType, hVal);
+  const totalGroups  = computeService(d.groups,  gType, gVal);
 
   const gross = totalTickets + totalVisas + totalHotels + totalGroups;
 
@@ -157,7 +163,6 @@ function useCurrencySymbol(currency?: string) {
 const MEM_NS = "segment:client-prefs:v1";
 type ClientPrefs = Pick<
   CompanyEntryFormValues,
-  | "perServiceOverride"
   | "ticketProfitType" | "ticketProfitValue"
   | "visaProfitType" | "visaProfitValue"
   | "hotelProfitType" | "hotelProfitValue"
@@ -203,53 +208,53 @@ function ServiceLine({
   const currencySymbol = useCurrencySymbol(useFormContext<PeriodFormValues>().getValues('currency'));
 
   return (
-     <Card className="shadow-sm overflow-hidden">
-        <CardHeader className={cn("p-3 flex flex-row items-center justify-between space-y-0", color)}>
-            <CardTitle className="text-sm font-bold flex items-center gap-2 text-white"><Icon className="h-5 w-5"/>{label}</CardTitle>
-            <div className="text-sm font-bold font-mono px-2 py-1 bg-background/20 rounded-md text-white">
-                {result.toFixed(2)} {currencySymbol}
+    <Card className="shadow-sm overflow-hidden">
+      <CardHeader className={cn("p-3 flex flex-row items-center justify-between space-y-0", color)}>
+        <CardTitle className="text-sm font-bold flex items-center gap-2 text-white"><Icon className="h-5 w-5"/>{label}</CardTitle>
+        <div className="text-sm font-bold font-mono px-2 py-1 bg-background/20 rounded-md text-white">
+          {result.toFixed(2)} {currencySymbol}
+        </div>
+      </CardHeader>
+      <CardContent className="p-3 pt-2 space-y-2">
+        <Controller
+          control={control}
+          name={countField as any}
+          render={({ field }) => (
+            <div className="space-y-1">
+              <Label className="text-xs">العدد</Label>
+              <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} className="h-9 text-center font-semibold text-base" />
             </div>
-        </CardHeader>
-        <CardContent className="p-3 pt-2 space-y-2">
-            <Controller
-                control={control}
-                name={countField as any}
-                render={({ field }) => (
-                    <div className="space-y-1">
-                        <Label className="text-xs">العدد</Label>
-                        <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} className="h-9 text-center font-semibold text-base" />
-                    </div>
-                )}
-            />
-            <div className="flex items-end gap-2">
-                <Controller
-                    control={control}
-                    name={valueField as any}
-                    render={({ field }) => (
-                        <div className="flex-grow space-y-1">
-                            <Label className="text-xs">القيمة</Label>
-                            <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} className="h-8 text-xs" />
-                        </div>
-                    )}
-                />
-                <Controller
-                    control={control}
-                    name={typeField as any}
-                    render={({ field }) => (
-                        <div className="space-y-1">
-                            <Label className="text-xs">النوع</Label>
-                            <Select value={field.value} onValueChange={field.onChange}>
-                                <SelectTrigger className="h-8 w-24 text-xs"><SelectValue placeholder="النوع" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="fixed">ثابت</SelectItem>
-                                    <SelectItem value="percentage">%</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    )}
-                />
-            </div>
-        </CardContent>
+          )}
+        />
+        <div className="flex items-end gap-2">
+          <Controller
+            control={control}
+            name={valueField as any}
+            render={({ field }) => (
+              <div className="flex-grow space-y-1">
+                <Label className="text-xs">قيمة العمولة</Label>
+                <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} className="h-8 text-xs" />
+              </div>
+            )}
+          />
+          <Controller
+            control={control}
+            name={typeField as any}
+            render={({ field }) => (
+              <div className="space-y-1">
+                <Label className="text-xs">النوع</Label>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="h-8 w-24 text-xs"><SelectValue placeholder="النوع" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="fixed">ثابت</SelectItem>
+                    <SelectItem value="percentage">%</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          />
+        </div>
+      </CardContent>
     </Card>
   );
 }
@@ -264,7 +269,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   const { user } = useAuth() || {};
   const parent = useFormContext<PeriodFormValues>();
   const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
-
 
   const relationOptions =
     [
@@ -294,27 +298,29 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   useImperativeHandle(ref, () => ({ resetForm: () => form.reset() }), [form]);
 
   const watchAll = useWatch({ control: form.control });
-  const totals = useMemo(() => computeTotals(form.getValues()), [watchAll]);
+  const totals = useMemo(() => computeTotals(form.getValues()), [form, watchAll]);
 
   const currentClientId = useWatch({ control: form.control, name: "clientId" }) as string;
   useEffect(() => {
     if (!currentClientId) return;
-    const prefs = loadClientPrefs(user?.uid ?? null, currentClientId);
+    const client = navData?.clients.find(c => c.id === currentClientId);
+    const prefs = client?.segmentSettings;
+
     if (prefs) {
-        form.reset({
-            ...form.getValues(),
-            perServiceOverride: prefs.perServiceOverride,
-            ticketProfitType: prefs.ticketProfitType,
-            ticketProfitValue: prefs.ticketProfitValue,
-            visaProfitType: prefs.visaProfitType,
-            visaProfitValue: prefs.visaProfitValue,
-            hotelProfitType: prefs.hotelProfitType,
-            hotelProfitValue: prefs.hotelProfitValue,
-            groupProfitType: prefs.groupProfitType,
-            groupProfitValue: prefs.groupProfitValue,
-        });
+      form.reset({
+        ...form.getValues(),
+        ticketProfitType: prefs.ticketProfitType,
+        ticketProfitValue: prefs.ticketProfitValue,
+        visaProfitType: prefs.visaProfitType,
+        visaProfitValue: prefs.visaProfitValue,
+        hotelProfitType: prefs.hotelProfitType,
+        hotelProfitValue: prefs.hotelProfitValue,
+        groupProfitType: prefs.groupProfitType,
+        groupProfitValue: prefs.groupProfitValue,
+        alrawdatainSharePct: prefs.alrawdatainSharePercentage || 100
+      });
     }
-  }, [currentClientId, form, user?.uid]);
+  }, [currentClientId, form, navData?.clients]);
 
   const { fields: partnerFields, append: appendPartner, remove: removePartner } = useFieldArray({
     control: form.control,
@@ -326,25 +332,13 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   };
 
   const onAdd = (data: CompanyEntryFormValues) => {
-    saveClientPrefs(user?.uid ?? null, data.clientId, {
-      perServiceOverride: data.perServiceOverride,
-      ticketProfitType: data.ticketProfitType,
-      ticketProfitValue: data.ticketProfitValue,
-      visaProfitType: data.visaProfitType,
-      visaProfitValue: data.visaProfitValue,
-      hotelProfitType: data.hotelProfitType,
-      hotelProfitValue: data.hotelProfitValue,
-      groupProfitType: data.groupProfitType,
-      groupProfitValue: data.groupProfitValue,
-    });
     const computed = computeTotals(data);
-
     onAddEntry({ ...data, computed });
 
     form.reset({
       ...form.getValues(),
       tickets: 0, visas: 0, hotels: 0, groups: 0,
-      partners: [], hasPartners: false, alrawdatainSharePct: 100,
+      partners: [], hasPartners: false,
       discountType: "none", discountValue: 0,
     });
   };
@@ -382,20 +376,17 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             </div>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <ServiceLine label="التذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
-            <ServiceLine label="الفيزا" icon={CreditCard} color="bg-orange-500" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
-            <ServiceLine label="الفنادق" icon={Hotel} color="bg-purple-500" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
-            <ServiceLine label="الكروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
-          </div>
-          
-          <Collapsible>
-            <CollapsibleTrigger asChild>
-              <Button type="button" variant="ghost" size="sm" className="gap-1 text-xs">
-                إعدادات الخصم والشركاء
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </CollapsibleTrigger>
+          <Collapsible defaultOpen>
+            <div className="flex items-center justify-between">
+              <Label className="font-semibold">إعدادات مالية</Label>
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="gap-1">
+                  <Settings2 className="h-4 w-4" />
+                  إظهار/إخفاء
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
+            </div>
             <CollapsibleContent className="pt-3 space-y-4">
               <div className="grid md:grid-cols-2 gap-3">
                   <div className="space-y-1">
@@ -407,27 +398,90 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                     <Controller control={form.control} name="discountValue" render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/>
                   </div>
               </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-              <Separator/>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <ServiceLine label="التذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
+            <ServiceLine label="الفيزا" icon={CreditCard} color="bg-orange-500" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
+            <ServiceLine label="الفنادق" icon={Hotel} color="bg-purple-500" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
+            <ServiceLine label="الكروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
+          </div>
+          
+          <Separator />
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Controller control={form.control} name="hasPartners" render={({ field }) => (<div className="flex items-center gap-2"><Switch checked={field.value} onCheckedChange={field.onChange} /><Label>تفعيل وجود شركاء</Label></div>)}/>
-                </div>
+          <Collapsible defaultOpen={false}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Controller
+                  control={form.control}
+                  name="hasPartners"
+                  render={({ field }) => (
+                    <div className="flex items-center gap-2">
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Label>تفعيل وجود شركاء</Label>
+                    </div>
+                  )}
+                />
               </div>
+              <CollapsibleTrigger asChild>
+                <Button type="button" variant="ghost" size="sm" className="gap-1">
+                  إدارة الشركاء
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </CollapsibleTrigger>
+            </div>
 
-              {form.getValues('hasPartners') && (
-                <div className="space-y-3">
-                  <div className="grid md:grid-cols-3 gap-3">
-                    <Controller control={form.control} name="alrawdatainSharePct" render={({ field }) => (<div className="space-y-1"><Label>حصة الروضتين (%)</Label><NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} /><p className="text-xs text-muted-foreground">إذا لا يوجد شركاء، اجعلها 100%.</p></div>)}/>
-                    <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={handleAddPartner}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
-                  </div>
-                  {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Select value={field.value} onValueChange={(v) => { field.onChange(v); const rel = relationOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}}><SelectTrigger><SelectValue placeholder="اختر شريكاً" /></SelectTrigger><SelectContent>{relationOptions.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}</SelectContent></Select>)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
-                </div>
-              )}
+            <CollapsibleContent className="pt-3 space-y-3">
+              <div className="grid md:grid-cols-3 gap-3">
+                <Controller control={form.control} name="alrawdatainSharePct" render={({ field }) => (<div className="space-y-1"><Label>حصة الروضتين (%)</Label><NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} /><p className="text-xs text-muted-foreground">إذا لا يوجد شركاء، اجعلها 100%.</p></div>)}/>
+                <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={handleAddPartner}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
+              </div>
+              {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Select value={field.value} onValueChange={(v) => { field.onChange(v); const rel = relationOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}}><SelectTrigger><SelectValue placeholder="اختر شريكاً" /></SelectTrigger><SelectContent>{relationOptions.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}</SelectContent></Select>)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
             </CollapsibleContent>
           </Collapsible>
           
+          <div className="grid md:grid-cols-2 gap-3">
+            <Card className="bg-muted/40 border-none">
+              <CardHeader className="py-2"><CardTitle className="text-sm">تفصيل الخدمات</CardTitle></CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                <div className="flex justify-between"><span>التذاكر</span><span className="font-mono">{totals.perService.totalTickets.toFixed(2)} {currencySymbol}</span></div>
+                <div className="flex justify-between"><span>الفيزا</span><span className="font-mono">{totals.perService.totalVisas.toFixed(2)} {currencySymbol}</span></div>
+                <div className="flex justify-between"><span>الفنادق</span><span className="font-mono">{totals.perService.totalHotels.toFixed(2)} {currencySymbol}</span></div>
+                <div className="flex justify-between"><span>الكروبات</span><span className="font-mono">{totals.perService.totalGroups.toFixed(2)} {currencySymbol}</span></div>
+                <Separator className="my-1" />
+                <div className="flex justify-between font-semibold"><span>الإجمالي</span><span className="font-mono">{totals.gross.toFixed(2)} {currencySymbol}</span></div>
+                <div className="flex justify-between"><span>الخصم</span><span className="font-mono">{totals.discountAmt.toFixed(2)} {currencySymbol}</span></div>
+                <div className="flex justify-between font-semibold"><span>الصافي</span><span className="font-mono">{totals.net.toFixed(2)} {currencySymbol}</span></div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-muted/40 border-none">
+              <CardHeader className="py-2"><CardTitle className="text-sm">توزيع الأرباح</CardTitle></CardHeader>
+              <CardContent className="space-y-1 text-sm">
+                <div className="flex justify-between"><span>حصة الروضتين</span><span className="font-mono">{totals.rodatainShare.toFixed(2)} {currencySymbol}</span></div>
+                <div className="flex justify-between"><span>المتاح للشركاء</span><span className="font-mono">{totals.partnerPool.toFixed(2)} {currencySymbol}</span></div>
+                {totals.partnerBreakdown.length > 0 && (
+                  <>
+                    <Separator className="my-1" />
+                    {totals.partnerBreakdown.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between">
+                        <span className="truncate">{p.relationName || `شريك #${i+1}`}</span>
+                        <Badge variant="secondary" className="font-mono">{p.share.toFixed(2)} {currencySymbol}</Badge>
+                      </div>
+                    ))}
+                    <div className="flex justify-between font-semibold"><span>مجموع الشركاء</span><span className="font-mono">{totals.partnersTotal.toFixed(2)} {currencySymbol}</span></div>
+                    {totals.remainder > 0 && (
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>المتبقي غير موزّع</span><span className="font-mono">{totals.remainder.toFixed(2)} {currencySymbol}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
           <div className="flex justify-end">
             <Button type="button" onClick={form.handleSubmit(onAdd)} className="mt-1">
               <PlusCircle className="me-2 h-4 w-4" />
@@ -448,11 +502,13 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
   const { user } = useAuth() || {};
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [step, setStep] = useState(1);
+  const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
+  const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
   
   const periodForm = useForm<PeriodFormValues>({
     resolver: zodResolver(periodSchema),
     defaultValues: {
-      periodNote: "",
       currency: (navData?.settings?.currencySettings?.defaultCurrency || "USD"),
       entries: [],
     },
@@ -469,31 +525,31 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
     append(entry);
     toast({ title: "تمت إضافة الشركة إلى الفترة." });
   };
-
+  
   const removeEntry = (index: number) => {
     remove(index);
   }
 
+  const goToNextStep = async () => {
+    const isValid = await periodForm.trigger();
+    if (isValid) {
+        setStep(2);
+    }
+  };
+
   const handleSave = async () => {
-    const v = await periodForm.trigger();
-    if (!v) { toast({ title: "أكمل ملاحظة الفترة والعملة.", variant: "destructive" }); return; }
-    if (fields.length === 0) { toast({ title: "لا توجد سجلات ضمن هذه الفترة.", variant: "destructive" }); return; }
-
+    const periodData = getValues();
+    if (fields.length === 0) {
+      toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
+      return;
+    }
     setIsSaving(true);
-    const values = getValues();
-    const userId = user?.uid || null;
-    const fundBoxId = (navData?.boxes || []).find((b: any) => b.ownerId === userId)?.id || (navData?.boxes?.[0]?.id) || null;
-
-    if (!fundBoxId) { toast({ title: "خطأ", description: "لم يتم تحديد صندوق للمستخدم الحالي.", variant: "destructive" }); setIsSaving(false); return; }
-
-    const payload = fields.map((f: any) => ({
+    
+    const finalEntries = fields.map((f: any) => ({
       ...f,
-      fromDate: values.fromDate.toISOString(),
-      toDate: values.toDate.toISOString(),
-      currency: values.currency,
-      userId,
-      fundBoxId,
-      createdAt: new Date().toISOString(),
+      fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
+      toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
+      currency: periodData.currency,
       alrawdatainShare: f.computed?.rodatainShare,
       partnerShare: f.computed?.partnersTotal,
       total: f.computed?.net,
@@ -503,10 +559,10 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
     }));
     
     try {
-      const res = await addSegmentEntries(payload as any);
+      const res = await addSegmentEntries(finalEntries as any);
       if (!res?.success) throw new Error(res?.error || "فشل الحفظ");
       toast({ title: "تم حفظ بيانات الفترة بنجاح" });
-      reset({ periodNote: values.periodNote, currency: values.currency, entries: [] });
+      reset({ currency: periodData.currency, entries: [] });
       await onSuccess();
       setOpen(false);
     } catch (e: any) {
@@ -522,100 +578,91 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
         <Button><PlusCircle className="me-2 h-4 w-4" /> إضافة سجل جديد</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-6xl max-h-[90vh] flex flex-col">
-        <DialogHeader><DialogTitle>إضافة سجل سكمنت جديد</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>إضافة سجل سكمنت جديد</DialogTitle>
+          <DialogDescription>
+             {step === 1 
+                ? "الخطوة 1 من 2: حدد الفترة المحاسبية للسجل."
+                : "الخطوة 2 من 2: أضف بيانات الشركات لهذه الفترة."}
+          </DialogDescription>
+        </DialogHeader>
 
         <FormProvider {...periodForm}>
           <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-4">
-            <Card className="border rounded-lg">
-              <CardContent className="grid md:grid-cols-3 gap-3 py-4">
-                <Controller
-                  control={control}
-                  name="periodNote"
-                  render={({ field }) => (
-                    <div className="space-y-1">
-                      <Label>ملاحظة الفترة</Label>
-                      <Input placeholder="مثال: من 1 إلى 5 بالشهر" {...field} />
-                    </div>
-                  )}
-                />
-                <Controller
-                  control={control}
-                  name="currency"
-                  render={({ field }) => (
-                    <div className="space-y-1">
-                      <Label>العملة</Label>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {currencyList.map((c) => (
-                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                />
-                <div className="space-y-1">
-                  <Label>معلومات</Label>
-                  <div className="h-9 px-3 rounded-md border bg-muted/40 flex items-center text-xs text-muted-foreground">
-                    العملة المختارة تنطبق على كل الإدخالات أدناه.
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <AddCompanyToSegmentForm onAddEntry={addEntry} />
+            {step === 1 && (
+              <div className="p-4 border rounded-lg bg-background/50">
+                <Form {...periodForm}>
+                  <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                    <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
+                      <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                    )}/>
+                    <FormField control={periodForm.control} name="toDate" render={({ field }) => (
+                      <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                    )}/>
+                    <FormField control={periodForm.control} name="currency" render={({ field }) => (
+                      <FormItem><FormLabel>العملة</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{currencyList.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}</SelectContent></Select></FormItem>
+                    )}/>
+                  </form>
+                </Form>
+              </div>
+            )}
             
-            <Card className="border rounded-lg">
-              <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
-              <CardContent className="pt-0">
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>الشركة</TableHead>
-                        <TableHead>الإجمالي</TableHead>
-                        <TableHead>الخصم</TableHead>
-                        <TableHead>الصافي</TableHead>
-                        <TableHead>حصة الروضتين</TableHead>
-                        <TableHead>الشركاء</TableHead>
-                        <TableHead className="w-[60px] text-center">حذف</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {fields.length === 0 ? (
-                        <TableRow><TableCell colSpan={7} className="text-center h-20">لا توجد شركات مضافة</TableCell></TableRow>
-                      ) : fields.map((f: any, i: number) => {
-                        const sym = useCurrencySymbol(getValues("currency"));
-                        return (
-                          <TableRow key={f.id}>
-                            <TableCell className="font-medium">{f.clientName || f.clientId}</TableCell>
-                            <TableCell className="font-mono">{f.computed?.gross?.toFixed(2)} {sym}</TableCell>
-                            <TableCell className="font-mono">{f.computed?.discountAmt?.toFixed(2)} {sym}</TableCell>
-                            <TableCell className="font-mono">{f.computed?.net?.toFixed(2)} {sym}</TableCell>
-                            <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {sym}</TableCell>
-                            <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {sym}</TableCell>
-                            <TableCell className="text-center">
-                              <Button variant="ghost" size="icon" onClick={() => remove(i)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+            {step === 2 && (
+              <>
+                <AddCompanyToSegmentForm onAddEntry={addEntry} />
+                <Card className="border rounded-lg">
+                  <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader><TableRow><TableHead>الشركة</TableHead><TableHead>الإجمالي</TableHead><TableHead>الخصم</TableHead><TableHead>الصافي</TableHead><TableHead>حصة الروضتين</TableHead><TableHead>الشركاء</TableHead><TableHead className="w-[60px] text-center">حذف</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {fields.length === 0 ? (
+                            <TableRow><TableCell colSpan={7} className="text-center h-20">لا توجد شركات مضافة</TableCell></TableRow>
+                          ) : fields.map((f: any, i: number) => {
+                            const sym = useCurrencySymbol(getValues("currency"));
+                            return (
+                              <TableRow key={f.id}>
+                                <TableCell className="font-medium">{f.clientName || f.clientId}</TableCell>
+                                <TableCell className="font-mono">{f.computed?.gross?.toFixed(2)} {sym}</TableCell>
+                                <TableCell className="font-mono">{f.computed?.discountAmt?.toFixed(2)} {sym}</TableCell>
+                                <TableCell className="font-mono">{f.computed?.net?.toFixed(2)} {sym}</TableCell>
+                                <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {sym}</TableCell>
+                                <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {sym}</TableCell>
+                                <TableCell className="text-center">
+                                  <Button variant="ghost" size="icon" onClick={() => remove(i)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
         </FormProvider>
 
-        <DialogFooter>
-          <Button type="button" onClick={handleSave} disabled={isSaving}>
-            <Save className="me-2 h-4 w-4" />
-            حفظ الفترة
-          </Button>
+        <DialogFooter className="pt-4 border-t flex-shrink-0">
+          {step === 1 && (
+            <div className="flex justify-between w-full">
+              <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+              <Button type="button" onClick={goToNextStep}>التالي <ArrowLeft className="me-2 h-4 w-4" /></Button>
+            </div>
+          )}
+          {step === 2 && (
+            <div className="flex justify-between w-full">
+              <Button variant="outline" onClick={() => setStep(1)}><ArrowRight className="me-2 h-4 w-4" /> رجوع</Button>
+              <Button type="button" onClick={handleSave} disabled={isSaving || fields.length === 0}>
+                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                حفظ الفترة ({fields.length} سجلات)
+              </Button>
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
