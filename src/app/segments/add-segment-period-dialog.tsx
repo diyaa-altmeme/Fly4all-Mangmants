@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
@@ -46,7 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { useForm, FormProvider, useFormContext, useFieldArray, FieldPath, FieldValues, useWatch, Controller } from 'react-hook-form';
+import { useForm, FormProvider, useFormContext, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -83,20 +82,15 @@ const companyEntrySchema = z.object({
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(100),
   partners: z.array(partnerSchema).default([]),
   notes: z.string().optional(),
-}).refine(data => {
-    if (!data.hasPartner) return true;
-    const totals = computeTotals(data);
-    return totals.partnersTotal <= totals.partnerPool + 0.01;
-}, {
-    message: "إجمالي حصص الشركاء يتجاوز المبلغ المتاح لهم.",
-    path: ["partners"],
 });
 
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
   currency: z.string().min(1, "اختر العملة."),
-  entries: z.array(companyEntrySchema).default([]),
+  entries: z.array(companyEntrySchema.extend({
+      computed: z.any()
+  })).default([]),
 });
 
 
@@ -285,7 +279,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
       form.setValue("visaProfitValue", client.segmentSettings.visaProfitValue);
       form.setValue("hotelProfitType", client.segmentSettings.hotelProfitType);
       form.setValue("hotelProfitValue", client.segmentSettings.hotelProfitValue);
-      form.setValue("groupProfitType", client.segmentSettings.groupProfitType);
+      form.setValue("groupProfitType", client.segmentSettings.groupProfitValue);
       form.setValue("groupProfitValue", client.segmentSettings.groupProfitValue);
       form.setValue("alrawdatainSharePercentage", client.segmentSettings.alrawdatainSharePercentage);
     }
@@ -476,7 +470,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const addEntry = (entry: any) => {
         append(entry);
         toast({ title: "تمت إضافة الشركة إلى الفترة." });
-        companyFormRef.current?.resetForm();
     };
     
     const removeEntry = (index: number) => {
