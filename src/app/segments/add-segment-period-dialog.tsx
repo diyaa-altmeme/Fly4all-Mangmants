@@ -37,7 +37,7 @@ import { useAuth } from "@/lib/auth-context";
 
 import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil } from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar";
-import { format, parseISO } from "date-fns";
+import { format, parseISO } from 'date-fns';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {
   AlertDialog,
@@ -129,7 +129,7 @@ function computeTotals(d: CompanyEntryFormValues) {
 
   const gross = totalTickets + totalVisas + totalHotels + totalGroups;
 
-  const net = gross; // Discount is removed for now
+  const net = gross;
 
   const rodatainShare = (net * (d.hasPartners ? d.alrawdatainSharePercentage : 100)) / 100;
   const partnerPool   = Math.max(0, net - rodatainShare);
@@ -155,7 +155,7 @@ function computeTotals(d: CompanyEntryFormValues) {
   return {
     perService: { totalTickets, totalVisas, totalHotels, totalGroups },
     gross,
-    discountAmt: 0, // Discount removed
+    discountAmt: 0,
     net,
     rodatainShare,
     partnerPool,
@@ -367,6 +367,14 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
 
           <Collapsible open={form.getValues('hasPartners')}>
              <CollapsibleContent className="pt-3 space-y-3">
+                <div className="p-4 border rounded-lg bg-muted/30">
+                    <h4 className="font-semibold mb-3">تفاصيل توزيع الأرباح</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <StatCard title="إجمالي الربح الصافي" value={totals.net} currency="USD" />
+                        <StatCard title="حصة الروضتين" value={totals.rodatainShare} currency="USD" />
+                        <StatCard title="متاح للشركاء" value={totals.partnerPool} currency="USD" />
+                    </div>
+                </div>
                 <div className="grid md:grid-cols-3 gap-3">
                     <Controller
                     control={form.control}
@@ -381,7 +389,18 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                     />
                     <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={() => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 } as any)}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
                 </div>
-                {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Autocomplete options={partnerOptions} value={field.value} onValueChange={(v) => { field.onChange(v); const rel = partnerOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}} placeholder="اختر شريكاً" />)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
+                {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => {
+                    const partnerShare = totals.partnerBreakdown.find(p => p.id === pf.id)?.share || 0;
+                    return (
+                        <div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2">
+                            <div className="col-span-4"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Autocomplete options={partnerOptions} value={field.value} onValueChange={(v) => { field.onChange(v); const rel = partnerOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}} placeholder="اختر شريكاً" />)}/></div>
+                            <div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div>
+                            <div className="col-span-2"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div>
+                            <div className="col-span-3 text-center"><Label>الحصة المستلمة</Label><div className="font-bold text-blue-600 font-mono p-2 bg-blue-50 rounded-md">{partnerShare.toFixed(2)} USD</div></div>
+                            <div className="col-span-1 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
+                        </div>
+                    )
+                })}</div>}
             </CollapsibleContent>
           </Collapsible>
           
