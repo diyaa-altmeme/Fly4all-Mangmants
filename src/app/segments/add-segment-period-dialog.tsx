@@ -291,11 +291,11 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     if (client?.segmentSettings) {
       form.setValue("ticketProfitType", client.segmentSettings.ticketProfitType);
       form.setValue("ticketProfitValue", client.segmentSettings.ticketProfitValue);
-      form.setValue("visaProfitType", client.segmentSettings.visaProfitValue);
+      form.setValue("visaProfitType", client.segmentSettings.visaProfitType);
       form.setValue("visaProfitValue", client.segmentSettings.visaProfitValue);
       form.setValue("hotelProfitType", client.segmentSettings.hotelProfitType);
       form.setValue("hotelProfitValue", client.segmentSettings.hotelProfitValue);
-      form.setValue("groupProfitType", client.segmentSettings.groupProfitValue);
+      form.setValue("groupProfitType", client.segmentSettings.groupProfitType);
       form.setValue("groupProfitValue", client.segmentSettings.groupProfitValue);
       form.setValue("alrawdatainSharePercentage", client.segmentSettings.alrawdatainSharePercentage);
     }
@@ -438,7 +438,7 @@ interface AddSegmentPeriodDialogProps {
 export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDialogProps) {
   const { toast } = useToast();
   const { data: navData } = useVoucherNav();
-  const { user } = useAuth() || {};
+  const { user: currentUser } = useAuth() || {};
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [step, setStep] = useState(1);
@@ -534,9 +534,9 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
     const currencySymbol = navDataContext?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
 
     const boxName = useMemo(() => {
-      if (!user || !('boxId' in user)) return 'غير محدد';
-      return navData?.boxes?.find(b => b.id === user.boxId)?.name || 'غير محدد';
-    }, [user, navData?.boxes]);
+      if (!currentUser || !('boxId' in currentUser)) return 'غير محدد';
+      return navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد';
+    }, [currentUser, navData?.boxes]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -655,5 +655,3 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
         </p>
     </div>
 );
-
-    
