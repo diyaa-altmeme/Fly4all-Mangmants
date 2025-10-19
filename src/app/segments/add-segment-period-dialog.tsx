@@ -1,21 +1,17 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from "react";
-import { useForm, FormProvider, useFormContext, Controller, useFieldArray, FieldPath, FieldValues, useWatch } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { v4 as uuidv4 } from "uuid";
-
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -49,6 +45,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useForm, FormProvider, useFormContext, useFieldArray, FieldPath, FieldValues, useWatch } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 // ---------- Schemas ----------
 
@@ -127,41 +126,32 @@ function computeTotals(d: CompanyEntryFormValues) {
   const totalHotels  = computeService(d.hotels,  hType, hVal);
   const totalGroups  = computeService(d.groups,  gType, gVal);
 
-  const gross = totalTickets + totalVisas + totalHotels + totalGroups;
-
-  const net = gross;
-
+  const net = totalTickets + totalVisas + totalHotels + totalGroups;
   const rodatainShare = (net * (d.hasPartners ? d.alrawdatainSharePercentage : 100)) / 100;
   const partnerPool   = Math.max(0, net - rodatainShare);
 
-  let percentSum = 0, fixedSum = 0;
-  (d.partners || []).forEach(p => {
-    if (p.type === "percentage") percentSum += p.value;
-    else fixedSum += p.value;
+  let remainingForDistribution = partnerPool;
+  const partnerBreakdown = (d.partners || []).map(p => {
+      let share = 0;
+      if (p.type === "percentage") {
+          share = partnerPool * (p.value / 100);
+      } else { // fixed
+          share = Math.min(p.value, remainingForDistribution);
+      }
+      remainingForDistribution -= share;
+      return { ...p, share };
   });
 
-  const percentAllocation = partnerPool * Math.min(1, percentSum / 100);
-  const fixedAllocation   = Math.min(Math.max(0, partnerPool - percentAllocation), fixedSum);
-  const fixedScale        = fixedSum > 0 ? (fixedAllocation / fixedSum) : 0;
-
-  const partnerBreakdown = (d.partners || []).map(p => ({
-    ...p,
-    share: p.type === "percentage" ? partnerPool * (p.value / 100) : p.value * fixedScale
-  }));
-
   const partnersTotal = partnerBreakdown.reduce((s, p) => s + p.share, 0);
-  const remainder = Math.max(0, partnerPool - partnersTotal);
 
   return {
     perService: { totalTickets, totalVisas, totalHotels, totalGroups },
-    gross,
-    discountAmt: 0,
     net,
     rodatainShare,
     partnerPool,
     partnerBreakdown,
     partnersTotal,
-    remainder,
+    remainder: partnerPool - partnersTotal,
   };
 }
 
@@ -257,7 +247,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   ref
 ) {
   const { data: navData } = useVoucherNav();
-  const { user } = useAuth() || {};
   
   const companyOptions = useMemo(() => 
     (navData?.clients || []).filter(c => c.type === 'company').map((c: any) => ({ value: c.id, label: c.name, settings: c.segmentSettings })),
@@ -299,7 +288,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
       form.setValue("groupProfitValue", client.segmentSettings.groupProfitValue);
       form.setValue("alrawdatainSharePercentage", client.segmentSettings.alrawdatainSharePercentage);
     }
-  }, [currentClientId, form, user?.uid, navData?.clients]);
+  }, [currentClientId, form, navData?.clients]);
 
   const { fields: partnerFields, append: appendPartner, remove: removePartner } = useFieldArray({
     control: form.control,
@@ -310,8 +299,8 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
         const computed = computeTotals(data);
 
         onAddEntry({
-        ...data,
-        computed,
+          ...data,
+          computed,
         });
 
         form.reset({
@@ -369,10 +358,11 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
              <CollapsibleContent className="pt-3 space-y-3">
                 <div className="p-4 border rounded-lg bg-muted/30">
                     <h4 className="font-semibold mb-3">تفاصيل توزيع الأرباح</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <StatCard title="إجمالي الربح الصافي" value={totals.net} currency="USD" />
                         <StatCard title="حصة الروضتين" value={totals.rodatainShare} currency="USD" />
                         <StatCard title="متاح للشركاء" value={totals.partnerPool} currency="USD" />
+                        <StatCard title="المتبقي للتوزيع" value={totals.remainder} currency="USD" className="border-blue-500 bg-blue-50 dark:bg-blue-950/50" />
                     </div>
                 </div>
                 <div className="grid md:grid-cols-3 gap-3">
@@ -438,7 +428,7 @@ interface AddSegmentPeriodDialogProps {
 export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDialogProps) {
   const { toast } = useToast();
   const { data: navData } = useVoucherNav();
-  const { user: currentUser } = useAuth() || {};
+  const { user: currentUser } = useAuth();
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [step, setStep] = useState(1);
@@ -569,7 +559,7 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
                       <FormItem>
                         <FormLabel>العملة</FormLabel>
                         <Select value={field.value} onValueChange={field.onChange}>
-                          <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                          <FormControl><SelectTrigger><SelectValue placeholder="اختر العملة..." /></SelectTrigger></FormControl>
                           <SelectContent>
                             {currencyList.map((c) => (
                               <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
@@ -656,3 +646,4 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
     </div>
 );
 
+    
