@@ -17,7 +17,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -435,10 +435,10 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
   const { data: navData } = useVoucherNav();
   const { user } = useAuth() || {};
   const [open, setOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSaving, setIsSaving = useState(false);
   const [step, setStep] = useState(1);
-  const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
-  const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
+  const [isFromCalendarOpen, setIsFromCalendarOpen = useState(false);
+  const [isToCalendarOpen, setIsToCalendarOpen = useState(false);
   const companyFormRef = React.useRef<{ resetForm: () => void }>(null);
   
   const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
