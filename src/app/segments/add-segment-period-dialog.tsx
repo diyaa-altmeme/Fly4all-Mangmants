@@ -17,7 +17,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -35,7 +35,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import { useAuth } from "@/lib/auth-context";
 
-import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X } from 'lucide-react';
+import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil } from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -58,6 +58,7 @@ const partnerSchema = z.object({
   relationName: z.string().min(1),
   type: z.enum(["percentage", "fixed"]).default("percentage"),
   value: z.coerce.number().min(0),
+  notes: z.string().optional(),
 });
 
 const companyEntrySchema = z.object({
@@ -77,9 +78,9 @@ const companyEntrySchema = z.object({
   hotelProfitValue: z.coerce.number().min(0).default(1),
   groupProfitType: z.enum(["fixed", "percentage"]).default("fixed"),
   groupProfitValue: z.coerce.number().min(0).default(1),
-
+  
   hasPartners: z.boolean().default(false),
-  alrawdatainSharePct: z.coerce.number().min(0).max(100).default(100),
+  alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(100),
   partners: z.array(partnerSchema).default([]),
   notes: z.string().optional(),
 }).refine(data => {
@@ -130,7 +131,7 @@ function computeTotals(d: CompanyEntryFormValues) {
 
   const net = gross; // Discount is removed for now
 
-  const rodatainShare = (net * (d.hasPartners ? d.alrawdatainSharePct : 100)) / 100;
+  const rodatainShare = (net * (d.hasPartners ? d.alrawdatainSharePercentage : 100)) / 100;
   const partnerPool   = Math.max(0, net - rodatainShare);
 
   let percentSum = 0, fixedSum = 0;
@@ -218,8 +219,8 @@ const ServiceLine = React.forwardRef(function ServiceLine({
             </div>
           )}
         />
-         <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
+        <div className="grid grid-cols-2 gap-2">
+           <div className="space-y-1">
             <Label className="text-xs">النوع</Label>
             <Controller
               control={control}
@@ -272,9 +273,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     (navData?.clients || []).filter(c => c.type === 'company').map((c: any) => ({ value: c.id, label: c.name, settings: c.segmentSettings })),
     [navData?.clients]
   );
-  const partnerOptions = useMemo(() => allRelations.map(p => ({ value: p.id, label: p.name })), [allRelations]);
-
-
+  
   const form = useForm<CompanyEntryFormValues>({
     resolver: zodResolver(companyEntrySchema),
     defaultValues: {
@@ -285,7 +284,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
       hotelProfitType: "fixed", hotelProfitValue: 1,
       groupProfitType: "fixed", groupProfitValue: 1,
       hasPartners: false,
-      alrawdatainSharePct: 100,
+      alrawdatainSharePercentage: 100,
       partners: [],
     },
   });
@@ -308,7 +307,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
       form.setValue("hotelProfitValue", client.segmentSettings.hotelProfitValue);
       form.setValue("groupProfitType", client.segmentSettings.groupProfitType);
       form.setValue("groupProfitValue", client.segmentSettings.groupProfitValue);
-      form.setValue("alrawdatainSharePct", client.segmentSettings.alrawdatainSharePercentage);
+      form.setValue("alrawdatainSharePercentage", client.segmentSettings.alrawdatainSharePercentage);
     }
   }, [currentClientId, form, user?.uid, navData?.clients]);
 
@@ -317,7 +316,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     name: "partners",
   });
   
-    const handleAddPartner = () => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 });
+    const handleAddPartner = () => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0, notes: '' });
     const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
 
     const onAdd = (data: CompanyEntryFormValues) => {
@@ -334,7 +333,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
         tickets: 0, visas: 0, hotels: 0, groups: 0,
         partners: [],
         hasPartners: false,
-        alrawdatainSharePct: 100,
+        alrawdatainSharePercentage: 100,
         notes: '',
         });
     };
@@ -385,7 +384,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                 <div className="grid md:grid-cols-3 gap-3">
                     <Controller
                     control={form.control}
-                    name="alrawdatainSharePct"
+                    name="alrawdatainSharePercentage"
                     render={({ field }) => (
                         <div className="space-y-1">
                         <Label>حصة الروضتين (%)</Label>
@@ -435,10 +434,10 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
   const { data: navData } = useVoucherNav();
   const { user } = useAuth() || {};
   const [open, setOpen] = useState(false);
-  const [isSaving, setIsSaving = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [step, setStep] = useState(1);
-  const [isFromCalendarOpen, setIsFromCalendarOpen = useState(false);
-  const [isToCalendarOpen, setIsToCalendarOpen = useState(false);
+  const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
+  const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
   const companyFormRef = React.useRef<{ resetForm: () => void }>(null);
   
   const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
@@ -631,5 +630,3 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
         </p>
     </div>
 );
-
-    
