@@ -31,7 +31,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import { useAuth } from "@/lib/auth-context";
 
-import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil, AlertCircle } from 'lucide-react';
+import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil, AlertCircle, HandCoins } from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from 'date-fns';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -57,7 +57,7 @@ const partnerSchema = z.object({
   relationId: z.string().min(1, "اختر شريكاً من قائمة العلاقات."),
   relationName: z.string().min(1),
   type: z.enum(["percentage", "fixed"]).default("percentage"),
-  value: z.coerce.number().min(0),
+  value: z.coerce.number().min(0, "القيمة يجب أن تكون موجبة."),
   notes: z.string().optional(),
 });
 
@@ -126,7 +126,6 @@ function computeTotals(d: CompanyEntryFormValues) {
   const rodatainShare = (net * (d.hasPartner ? d.alrawdatainSharePercentage : 100)) / 100;
   const partnerPool   = Math.max(0, net - rodatainShare);
 
-  let remainingForDistribution = partnerPool;
   const partnerBreakdown = (d.partners || []).map(p => {
       let share = 0;
       if (p.type === "percentage") {
@@ -314,70 +313,92 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
 
   return (
     <FormProvider {...form}>
-      <Card className="border rounded-lg">
-        <CardHeader className="py-3">
-          <CardTitle className="text-base">الشركة والخدمات</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 pt-0">
-          <div className="grid md:grid-cols-2 gap-3">
-            <Controller
-              control={form.control}
-              name="clientId"
-              render={({ field }) => (
-                <div className="space-y-1">
-                  <Label>الشركة المصدّرة للسكمنت</Label>
-                  <Autocomplete
-                    options={companyOptions}
-                    value={field.value}
-                    onValueChange={(v) => {
-                      field.onChange(v);
-                      const found = companyOptions.find((o) => o.value === v);
-                      form.setValue("clientName", found?.label || "");
-                    }}
-                    placeholder="ابحث/اختر شركة..."
-                  />
+        <Card className="border rounded-lg">
+            <CardHeader className="py-3">
+                <CardTitle className="text-base">الشركة والخدمات</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-0">
+                <div className="grid md:grid-cols-2 gap-3">
+                    <Controller
+                        control={form.control}
+                        name="clientId"
+                        render={({ field }) => (
+                            <div className="space-y-1">
+                                <Label>الشركة المصدّرة للسكمنت</Label>
+                                <Autocomplete
+                                    options={companyOptions}
+                                    value={field.value}
+                                    onValueChange={(v) => {
+                                        field.onChange(v);
+                                        const found = companyOptions.find((o) => o.value === v);
+                                        form.setValue("clientName", found?.label || "");
+                                    }}
+                                    placeholder="ابحث/اختر شركة..."
+                                />
+                            </div>
+                        )}
+                    />
+                    <div className="space-y-1">
+                        <Label>ملاحظة (اختياري)</Label>
+                        <Input placeholder="وصف مختصر لهذا الإدخال" {...form.register('notes')} />
+                    </div>
                 </div>
-              )}
-            />
-            <div className="space-y-1">
-              <Label>ملاحظة (اختياري)</Label>
-              <Input placeholder="وصف مختصر لهذا الإدخال" {...form.register('notes')} />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <ServiceLine label="التذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
-            <ServiceLine label="الفيزا" icon={CreditCard} color="bg-orange-500" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
-            <ServiceLine label="الفنادق" icon={Hotel} color="bg-purple-500" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
-            <ServiceLine label="الكروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <Controller
-              control={form.control}
-              name="hasPartner"
-              render={({ field }) => (
-                <div className="flex items-center gap-2">
-                  <Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-switch" />
-                  <Label htmlFor="has-partners-switch" className="font-semibold">توزيع الأرباح على الشركاء</Label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <ServiceLine label="التذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
+                    <ServiceLine label="الفيزا" icon={CreditCard} color="bg-orange-500" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
+                    <ServiceLine label="الفنادق" icon={Hotel} color="bg-purple-500" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
+                    <ServiceLine label="الكروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
                 </div>
-              )}
-            />
-          </div>
-          
-          <Collapsible open={form.watch('hasPartner')}>
-            <CollapsibleContent className="pt-3 space-y-3">
-              {/* ... partner fields ... */}
-            </CollapsibleContent>
-          </Collapsible>
-        </CardContent>
-         <CardFooter className="p-3 border-t">
-          <Button type="button" onClick={form.handleSubmit(onAdd)} className="w-full">
-            <PlusCircle className="me-2 h-4 w-4" />
-            إضافة للفترة
-          </Button>
-        </CardFooter>
-      </Card>
+
+                <div className="flex items-center justify-between">
+                    <Controller
+                        control={form.control}
+                        name="hasPartner"
+                        render={({ field }) => (
+                            <div className="flex items-center gap-2">
+                                <Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-switch" />
+                                <Label htmlFor="has-partners-switch" className="font-semibold">توزيع الأرباح على الشركاء</Label>
+                            </div>
+                        )}
+                    />
+                </div>
+                
+                <Collapsible open={form.watch('hasPartner')}>
+                    <CollapsibleContent className="pt-3 space-y-3">
+                        {/* Partner fields and logic will be added here */}
+                         <div className="p-4 border rounded-lg bg-background/50">
+                            <h3 className="font-semibold text-base mb-2">توزيع الأرباح</h3>
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-md text-center">
+                                    <p className="text-xs font-semibold text-muted-foreground">صافي الربح</p>
+                                    <p className="font-bold text-blue-600 font-mono">{totals.net.toFixed(2)}</p>
+                                </div>
+                                <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-md text-center">
+                                    <p className="text-xs font-semibold text-muted-foreground">حصة الروضتين</p>
+                                    <p className="font-bold text-green-600 font-mono">{totals.rodatainShare.toFixed(2)}</p>
+                                </div>
+                                <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-md text-center">
+                                    <p className="text-xs font-semibold text-muted-foreground">المتاح للشركاء</p>
+                                    <p className="font-bold text-purple-600 font-mono">{totals.partnerPool.toFixed(2)}</p>
+                                </div>
+                                 <div className="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-md text-center">
+                                    <p className="text-xs font-semibold text-muted-foreground">المتبقي للتوزيع</p>
+                                    <p className={cn("font-bold font-mono", Math.abs(totals.remainder) > 0.01 ? "text-destructive" : "text-orange-600")}>{totals.remainder.toFixed(2)}</p>
+                                </div>
+                            </div>
+                            {/* Form to add a new partner */}
+                        </div>
+                    </CollapsibleContent>
+                </Collapsible>
+            </CardContent>
+            <CardFooter className="p-3 border-t">
+                <Button type="button" onClick={form.handleSubmit(onAdd)} className="w-full">
+                    <PlusCircle className="me-2 h-4 w-4" />
+                    إضافة للفترة
+                </Button>
+            </CardFooter>
+        </Card>
     </FormProvider>
   );
 });
@@ -466,7 +487,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
             currency: periodData.currency,
             alrawdatainShare: entry.computed.rodatainShare,
-            partnerShare: entry.computed.partnersTotal,
+            partnerShare: entry.computed.partnersTotal, // This is the total for all partners
             total: entry.computed.net,
             ticketProfits: entry.computed.perService.totalTickets,
             otherProfits: entry.computed.perService.totalVisas + entry.computed.perService.totalHotels + entry.computed.perService.totalGroups,
@@ -573,9 +594,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         </div>
                                     </CardContent>
                                     <CardFooter className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                            <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency={currencySymbol} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
-                                            <StatCard title="إجمالي حصة الروضتين" value={grandTotalAlrawdatainShare} currency={currencySymbol} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
-                                            <StatCard title="إجمالي حصص الشركاء" value={grandTotalPartnerShare} currency={currencySymbol} className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
+                                        <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency={currencySymbol} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                                        <StatCard title="إجمالي حصة الروضتين" value={grandTotalAlrawdatainShare} currency={currencySymbol} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
+                                        <StatCard title="إجمالي حصص الشركاء" value={grandTotalPartnerShare} currency={currencySymbol} className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
                                     </CardFooter>
                                 </Card>
                             </>
@@ -608,7 +629,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     );
 }
 
-const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
+const StatCard = ({ title, value, currency, className }: { title: string; value: number; currency: string; className?: string; }) => (
     <div className={cn("text-center p-3 rounded-lg bg-background border", className)}>
         <p className="text-sm text-muted-foreground font-bold">{title}</p>
         <p className="font-bold font-mono text-xl">
