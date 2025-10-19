@@ -311,6 +311,33 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     });
   };
 
+  const [currentPartnerId, setCurrentPartnerId] = useState('');
+  const [currentPartnerType, setCurrentPartnerType] = useState<'percentage' | 'fixed'>('percentage');
+  const [currentPartnerValue, setCurrentPartnerValue] = useState<number | string>('');
+
+  const onAddPartner = () => {
+    if (!currentPartnerId || !currentPartnerValue) {
+        toast({ title: "الرجاء تحديد الشريك والقيمة", variant: 'destructive' });
+        return;
+    }
+    const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
+    if (!selectedPartner) {
+        toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
+        return;
+    }
+    appendPartner({
+        id: uuidv4(),
+        relationId: selectedPartner.value,
+        relationName: selectedPartner.label,
+        type: currentPartnerType,
+        value: Number(currentPartnerValue),
+        notes: '',
+    });
+    setCurrentPartnerId('');
+    setCurrentPartnerType('percentage');
+    setCurrentPartnerValue('');
+  };
+
   return (
     <FormProvider {...form}>
         <Card className="border rounded-lg">
@@ -366,34 +393,50 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                 
                 <Collapsible open={form.watch('hasPartner')}>
                     <CollapsibleContent className="pt-3 space-y-3">
-                        {/* Partner fields and logic will be added here */}
-                         <div className="p-4 border rounded-lg bg-background/50">
+                        <div className="p-4 border rounded-lg bg-background/50">
                             <h3 className="font-semibold text-base mb-2">توزيع الأرباح</h3>
                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-md text-center">
-                                    <p className="text-xs font-semibold text-muted-foreground">صافي الربح</p>
-                                    <p className="font-bold text-blue-600 font-mono">{totals.net.toFixed(2)}</p>
-                                </div>
-                                <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-md text-center">
-                                    <p className="text-xs font-semibold text-muted-foreground">حصة الروضتين</p>
-                                    <p className="font-bold text-green-600 font-mono">{totals.rodatainShare.toFixed(2)}</p>
-                                </div>
-                                <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-md text-center">
-                                    <p className="text-xs font-semibold text-muted-foreground">المتاح للشركاء</p>
-                                    <p className="font-bold text-purple-600 font-mono">{totals.partnerPool.toFixed(2)}</p>
-                                </div>
-                                 <div className="p-2 bg-orange-50 dark:bg-orange-900/30 rounded-md text-center">
-                                    <p className="text-xs font-semibold text-muted-foreground">المتبقي للتوزيع</p>
-                                    <p className={cn("font-bold font-mono", Math.abs(totals.remainder) > 0.01 ? "text-destructive" : "text-orange-600")}>{totals.remainder.toFixed(2)}</p>
+                                <div className="font-bold text-blue-600 font-mono p-2 bg-blue-50 dark:bg-blue-950/50 rounded-md">صافي الربح<span className="block">{totals.net.toFixed(2)}</span></div>
+                                <div className="font-bold text-green-600 font-mono p-2 bg-green-50 dark:bg-green-950/50 rounded-md">حصة الروضتين<span className="block">{totals.rodatainShare.toFixed(2)}</span></div>
+                                <div className="font-bold text-purple-600 font-mono p-2 bg-purple-50 dark:bg-purple-950/50 rounded-md">المتاح للشركاء<span className="block">{totals.partnerPool.toFixed(2)}</span></div>
+                                <div className={cn("font-bold font-mono p-2 rounded-md", Math.abs(totals.remainder) > 0.01 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>المتبقي للتوزيع<span className="block">{totals.remainder.toFixed(2)}</span></div>
+                            </div>
+                            <Separator />
+                            <div className="mt-4">
+                                <h4 className="font-semibold text-sm mb-2">إضافة شريك</h4>
+                                <div className="flex items-end gap-2 p-2 rounded-lg bg-muted/50">
+                                    <div className="flex-grow space-y-1.5"><Label className="text-xs">الشريك</Label><Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريكًا..."/></div>
+                                    <div className="w-24 space-y-1.5"><Label className="text-xs">النوع</Label><Select value={currentPartnerType} onValueChange={(v: any) => setCurrentPartnerType(v)}><SelectTrigger className="h-9"><SelectValue/></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">مبلغ</SelectItem></SelectContent></Select></div>
+                                    <div className="w-32 space-y-1.5"><Label className="text-xs">القيمة</Label><NumericInput value={currentPartnerValue} onValueChange={setCurrentPartnerValue} className="h-9" /></div>
+                                    <Button type="button" size="icon" className="shrink-0 h-9 w-9" onClick={onAddPartner} disabled={totals.remainder <= 0 && currentPartnerType === 'percentage'}><PlusCircle className="h-5 w-5"/></Button>
                                 </div>
                             </div>
-                            {/* Form to add a new partner */}
+                            {partnerFields.length > 0 && <div className="mt-4">
+                                <h4 className="font-semibold text-sm mb-2">الشركاء المضافون</h4>
+                                <div className="border rounded-md">
+                                    <Table>
+                                        <TableBody>
+                                            {partnerFields.map((field, index) => {
+                                                const computedPartner = totals.partnerBreakdown.find(p => p.id === field.id);
+                                                return (
+                                                    <TableRow key={field.id}>
+                                                        <TableCell className="font-semibold p-2">{computedPartner?.relationName}</TableCell>
+                                                        <TableCell className="p-2">{field.type === 'percentage' ? `${field.value}%` : `مبلغ ثابت`}</TableCell>
+                                                        <TableCell className="font-mono font-bold p-2 text-blue-600">{computedPartner?.share.toFixed(2)} USD</TableCell>
+                                                        <TableCell className="p-1 text-center"><Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removePartner(index)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </div>}
                         </div>
                     </CollapsibleContent>
                 </Collapsible>
             </CardContent>
             <CardFooter className="p-3 border-t">
-                <Button type="button" onClick={form.handleSubmit(onAdd)} className="w-full">
+                <Button type="button" onClick={form.handleSubmit(onAdd)} className="w-full" disabled={form.watch('hasPartner') && Math.abs(totals.remainder) > 0.01}>
                     <PlusCircle className="me-2 h-4 w-4" />
                     إضافة للفترة
                 </Button>
