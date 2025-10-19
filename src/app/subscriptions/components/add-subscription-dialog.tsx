@@ -38,6 +38,8 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Switch } from '@/components/ui/switch';
+
 
 const installmentSchema = z.object({
   dueDate: z.date({ required_error: "تاريخ الاستحقاق مطلوب." }),
@@ -155,7 +157,7 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
   }, [watch, navData?.boxes]);
 
   const supplierOptions = React.useMemo(() => (navData?.suppliers || []).map(s => ({ value: s.id, label: s.name })), [navData?.suppliers]);
-  const clientOptions = React.useMemo(() => (navData?.clients || []).map(c => ({ value: c.id, label: `${c.name} ${c.code ? `(${c.code})` : ''}` })), [navData?.clients]);
+  const clientOptions = React.useMemo(() => (navData?.clients || []).map(c => ({ value: c.id, label: `${''}${c.name} ${c.code ? `(${c.code})` : ''}` })), [navData?.clients]);
    const partnerOptions = React.useMemo(() => {
     if (!navData) return [];
     return [...(navData.clients || []), ...(navData.suppliers || [])].map(p => ({value: p.id, label: p.name}));
@@ -430,3 +432,5 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
     </Dialog>
   );
 }
+
+
