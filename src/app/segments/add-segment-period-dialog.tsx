@@ -170,29 +170,6 @@ function useCurrencySymbol(currency?: string) {
   return found?.symbol || '$';
 }
 
-// ---------- Memory per client (localStorage) ----------
-
-const MEM_NS = "segment:client-prefs:v1";
-type ClientPrefs = Pick<
-  CompanyEntryFormValues,
-  | "ticketProfitType" | "ticketProfitValue"
-  | "visaProfitType" | "visaProfitValue"
-  | "hotelProfitType" | "hotelProfitValue"
-  | "groupProfitType" | "groupProfitValue"
->;
-
-function loadClientPrefs(userId: string | null, clientId: string | null): ClientPrefs | null {
-  if (typeof window === "undefined" || !userId || !clientId) return null;
-  const raw = localStorage.getItem(`${MEM_NS}:${userId}:${clientId}`);
-  if (!raw) return null;
-  try { return JSON.parse(raw) as ClientPrefs; } catch { return null; }
-}
-
-function saveClientPrefs(userId: string | null, clientId: string | null, prefs: ClientPrefs) {
-  if (typeof window === "undefined" || !userId || !clientId) return;
-  localStorage.setItem(`${MEM_NS}:${userId}:${clientId}`, JSON.stringify(prefs));
-}
-
 // ---------- Reusable fields ----------
 
 const ServiceLine = React.forwardRef(function ServiceLine({
@@ -285,14 +262,18 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   const { user } = useAuth() || {};
   const parent = useFormContext<PeriodFormValues>();
   
-    const relationOptions = useMemo(() => {
+  const allRelations = useMemo(() => {
     if (!navData) return [];
-    return [...(navData.clients || []), ...(navData.suppliers || [])]
-      .filter((v, i, arr) => arr.findIndex((x) => x.id === v.id) === i) // Ensure uniqueness
-      .map((r) => ({ value: r.id, label: r.name }));
+    const all = [...(navData.clients || []), ...(navData.suppliers || [])];
+    return Array.from(new Map(all.map(item => [item.id, item])).values());
   }, [navData]);
+  
+  const companyOptions = useMemo(() => 
+    (navData?.clients || []).filter(c => c.type === 'company').map((c: any) => ({ value: c.id, label: c.name, settings: c.segmentSettings })),
+    [navData?.clients]
+  );
+  const partnerOptions = useMemo(() => allRelations.map(p => ({ value: p.id, label: p.name })), [allRelations]);
 
-  const companyOptions = (navData?.clients || []).filter(c => c.type === 'company').map((c: any) => ({ value: c.id, label: c.name }));
 
   const form = useForm<CompanyEntryFormValues>({
     resolver: zodResolver(companyEntrySchema),
@@ -317,17 +298,17 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   const currentClientId = useWatch({ control: form.control, name: "clientId" }) as string;
   useEffect(() => {
     if (!currentClientId) return;
-    const clientSettings = navData?.clients?.find(c => c.id === currentClientId)?.segmentSettings;
-    if (clientSettings) {
-        form.setValue("ticketProfitType", clientSettings.ticketProfitType);
-        form.setValue("ticketProfitValue", clientSettings.ticketProfitValue);
-        form.setValue("visaProfitType", clientSettings.visaProfitType);
-        form.setValue("visaProfitValue", clientSettings.visaProfitValue);
-        form.setValue("hotelProfitType", clientSettings.hotelProfitType);
-        form.setValue("hotelProfitValue", clientSettings.hotelProfitValue);
-        form.setValue("groupProfitType", clientSettings.groupProfitType);
-        form.setValue("groupProfitValue", clientSettings.groupProfitValue);
-        form.setValue("alrawdatainSharePct", clientSettings.alrawdatainSharePercentage);
+    const client = navData?.clients?.find(c => c.id === currentClientId);
+    if (client?.segmentSettings) {
+      form.setValue("ticketProfitType", client.segmentSettings.ticketProfitType);
+      form.setValue("ticketProfitValue", client.segmentSettings.ticketProfitValue);
+      form.setValue("visaProfitType", client.segmentSettings.visaProfitType);
+      form.setValue("visaProfitValue", client.segmentSettings.visaProfitValue);
+      form.setValue("hotelProfitType", client.segmentSettings.hotelProfitType);
+      form.setValue("hotelProfitValue", client.segmentSettings.hotelProfitValue);
+      form.setValue("groupProfitType", client.segmentSettings.groupProfitType);
+      form.setValue("groupProfitValue", client.segmentSettings.groupProfitValue);
+      form.setValue("alrawdatainSharePct", client.segmentSettings.alrawdatainSharePercentage);
     }
   }, [currentClientId, form, user?.uid, navData?.clients]);
 
@@ -341,10 +322,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
 
     const onAdd = (data: CompanyEntryFormValues) => {
         const client = navData?.clients.find(c => c.id === data.clientId);
-        if (client && client.segmentSettings) {
-            saveClientPrefs(user?.uid ?? null, data.clientId, client.segmentSettings);
-        }
-
         const computed = computeTotals(data);
 
         onAddEntry({
@@ -361,9 +338,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
         notes: '',
         });
     };
-
-    const currencyOptions = navData?.settings?.currencySettings?.currencies || [];
-
 
   return (
     <FormProvider {...form}>
@@ -422,7 +396,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                     />
                     <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={handleAddPartner}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
                 </div>
-                {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Autocomplete searchAction="all" options={relationOptions} value={field.value} onValueChange={(v) => { field.onChange(v); const rel = relationOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}} placeholder="اختر شريكاً" />)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
+                {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Autocomplete options={partnerOptions} value={field.value} onValueChange={(v) => { field.onChange(v); const rel = partnerOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}} placeholder="اختر شريكاً" />)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
             </CollapsibleContent>
           </Collapsible>
           
@@ -453,12 +427,10 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
 // ---------- Wrapper: AddSegmentPeriodDialog ----------
 
 interface AddSegmentPeriodDialogProps {
-  clients: Client[];
-  suppliers: Supplier[];
   onSuccess: () => Promise<void>;
 }
 
-export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
+export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDialogProps) {
   const { toast } = useToast();
   const { data: navData } = useVoucherNav();
   const { user } = useAuth() || {};
@@ -531,7 +503,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
   };
   
     const { grandTotalProfit, grandTotalAlrawdatainShare, grandTotalPartnerShare } = React.useMemo(() => {
-        return fields.reduce((acc, entry: any) => {
+        return fields.reduce((acc: any, entry: any) => {
             acc.grandTotalProfit += entry.computed.net;
             acc.grandTotalAlrawdatainShare += entry.computed.rodatainShare;
             acc.grandTotalPartnerShare += entry.computed.partnersTotal;
@@ -650,4 +622,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     </Dialog>
   );
 }
-```
+
+const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
+    <div className={cn("text-center p-3 rounded-lg bg-background border", className)}>
+        <p className="text-sm text-muted-foreground font-bold">{title}</p>
+        <p className="font-bold font-mono text-xl">
+            {value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} {currency}
+        </p>
+    </div>
+);
+
+    
