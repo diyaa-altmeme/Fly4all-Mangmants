@@ -403,10 +403,29 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         const exchangeName = exchanges.find(ex => ex.id === exchangeId)?.name || 'exchange';
         XLSX.writeFile(wb, `ExchangeStatement-${exchangeName}-${new Date().toISOString().split('T')[0]}.xlsx`);
     };
+
+    const columns: ColumnDef<UnifiedLedgerEntry>[] = useMemo(
+        () => [
+            { id: 'index', header: '#', cell: ({ row }) => <div>{row.index + 1}</div> },
+            { id: 'isConfirmed', header: 'تأكيد', cell: ({row}) => <div>...</div> },
+            { id: 'detailsToggle', cell: ({row}) => <div>...</div> },
+            { accessorKey: 'invoiceNumber', header: 'رقم الفاتورة' },
+            { accessorKey: 'date', header: 'التاريخ' },
+            { accessorKey: 'createdAt', header: 'الوقت' },
+            { accessorKey: 'entryType', header: 'النوع' },
+            { accessorKey: 'description', header: 'الوصف' },
+            { id: 'debit', header: 'علينا' },
+            { id: 'credit', header: 'لنا' },
+            { accessorKey: 'balance', header: 'المحصلة' },
+            { accessorKey: 'userName', header: 'المستخدم' },
+            { id: 'actions', header: 'الإجراءات' },
+        ],
+        []
+    );
     
     const table = useReactTable({
       data: filteredLedger,
-      columns: [], // Columns are rendered directly in the component for now
+      columns,
       state: { sorting, pagination },
       onPaginationChange: setPagination,
       onSortingChange: setSorting,
