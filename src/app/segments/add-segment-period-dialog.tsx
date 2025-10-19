@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from "react";
@@ -317,11 +316,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     name: "partners",
   });
   
-    const handleAddPartner = () => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 });
-    const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
-
     const onAdd = (data: CompanyEntryFormValues) => {
-        const client = navData?.clients.find(c => c.id === data.clientId);
         const computed = computeTotals(data);
 
         onAddEntry({
@@ -394,7 +389,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                         </div>
                     )}
                     />
-                    <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={handleAddPartner}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
+                    <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={() => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 })}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
                 </div>
                 {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Autocomplete options={partnerOptions} value={field.value} onValueChange={(v) => { field.onChange(v); const rel = partnerOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}} placeholder="اختر شريكاً" />)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
             </CollapsibleContent>
@@ -524,6 +519,11 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
         }, { grandTotalProfit: 0, grandTotalAlrawdatainShare: 0, grandTotalPartnerShare: 0 });
     }, [fields]);
 
+    const boxName = useMemo(() => {
+      if (!user || !('boxId' in user)) return 'غير محدد';
+      return navData?.boxes?.find(b => b.id === user.boxId)?.name || 'غير محدد';
+    }, [user, navData?.boxes]);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -645,3 +645,4 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
     </div>
 );
 
+    
