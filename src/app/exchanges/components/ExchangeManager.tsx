@@ -136,7 +136,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
     
     return (
        <React.Fragment>
-            <TableRow data-state={isOpen ? "open" : "closed"} className={cn(isConfirmed && "bg-green-500/10 hover:bg-green-500/20")}>
+            <TableRow data-state={isOpen ? "open" : "closed"} className={cn("font-bold", isConfirmed && "bg-green-500/10 hover:bg-green-500/20")}>
                 {row.getVisibleCells().map((cell: any) => {
                     if (cell.column.id === 'collapsible') {
                         return (
@@ -385,9 +385,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         processed = processed.filter(entry => {
              if (typeFilter === 'transaction') return entry.entryType === 'transaction';
              if (typeFilter === 'payment') {
-                 if (entry.entryType === 'payment') return true;
-                 // Also include transactions if they have linked payments, maybe? For now, simple filter.
-                 return false;
+                return entry.entryType === 'payment';
              }
              return true;
         });
@@ -469,7 +467,15 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
             return <div className="font-bold text-green-600">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
         }},
-        { accessorKey: 'balance', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{formatCurrency(row.original.balance, 'USD')}</span> },
+        { 
+            accessorKey: 'balance', 
+            header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, 
+            cell: ({ row }) => {
+                const balance = row.original.balance || 0;
+                const colorClass = balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-foreground';
+                return <span className={cn("font-bold text-lg font-mono", colorClass)}>{formatCurrency(balance, 'USD')}</span>
+            }
+        },
         { accessorKey: 'userName', header: 'المستخدم' },
         { id: 'actions', header: 'الإجراءات', cell: ({ row }) => <LedgerRowActions entry={row.original} onActionSuccess={handleActionSuccess} exchanges={exchanges}/> },
     ], [exchanges, handleActionSuccess]);
@@ -490,7 +496,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     return (
         <div className="space-y-6">
              <Card>
-                <CardHeader>
+                 <CardHeader>
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
                         <div>
                             <CardTitle>إدارة البورصات والمعاملات</CardTitle>
@@ -514,7 +520,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     <div className="md:col-span-3 pt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
                         <StatCard title="إجمالي مطلوب لنا" usd={summary.totalCreditUSD} iqd={summary.totalCreditIQD} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
                         <StatCard title="إجمالي مطلوب منا" usd={summary.totalDebitUSD} iqd={summary.totalDebitIQD} className="border-red-500/50 bg-red-50 dark:bg-red-950/30" />
-                        <StatCard title="صافي الرصيد" usd={netBalanceUSD} iqd={netBalanceIQD} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                        <StatCard title="صافي الرصيد الإجمالي" usd={netBalanceUSD} iqd={netBalanceIQD} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
                     </div>
                 </CardContent>
             </Card>
