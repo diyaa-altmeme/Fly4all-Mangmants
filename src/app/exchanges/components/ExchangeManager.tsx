@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -134,84 +135,149 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
     };
     
     return (
-        <>
-            <TableRow data-state={isOpen ? "open" : "closed"} className={cn(isConfirmed && "bg-green-500/10")}>
-                {row.getVisibleCells().map((cell: any) => {
-                    if (cell.column.id === 'collapsible') {
-                        return (
-                            <TableCell key={cell.id} className="p-1 text-center">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(!isOpen)}>
-                                    <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
-                                </Button>
-                            </TableCell>
-                        );
-                    }
-                     if (cell.column.id === 'isConfirmed') {
-                        return (
-                             <TableCell key={cell.id} className="p-2 text-center font-bold">
-                                <Checkbox checked={isConfirmed} onCheckedChange={handleConfirmChange} />
-                            </TableCell>
-                        )
-                    }
-                    return (
-                        <TableCell key={cell.id} className="p-2 font-bold" style={{ width: cell.column.getSize() }}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                    );
-                })}
-            </TableRow>
-            {isOpen && (
-                 <TableRow>
-                    <TableCell colSpan={13} className="p-0">
-                        <div className="p-2 bg-muted/50">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="p-2 text-right">الطرف</TableHead>
-                                        <TableHead className="p-2 text-right">بواسطة</TableHead>
-                                        <TableHead className="p-2 text-center">النوع</TableHead>
-                                        <TableHead className="p-2 text-right">المبلغ الأصلي</TableHead>
-                                        <TableHead className="p-2 text-right">سعر الصرف</TableHead>
-                                        <TableHead className="p-2 text-right">المعادل بالدولار</TableHead>
-                                        <TableHead className="p-2 text-right">ملاحظات</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {(entry.details || []).map((detail: any, index: number) => {
-                                        let typeLabel = '';
-                                        let typeClass = '';
-                                        
-                                        if (entry.entryType === 'transaction') {
-                                            typeLabel = 'دين';
-                                            typeClass = 'destructive';
-                                        } else {
-                                            if (detail.type === 'payment') {
-                                                typeLabel = 'دفع';
-                                                typeClass = 'bg-blue-500';
-                                            } else if (detail.type === 'receipt') {
-                                                typeLabel = 'قبض';
-                                                typeClass = 'bg-green-500';
-                                            }
-                                        }
+      <React.Fragment>
+        <TableRow
+          data-state={isOpen ? 'open' : 'closed'}
+          className={cn(
+            'cursor-pointer',
+            isConfirmed && 'bg-green-500/10 hover:bg-green-500/20'
+          )}
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          {row.getVisibleCells().map((cell: any) => {
+            if (cell.column.id === 'collapsible') {
+              return (
+                <TableCell key={cell.id} className="p-1 text-center">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsOpen(!isOpen);
+                    }}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'h-4 w-4 transition-transform',
+                        isOpen && 'rotate-180'
+                      )}
+                    />
+                  </Button>
+                </TableCell>
+              );
+            }
+            if (cell.column.id === 'isConfirmed') {
+              return (
+                <TableCell
+                  key={cell.id}
+                  className="p-2 text-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Checkbox
+                    checked={isConfirmed}
+                    onCheckedChange={handleConfirmChange}
+                  />
+                </TableCell>
+              );
+            }
+            return (
+              <TableCell
+                key={cell.id}
+                className="p-2"
+                style={{ width: cell.column.getSize() }}
+              >
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableCell>
+            );
+          })}
+        </TableRow>
+        {isOpen && (
+          <TableRow>
+            <TableCell colSpan={13} className="p-0">
+              <div className="p-2 bg-muted/50">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="p-2 text-right">الطرف</TableHead>
+                      <TableHead className="p-2 text-right">بواسطة</TableHead>
+                      <TableHead className="p-2 text-center">النوع</TableHead>
+                      <TableHead className="p-2 text-right">
+                        المبلغ الأصلي
+                      </TableHead>
+                      <TableHead className="p-2 text-right">
+                        سعر الصرف
+                      </TableHead>
+                      <TableHead className="p-2 text-right">
+                        المعادل بالدولار
+                      </TableHead>
+                      <TableHead className="p-2 text-right">ملاحظات</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(entry.details || []).map((detail: any, index: number) => {
+                      let typeLabel = '';
+                      let typeClass = '';
 
-                                        return (
-                                        <TableRow key={index} className="bg-background/50">
-                                            <TableCell className="p-2 text-right">{detail.partyName || detail.paidTo}</TableCell>
-                                            <TableCell className="p-2 text-right">{entry.entryType === 'transaction' ? (exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف') : (detail.intermediary || entry.userName)}</TableCell>
-                                            <TableCell className="p-2 text-center"><Badge variant={typeClass === 'destructive' ? 'destructive' : 'default'} className={cn(typeClass)}>{typeLabel}</Badge></TableCell>
-                                            <TableCell className="p-2 font-mono text-right">{detail.originalAmount.toLocaleString()} {detail.originalCurrency}</TableCell>
-                                            <TableCell className="p-2 font-mono text-right">{detail.rate}</TableCell>
-                                            <TableCell className="p-2 font-mono text-right font-bold">{formatCurrency(detail.amountInUSD, 'USD')}</TableCell>
-                                            <TableCell className="p-2 text-right">{detail.note}</TableCell>
-                                        </TableRow>
-                                    )})}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </TableCell>
-                </TableRow>
-            )}
-        </>
+                      if (entry.entryType === 'transaction') {
+                        typeLabel = 'دين';
+                        typeClass = 'destructive';
+                      } else {
+                        if (detail.type === 'payment') {
+                          typeLabel = 'دفع';
+                          typeClass = 'bg-blue-500';
+                        } else if (detail.type === 'receipt') {
+                          typeLabel = 'قبض';
+                          typeClass = 'bg-green-500';
+                        }
+                      }
+
+                      return (
+                        <TableRow key={index} className="bg-background/50">
+                          <TableCell className="p-2 text-right">
+                            {detail.partyName || detail.paidTo}
+                          </TableCell>
+                          <TableCell className="p-2 text-right">
+                            {entry.entryType === 'transaction'
+                              ? exchanges.find((ex) => ex.id === entry.exchangeId)
+                                  ?.name || 'غير معروف'
+                              : detail.intermediary || entry.userName}
+                          </TableCell>
+                          <TableCell className="p-2 text-center">
+                            <Badge
+                              variant={
+                                typeClass === 'destructive'
+                                  ? 'destructive'
+                                  : 'default'
+                              }
+                              className={cn(typeClass)}
+                            >
+                              {typeLabel}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="p-2 font-mono text-right">
+                            {detail.originalAmount.toLocaleString()}{' '}
+                            {detail.originalCurrency}
+                          </TableCell>
+                          <TableCell className="p-2 font-mono text-right">
+                            {detail.rate}
+                          </TableCell>
+                          <TableCell className="p-2 font-mono text-right font-bold">
+                            {formatCurrency(detail.amountInUSD, 'USD')}
+                          </TableCell>
+                          <TableCell className="p-2 text-right">
+                            {detail.note}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </TableCell>
+          </TableRow>
+        )}
+      </React.Fragment>
     );
 };
 
@@ -383,12 +449,17 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
 
     const columns: ColumnDef<UnifiedLedgerEntry>[] = useMemo(() => [
         { id: 'collapsible', size: 40 },
-        { id: 'index', header: '#', size: 40, cell: ({ row }) => row.index + 1 },
         { id: 'isConfirmed', header: 'تأكيد', size: 50 },
         { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => row.original.invoiceNumber },
         { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => format(parseISO(row.original.date), 'yyyy-MM-dd') },
-        { accessorKey: 'createdAt', header: 'الوقت', cell: ({ row }) => format(parseISO(row.original.createdAt), 'HH:mm') },
-        { accessorKey: 'entryType', header: 'النوع', cell: ({ row }) => row.original.entryType === 'transaction' ? 'دين' : 'تسديد' },
+        { accessorKey: 'entryType', header: 'النوع', cell: ({ row }) => {
+            const isTransaction = row.original.entryType === 'transaction';
+            return (
+                <Badge variant={isTransaction ? 'destructive' : 'default'}>
+                    {isTransaction ? 'دين' : 'تسديد'}
+                </Badge>
+            );
+        }},
         { accessorKey: 'description', header: 'الوصف', size: 250 },
         { id: 'debit', header: 'علينا', cell: ({ row }) => {
             const entry = row.original;
@@ -422,7 +493,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
 
     return (
         <div className="space-y-6">
-            <Card>
+             <Card>
                 <CardHeader>
                     <div className="flex w-full flex-col items-start gap-4">
                         <div className="w-full grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -440,8 +511,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                 </Select>
                             </div>
                             <div className="md:col-span-3 pt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <StatCard title="إجمالي مطلوب منا" usd={summary.totalDebitUSD} iqd={summary.totalDebitIQD} className="border-red-500/50 bg-red-50 dark:bg-red-950/30" />
                                 <StatCard title="إجمالي مطلوب لنا" usd={summary.totalCreditUSD} iqd={summary.totalCreditIQD} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
+                                <StatCard title="إجمالي مطلوب منا" usd={summary.totalDebitUSD} iqd={summary.totalDebitIQD} className="border-red-500/50 bg-red-50 dark:bg-red-950/30" />
                                 <StatCard title="صافي الرصيد" usd={netBalanceUSD} iqd={netBalanceIQD} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
                             </div>
                         </div>
@@ -452,36 +523,11 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             <Card>
                 <CardHeader>
                      <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-                         <div>
-                            <CardTitle>سجل البورصة الموحد</CardTitle>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
-                                <Button className="w-full"><PlusCircle className="me-2 h-4 w-4" />معاملة</Button>
-                            </AddTransactionsDialog>
-                            <AddPaymentsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
-                                <Button className="w-full" variant="secondary"><PlusCircle className="me-2 h-4 w-4" />تسديد</Button>
-                            </AddPaymentsDialog>
-                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button variant="outline" size="icon"><MoreHorizontal/></Button></DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuItem onClick={handleExport}><Download className="me-2 h-4 w-4"/>تصدير Excel</DropdownMenuItem>
-                                    <AddExchangeDialog onSuccess={refreshAllData}>
-                                        <DropdownMenuItem onSelect={e => e.preventDefault()}><PlusCircle className="me-2 h-4 w-4" />إدارة البورصات</DropdownMenuItem>
-                                    </AddExchangeDialog>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                             <Button variant="outline" size="icon" onClick={refreshAllData} disabled={loading}>
-                                {loading ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4"/>}
-                            </Button>
-                        </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
-                        <div className="relative flex-grow w-full">
+                         <div className="relative flex-grow w-full">
                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input placeholder="بحث شامل في النتائج..." className="pr-10 h-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
                         </div>
-                         <div className="flex gap-2 w-full sm:w-auto">
+                        <div className="flex gap-2 w-full sm:w-auto">
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button id="date" variant={"outline"} className={cn("w-full justify-start text-left font-normal h-9", !date && "text-muted-foreground")}>
@@ -509,6 +555,30 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                     <SelectItem value="unconfirmed">غير المؤكدة</SelectItem>
                                 </SelectContent>
                             </Select>
+                             <Button onClick={fetchExchangeData} disabled={isLoading} className="w-full sm:w-auto h-9">
+                                {isLoading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4" />}
+                                تطبيق
+                            </Button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
+                                <Button className="w-full"><PlusCircle className="me-2 h-4 w-4" />معاملة</Button>
+                            </AddTransactionsDialog>
+                            <AddPaymentsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
+                                <Button className="w-full" variant="secondary"><PlusCircle className="me-2 h-4 w-4" />تسديد</Button>
+                            </AddPaymentsDialog>
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button variant="outline" size="icon"><MoreHorizontal/></Button></DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={handleExport}><Download className="me-2 h-4 w-4"/>تصدير Excel</DropdownMenuItem>
+                                    <AddExchangeDialog onSuccess={refreshAllData}>
+                                        <DropdownMenuItem onSelect={e => e.preventDefault()}><PlusCircle className="me-2 h-4 w-4" />إدارة البورصات</DropdownMenuItem>
+                                    </AddExchangeDialog>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                             <Button variant="outline" size="icon" onClick={refreshAllData} disabled={loading}>
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4"/>}
+                            </Button>
                         </div>
                     </div>
                 </CardHeader>
@@ -519,7 +589,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => (
-                                        <TableHead key={header.id} className="p-2 font-bold text-center" style={{ width: header.getSize() }}>
+                                        <TableHead key={header.id} className="p-2 font-bold" style={{ width: header.getSize() }}>
                                             {flexRender(header.column.columnDef.header, header.getContext())}
                                         </TableHead>
                                     ))}
