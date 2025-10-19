@@ -1,8 +1,9 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from "react";
-import { useForm, FormProvider, useFormContext, Controller, useFieldArray, useWatch } from "react-hook-form";
+import { useForm, FormProvider, useFormContext, Controller, useFieldArray, FieldPath, FieldValues, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { v4 as uuidv4 } from "uuid";
@@ -256,7 +257,7 @@ const ServiceLine = React.forwardRef(function ServiceLine({
 // ---------- AddCompanyToSegmentForm ----------
 
 const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
-  { onAddEntry }: { onAddEntry: (data: any) => void },
+  { onAddEntry, partnerOptions }: { onAddEntry: (data: any) => void; partnerOptions: any[] },
   ref
 ) {
   const { data: navData } = useVoucherNav();
@@ -316,7 +317,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     name: "partners",
   });
   
-    const handleAddPartner = () => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0, notes: '' });
+    const handleAddPartner = () => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 });
     const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
 
     const onAdd = (data: CompanyEntryFormValues) => {
@@ -448,6 +449,19 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
   const currencyList =
     (navData?.settings?.currencySettings?.currencies || [{ code: "USD", name: "USD" }, { code: "IQD", name: "IQD" }, { code: "SAR", name: "SAR" }])
       .map((c: any) => ({ value: c.code, label: c.name }));
+  
+  const partnerOptions = useMemo(() => {
+    if (!navData) return [];
+    const allRelations = [...(navData.clients || []), ...(navData.suppliers || [])];
+    const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+    return uniqueRelations.map(r => {
+        let labelPrefix = '';
+        if (r.relationType === 'client') labelPrefix = 'عميل: ';
+        else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
+        else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
+        return { value: r.id, label: `${labelPrefix}${r.name}` };
+    });
+  }, [navData]);
 
   const addEntry = (entry: any) => {
     append(entry);
@@ -557,7 +571,7 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
             
             {step === 2 && (
               <>
-                <AddCompanyToSegmentForm onAddEntry={addEntry} ref={companyFormRef} />
+                <AddCompanyToSegmentForm onAddEntry={addEntry} ref={companyFormRef} partnerOptions={partnerOptions} />
                 <Card className="border rounded-lg">
                   <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
                   <CardContent className="pt-0">
@@ -630,3 +644,4 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
         </p>
     </div>
 );
+
