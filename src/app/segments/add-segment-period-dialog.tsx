@@ -5,6 +5,7 @@ import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, u
 import { useForm, FormProvider, useFormContext, Controller, useFieldArray, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { v4 as uuidv4 } from "uuid";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -249,7 +250,7 @@ const ServiceLine = React.forwardRef(function ServiceLine({
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="fixed">مبلغ ثابت</SelectItem>
-                            <SelectItem value="percentage">نسبة مئوية</SelectItem>
+                            <SelectItem value="percentage">نسبة %</SelectItem>
                         </SelectContent>
                     </Select>
                 )} />
@@ -280,8 +281,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   const { data: navData } = useVoucherNav();
   const { user } = useAuth() || {};
   const parent = useFormContext<PeriodFormValues>();
-  const handleAddPartner = () => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 });
-
+  
   const relationOptions =
     [
       ...(navData?.clients || []).map((r: any) => ({ id: r.id, name: r.name })),
@@ -335,7 +335,9 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     name: "partners",
   });
   
+  const handleAddPartner = () => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 });
   const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
+
   const onAdd = (data: CompanyEntryFormValues) => {
     const client = navData?.clients.find(c => c.id === data.clientId);
     if (client && client.segmentSettings) {
@@ -403,11 +405,23 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
 
           <Collapsible>
             <CollapsibleTrigger asChild>
-                 <Button type="button" variant="ghost" size="sm" className="gap-1 -mr-2">
-                  <Settings2 className="h-4 w-4" />
-                  الإعدادات المالية
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
+                 <div className="flex items-center justify-between">
+                    <Controller
+                        control={form.control}
+                        name="hasPartners"
+                        render={({ field }) => (
+                            <div className="flex items-center gap-2">
+                            <Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-switch" />
+                            <Label htmlFor="has-partners-switch" className="font-semibold">توزيع حصص الشركاء</Label>
+                            </div>
+                        )}
+                    />
+                    <Button type="button" variant="ghost" size="sm" className="gap-1 -mr-2">
+                      <Settings2 className="h-4 w-4" />
+                      الإعدادات المالية
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                </div>
             </CollapsibleTrigger>
             
             <CollapsibleContent className="pt-3 space-y-3">
@@ -428,22 +442,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
           
           <Separator />
 
-          <Collapsible>
-             <CollapsibleTrigger asChild>
-                 <div className="flex items-center justify-between">
-                    <Controller
-                        control={form.control}
-                        name="hasPartners"
-                        render={({ field }) => (
-                            <div className="flex items-center gap-2">
-                            <Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-switch" />
-                            <Label htmlFor="has-partners-switch" className="font-semibold">توزيع حصص الشركاء</Label>
-                            </div>
-                        )}
-                    />
-                </div>
-            </CollapsibleTrigger>
-
+          <Collapsible open={form.getValues('hasPartners')}>
             <CollapsibleContent className="pt-3 space-y-3">
                 <div className="grid md:grid-cols-3 gap-3">
                     <Controller
@@ -719,7 +718,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess }
               </Button>
               <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
                 {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                حفظ الفترة ({fields.length} سجلات)
+                حفظ بيانات الفترة ({fields.length} سجلات)
               </Button>
             </div>
           )}
@@ -728,3 +727,4 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess }
     </Dialog>
   );
 }
+
