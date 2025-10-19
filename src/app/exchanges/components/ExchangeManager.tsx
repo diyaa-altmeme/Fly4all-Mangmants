@@ -100,9 +100,10 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
 };
 
 
-const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void }) => {
+const LedgerRow = ({ row, index, exchanges, onActionSuccess }: { row: any; index: number; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void }) => {
     const entry = row.original as UnifiedLedgerEntry;
     const { toast } = useToast();
+    const [isOpen, setIsOpen] = useState(false);
     const [isConfirmed, setIsConfirmed] = useState(entry.isConfirmed || false);
     const [isConfirmAlertOpen, setIsConfirmAlertOpen] = useState(false);
 
@@ -131,70 +132,74 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
         }
     };
     
-    
     return (
-        <Collapsible asChild key={entry.id}>
-            <React.Fragment>
-                <TableRow className={cn(isConfirmed && "bg-green-500/10")}>
-                    {row.getVisibleCells().map((cell: any) => (
-                        <TableCell key={cell.id} className="p-2 font-bold" style={{ width: cell.column.getSize() }}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                    ))}
-                </TableRow>
-                <CollapsibleContent asChild>
-                    <TableRow>
-                        <TableCell colSpan={13} className="p-0">
-                            <div className="p-2 bg-muted/50">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="p-2 text-right">الطرف</TableHead>
-                                            <TableHead className="p-2 text-right">بواسطة</TableHead>
-                                            <TableHead className="p-2 text-center">النوع</TableHead>
-                                            <TableHead className="p-2 text-right">المبلغ الأصلي</TableHead>
-                                            <TableHead className="p-2 text-right">سعر الصرف</TableHead>
-                                            <TableHead className="p-2 text-right">المعادل بالدولار</TableHead>
-                                            <TableHead className="p-2 text-right">ملاحظات</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {(entry.details || []).map((detail: any, index: number) => {
-                                            let typeLabel = '';
-                                            let typeClass = '';
-                                            
-                                            if (entry.entryType === 'transaction') {
-                                                typeLabel = 'دين';
-                                                typeClass = 'destructive';
-                                            } else {
-                                                if (detail.type === 'payment') {
-                                                    typeLabel = 'دفع';
-                                                    typeClass = 'bg-blue-500';
-                                                } else if (detail.type === 'receipt') {
-                                                    typeLabel = 'قبض';
-                                                    typeClass = 'bg-green-500';
-                                                }
+        <React.Fragment>
+            <TableRow data-state={isOpen ? "open" : "closed"} className={cn(isConfirmed && "bg-green-500/10")}>
+                <TableCell className="p-2 text-center font-bold">
+                    <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:rotate-180">
+                            <ChevronDown className="h-4 w-4" />
+                        </Button>
+                    </CollapsibleTrigger>
+                </TableCell>
+                {row.getVisibleCells().map((cell: any) => (
+                    <TableCell key={cell.id} className="p-2 font-bold" style={{ width: cell.column.getSize() }}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                ))}
+            </TableRow>
+            <CollapsibleContent asChild>
+                <TableRow>
+                    <TableCell colSpan={13} className="p-0">
+                        <div className="p-2 bg-muted/50">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="p-2 text-right">الطرف</TableHead>
+                                        <TableHead className="p-2 text-right">بواسطة</TableHead>
+                                        <TableHead className="p-2 text-center">النوع</TableHead>
+                                        <TableHead className="p-2 text-right">المبلغ الأصلي</TableHead>
+                                        <TableHead className="p-2 text-right">سعر الصرف</TableHead>
+                                        <TableHead className="p-2 text-right">المعادل بالدولار</TableHead>
+                                        <TableHead className="p-2 text-right">ملاحظات</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {(entry.details || []).map((detail: any, index: number) => {
+                                        let typeLabel = '';
+                                        let typeClass = '';
+                                        
+                                        if (entry.entryType === 'transaction') {
+                                            typeLabel = 'دين';
+                                            typeClass = 'destructive';
+                                        } else {
+                                            if (detail.type === 'payment') {
+                                                typeLabel = 'دفع';
+                                                typeClass = 'bg-blue-500';
+                                            } else if (detail.type === 'receipt') {
+                                                typeLabel = 'قبض';
+                                                typeClass = 'bg-green-500';
                                             }
+                                        }
 
-                                            return (
-                                            <TableRow key={index} className="bg-background/50">
-                                                <TableCell className="p-2 text-right">{detail.partyName || detail.paidTo}</TableCell>
-                                                <TableCell className="p-2 text-right">{entry.entryType === 'transaction' ? (exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف') : (detail.intermediary || entry.userName)}</TableCell>
-                                                <TableCell className="p-2 text-center"><Badge variant={typeClass === 'destructive' ? 'destructive' : 'default'} className={cn(typeClass)}>{typeLabel}</Badge></TableCell>
-                                                <TableCell className="p-2 font-mono text-right">{detail.originalAmount.toLocaleString()} {detail.originalCurrency}</TableCell>
-                                                <TableCell className="p-2 font-mono text-right">{detail.rate}</TableCell>
-                                                <TableCell className="p-2 font-mono text-right font-bold">{formatCurrency(detail.amountInUSD, 'USD')}</TableCell>
-                                                <TableCell className="p-2 text-right">{detail.note}</TableCell>
-                                            </TableRow>
-                                        )})}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                </CollapsibleContent>
-            </React.Fragment>
-        </Collapsible>
+                                        return (
+                                        <TableRow key={index} className="bg-background/50">
+                                            <TableCell className="p-2 text-right">{detail.partyName || detail.paidTo}</TableCell>
+                                            <TableCell className="p-2 text-right">{entry.entryType === 'transaction' ? (exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف') : (detail.intermediary || entry.userName)}</TableCell>
+                                            <TableCell className="p-2 text-center"><Badge variant={typeClass === 'destructive' ? 'destructive' : 'default'} className={cn(typeClass)}>{typeLabel}</Badge></TableCell>
+                                            <TableCell className="p-2 font-mono text-right">{detail.originalAmount.toLocaleString()} {detail.originalCurrency}</TableCell>
+                                            <TableCell className="p-2 font-mono text-right">{detail.rate}</TableCell>
+                                            <TableCell className="p-2 font-mono text-right font-bold">{formatCurrency(detail.amountInUSD, 'USD')}</TableCell>
+                                            <TableCell className="p-2 text-right">{detail.note}</TableCell>
+                                        </TableRow>
+                                    )})}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TableCell>
+                </TableRow>
+            </CollapsibleContent>
+        </React.Fragment>
     );
 };
 
@@ -360,16 +365,61 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     };
 
     const columns: ColumnDef<UnifiedLedgerEntry>[] = useMemo(() => [
+        {
+            id: 'collapsible',
+            header: '',
+            cell: ({ row }) => row.original.details && row.original.details.length > 0 ? (
+                <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:rotate-180">
+                        <ChevronDown className="h-4 w-4" />
+                    </Button>
+                </CollapsibleTrigger>
+            ) : null,
+            size: 40,
+        },
         { id: 'index', header: '#', cell: ({ row }) => <div className="text-center">{row.index + 1}</div>, size: 40 },
-        { id: 'isConfirmed', header: 'تأكيد', cell: ({ row }) => (<div className="text-center"><Checkbox checked={row.original.isConfirmed} onCheckedChange={(checked) => handleActionSuccess('update', { ...row.original, isConfirmed: !!checked })} /></div>), size: 50 },
-        { id: 'detailsToggle', header: '', cell: ({ row }) => (<CollapsibleTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:rotate-180"><ChevronDown className="h-4 w-4" /></Button></CollapsibleTrigger>), size: 50 },
+        { id: 'isConfirmed', header: 'تأكيد', cell: ({ row }) => {
+             const [isConfirmed, setIsConfirmed] = useState(row.original.isConfirmed || false);
+             const [isConfirmAlertOpen, setIsConfirmAlertOpen] = useState(false);
+             
+             useEffect(() => { setIsConfirmed(row.original.isConfirmed || false); }, [row.original.isConfirmed]);
+
+             const handleConfirmChange = async (checked: boolean) => {
+                setIsConfirmed(checked);
+                const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
+                if (!result.success) {
+                    toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
+                    setIsConfirmed(!checked);
+                } else {
+                    toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
+                    onActionSuccess('update', { ...row.original, isConfirmed: checked });
+                }
+            };
+            
+            const onCheckedChange = (checked: boolean) => {
+                if (!checked) setIsConfirmAlertOpen(true); else handleConfirmChange(true);
+            };
+
+            return (
+                 <AlertDialog open={isConfirmAlertOpen} onOpenChange={setIsConfirmAlertOpen}>
+                    <Checkbox checked={isConfirmed} onCheckedChange={onCheckedChange} />
+                    <AlertDialogContent>
+                        <AlertDialogHeader><AlertDialogTitle>إلغاء التأكيد</AlertDialogTitle><AlertDialogDescription>هل أنت متأكد من إلغاء تأكيد هذه الدفعة؟ سيسمح هذا بتعديلها أو حذفها.</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleConfirmChange(false)}>نعم، إلغاء التأكيد</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            )
+        }, size: 50 },
         { accessorKey: 'invoiceNumber', header: 'الفاتورة', cell: ({ row }) => <div className="font-mono text-sm text-center">{row.original.invoiceNumber}</div> },
         { accessorKey: 'date', header: 'التاريخ', cell: ({ row }) => <div className="text-sm text-center">{row.original.date}</div> },
         { accessorKey: 'createdAt', header: 'الوقت', cell: ({ row }) => <div className="font-mono text-sm text-center">{format(parseISO(row.original.createdAt), 'HH:mm')}</div> },
         { accessorKey: 'entryType', header: 'النوع', cell: ({ row }) => <div className="text-center">{row.original.entryType === 'transaction' ? <Badge variant="destructive">دين</Badge> : <Badge className="bg-blue-500 hover:bg-blue-600">تسديد</Badge>}</div> },
         { accessorKey: 'description', header: 'الوصف', cell: ({ row }) => <div className="text-sm text-right whitespace-pre-wrap">{row.original.description}</div>, size: 250 },
-        { id: 'debit', header: 'علينا', cell: ({ row }) => { const amount = row.original.totalAmount || 0; return <div className="font-mono text-sm text-center text-red-600">{row.original.entryType === 'transaction' ? formatCurrency(Math.abs(amount)) : (amount < 0 ? formatCurrency(Math.abs(amount)) : '-')}</div> } },
-        { id: 'credit', header: 'لنا', cell: ({ row }) => { const amount = row.original.totalAmount || 0; return <div className="font-mono text-sm text-center text-green-600">{row.original.entryType === 'payment' && amount > 0 ? formatCurrency(amount) : '-'}</div> } },
+        { id: 'debit', header: 'علينا', cell: ({ row }) => { const amount = row.original.totalAmount || 0; return <div className="font-mono text-sm text-center text-red-600 font-bold">{row.original.entryType === 'transaction' ? formatCurrency(Math.abs(amount)) : (amount < 0 ? formatCurrency(Math.abs(amount)) : '-')}</div> } },
+        { id: 'credit', header: 'لنا', cell: ({ row }) => { const amount = row.original.totalAmount || 0; return <div className="font-mono text-sm text-center text-green-600 font-bold">{row.original.entryType === 'payment' && amount > 0 ? formatCurrency(amount) : '-'}</div> } },
         { accessorKey: 'balance', header: 'المحصلة', cell: ({ row }) => <div className={cn("font-mono text-sm text-center font-bold", (row.original.balance || 0) >= 0 ? 'text-green-600' : 'text-red-600')}>{formatCurrency(row.original.balance)}</div> },
         { accessorKey: 'userName', header: 'المستخدم', cell: ({ row }) => <div className="text-sm text-center">{row.original.userName}</div> },
         { id: 'actions', header: 'الإجراءات', cell: ({ row }) => <LedgerRowActions entry={row.original} onActionSuccess={handleActionSuccess} exchanges={exchanges} /> },
@@ -401,7 +451,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex flex-col sm:flex-row items-center gap-2 mb-4 p-3 border rounded-lg bg-muted/50">
+                    <div className="flex flex-col sm:flex-row items-center gap-2 mb-4 p-3 border rounded-lg bg-muted/30">
                         <div className="flex items-center gap-2 w-full sm:w-auto">
                             <Label htmlFor="exchange-select" className="font-bold shrink-0">البورصة الحالية:</Label>
                             <Select value={exchangeId} onValueChange={(e) => setExchangeId(e)}>
@@ -440,7 +490,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                      <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <StatCard title="إجمالي مطلوب لنا (دائنون لنا)" value={totalCreditsUSD} currency="USD" className="border-green-500/30 bg-green-50 dark:bg-green-950/30" />
                         <StatCard title="إجمالي مطلوب منا (مدينون لنا)" value={totalDebitsUSD} currency="USD" className="border-red-500/30 bg-red-50 dark:bg-red-950/30" />
-                        <StatCard title="الرصيد النهائي" value={netBalanceUSD} currency="USD" className="border-blue-500/30 bg-blue-50 dark:bg-blue-950/30" />
+                        <StatCard title="صافي الرصيد الإجمالي" value={netBalanceUSD} currency="USD" className="border-blue-500/30 bg-blue-50 dark:bg-blue-950/30" />
                     </div>
                 </CardContent>
             </Card>
@@ -492,6 +542,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                     <TableHeader>
                                         {table.getHeaderGroups().map(headerGroup => (
                                             <TableRow key={headerGroup.id}>
+                                                <TableHead className="p-1"></TableHead>
                                                 {headerGroup.headers.map(header => (
                                                     <TableHead key={header.id} style={{ width: header.getSize() }}>
                                                         {flexRender(header.column.columnDef.header, header.getContext())}
@@ -503,10 +554,10 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                     <TableBody>
                                         {table.getRowModel().rows.length === 0 ? (
                                             <TableRow>
-                                                <TableCell colSpan={columns.length} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
+                                                <TableCell colSpan={columns.length + 1} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
                                             </TableRow>
-                                        ) : table.getRowModel().rows.map(row => (
-                                            <LedgerRow key={row.original.id} row={row} exchanges={exchanges} onActionSuccess={handleActionSuccess} />
+                                        ) : table.getRowModel().rows.map((row, index) => (
+                                            <LedgerRow key={row.original.id} row={row} index={index} exchanges={exchanges} onActionSuccess={handleActionSuccess} />
                                         ))}
                                     </TableBody>
                                 </Table>
@@ -519,5 +570,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
-    
