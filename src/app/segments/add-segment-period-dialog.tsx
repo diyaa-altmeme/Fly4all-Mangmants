@@ -165,12 +165,6 @@ function computeTotals(d: CompanyEntryFormValues) {
   };
 }
 
-function useCurrencySymbol(currency?: string) {
-  const { data: navData } = useVoucherNav();
-  const found = navData?.settings.currencySettings?.currencies.find(c => c.code === currency);
-  return found?.symbol || '$';
-}
-
 // ---------- Reusable fields ----------
 
 const ServiceLine = React.forwardRef(function ServiceLine({
@@ -195,7 +189,9 @@ const ServiceLine = React.forwardRef(function ServiceLine({
   const val  = Number(useWatch({ name: valueField as any }) || 0);
 
   const result = useMemo(() => computeService(count, type, val), [count, type, val]);
-  const currencySymbol = useCurrencySymbol(useFormContext<PeriodFormValues>().getValues('currency'));
+  const currency = useFormContext<PeriodFormValues>().getValues('currency');
+  const { data: navData } = useVoucherNav();
+  const currencySymbol = navData?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
 
   return (
     <Card className={cn("shadow-sm overflow-hidden", color)} ref={ref}>
@@ -389,7 +385,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                         </div>
                     )}
                     />
-                    <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={() => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 })}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
+                    <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={() => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 } as any)}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
                 </div>
                 {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Autocomplete options={partnerOptions} value={field.value} onValueChange={(v) => { field.onChange(v); const rel = partnerOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}} placeholder="اختر شريكاً" />)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
             </CollapsibleContent>
@@ -519,6 +515,9 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
         }, { grandTotalProfit: 0, grandTotalAlrawdatainShare: 0, grandTotalPartnerShare: 0 });
     }, [fields]);
 
+    const currency = getValues('currency');
+    const currencySymbol = navData?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
+
     const boxName = useMemo(() => {
       if (!user || !('boxId' in user)) return 'غير محدد';
       return navData?.boxes?.find(b => b.id === user.boxId)?.name || 'غير محدد';
@@ -581,29 +580,26 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
                         <TableBody>
                           {fields.length === 0 ? (
                             <TableRow><TableCell colSpan={6} className="text-center h-20">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
-                          ) : fields.map((f: any, i: number) => {
-                            const sym = useCurrencySymbol(getValues("currency"));
-                            return (
+                          ) : fields.map((f: any, i: number) => (
                               <TableRow key={f.id}>
                                 <TableCell className="font-medium">{f.clientName || f.clientId}</TableCell>
                                 <TableCell>{f.computed?.partnerBreakdown?.map((p:any) => p.relationName).join(', ')}</TableCell>
-                                <TableCell className="font-mono">{f.computed?.net?.toFixed(2)} {sym}</TableCell>
-                                <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {sym}</TableCell>
-                                <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {sym}</TableCell>
+                                <TableCell className="font-mono">{f.computed?.net?.toFixed(2)} {currencySymbol}</TableCell>
+                                <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {currencySymbol}</TableCell>
+                                <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {currencySymbol}</TableCell>
                                 <TableCell className='text-center'>
-                                  <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(i)}><Trash2 className='h-4 w-4'/></Button>
+                                  <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={()={() => removeEntry(i)}}><Trash2 className='h-4 w-4'/></Button>
                                 </TableCell>
                               </TableRow>
-                            );
-                          })}
+                            ))}
                         </TableBody>
                       </Table>
                     </div>
                   </CardContent>
                    <CardFooter className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                         <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency="USD" className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
-                        <StatCard title="إجمالي حصة الروضتين" value={grandTotalAlrawdatainShare} currency="USD" className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
-                        <StatCard title="إجمالي حصص الشركاء" value={grandTotalPartnerShare} currency="USD" className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
+                         <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency={currencySymbol} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                        <StatCard title="إجمالي حصة الروضتين" value={grandTotalAlrawdatainShare} currency={currencySymbol} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
+                        <StatCard title="إجمالي حصص الشركاء" value={grandTotalPartnerShare} currency={currencySymbol} className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
                    </CardFooter>
                 </Card>
               </>
