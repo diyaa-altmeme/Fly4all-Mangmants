@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
@@ -31,7 +30,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import { useAuth } from "@/lib/auth-context";
 
-import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil } from 'lucide-react';
+import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil, AlertCircle } from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from 'date-fns';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -132,9 +131,8 @@ function computeTotals(d: CompanyEntryFormValues) {
       if (p.type === "percentage") {
           share = partnerPool * (p.value / 100);
       } else { // fixed
-          share = Math.min(p.value, remainingForDistribution);
+          share = p.value;
       }
-      remainingForDistribution -= share;
       return { ...p, share };
   });
 
@@ -243,6 +241,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   ref
 ) {
   const { data: navData } = useVoucherNav();
+  const { toast } = useToast();
   
   const companyOptions = useMemo(() => 
     (navData?.clients || []).filter(c => c.type === 'company').map((c: any) => ({ value: c.id, label: c.name, settings: c.segmentSettings })),
@@ -280,7 +279,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
       form.setValue("visaProfitValue", client.segmentSettings.visaProfitValue);
       form.setValue("hotelProfitType", client.segmentSettings.hotelProfitType);
       form.setValue("hotelProfitValue", client.segmentSettings.hotelProfitValue);
-      form.setValue("groupProfitType", client.segmentSettings.groupProfitValue);
+      form.setValue("groupProfitType", client.segmentSettings.groupProfitType);
       form.setValue("groupProfitValue", client.segmentSettings.groupProfitValue);
       form.setValue("alrawdatainSharePercentage", client.segmentSettings.alrawdatainSharePercentage);
     }
@@ -293,6 +292,14 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   
   const onAdd = (data: CompanyEntryFormValues) => {
     const computed = computeTotals(data);
+     if (data.hasPartner && Math.abs(computed.remainder) > 0.01) {
+      toast({
+        title: "المبلغ الموزع غير مكتمل",
+        description: `يوجد مبلغ متبقي (${computed.remainder.toFixed(2)}) لم يتم توزيعه على الشركاء.`,
+        variant: "destructive",
+      });
+      return;
+    }
     onAddEntry({ ...data, computed });
     form.reset({
       ...form.getValues(),
@@ -525,8 +532,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     }, [fields]);
 
     const currency = getValues('currency');
-    const { data: navDataContext } = useVoucherNav();
-    const currencySymbol = navDataContext?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
+    const currencySymbol = navData?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
