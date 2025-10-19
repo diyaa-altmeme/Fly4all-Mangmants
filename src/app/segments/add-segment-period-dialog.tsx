@@ -189,7 +189,8 @@ const ServiceLine = React.forwardRef(function ServiceLine({
   const val  = Number(useWatch({ name: valueField as any }) || 0);
 
   const result = useMemo(() => computeService(count, type, val), [count, type, val]);
-  const currency = useFormContext<PeriodFormValues>().getValues('currency');
+  const parentForm = useFormContext<PeriodFormValues>();
+  const currency = parentForm.watch('currency');
   const { data: navData } = useVoucherNav();
   const currencySymbol = navData?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
 
@@ -257,13 +258,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
 ) {
   const { data: navData } = useVoucherNav();
   const { user } = useAuth() || {};
-  const parent = useFormContext<PeriodFormValues>();
-  
-  const allRelations = useMemo(() => {
-    if (!navData) return [];
-    const all = [...(navData.clients || []), ...(navData.suppliers || [])];
-    return Array.from(new Map(all.map(item => [item.id, item])).values());
-  }, [navData]);
   
   const companyOptions = useMemo(() => 
     (navData?.clients || []).filter(c => c.type === 'company').map((c: any) => ({ value: c.id, label: c.name, settings: c.segmentSettings })),
@@ -414,6 +408,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     </FormProvider>
   );
 });
+AddCompanyToSegmentForm.displayName = "AddCompanyToSegmentForm";
 
 // ---------- Wrapper: AddSegmentPeriodDialog ----------
 
@@ -516,7 +511,8 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
     }, [fields]);
 
     const currency = getValues('currency');
-    const currencySymbol = navData?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
+    const { data: navDataContext } = useVoucherNav();
+    const currencySymbol = navDataContext?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
 
     const boxName = useMemo(() => {
       if (!user || !('boxId' in user)) return 'غير محدد';
@@ -570,7 +566,7 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
             
             {step === 2 && (
               <>
-                <AddCompanyToSegmentForm onAddEntry={addEntry} ref={companyFormRef} partnerOptions={partnerOptions} />
+                <AddCompanyToSegmentForm onAddEntry={addEntry} ref={companyFormRef} partnerOptions={partnerOptions}/>
                 <Card className="border rounded-lg">
                   <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
                   <CardContent className="pt-0">
@@ -588,7 +584,7 @@ export default function AddSegmentPeriodDialog({ onSuccess }: AddSegmentPeriodDi
                                 <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {currencySymbol}</TableCell>
                                 <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {currencySymbol}</TableCell>
                                 <TableCell className='text-center'>
-                                  <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={()={() => removeEntry(i)}}><Trash2 className='h-4 w-4'/></Button>
+                                  <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(i)}><Trash2 className='h-4 w-4'/></Button>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -640,5 +636,3 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
         </p>
     </div>
 );
-
-    
