@@ -131,7 +131,7 @@ function computeTotals(d: CompanyEntryFormValues) {
   const partnerPool   = Math.max(0, net - rodatainShare);
 
   let percentSum = 0, fixedSum = 0;
-  d.partners.forEach(p => {
+  (d.partners || []).forEach(p => {
     if (p.type === "percentage") percentSum += p.value;
     else fixedSum += p.value;
   });
@@ -140,7 +140,7 @@ function computeTotals(d: CompanyEntryFormValues) {
   const fixedAllocation   = Math.min(Math.max(0, partnerPool - percentAllocation), fixedSum);
   const fixedScale        = fixedSum > 0 ? (fixedAllocation / fixedSum) : 0;
 
-  const partnerBreakdown = d.partners.map(p => ({
+  const partnerBreakdown = (d.partners || []).map(p => ({
     ...p,
     share: p.type === "percentage" ? partnerPool * (p.value / 100) : p.value * fixedScale
   }));
@@ -241,15 +241,29 @@ const ServiceLine = React.forwardRef(function ServiceLine({
             </div>
           )}
         />
-        <div className="space-y-1">
-          <Label className="text-xs">قيمة العمولة</Label>
-          <Controller
-            control={control}
-            name={valueField as any}
-            render={({ field }) => (
-              <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} className="h-8 text-xs" />
-            )}
-          />
+        <div className="grid grid-cols-2 gap-2">
+           <div className="space-y-1">
+                <Label className="text-xs">نوع العمولة</Label>
+                <Controller control={control} name={typeField as any} render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="fixed">مبلغ ثابت</SelectItem>
+                            <SelectItem value="percentage">نسبة مئوية</SelectItem>
+                        </SelectContent>
+                    </Select>
+                )} />
+            </div>
+             <div className="space-y-1">
+              <Label className="text-xs">قيمة العمولة</Label>
+              <Controller
+                control={control}
+                name={valueField as any}
+                render={({ field }) => (
+                  <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} className="h-8 text-xs" />
+                )}
+              />
+            </div>
         </div>
       </CardContent>
     </Card>
@@ -266,6 +280,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   const { data: navData } = useVoucherNav();
   const { user } = useAuth() || {};
   const parent = useFormContext<PeriodFormValues>();
+  const handleAddPartner = () => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 });
 
   const relationOptions =
     [
@@ -320,10 +335,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     name: "partners",
   });
   
-  const handleAddPartner = () => {
-    appendPartner({ id: '', relationId: "", relationName: "", type: "percentage", value: 0 });
-  };
-  
   const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
   const onAdd = (data: CompanyEntryFormValues) => {
     const client = navData?.clients.find(c => c.id === data.clientId);
@@ -348,15 +359,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
       discountValue: 0,
     });
   };
-
-  const handleCommissionTypeChange = (value: 'fixed' | 'percentage') => {
-      form.setValue('ticketProfitType', value);
-      form.setValue('visaProfitType', value);
-      form.setValue('hotelProfitType', value);
-      form.setValue('groupProfitType', value);
-  };
-  
-  const watchedCommissionType = form.watch('ticketProfitType');
 
   return (
     <FormProvider {...form}>
@@ -410,16 +412,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             
             <CollapsibleContent className="pt-3 space-y-3">
                  <div className="flex items-center justify-between mt-3 rounded-md border p-2">
-                    <div className="space-y-1">
-                        <Label>نوع العمولة (عام)</Label>
-                        <Select value={watchedCommissionType} onValueChange={handleCommissionTypeChange}>
-                            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="fixed">مبلغ ثابت</SelectItem>
-                                <SelectItem value="percentage">نسبة مئوية %</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
                     <div className="flex items-center gap-4">
                         <div className="space-y-1">
                             <Label>نوع الخصم</Label>
@@ -449,10 +441,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                             </div>
                         )}
                     />
-                    <Button type="button" variant="ghost" size="sm" className="gap-1">
-                      إدارة الشركاء
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
                 </div>
             </CollapsibleTrigger>
 
@@ -526,7 +514,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
 
 // ---------- Wrapper: AddSegmentPeriodDialog ----------
 
-export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () => Promise<void> }) {
+export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess }: AddSegmentPeriodDialogProps) {
   const { toast } = useToast();
   const { data: navData } = useVoucherNav();
   const { user } = useAuth() || {};
@@ -575,8 +563,8 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
     }
     setIsSaving(true);
     
-    const finalEntries = fields.map((f: any) => ({
-      ...f,
+    const finalEntries = fields.map((entry: any) => ({
+      ...entry,
       fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
       toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
       currency: periodData.currency,
