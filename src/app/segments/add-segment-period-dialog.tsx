@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from "react";
@@ -38,7 +39,16 @@ import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarI
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { produce } from "immer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // ---------- Schemas ----------
 
@@ -243,19 +253,7 @@ const ServiceLine = React.forwardRef(function ServiceLine({
             </div>
           )}
         />
-        <div className="grid grid-cols-2 gap-2">
-           <div className="space-y-1">
-                <Label className="text-xs">نوع العمولة</Label>
-                <Controller control={control} name={typeField as any} render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="fixed">مبلغ ثابت</SelectItem>
-                            <SelectItem value="percentage">نسبة %</SelectItem>
-                        </SelectContent>
-                    </Select>
-                )} />
-            </div>
+        <div className="grid grid-cols-1 gap-2">
              <div className="space-y-1">
               <Label className="text-xs">قيمة العمولة</Label>
               <Controller
@@ -335,33 +333,43 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     name: "partners",
   });
   
-  const handleAddPartner = () => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 });
-  const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
+    const handleAddPartner = () => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0 });
+    const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
 
-  const onAdd = (data: CompanyEntryFormValues) => {
-    const client = navData?.clients.find(c => c.id === data.clientId);
-    if (client && client.segmentSettings) {
-        saveClientPrefs(user?.uid ?? null, data.clientId, client.segmentSettings);
-    }
+    const onAdd = (data: CompanyEntryFormValues) => {
+        const client = navData?.clients.find(c => c.id === data.clientId);
+        if (client && client.segmentSettings) {
+            saveClientPrefs(user?.uid ?? null, data.clientId, client.segmentSettings);
+        }
 
-    const computed = computeTotals(data);
+        const computed = computeTotals(data);
 
-    onAddEntry({
-      ...data,
-      computed,
-    });
+        onAddEntry({
+        ...data,
+        computed,
+        });
 
-    form.reset({
-      ...form.getValues(),
-      tickets: 0, visas: 0, hotels: 0, groups: 0,
-      partners: [],
-      hasPartners: false,
-      alrawdatainSharePct: 100,
-      discountType: "none",
-      discountValue: 0,
-      notes: '',
-    });
-  };
+        form.reset({
+        ...form.getValues(),
+        tickets: 0, visas: 0, hotels: 0, groups: 0,
+        partners: [],
+        hasPartners: false,
+        alrawdatainSharePct: 100,
+        discountType: "none",
+        discountValue: 0,
+        notes: '',
+        });
+    };
+
+    const setAllProfitTypes = (type: "fixed" | "percentage") => {
+        form.setValue("ticketProfitType", type);
+        form.setValue("visaProfitType", type);
+        form.setValue("hotelProfitType", type);
+        form.setValue("groupProfitType", type);
+    };
+
+    const currencyOptions = navData?.settings?.currencySettings?.currencies || [];
+
 
   return (
     <FormProvider {...form}>
@@ -429,12 +437,26 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                  <div className="flex items-center justify-between mt-3 rounded-md border p-2">
                     <div className="flex items-center gap-4">
                         <div className="space-y-1">
-                            <Label>نوع الخصم</Label>
-                            <Controller control={form.control} name="discountType" render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">بدون</SelectItem><SelectItem value="fixed">مبلغ ثابت</SelectItem><SelectItem value="percentage">نسبة %</SelectItem></SelectContent></Select>)}/>
+                            <Label>نوع العمولة (عام)</Label>
+                            <Select onValueChange={(v: "fixed" | "percentage") => setAllProfitTypes(v)} defaultValue="fixed">
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="fixed">مبلغ ثابت</SelectItem>
+                                    <SelectItem value="percentage">نسبة %</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
-                        <div className="space-y-1">
-                            <Label>قيمة الخصم</Label>
-                            <Controller control={form.control} name="discountValue" render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/>
+                         <div className="space-y-1">
+                            <Label>العملة</Label>
+                            <Select
+                                value={parent.watch('currency')}
+                                onValueChange={(v) => parent.setValue('currency', v)}
+                            >
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                 </div>
@@ -618,7 +640,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     <FormField control={periodForm.control} name="toDate" render={({ field }) => (
                       <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => { if(d) field.onChange(d); setIsToCalendarOpen(false); }} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
                     )}/>
-                    <FormField control={periodForm.control} name="currency" render={({ field }) => (
+                     <FormField control={periodForm.control} name="currency" render={({ field }) => (
                       <FormItem>
                         <FormLabel>العملة</FormLabel>
                         <Select value={field.value} onValueChange={field.onChange}>
@@ -658,7 +680,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {sym}</TableCell>
                                 <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {sym}</TableCell>
                                 <TableCell className='text-center'>
-                                  <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => remove(i)}><Trash2 className='h-4 w-4'/></Button>
+                                  <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(i)}><Trash2 className='h-4 w-4'/></Button>
                                 </TableCell>
                               </TableRow>
                             );
@@ -697,3 +719,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     </Dialog>
   );
 }
+
+    
