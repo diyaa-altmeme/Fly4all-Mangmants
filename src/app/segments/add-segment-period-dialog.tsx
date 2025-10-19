@@ -45,7 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { useForm, FormProvider, useFormContext, useFieldArray, FieldPath, FieldValues, useWatch } from 'react-hook-form';
+import { useForm, FormProvider, useFormContext, useFieldArray, FieldPath, FieldValues, useWatch, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -78,12 +78,12 @@ const companyEntrySchema = z.object({
   groupProfitType: z.enum(["fixed", "percentage"]).default("fixed"),
   groupProfitValue: z.coerce.number().min(0).default(1),
   
-  hasPartners: z.boolean().default(false),
+  hasPartner: z.boolean().default(false),
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(100),
   partners: z.array(partnerSchema).default([]),
   notes: z.string().optional(),
 }).refine(data => {
-    if (!data.hasPartners) return true;
+    if (!data.hasPartner) return true;
     const totals = computeTotals(data);
     return totals.partnersTotal <= totals.partnerPool + 0.01;
 }, {
@@ -238,7 +238,7 @@ const ServiceLine = React.forwardRef(function ServiceLine({
     </Card>
   );
 });
-
+ServiceLine.displayName = "ServiceLine";
 
 // ---------- AddCompanyToSegmentForm ----------
 
@@ -262,7 +262,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
       visaProfitType: "fixed", visaProfitValue: 1,
       hotelProfitType: "fixed", hotelProfitValue: 1,
       groupProfitType: "fixed", groupProfitValue: 1,
-      hasPartners: false,
+      hasPartner: false,
       alrawdatainSharePercentage: 100,
       partners: [],
     },
@@ -307,7 +307,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
         ...form.getValues(),
         tickets: 0, visas: 0, hotels: 0, groups: 0,
         partners: [],
-        hasPartners: false,
+        hasPartner: false,
         alrawdatainSharePercentage: 100,
         notes: '',
         });
@@ -385,8 +385,8 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                         <div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2">
                             <div className="col-span-4"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId`} render={({ field }) => (<Autocomplete options={partnerOptions} value={field.value} onValueChange={(v) => { field.onChange(v); const rel = partnerOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName`, rel?.label || "");}} placeholder="اختر شريكاً" />)}/></div>
                             <div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type`} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div>
-                            <div className="col-span-2"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value`} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div>
-                            <div className="col-span-3 text-center"><Label>الحصة المستلمة</Label><div className="font-bold text-blue-600 font-mono p-2 bg-blue-50 rounded-md">{partnerShare.toFixed(2)} USD</div></div>
+                            <div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value`} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div>
+                            <div className="col-span-2 text-center"><Label>الحصة المستلمة</Label><div className="font-bold text-blue-600 font-mono p-2 bg-blue-50 rounded-md">{partnerShare.toFixed(2)} USD</div></div>
                             <div className="col-span-1 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
                         </div>
                     )
@@ -399,7 +399,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
            <div className="flex items-center justify-between mt-3">
               <Controller
                   control={form.control}
-                  name="hasPartners"
+                  name="hasPartner"
                   render={({ field }) => (
                       <div className="flex items-center gap-2">
                       <Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-switch" />
@@ -645,5 +645,3 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
         </p>
     </div>
 );
-
-    
