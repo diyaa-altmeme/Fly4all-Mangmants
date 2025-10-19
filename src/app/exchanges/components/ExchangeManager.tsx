@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import type { Exchange, UnifiedLedgerEntry, ExchangeTransaction, ExchangePayment } from '@/lib/types';
 import { getUnifiedExchangeLedger, getExchanges, deleteExchangeTransactionBatch, deleteExchangePaymentBatch, updateBatch } from '../actions';
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +59,7 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
 const LedgerRow = ({ entry, index, exchanges, onActionSuccess }: { entry: UnifiedLedgerEntry; index: number; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void }) => {
     const { toast } = useToast();
     const [isConfirmed, setIsConfirmed] = useState(entry.isConfirmed || false);
+    const [isConfirmAlertOpen, setIsConfirmAlertOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
 
     useEffect(() => {
@@ -74,6 +76,14 @@ const LedgerRow = ({ entry, index, exchanges, onActionSuccess }: { entry: Unifie
              setIsConfirmed(!checked); // Revert on failure
         } else {
              toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
+        }
+    };
+
+    const onCheckedChange = (checked: boolean) => {
+        if (!checked) {
+            setIsConfirmAlertOpen(true);
+        } else {
+            handleConfirmChange(true);
         }
     };
     
@@ -115,10 +125,24 @@ const LedgerRow = ({ entry, index, exchanges, onActionSuccess }: { entry: Unifie
 
     return (
         <Collapsible asChild key={entry.id}>
-          <tbody className="border-t">
+          <tbody className={cn("border-t", isConfirmed && "bg-green-500/10")}>
             <TableRow>
                 <TableCell className="p-2 text-center font-mono">{index + 1}</TableCell>
-                <TableCell className="p-2 text-center"><Checkbox checked={isConfirmed} onCheckedChange={(c) => handleConfirmChange(!!c)} /></TableCell>
+                <TableCell className="p-2 text-center">
+                    <AlertDialog open={isConfirmAlertOpen} onOpenChange={setIsConfirmAlertOpen}>
+                         <Checkbox checked={isConfirmed} onCheckedChange={(c) => onCheckedChange(!!c)} />
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                <AlertDialogDescription>سيؤدي هذا إلى إلغاء تأكيد هذه الدفعة وفتحها للتعديل أو الحذف.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleConfirmChange(false)}>نعم، إلغاء التأكيد</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </TableCell>
                 <TableCell className="p-1 text-center">
                     <CollapsibleTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:rotate-180">
@@ -353,7 +377,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             return acc;
         }, { totalDebitsUSD: 0, totalCreditsUSD: 0 });
 
-        return { ...totals, netBalanceUSD: totals.totalCreditsUSD - totals.totalDebitsUSD };
+        return { ...totals, netBalanceUSD: totals.totalCreditsUSD - totals.totalDebitUSD };
     }, [filteredLedger]);
   
     const handleSort = (key: string) => {
