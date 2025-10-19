@@ -10,9 +10,9 @@ import { Terminal, Users, SlidersHorizontal, Upload, MessageSquareQuote, CreditC
 import type { AppSettings } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import AccountingSettings from "@/app/settings/sections/accounting-settings";
-import ApiSettings from "@/app/settings/sections/api-settings";
-import SystemStatusSettings from "@/app/settings/sections/system-status-settings";
+import AccountingSettings from "@/app/settings/accounting/page";
+import ApiSettings from "@/app/settings/sections/api-settings.tsx";
+import SystemStatusSettings from "@/app/settings/sections/system-status-settings.tsx";
 import RelationsSettingsPage from '@/app/relations/settings/page';
 import AppearancePage from '@/app/settings/themes/page';
 import CurrencySettings from '@/components/settings/currency-settings';

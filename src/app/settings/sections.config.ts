@@ -6,7 +6,7 @@ import {
     Users, GitBranch, SlidersHorizontal, Settings, Upload, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, MessageSquareQuote, Shield, FileText, Terminal as DeveloperIcon, Paintbrush, FileBarChart, Banknote
 } from 'lucide-react';
 
-import AccountingSettings from "@/app/settings/sections/accounting-settings";
+import AccountingSettings from "@/app/settings/accounting/page";
 import ApiSettings from "@/app/settings/sections/api-settings";
 import SystemStatusSettings from "@/app/settings/sections/system-status-settings";
 import RelationsSettings from '@/app/relations/settings/components/relations-settings-content';

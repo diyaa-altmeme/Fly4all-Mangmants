@@ -10,7 +10,7 @@ import { Loader2, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
 import app from '@/lib/firebase';
 import Link from 'next/link';
-import './futuristic-login.css';
+import '../login/futuristic-login.css';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
