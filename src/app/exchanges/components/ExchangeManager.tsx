@@ -31,6 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { produce } from 'immer';
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel } from '@tanstack/react-table';
+import { Separator } from "@/components/ui/separator";
 
 interface ExchangeManagerProps {
     initialExchanges: Exchange[];
@@ -207,7 +208,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
 
                                         if (entry.entryType === 'transaction') {
                                             typeLabel = 'دين';
-                                            typeClass = 'destructive';
+                                            typeClass = 'bg-red-500';
                                         } else {
                                             if (detail.type === 'payment') {
                                                 typeLabel = 'دفع';
@@ -382,13 +383,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }
 
     if (typeFilter !== 'all') {
-        processed = processed.filter(entry => {
-             if (typeFilter === 'transaction') return entry.entryType === 'transaction';
-             if (typeFilter === 'payment') {
-                return entry.entryType === 'payment';
-             }
-             return true;
-        });
+        processed = processed.filter(entry => entry.entryType === typeFilter);
     }
 
     if (confirmationFilter !== 'all') {
@@ -404,8 +399,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             if (entry.entryType === 'transaction') {
                 acc.totalDebitUSD += Math.abs(amount);
             } else if(entry.entryType === 'payment') {
-                if (amount > 0) acc.totalCreditUSD += amount; // Payment to them is credit from our POV
-                else acc.totalDebitUSD += Math.abs(amount); // Receipt from them is debit from our POV
+                if (amount > 0) acc.totalCreditUSD += amount;
+                else acc.totalDebitUSD += Math.abs(amount);
             }
             return acc;
         }, { totalDebitUSD: 0, totalCreditUSD: 0, totalDebitIQD: 0, totalCreditIQD: 0 });
@@ -496,10 +491,11 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     return (
         <div className="space-y-6">
              <Card>
-                 <CardHeader>
+                <CardHeader>
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
                         <div>
                             <CardTitle>إدارة البورصات والمعاملات</CardTitle>
+                            <CardDescription>نظام تفاعلي لإدارة المعاملات اليومية للبورصات، وتسجيل الدفعات، ومتابعة الأرصدة.</CardDescription>
                         </div>
                         <div className="w-full sm:w-auto">
                             <Label htmlFor="exchange-select" className="font-bold text-sm">البورصة الحالية:</Label>
@@ -517,10 +513,27 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="md:col-span-3 pt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <StatCard title="إجمالي مطلوب لنا" usd={summary.totalCreditUSD} iqd={summary.totalCreditIQD} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
-                        <StatCard title="إجمالي مطلوب منا" usd={summary.totalDebitUSD} iqd={summary.totalDebitIQD} className="border-red-500/50 bg-red-50 dark:bg-red-950/30" />
-                        <StatCard title="صافي الرصيد الإجمالي" usd={netBalanceUSD} iqd={netBalanceIQD} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border rounded-lg bg-muted">
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-green-500/30">
+                            <div className="text-right">
+                                <p className="text-xs font-bold text-muted-foreground">إجمالي مطلوب لنا (دائنون لنا)</p>
+                                <p className="font-bold font-mono text-lg">{formatCurrency(summary.totalCreditUSD)}</p>
+                            </div>
+                            <ArrowUp className="h-6 w-6 text-green-500" />
+                        </div>
+                        <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-red-500/30">
+                            <div className="text-right">
+                                <p className="text-xs font-bold text-muted-foreground">إجمالي مطلوب منا (مدينون لنا)</p>
+                                <p className="font-bold font-mono text-lg">{formatCurrency(summary.totalDebitUSD)}</p>
+                            </div>
+                             <ArrowDown className="h-6 w-6 text-red-500" />
+                        </div>
+                        <div className={cn("flex items-center justify-between p-3 rounded-lg bg-background border", netBalanceUSD > 0 ? "border-green-500/50" : netBalanceUSD < 0 ? "border-red-500/50" : "border-gray-500/50")}>
+                            <div className="text-right">
+                                <p className="text-xs font-bold text-muted-foreground">صافي الرصيد</p>
+                                <p className={cn("font-bold font-mono text-xl", netBalanceUSD > 0 ? "text-green-600" : netBalanceUSD < 0 ? "text-red-600" : "text-foreground")}>{formatCurrency(netBalanceUSD)}</p>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
