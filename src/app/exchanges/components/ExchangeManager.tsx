@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Loader2, ArrowUp, ArrowDown, MoreHorizontal, Edit, Trash2, ChevronDown, Calendar as CalendarIcon, Filter, GitCompareArrows, Search, UserPlus, ArrowUpDown, RefreshCw, Download } from 'lucide-react';
+import { PlusCircle, Loader2, ArrowUp, ArrowDown, MoreHorizontal, Edit, Trash2, ChevronDown, Calendar as CalendarIcon, Filter, GitCompareArrows, Search, UserPlus, ArrowUpDown, RefreshCw, Download, CheckCheck } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -35,7 +35,7 @@ interface ExchangeManagerProps {
     initialExchangeId: string;
 }
 
-const formatCurrency = (amount: number | undefined, currency: string) => {
+const formatCurrency = (amount?: number, currency: string = 'USD') => {
     if (amount === undefined || amount === null) return '-';
     return new Intl.NumberFormat('en-US', {
         minimumFractionDigits: 2,
@@ -255,6 +255,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'createdAt', direction: 'desc' });
   const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
+  const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
 
 
   const fetchExchangeData = useCallback(async () => {
@@ -351,6 +352,10 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         processed = processed.filter(entry => entry.entryType === typeFilter);
     }
 
+    if (confirmationFilter !== 'all') {
+        processed = processed.filter(entry => (confirmationFilter === 'confirmed') ? entry.isConfirmed : !entry.isConfirmed);
+    }
+
     processed.sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -363,7 +368,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     });
 
     return processed;
-}, [unifiedLedger, debouncedSearchTerm, sortConfig, typeFilter]);
+}, [unifiedLedger, debouncedSearchTerm, sortConfig, typeFilter, confirmationFilter]);
 
     const { totalDebitsUSD, totalCreditsUSD, netBalanceUSD } = useMemo(() => {
         const totals = filteredLedger.reduce((acc, entry) => {
@@ -420,62 +425,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            id="date"
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full sm:w-[250px] justify-start text-left font-normal",
-                                                !date && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {date?.from ? (
-                                                date.to ? (
-                                                    <>
-                                                        {format(date.from, "LLL dd, y")} -{" "}
-                                                        {format(date.to, "LLL dd, y")}
-                                                    </>
-                                                ) : (
-                                                    format(date.from, "LLL dd, y")
-                                                )
-                                            ) : (
-                                                <span>اختر فترة</span>
-                                            )}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            initialFocus
-                                            mode="range"
-                                            defaultMonth={date?.from}
-                                            selected={date}
-                                            onSelect={setDate}
-                                            numberOfMonths={2}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
                             </div>
-                            <div className="relative flex-grow">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="بحث شامل..."
-                                    className="ps-10"
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                             <div className="flex items-center gap-2 w-full sm:w-auto">
-                                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-                                    <SelectTrigger className="w-full sm:w-[150px]"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">كل الحركات</SelectItem>
-                                        <SelectItem value="transaction">دين (معاملات)</SelectItem>
-                                        <SelectItem value="payment">تسديد (دفع/قبض)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <div className="flex-grow"></div>
                             <div className="flex gap-2 w-full sm:w-auto">
                                 <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
                                     <Button className="w-full"><PlusCircle className="me-2 h-4 w-4" />معاملة</Button>
@@ -498,15 +449,91 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                             </div>
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-4 pt-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <StatCard title="إجمالي علينا (معاملات)" value={totalDebitsUSD} currency="USD" className="border-red-500/30" arrow="down" />
-                            <StatCard title="إجمالي لنا (تسديدات)" value={totalCreditsUSD} currency="USD" className="border-green-500/30" arrow="up" />
-                            <StatCard title="الرصيد النهائي" value={netBalanceUSD} currency="USD" className={cn("border-blue-500/30 font-bold", netBalanceUSD >= 0 ? 'text-green-600' : 'text-red-600')} />
+                    <div className="pt-4 grid grid-cols-1 md:grid-cols-[1fr,auto] lg:grid-cols-[1fr,auto,auto] items-end gap-2 border-t mt-4">
+                        <div className="relative">
+                            <Label htmlFor="main-search">بحث شامل</Label>
+                            <Search className="absolute left-3 top-10 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                id="main-search"
+                                placeholder="بحث بالفاتورة، الوصف، المستخدم، الطرف الآخر..."
+                                className="ps-10"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
                         </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 w-full lg:w-auto">
+                           <div className="space-y-1">
+                               <Label>الفترة الزمنية</Label>
+                               <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            id="date"
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !date && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date?.from ? (
+                                                date.to ? (
+                                                    <>{format(date.from, "LLL dd")} - {format(date.to, "LLL dd")}</>
+                                                ) : (
+                                                    format(date.from, "LLL dd, y")
+                                                )
+                                            ) : (
+                                                <span>اختر فترة</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            initialFocus
+                                            mode="range"
+                                            defaultMonth={date?.from}
+                                            selected={date}
+                                            onSelect={setDate}
+                                            numberOfMonths={2}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                           </div>
+                           <div className="space-y-1">
+                               <Label>نوع الحركة</Label>
+                                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">كل الحركات</SelectItem>
+                                        <SelectItem value="transaction">دين (معاملات)</SelectItem>
+                                        <SelectItem value="payment">تسديد (دفع/قبض)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                           </div>
+                             <div className="space-y-1">
+                               <Label>الحالة</Label>
+                               <Select value={confirmationFilter} onValueChange={(v) => setConfirmationFilter(v as any)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">الكل</SelectItem>
+                                        <SelectItem value="confirmed">المؤكدة</SelectItem>
+                                        <SelectItem value="unconfirmed">غير المؤكدة</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                           </div>
+                        </div>
+                         <Button onClick={fetchExchangeData} disabled={loading} className="self-end">
+                            {loading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4" />}
+                            تطبيق الفلاتر
+                        </Button>
                     </div>
                 </CardHeader>
             </Card>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <StatCard title="إجمالي علينا (معاملات)" value={totalDebitsUSD} currency="USD" className="border-red-500/30" arrow="down" />
+                <StatCard title="إجمالي لنا (تسديدات)" value={totalCreditsUSD} currency="USD" className="border-green-500/30" arrow="up" />
+                <StatCard title="الرصيد النهائي" value={netBalanceUSD} currency="USD" className="border-blue-500/30" />
+            </div>
 
             <Card>
                 <CardHeader><CardTitle>سجل البورصة الموحد</CardTitle></CardHeader>
