@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect, useState, useCallback } from 'react';
 import ExchangeManager from '../components/ExchangeManager';
 import { getExchanges } from '../actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,7 +54,7 @@ export default function ExchangeReportPage() {
     <div className="space-y-6">
       <Suspense fallback={
         <div className="space-y-6">
-            <Card><CardHeader><CardTitle>إدارة البورصات والمعاملات</CardTitle><CardDescription>نظام تفاعلي لإدارة المعاملات اليومية للبورصات، وتسجيل الدفعات، ومتابعة الأرصدة.</CardDescription></CardHeader></Card>
+            <Card><CardHeader><CardTitle>إدارة البورصات والمعاملات</CardTitle></CardHeader></Card>
             <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>
         </div>
       }>
