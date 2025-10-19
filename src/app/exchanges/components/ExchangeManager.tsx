@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -139,7 +140,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
                 {row.getVisibleCells().map((cell: any) => {
                     if (cell.column.id === 'collapsible') {
                         return (
-                            <TableCell key={cell.id} className="p-1 text-center">
+                            <TableCell key={cell.id} className="p-1 text-center font-bold">
                                 <Button
                                     variant="ghost"
                                     size="icon"
@@ -158,7 +159,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
                     }
                     if (cell.column.id === 'isConfirmed') {
                         return (
-                            <TableCell key={cell.id} className="p-2 text-center">
+                            <TableCell key={cell.id} className="p-2 text-center font-bold">
                                 <Checkbox
                                     checked={isConfirmed}
                                     onCheckedChange={handleConfirmChange}
@@ -218,7 +219,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
                                         }
 
                                         return (
-                                            <TableRow key={index} className="bg-background/50 font-bold">
+                                            <TableRow key={index} className="bg-background font-bold">
                                                 <TableCell className="p-2 text-right">
                                                     {detail.partyName || detail.paidTo}
                                                 </TableCell>
@@ -278,7 +279,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
-  const [sorting, setSorting] = React.useState<SortingState>([{ id: 'createdAt', desc: true }]);
+  const [sorting, setSorting] = React.useState<SortingState>([{ id: 'date', desc: true }]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
   const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
   
@@ -383,7 +384,11 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     if (typeFilter !== 'all') {
         processed = processed.filter(entry => {
              if (typeFilter === 'transaction') return entry.entryType === 'transaction';
-             if (typeFilter === 'payment') return entry.entryType === 'payment';
+             if (typeFilter === 'payment') {
+                 if (entry.entryType === 'payment') return true;
+                 // Also include transactions if they have linked payments, maybe? For now, simple filter.
+                 return false;
+             }
              return true;
         });
     }
@@ -438,17 +443,17 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     const columns: ColumnDef<UnifiedLedgerEntry>[] = useMemo(() => [
         { id: 'collapsible', size: 40 },
         { id: 'isConfirmed', header: 'تأكيد', size: 50 },
-        { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => row.original.invoiceNumber },
-        { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => format(parseISO(row.original.date), 'yyyy-MM-dd') },
+        { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span> },
+        { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span> },
         { accessorKey: 'entryType', header: 'النوع', cell: ({ row }) => {
             const entry = row.original;
             if (entry.entryType === 'transaction') {
-                return <Badge variant={'destructive'}>دين</Badge>;
+                return <Badge variant={'destructive'} className="font-bold">دين</Badge>;
             } else {
                 const amount = entry.totalAmount || 0;
                 return amount > 0 
-                    ? <Badge className="bg-blue-600">دفع</Badge> 
-                    : <Badge className="bg-green-600">قبض</Badge>;
+                    ? <Badge className="bg-blue-600 font-bold">دفع</Badge> 
+                    : <Badge className="bg-green-600 font-bold">قبض</Badge>;
             }
         }},
         { accessorKey: 'description', header: 'الوصف', size: 250 },
@@ -464,7 +469,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
             return <div className="font-bold text-green-600">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
         }},
-        { accessorKey: 'balance', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => formatCurrency(row.original.balance, 'USD') },
+        { accessorKey: 'balance', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{formatCurrency(row.original.balance, 'USD')}</span> },
         { accessorKey: 'userName', header: 'المستخدم' },
         { id: 'actions', header: 'الإجراءات', cell: ({ row }) => <LedgerRowActions entry={row.original} onActionSuccess={handleActionSuccess} exchanges={exchanges}/> },
     ], [exchanges, handleActionSuccess]);
@@ -489,9 +494,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
                         <div>
                             <CardTitle>إدارة البورصات والمعاملات</CardTitle>
-                            <CardDescription>
-                                نظام تفاعلي لإدارة المعاملات اليومية للبورصات، وتسجيل الدفعات، ومتابعة الأرصدة.
-                            </CardDescription>
                         </div>
                         <div className="w-full sm:w-auto">
                             <Label htmlFor="exchange-select" className="font-bold text-sm">البورصة الحالية:</Label>
@@ -509,74 +511,76 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <StatCard title="إجمالي مطلوب لنا (دائنون لنا)" usd={summary.totalCreditUSD} iqd={summary.totalCreditIQD} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
-                        <StatCard title="إجمالي مطلوب منا (مدينون لنا)" usd={summary.totalDebitUSD} iqd={summary.totalDebitIQD} className="border-red-500/50 bg-red-50 dark:bg-red-950/30" />
-                        <StatCard title="صافي الرصيد الإجمالي" usd={netBalanceUSD} iqd={netBalanceIQD} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                    <div className="md:col-span-3 pt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <StatCard title="إجمالي مطلوب لنا" usd={summary.totalCreditUSD} iqd={summary.totalCreditIQD} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
+                        <StatCard title="إجمالي مطلوب منا" usd={summary.totalDebitUSD} iqd={summary.totalDebitIQD} className="border-red-500/50 bg-red-50 dark:bg-red-950/30" />
+                        <StatCard title="صافي الرصيد" usd={netBalanceUSD} iqd={netBalanceIQD} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
                     </div>
                 </CardContent>
             </Card>
 
             <Card>
-                <CardHeader className="flex-col sm:flex-row items-center justify-between gap-4">
-                     <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
-                         <div className="relative flex-grow w-full">
-                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input placeholder="بحث شامل في النتائج..." className="pr-10 h-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                <CardHeader>
+                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex flex-col sm:flex-row items-center gap-2 w-full">
+                            <div className="relative flex-grow w-full">
+                                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input placeholder="بحث شامل في النتائج..." className="pr-10 h-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                            </div>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button id="date" variant={"outline"} className={cn("w-full justify-start text-left font-normal h-9", !date && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date?.from ? (date.to ? (<>{format(date.from, "LLL dd")} - {format(date.to, "LLL dd")}</>) : (format(date.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2}/>
+                                    </PopoverContent>
+                                </Popover>
+                                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+                                    <SelectTrigger className="w-full sm:w-[150px] h-9"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">كل الحركات</SelectItem>
+                                        <SelectItem value="transaction">دين</SelectItem>
+                                        <SelectItem value="payment">تسديد</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Select value={confirmationFilter} onValueChange={(v) => setConfirmationFilter(v as any)}>
+                                    <SelectTrigger className="w-full sm:w-[150px] h-9"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">الكل</SelectItem>
+                                        <SelectItem value="confirmed">المؤكدة</SelectItem>
+                                        <SelectItem value="unconfirmed">غير المؤكدة</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button onClick={fetchExchangeData} disabled={loading} className="w-full sm:w-auto h-9">
+                                    {loading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4" />}
+                                    تطبيق
+                                </Button>
+                            </div>
                         </div>
-                        <div className="flex gap-2 w-full sm:w-auto">
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button id="date" variant={"outline"} className={cn("w-full justify-start text-left font-normal h-9", !date && "text-muted-foreground")}>
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date?.from ? (date.to ? (<>{format(date.from, "LLL dd")} - {format(date.to, "LLL dd")}</>) : (format(date.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2}/>
-                                </PopoverContent>
-                            </Popover>
-                             <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-                                <SelectTrigger className="w-full sm:w-[150px] h-9"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">كل الحركات</SelectItem>
-                                    <SelectItem value="transaction">دين</SelectItem>
-                                    <SelectItem value="payment">تسديد</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Select value={confirmationFilter} onValueChange={(v) => setConfirmationFilter(v as any)}>
-                                <SelectTrigger className="w-full sm:w-[150px] h-9"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">الكل</SelectItem>
-                                    <SelectItem value="confirmed">المؤكدة</SelectItem>
-                                    <SelectItem value="unconfirmed">غير المؤكدة</SelectItem>
-                                </SelectContent>
-                            </Select>
-                             <Button onClick={fetchExchangeData} disabled={loading} className="w-full sm:w-auto h-9">
-                                {loading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4" />}
-                                تطبيق
+                        <div className="flex items-center gap-2">
+                            <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
+                                <Button className="w-full"><PlusCircle className="me-2 h-4 w-4" />معاملة</Button>
+                            </AddTransactionsDialog>
+                            <AddPaymentsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
+                                <Button className="w-full" variant="secondary"><PlusCircle className="me-2 h-4 w-4" />تسديد</Button>
+                            </AddPaymentsDialog>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button variant="outline" size="icon"><MoreHorizontal/></Button></DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuItem onClick={handleExport}><Download className="me-2 h-4 w-4"/>تصدير Excel</DropdownMenuItem>
+                                    <AddExchangeDialog onSuccess={refreshAllData}>
+                                        <DropdownMenuItem onSelect={e => e.preventDefault()}><PlusCircle className="me-2 h-4 w-4" />إدارة البورصات</DropdownMenuItem>
+                                    </AddExchangeDialog>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            <Button variant="outline" size="icon" onClick={refreshAllData} disabled={loading}>
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4"/>}
                             </Button>
                         </div>
-                    </div>
-                     <div className="flex items-center gap-2">
-                        <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
-                            <Button className="w-full"><PlusCircle className="me-2 h-4 w-4" />معاملة</Button>
-                        </AddTransactionsDialog>
-                        <AddPaymentsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
-                            <Button className="w-full" variant="secondary"><PlusCircle className="me-2 h-4 w-4" />تسديد</Button>
-                        </AddPaymentsDialog>
-                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild><Button variant="outline" size="icon"><MoreHorizontal/></Button></DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                <DropdownMenuItem onClick={handleExport}><Download className="me-2 h-4 w-4"/>تصدير Excel</DropdownMenuItem>
-                                <AddExchangeDialog onSuccess={refreshAllData}>
-                                    <DropdownMenuItem onSelect={e => e.preventDefault()}><PlusCircle className="me-2 h-4 w-4" />إدارة البورصات</DropdownMenuItem>
-                                </AddExchangeDialog>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                         <Button variant="outline" size="icon" onClick={refreshAllData} disabled={loading}>
-                            {loading ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4"/>}
-                        </Button>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -618,5 +622,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
-    
