@@ -78,10 +78,6 @@ const companyEntrySchema = z.object({
   groupProfitType: z.enum(["fixed", "percentage"]).default("fixed"),
   groupProfitValue: z.coerce.number().min(0).default(1),
 
-
-  discountType: z.enum(["none", "fixed", "percentage"]).default("none"),
-  discountValue: z.coerce.number().min(0).default(0),
-
   hasPartners: z.boolean().default(false),
   alrawdatainSharePct: z.coerce.number().min(0).max(100).default(100),
   partners: z.array(partnerSchema).default([]),
@@ -132,12 +128,7 @@ function computeTotals(d: CompanyEntryFormValues) {
 
   const gross = totalTickets + totalVisas + totalHotels + totalGroups;
 
-  const discountAmt =
-    d.discountType === "fixed" ? d.discountValue :
-    d.discountType === "percentage" ? (gross * d.discountValue) / 100 :
-    0;
-
-  const net = Math.max(0, gross - discountAmt);
+  const net = gross; // Discount is removed for now
 
   const rodatainShare = (net * (d.hasPartners ? d.alrawdatainSharePct : 100)) / 100;
   const partnerPool   = Math.max(0, net - rodatainShare);
@@ -163,7 +154,7 @@ function computeTotals(d: CompanyEntryFormValues) {
   return {
     perService: { totalTickets, totalVisas, totalHotels, totalGroups },
     gross,
-    discountAmt,
+    discountAmt: 0, // Discount removed
     net,
     rodatainShare,
     partnerPool,
@@ -174,12 +165,9 @@ function computeTotals(d: CompanyEntryFormValues) {
 }
 
 function useCurrencySymbol(currency?: string) {
-  if (!currency) return "";
-  if (currency === "IQD") return "ع.د";
-  if (currency === "USD") return "$";
-  if (currency === "SAR") return "﷼";
-  if (currency === "AED") return "د.إ";
-  return currency;
+  const { data: navData } = useVoucherNav();
+  const found = navData?.settings.currencySettings?.currencies.find(c => c.code === currency);
+  return found?.symbol || '$';
 }
 
 // ---------- Memory per client (localStorage) ----------
@@ -253,17 +241,33 @@ const ServiceLine = React.forwardRef(function ServiceLine({
             </div>
           )}
         />
-        <div className="grid grid-cols-1 gap-2">
-             <div className="space-y-1">
-              <Label className="text-xs">قيمة العمولة</Label>
-              <Controller
-                control={control}
-                name={valueField as any}
-                render={({ field }) => (
-                  <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} className="h-8 text-xs" />
-                )}
-              />
-            </div>
+         <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs">النوع</Label>
+            <Controller
+              control={control}
+              name={typeField as any}
+              render={({ field }) => (
+                 <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue/></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="fixed">مبلغ ثابت</SelectItem>
+                        <SelectItem value="percentage">نسبة %</SelectItem>
+                    </SelectContent>
+                 </Select>
+              )}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">قيمة العمولة</Label>
+            <Controller
+              control={control}
+              name={valueField as any}
+              render={({ field }) => (
+                <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} className="h-8 text-xs" />
+              )}
+            />
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -288,7 +292,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
       .map((r) => ({ value: r.id, label: r.name }));
   }, [navData]);
 
-  const companyOptions = (navData?.clients || []).map((c: any) => ({ value: c.id, label: c.name }));
+  const companyOptions = (navData?.clients || []).filter(c => c.type === 'company').map((c: any) => ({ value: c.id, label: c.name }));
 
   const form = useForm<CompanyEntryFormValues>({
     resolver: zodResolver(companyEntrySchema),
@@ -299,7 +303,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
       visaProfitType: "fixed", visaProfitValue: 1,
       hotelProfitType: "fixed", hotelProfitValue: 1,
       groupProfitType: "fixed", groupProfitValue: 1,
-      discountType: "none", discountValue: 0,
       hasPartners: false,
       alrawdatainSharePct: 100,
       partners: [],
@@ -355,17 +358,8 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
         partners: [],
         hasPartners: false,
         alrawdatainSharePct: 100,
-        discountType: "none",
-        discountValue: 0,
         notes: '',
         });
-    };
-
-    const setAllProfitTypes = (type: "fixed" | "percentage") => {
-        form.setValue("ticketProfitType", type);
-        form.setValue("visaProfitType", type);
-        form.setValue("hotelProfitType", type);
-        form.setValue("groupProfitType", type);
     };
 
     const currencyOptions = navData?.settings?.currencySettings?.currencies || [];
@@ -412,61 +406,8 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
           </div>
 
 
-          <Collapsible>
-            <CollapsibleTrigger asChild>
-                 <div className="flex items-center justify-between">
-                    <Controller
-                        control={form.control}
-                        name="hasPartners"
-                        render={({ field }) => (
-                            <div className="flex items-center gap-2">
-                            <Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-switch" />
-                            <Label htmlFor="has-partners-switch" className="font-semibold">توزيع حصص الشركاء</Label>
-                            </div>
-                        )}
-                    />
-                    <Button type="button" variant="ghost" size="sm" className="gap-1 -mr-2">
-                      <Settings2 className="h-4 w-4" />
-                      الإعدادات المالية
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                </div>
-            </CollapsibleTrigger>
-            
-            <CollapsibleContent className="pt-3 space-y-3">
-                 <div className="flex items-center justify-between mt-3 rounded-md border p-2">
-                    <div className="flex items-center gap-4">
-                        <div className="space-y-1">
-                            <Label>نوع العمولة (عام)</Label>
-                            <Select onValueChange={(v: "fixed" | "percentage") => setAllProfitTypes(v)} defaultValue="fixed">
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="fixed">مبلغ ثابت</SelectItem>
-                                    <SelectItem value="percentage">نسبة %</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                         <div className="space-y-1">
-                            <Label>العملة</Label>
-                            <Select
-                                value={parent.watch('currency')}
-                                onValueChange={(v) => parent.setValue('currency', v)}
-                            >
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                </div>
-            </CollapsibleContent>
-          </Collapsible>
-          
-          <Separator />
-
           <Collapsible open={form.getValues('hasPartners')}>
-            <CollapsibleContent className="pt-3 space-y-3">
+             <CollapsibleContent className="pt-3 space-y-3">
                 <div className="grid md:grid-cols-3 gap-3">
                     <Controller
                     control={form.control}
@@ -485,49 +426,24 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             </CollapsibleContent>
           </Collapsible>
           
-          <div className="grid md:grid-cols-2 gap-3">
-            <Card className="bg-muted/40 border-none">
-              <CardHeader className="py-2"><CardTitle className="text-sm">تفصيل الخدمات</CardTitle></CardHeader>
-              <CardContent className="space-y-1 text-sm">
-                <div className="flex justify-between"><span>الإجمالي</span><span className="font-mono">{totals.gross.toFixed(2)} {currencySymbol}</span></div>
-                <div className="flex justify-between"><span>الخصم</span><span className="font-mono">{totals.discountAmt.toFixed(2)} {currencySymbol}</span></div>
-                <Separator className="my-1" />
-                <div className="flex justify-between font-semibold"><span>الصافي</span><span className="font-mono">{totals.net.toFixed(2)} {currencySymbol}</span></div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-muted/40 border-none">
-              <CardHeader className="py-2"><CardTitle className="text-sm">توزيع الأرباح</CardTitle></CardHeader>
-              <CardContent className="space-y-1 text-sm">
-                <div className="flex justify-between"><span>حصة الروضتين</span><span className="font-mono">{totals.rodatainShare.toFixed(2)} {currencySymbol}</span></div>
-                <div className="flex justify-between"><span>المتاح للشركاء</span><span className="font-mono">{totals.partnerPool.toFixed(2)} {currencySymbol}</span></div>
-                {totals.partnerBreakdown.length > 0 && (
-                  <>
-                    <Separator className="my-1" />
-                    {totals.partnerBreakdown.map((p, i) => (
-                      <div key={i} className="flex items-center justify-between">
-                        <span className="truncate">{p.relationName || `شريك #${i+1}`}</span>
-                        <Badge variant="secondary" className="font-mono">{p.share.toFixed(2)} {currencySymbol}</Badge>
+          <Separator />
+          
+           <div className="flex items-center justify-between mt-3">
+              <Controller
+                  control={form.control}
+                  name="hasPartners"
+                  render={({ field }) => (
+                      <div className="flex items-center gap-2">
+                      <Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-switch" />
+                      <Label htmlFor="has-partners-switch" className="font-semibold">توزيع الأرباح على الشركاء</Label>
                       </div>
-                    ))}
-                    <div className="flex justify-between font-semibold"><span>مجموع الشركاء</span><span className="font-mono">{totals.partnersTotal.toFixed(2)} {currencySymbol}</span></div>
-                    {totals.remainder > 0 && (
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>المتبقي غير موزّع</span><span className="font-mono">{totals.remainder.toFixed(2)} {currencySymbol}</span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="flex justify-end">
-            <Button type="button" onClick={form.handleSubmit(onAdd)} className="mt-1">
-              <PlusCircle className="me-2 h-4 w-4" />
-              إضافة للفترة
-            </Button>
-          </div>
+                  )}
+              />
+               <Button type="button" onClick={form.handleSubmit(onAdd)} className="mt-1">
+                <PlusCircle className="me-2 h-4 w-4" />
+                إضافة للفترة
+              </Button>
+            </div>
         </CardContent>
       </Card>
     </FormProvider>
@@ -551,10 +467,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
   const [step, setStep] = useState(1);
   const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
   const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
+  const companyFormRef = React.useRef<{ resetForm: () => void }>(null);
   
   const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
-  const companyForm = useForm<CompanyEntryFormValues>({ resolver: zodResolver(companyEntrySchema) });
-
+  
   const { control, getValues, reset } = periodForm;
   const { fields, append, remove } = useFieldArray({ control, name: "entries" as const });
   
@@ -565,6 +481,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
   const addEntry = (entry: any) => {
     append(entry);
     toast({ title: "تمت إضافة الشركة إلى الفترة." });
+    companyFormRef.current?.resetForm();
   };
   
   const removeEntry = (index: number) => {
@@ -612,6 +529,15 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         setIsSaving(false);
     }
   };
+  
+    const { grandTotalProfit, grandTotalAlrawdatainShare, grandTotalPartnerShare } = React.useMemo(() => {
+        return fields.reduce((acc, entry: any) => {
+            acc.grandTotalProfit += entry.computed.net;
+            acc.grandTotalAlrawdatainShare += entry.computed.rodatainShare;
+            acc.grandTotalPartnerShare += entry.computed.partnersTotal;
+            return acc;
+        }, { grandTotalProfit: 0, grandTotalAlrawdatainShare: 0, grandTotalPartnerShare: 0 });
+    }, [fields]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -660,7 +586,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             
             {step === 2 && (
               <>
-                <AddCompanyToSegmentForm onAddEntry={addEntry} />
+                <AddCompanyToSegmentForm onAddEntry={addEntry} ref={companyFormRef} />
                 <Card className="border rounded-lg">
                   <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
                   <CardContent className="pt-0">
@@ -689,6 +615,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                       </Table>
                     </div>
                   </CardContent>
+                   <CardFooter className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                         <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency="USD" className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                        <StatCard title="إجمالي حصة الروضتين" value={grandTotalAlrawdatainShare} currency="USD" className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
+                        <StatCard title="إجمالي حصص الشركاء" value={grandTotalPartnerShare} currency="USD" className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
+                   </CardFooter>
                 </Card>
               </>
             )}
@@ -719,5 +650,4 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     </Dialog>
   );
 }
-
-    
+```
