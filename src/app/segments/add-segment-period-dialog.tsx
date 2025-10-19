@@ -56,7 +56,7 @@ const companyEntrySchema = z.object({
   visas: z.coerce.number().int().nonnegative().default(0),
   hotels: z.coerce.number().int().nonnegative().default(0),
   groups: z.coerce.number().int().nonnegative().default(0),
-  
+
   ticketProfitType: z.enum(["fixed", "percentage"]).default("fixed"),
   ticketProfitValue: z.coerce.number().min(0).default(1),
   visaProfitType: z.enum(["fixed", "percentage"]).default("fixed"),
@@ -70,12 +70,12 @@ const companyEntrySchema = z.object({
   discountValue: z.coerce.number().min(0).default(0),
 
   hasPartners: z.boolean().default(false),
-  alrawdatainSharePct: z.coerce.number().min(0).max(100).default(100), 
+  alrawdatainSharePct: z.coerce.number().min(0).max(100).default(100),
   partners: z.array(partnerSchema).default([]),
 }).refine(data => {
     if (!data.hasPartners) return true;
     const totals = computeTotals(data);
-    return totals.partnersTotal <= totals.partnerPool + 0.01; // Add tolerance
+    return totals.partnersTotal <= totals.partnerPool + 0.01;
 }, {
     message: "إجمالي حصص الشركاء يتجاوز المبلغ المتاح لهم.",
     path: ["partners"],
@@ -99,15 +99,20 @@ function computeService(count: number, type: "fixed" | "percentage", value: numb
 }
 
 function computeTotals(d: CompanyEntryFormValues) {
+  const tType = d.ticketProfitType;
+  const vType = d.visaProfitType;
+  const hType = d.hotelProfitType;
+  const gType = d.groupProfitType;
+
   const tVal = d.ticketProfitValue;
   const vVal = d.visaProfitValue;
   const hVal = d.hotelProfitValue;
   const gVal = d.groupProfitValue;
 
-  const totalTickets = computeService(d.tickets, d.ticketProfitType, tVal);
-  const totalVisas   = computeService(d.visas,   d.visaProfitType, vVal);
-  const totalHotels  = computeService(d.hotels,  d.hotelProfitType, hVal);
-  const totalGroups  = computeService(d.groups,  d.groupProfitType, gVal);
+  const totalTickets = computeService(d.tickets, tType, tVal);
+  const totalVisas   = computeService(d.visas,   vType, vVal);
+  const totalHotels  = computeService(d.hotels,  hType, hVal);
+  const totalGroups  = computeService(d.groups,  gType, gVal);
 
   const gross = totalTickets + totalVisas + totalHotels + totalGroups;
 
@@ -121,9 +126,8 @@ function computeTotals(d: CompanyEntryFormValues) {
   const rodatainShare = (net * (d.hasPartners ? d.alrawdatainSharePct : 100)) / 100;
   const partnerPool   = Math.max(0, net - rodatainShare);
 
-  // توزيع الشركاء
   let percentSum = 0, fixedSum = 0;
-  (d.partners || []).forEach(p => {
+  d.partners.forEach(p => {
     if (p.type === "percentage") percentSum += p.value;
     else fixedSum += p.value;
   });
@@ -132,7 +136,7 @@ function computeTotals(d: CompanyEntryFormValues) {
   const fixedAllocation   = Math.min(Math.max(0, partnerPool - percentAllocation), fixedSum);
   const fixedScale        = fixedSum > 0 ? (fixedAllocation / fixedSum) : 0;
 
-  const partnerBreakdown = (d.partners || []).map(p => ({
+  const partnerBreakdown = d.partners.map(p => ({
     ...p,
     share: p.type === "percentage" ? partnerPool * (p.value / 100) : p.value * fixedScale
   }));
@@ -152,7 +156,6 @@ function computeTotals(d: CompanyEntryFormValues) {
     remainder,
   };
 }
-
 
 function useCurrencySymbol(currency?: string) {
   if (!currency) return "";
@@ -267,7 +270,6 @@ function ServiceLine({
   );
 }
 
-
 // ---------- AddCompanyToSegmentForm ----------
 
 const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
@@ -312,23 +314,18 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   const currentClientId = useWatch({ control: form.control, name: "clientId" }) as string;
   useEffect(() => {
     if (!currentClientId) return;
-    const client = navData?.clients.find(c => c.id === currentClientId);
-    const prefs = client?.segmentSettings;
+    const prefs = loadClientPrefs(user?.uid ?? null, currentClientId);
     if (prefs) {
-      form.reset({
-        ...form.getValues(),
-        ticketProfitType: prefs.ticketProfitType,
-        ticketProfitValue: prefs.ticketProfitValue,
-        visaProfitType: prefs.visaProfitType,
-        visaProfitValue: prefs.visaProfitValue,
-        hotelProfitType: prefs.hotelProfitType,
-        hotelProfitValue: prefs.hotelProfitValue,
-        groupProfitType: prefs.groupProfitType,
-        groupProfitValue: prefs.groupProfitValue,
-        alrawdatainSharePct: prefs.alrawdatainSharePercentage || 100,
-      });
+      form.setValue("ticketProfitType", prefs.ticketProfitType);
+      form.setValue("ticketProfitValue", prefs.ticketProfitValue);
+      form.setValue("visaProfitType", prefs.visaProfitType);
+      form.setValue("visaProfitValue", prefs.visaProfitValue);
+      form.setValue("hotelProfitType", prefs.hotelProfitType);
+      form.setValue("hotelProfitValue", prefs.hotelProfitValue);
+      form.setValue("groupProfitType", prefs.groupProfitType);
+      form.setValue("groupProfitValue", prefs.groupProfitValue);
     }
-  }, [currentClientId, form, navData?.clients]);
+  }, [currentClientId, form, user?.uid]);
 
   const { fields: partnerFields, append: appendPartner, remove: removePartner } = useFieldArray({
     control: form.control,
@@ -336,14 +333,14 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   });
 
   const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
-
   const handleAddPartner = () => {
     appendPartner({ relationId: "", relationName: "", type: "percentage", value: 0 });
   };
 
+
   const onAdd = (data: CompanyEntryFormValues) => {
-    const company = navData?.clients.find(c => c.id === data.clientId);
-    if (company) {
+    const client = navData?.clients.find(c => c.id === data.clientId);
+    if (client) {
         saveClientPrefs(user?.uid ?? null, data.clientId, {
             ticketProfitType: data.ticketProfitType,
             ticketProfitValue: data.ticketProfitValue,
@@ -353,6 +350,9 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             hotelProfitValue: data.hotelProfitValue,
             groupProfitType: data.groupProfitType,
             groupProfitValue: data.groupProfitValue,
+            unifiedType: data.unifiedType,
+            unifiedValue: data.unifiedValue,
+            perServiceOverride: data.perServiceOverride,
         });
     }
 
@@ -407,14 +407,15 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <ServiceLine label="التذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
-            <ServiceLine label="الفيزا" icon={CreditCard} color="bg-orange-500" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
-            <ServiceLine label="الفنادق" icon={Hotel} color="bg-purple-500" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
-            <ServiceLine label="الكروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
+           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <ServiceLine label="التذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
+              <ServiceLine label="الفيزا" icon={CreditCard} color="bg-orange-500" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
+              <ServiceLine label="الفنادق" icon={Hotel} color="bg-purple-500" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
+              <ServiceLine label="الكروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
           </div>
 
-          <Collapsible defaultOpen>
+
+          <Collapsible>
             <div className="flex items-center justify-between">
               <Label className="font-semibold">الإعدادات المالية</Label>
               <CollapsibleTrigger asChild>
@@ -426,65 +427,64 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
               </CollapsibleTrigger>
             </div>
             <CollapsibleContent className="pt-3">
-              <div className="grid md:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>نوع الخصم</Label>
-                  <Controller control={form.control} name="discountType" render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">بدون</SelectItem><SelectItem value="fixed">مبلغ ثابت</SelectItem><SelectItem value="percentage">نسبة %</SelectItem></SelectContent></Select>)}/>
+                <div className="grid md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                    <Label>نوع الخصم</Label>
+                    <Controller control={form.control} name="discountType" render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">بدون</SelectItem><SelectItem value="fixed">مبلغ ثابت</SelectItem><SelectItem value="percentage">نسبة %</SelectItem></SelectContent></Select>)}/>
+                    </div>
+                    <div className="space-y-1">
+                    <Label>قيمة الخصم</Label>
+                    <Controller control={form.control} name="discountValue" render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/>
+                    </div>
                 </div>
-                <div className="space-y-1">
-                  <Label>قيمة الخصم</Label>
-                  <Controller control={form.control} name="discountValue" render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/>
-                </div>
-              </div>
             </CollapsibleContent>
           </Collapsible>
           
           <Separator />
 
-          <Collapsible defaultOpen={false}>
+          <Collapsible>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Controller
-                    control={form.control}
-                    name="hasPartners"
-                    render={({ field }) => (
-                        <div className="flex items-center gap-2">
-                          <Switch id="has-partners-switch" checked={field.value} onCheckedChange={field.onChange} />
-                          <Label htmlFor="has-partners-switch" className="font-semibold cursor-pointer">إدارة وتوزيع حصص الشركاء</Label>
-                        </div>
-                    )}
-                />
-              </div>
+                <div className="flex items-center gap-3">
+                    <Controller
+                        control={form.control}
+                        name="hasPartners"
+                        render={({ field }) => (
+                            <div className="flex items-center gap-2">
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            <Label>توزيع حصص الشركاء</Label>
+                            </div>
+                        )}
+                    />
+                </div>
               <CollapsibleTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" className="gap-1">
-                  التفاصيل
+                  إدارة الشركاء
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </CollapsibleTrigger>
             </div>
 
             <CollapsibleContent className="pt-3 space-y-3">
-              <div className="grid md:grid-cols-3 gap-3">
-                <Controller
-                  control={form.control}
-                  name="alrawdatainSharePct"
-                  render={({ field }) => (
-                    <div className="space-y-1">
-                      <Label>حصة الروضتين (%)</Label>
-                      <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />
-                      <p className="text-xs text-muted-foreground">إذا لا يوجد شركاء، اجعلها 100%.</p>
+                <div className="grid md:grid-cols-3 gap-3">
+                    <Controller
+                    control={form.control}
+                    name="alrawdatainSharePct"
+                    render={({ field }) => (
+                        <div className="space-y-1">
+                        <Label>حصة الروضتين (%)</Label>
+                        <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />
+                        <p className="text-xs text-muted-foreground">إذا لا يوجد شركاء، اجعلها 100%.</p>
+                        </div>
+                    )}
+                    />
+                    <div className="md:col-span-2 flex items-end justify-end">
+                    <Button type="button" variant="outline" onClick={handleAddPartner}>
+                        <PlusCircle className="h-4 w-4 me-2" />
+                        إضافة شريك
+                    </Button>
                     </div>
-                  )}
-                />
-                <div className="md:col-span-2 flex items-end justify-end">
-                  <Button type="button" variant="outline" onClick={handleAddPartner}>
-                    <PlusCircle className="h-4 w-4 me-2" />
-                    إضافة شريك
-                  </Button>
                 </div>
-              </div>
-
-              {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Select value={field.value} onValueChange={(v) => { field.onChange(v); const rel = relationOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}}><SelectTrigger><SelectValue placeholder="اختر شريكاً" /></SelectTrigger><SelectContent>{relationOptions.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}</SelectContent></Select>)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
+                {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Select value={field.value} onValueChange={(v) => { field.onChange(v); const rel = relationOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}}><SelectTrigger><SelectValue placeholder="اختر شريكاً" /></SelectTrigger><SelectContent>{relationOptions.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}</SelectContent></Select>)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
             </CollapsibleContent>
           </Collapsible>
           
@@ -492,10 +492,10 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             <Card className="bg-muted/40 border-none">
               <CardHeader className="py-2"><CardTitle className="text-sm">تفصيل الخدمات</CardTitle></CardHeader>
               <CardContent className="space-y-1 text-sm">
-                <div className="flex justify-between"><span>الإجمالي</span><span className="font-mono">{totals.gross.toFixed(2)} {currencySymbol}</span></div>
+                <div className="flex justify-between font-semibold"><span>الإجمالي</span><span className="font-mono">{totals.gross.toFixed(2)} {currencySymbol}</span></div>
                 <div className="flex justify-between"><span>الخصم</span><span className="font-mono">{totals.discountAmt.toFixed(2)} {currencySymbol}</span></div>
                 <Separator className="my-1" />
-                <div className="flex justify-between font-semibold"><span>الصافي</span><span className="font-mono">{totals.net.toFixed(2)} {currencySymbol}</span></div>
+                <div className="flex justify-between font-semibold text-lg"><span>الصافي</span><span className="font-mono">{totals.net.toFixed(2)} {currencySymbol}</span></div>
               </CardContent>
             </Card>
 
@@ -536,7 +536,6 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     </FormProvider>
   );
 });
-
 
 // ---------- Wrapper: AddSegmentPeriodDialog ----------
 
@@ -596,7 +595,8 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
       currency: periodData.currency,
       meta: {
         userId: user?.uid,
-        fundBoxId: (navData?.boxes || []).find((b: any) => b.ownerId === user?.uid)?.id || null,
+        fundBoxId:
+          (navData?.boxes || []).find((b: any) => b.ownerId === user?.uid)?.id || null,
         createdAt: new Date().toISOString(),
       },
     }));
@@ -637,14 +637,56 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
                 <Form {...periodForm}>
                   <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                     <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
-                      <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsFromCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
-                    )}/>
+                      <FormItem>
+                        <FormLabel>من تاريخ</FormLabel>
+                        <Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                {field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}
+                                <CalendarIcon className="ms-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={field.value} onSelect={(d) => { if(d) field.onChange(d); setIsFromCalendarOpen(false); }} initialFocus />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                     <FormField control={periodForm.control} name="toDate" render={({ field }) => (
-                      <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsToCalendarOpen(false);}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
-                    )}/>
+                      <FormItem>
+                        <FormLabel>إلى تاريخ</FormLabel>
+                        <Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                {field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}
+                                <CalendarIcon className="ms-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={field.value} onSelect={(d) => { if(d) field.onChange(d); setIsToCalendarOpen(false); }} initialFocus />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                     <FormField control={periodForm.control} name="currency" render={({ field }) => (
-                      <FormItem><FormLabel>العملة</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{currencyList.map((c) => (<SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>))}</SelectContent></Select></FormItem>
-                    )}/>
+                      <FormItem>
+                        <FormLabel>العملة</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {currencyList.map((c) => (
+                              <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )} />
                   </form>
                 </Form>
               </div>
@@ -714,5 +756,3 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
     </Dialog>
   );
 }
-
-```
