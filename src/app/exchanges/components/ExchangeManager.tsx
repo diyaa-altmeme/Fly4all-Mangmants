@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -127,8 +126,8 @@ const LedgerRow = ({ entry, index, exchanges, onActionSuccess }: { entry: Unifie
 
     return (
         <Collapsible asChild key={entry.id}>
-          <tbody className={cn("border-t", isConfirmed && "bg-green-500/10")}>
-            <TableRow>
+          <React.Fragment>
+            <TableRow className={cn(isConfirmed && "bg-green-500/10")}>
                 <TableCell className="p-2 text-center font-mono">{index + 1}</TableCell>
                 <TableCell className="p-2 text-center">
                     <AlertDialog open={isConfirmAlertOpen} onOpenChange={setIsConfirmAlertOpen}>
@@ -170,7 +169,7 @@ const LedgerRow = ({ entry, index, exchanges, onActionSuccess }: { entry: Unifie
                             </EditBatchDialog>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive" disabled={isConfirmed}>
+                                    <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive" disabled={isConfirmed}>
                                         <Trash2 className="me-2 h-4 w-4" /> حذف
                                     </DropdownMenuItem>
                                 </AlertDialogTrigger>
@@ -237,7 +236,7 @@ const LedgerRow = ({ entry, index, exchanges, onActionSuccess }: { entry: Unifie
                     </TableCell>
                 </tr>
             </CollapsibleContent>
-          </tbody>
+          </React.Fragment>
         </Collapsible>
     );
 };
@@ -376,7 +375,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             return acc;
         }, { totalDebitsUSD: 0, totalCreditsUSD: 0 });
 
-        return { ...totals, netBalanceUSD: filteredLedger.length > 0 ? (filteredLedger[filteredLedger.length - 1].balance || 0) : 0 };
+        return { ...totals, netBalanceUSD: filteredLedger[0]?.balance || 0 };
     }, [filteredLedger]);
   
     const handleSort = (key: string) => {
@@ -635,8 +634,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             <TableRow>
                                                 <TableCell colSpan={columns.length} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
                                             </TableRow>
-                                        ) : table.getRowModel().rows.map(row => (
-                                            <LedgerRow key={row.original.id} entry={row.original} index={row.index} exchanges={exchanges} onActionSuccess={handleActionSuccess} />
+                                        ) : table.getRowModel().rows.map((row, idx) => (
+                                            <LedgerRow key={row.original.id} entry={row.original} index={idx} exchanges={exchanges} onActionSuccess={handleActionSuccess} />
                                         ))}
                                     </TableBody>
                                 </Table>
@@ -649,3 +648,5 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
+    
