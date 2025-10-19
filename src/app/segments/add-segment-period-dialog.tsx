@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from "react";
+import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from "react";
 import { useForm, FormProvider, useFormContext, Controller, useFieldArray, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,15 +34,16 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import { useAuth } from "@/lib/auth-context";
 
-import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon } from 'lucide-react';
+import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent } from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { produce } from "immer";
 
 // ---------- Schemas ----------
 
 const partnerSchema = z.object({
+  id: z.string(),
   relationId: z.string().min(1, "اختر شريكاً من قائمة العلاقات."),
   relationName: z.string().min(1),
   type: z.enum(["percentage", "fixed"]).default("percentage"),
@@ -50,7 +51,7 @@ const partnerSchema = z.object({
 });
 
 const companyEntrySchema = z.object({
-  clientId: z.string().min(1, "اختر الشركة المصدّرة للسيجمنت."),
+  clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   clientName: z.string().min(1),
 
   tickets: z.coerce.number().int().nonnegative().default(0),
@@ -88,6 +89,7 @@ const periodSchema = z.object({
   currency: z.string().min(1, "اختر العملة."),
   entries: z.array(z.any()).default([]),
 });
+
 
 type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
 type PeriodFormValues = z.infer<typeof periodSchema>;
@@ -193,7 +195,7 @@ function saveClientPrefs(userId: string | null, clientId: string | null, prefs: 
 
 // ---------- Reusable fields ----------
 
-function ServiceLine({
+const ServiceLine = React.forwardRef(function ServiceLine({
   label,
   icon: Icon,
   color,
@@ -207,7 +209,7 @@ function ServiceLine({
   countField: keyof CompanyEntryFormValues;
   typeField: keyof CompanyEntryFormValues;
   valueField: keyof CompanyEntryFormValues;
-}) {
+}, ref: React.ForwardedRef<HTMLDivElement>) {
   const { control } = useFormContext<CompanyEntryFormValues>();
 
   const count = Number(useWatch({ name: countField as any }) || 0);
@@ -218,7 +220,7 @@ function ServiceLine({
   const currencySymbol = useCurrencySymbol(useFormContext<PeriodFormValues>().getValues('currency'));
 
   return (
-    <Card className={cn("shadow-sm overflow-hidden", color)}>
+    <Card className={cn("shadow-sm overflow-hidden", color)} ref={ref}>
       <CardHeader className="p-3 flex flex-row items-center justify-between space-y-0 text-white">
         <CardTitle className="text-sm font-bold flex items-center gap-2">
             <Icon className="h-5 w-5" />
@@ -252,7 +254,8 @@ function ServiceLine({
       </CardContent>
     </Card>
   );
-}
+});
+
 
 // ---------- AddCompanyToSegmentForm ----------
 
@@ -318,9 +321,9 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   });
   
   const handleAddPartner = () => {
-    appendPartner({ relationId: "", relationName: "", type: "percentage", value: 0 });
+    appendPartner({ id: '', relationId: "", relationName: "", type: "percentage", value: 0 });
   };
-
+  
   const currencySymbol = useCurrencySymbol(parent.getValues("currency"));
   const onAdd = (data: CompanyEntryFormValues) => {
     const client = navData?.clients.find(c => c.id === data.clientId);
@@ -397,35 +400,35 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
 
 
           <Collapsible>
-            <div className="flex items-center justify-between">
-              <Label className="font-semibold">الإعدادات المالية</Label>
-              <CollapsibleTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" className="gap-1">
+            <CollapsibleTrigger asChild>
+                 <Button type="button" variant="ghost" size="sm" className="gap-1 -mr-2">
                   <Settings2 className="h-4 w-4" />
-                  إظهار/إخفاء
+                  الإعدادات المالية
                   <ChevronDown className="h-4 w-4" />
                 </Button>
-              </CollapsibleTrigger>
-            </div>
-            <CollapsibleContent className="pt-3">
-                <div className="grid md:grid-cols-3 gap-3">
-                     <div className="space-y-1">
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="pt-3 space-y-3">
+                 <div className="flex items-center justify-between mt-3 rounded-md border p-2">
+                    <div className="space-y-1">
                         <Label>نوع العمولة (عام)</Label>
                         <Select value={watchedCommissionType} onValueChange={handleCommissionTypeChange}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="fixed">مبلغ ثابت</SelectItem>
                                 <SelectItem value="percentage">نسبة مئوية %</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="space-y-1">
-                        <Label>نوع الخصم</Label>
-                        <Controller control={form.control} name="discountType" render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">بدون</SelectItem><SelectItem value="fixed">مبلغ ثابت</SelectItem><SelectItem value="percentage">نسبة %</SelectItem></SelectContent></Select>)}/>
-                    </div>
-                    <div className="space-y-1">
-                        <Label>قيمة الخصم</Label>
-                        <Controller control={form.control} name="discountValue" render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/>
+                    <div className="flex items-center gap-4">
+                        <div className="space-y-1">
+                            <Label>نوع الخصم</Label>
+                            <Controller control={form.control} name="discountType" render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">بدون</SelectItem><SelectItem value="fixed">مبلغ ثابت</SelectItem><SelectItem value="percentage">نسبة %</SelectItem></SelectContent></Select>)}/>
+                        </div>
+                        <div className="space-y-1">
+                            <Label>قيمة الخصم</Label>
+                            <Controller control={form.control} name="discountValue" render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/>
+                        </div>
                     </div>
                 </div>
             </CollapsibleContent>
@@ -434,26 +437,24 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
           <Separator />
 
           <Collapsible>
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+             <CollapsibleTrigger asChild>
+                 <div className="flex items-center justify-between">
                     <Controller
                         control={form.control}
                         name="hasPartners"
                         render={({ field }) => (
                             <div className="flex items-center gap-2">
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                            <Label className="font-semibold">توزيع حصص الشركاء</Label>
+                            <Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-switch" />
+                            <Label htmlFor="has-partners-switch" className="font-semibold">توزيع حصص الشركاء</Label>
                             </div>
                         )}
                     />
+                    <Button type="button" variant="ghost" size="sm" className="gap-1">
+                      إدارة الشركاء
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
                 </div>
-              <CollapsibleTrigger asChild>
-                <Button type="button" variant="ghost" size="sm" className="gap-1">
-                  إدارة الشركاء
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </CollapsibleTrigger>
-            </div>
+            </CollapsibleTrigger>
 
             <CollapsibleContent className="pt-3 space-y-3">
                 <div className="grid md:grid-cols-3 gap-3">
@@ -468,8 +469,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                         </div>
                     )}
                     />
-                    <div className="md:col-span-2 flex items-end justify-end">
-                    <Button type="button" variant="outline" onClick={handleAddPartner}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
+                    <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={handleAddPartner}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
                 </div>
                 {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Select value={field.value} onValueChange={(v) => { field.onChange(v); const rel = relationOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}}><SelectTrigger><SelectValue placeholder="اختر شريكاً" /></SelectTrigger><SelectContent>{relationOptions.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}</SelectContent></Select>)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
             </CollapsibleContent>
@@ -479,10 +479,10 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             <Card className="bg-muted/40 border-none">
               <CardHeader className="py-2"><CardTitle className="text-sm">تفصيل الخدمات</CardTitle></CardHeader>
               <CardContent className="space-y-1 text-sm">
-                <div className="flex justify-between font-semibold"><span>الإجمالي</span><span className="font-mono">{totals.gross.toFixed(2)} {currencySymbol}</span></div>
+                <div className="flex justify-between"><span>الإجمالي</span><span className="font-mono">{totals.gross.toFixed(2)} {currencySymbol}</span></div>
                 <div className="flex justify-between"><span>الخصم</span><span className="font-mono">{totals.discountAmt.toFixed(2)} {currencySymbol}</span></div>
                 <Separator className="my-1" />
-                <div className="flex justify-between font-semibold text-lg"><span>الصافي</span><span className="font-mono">{totals.net.toFixed(2)} {currencySymbol}</span></div>
+                <div className="flex justify-between font-semibold"><span>الصافي</span><span className="font-mono">{totals.net.toFixed(2)} {currencySymbol}</span></div>
               </CardContent>
             </Card>
 
@@ -567,7 +567,7 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
     }
   };
 
-  const handleSave = async () => {
+  const handleSavePeriod = async () => {
     const periodData = getValues();
     if (fields.length === 0) {
       toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
@@ -729,7 +729,7 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
                 <ArrowRight className="me-2 h-4 w-4" />
                 رجوع
               </Button>
-              <Button type="button" onClick={handleSave} disabled={isSaving || fields.length === 0} className="sm:w-auto">
+              <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
                 {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                 حفظ الفترة ({fields.length} سجلات)
               </Button>
@@ -740,5 +740,3 @@ export default function AddSegmentPeriodDialog({ onSuccess }: { onSuccess: () =>
     </Dialog>
   );
 }
-
-```
