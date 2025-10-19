@@ -44,7 +44,7 @@ const formatCurrency = (amount?: number, currency: string = 'USD') => {
     }).format(amount) + ` ${currency}`;
 }
 
-const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
+const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: number; iqd: number; className?: string, arrow?: 'up' | 'down' }) => (
     <div className={cn("text-center p-3 rounded-lg border", className)}>
         <p className="text-sm text-muted-foreground font-bold flex items-center justify-center gap-1">
              {arrow === 'up' && <ArrowUp className="h-4 w-4 text-green-500" />}
@@ -52,21 +52,73 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
             {title}
         </p>
         <p className={cn("font-bold font-mono text-xl")}>
-            {(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+            {(usd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+        </p>
+        <p className={cn("font-bold font-mono text-lg text-muted-foreground")}>
+            {(iqd || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} IQD
         </p>
     </div>
 );
 
-const LedgerRow = ({ row, index, exchanges, onActionSuccess }: { row: any; index: number; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void }) => {
+const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: UnifiedLedgerEntry, onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void, exchanges: Exchange[] }) => {
+    const { toast } = useToast();
+
+    const handleDelete = async () => {
+        const deleteAction = entry.entryType === 'transaction'
+            ? deleteExchangeTransactionBatch
+            : deleteExchangePaymentBatch;
+
+        const result = await deleteAction(entry.id);
+        if (result.success && result.deletedId) {
+            toast({ title: 'تم حذف الدفعة بنجاح' });
+            onActionSuccess('delete', { id: result.deletedId });
+        } else {
+            toast({ title: "خطأ", description: result.error, variant: 'destructive' });
+        }
+    };
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                <EditBatchDialog batch={entry} exchanges={exchanges} onSuccess={(updatedBatch) => onActionSuccess('update', updatedBatch)}>
+                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                        <Edit className="me-2 h-4 w-4" /> تعديل
+                    </DropdownMenuItem>
+                </EditBatchDialog>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive">
+                            <Trash2 className="me-2 h-4 w-4" /> حذف
+                        </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذه الدفعة وكل المعاملات المرتبطة بها.</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete}>نعم، احذف</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+};
+
+
+const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void }) => {
     const entry = row.original as UnifiedLedgerEntry;
     const { toast } = useToast();
-    const [isConfirmed, setIsConfirmed] = useState(entry.isConfirmed || false);
     const [isOpen, setIsOpen] = useState(false);
+    const [isConfirmed, setIsConfirmed] = useState(entry.isConfirmed || false);
 
     useEffect(() => {
         setIsConfirmed(entry.isConfirmed || false);
     }, [entry.isConfirmed]);
-
 
     const handleConfirmChange = async (checked: boolean) => {
         setIsConfirmed(checked); // Optimistic update
@@ -82,7 +134,7 @@ const LedgerRow = ({ row, index, exchanges, onActionSuccess }: { row: any; index
     };
     
     return (
-        <React.Fragment>
+        <>
             <TableRow data-state={isOpen ? "open" : "closed"} className={cn(isConfirmed && "bg-green-500/10")}>
                 {row.getVisibleCells().map((cell: any) => {
                     if (cell.column.id === 'collapsible') {
@@ -93,6 +145,13 @@ const LedgerRow = ({ row, index, exchanges, onActionSuccess }: { row: any; index
                                 </Button>
                             </TableCell>
                         );
+                    }
+                     if (cell.column.id === 'isConfirmed') {
+                        return (
+                             <TableCell key={cell.id} className="p-2 text-center font-bold">
+                                <Checkbox checked={isConfirmed} onCheckedChange={handleConfirmChange} />
+                            </TableCell>
+                        )
                     }
                     return (
                         <TableCell key={cell.id} className="p-2 font-bold" style={{ width: cell.column.getSize() }}>
@@ -152,7 +211,7 @@ const LedgerRow = ({ row, index, exchanges, onActionSuccess }: { row: any; index
                     </TableCell>
                 </TableRow>
             )}
-        </React.Fragment>
+        </>
     );
 };
 
@@ -175,7 +234,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
-    pageSize: 30,
+    pageSize: 15,
   });
 
   const fetchExchangeData = useCallback(async () => {
@@ -227,27 +286,29 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        let newLedger: UnifiedLedgerEntry[];
-        if (action === 'delete') {
-            newLedger = unifiedLedger.filter(entry => entry.id !== data.id);
-        } else if (action === 'update') {
-            newLedger = unifiedLedger.map(entry => entry.id === data.id ? { ...entry, ...data } : entry);
-        } else { // 'add'
-            newLedger = [data, ...unifiedLedger];
-        }
+        setUnifiedLedger(currentLedger => {
+            let newLedger: UnifiedLedgerEntry[];
+            if (action === 'delete') {
+                newLedger = currentLedger.filter(entry => entry.id !== data.id);
+            } else if (action === 'update') {
+                newLedger = currentLedger.map(entry => entry.id === data.id ? { ...entry, ...data } : entry);
+            } else { // 'add'
+                newLedger = [data, ...currentLedger];
+            }
+            
+            newLedger.sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime());
+            
+            let runningBalance = 0;
+            const reversedForBalance = [...newLedger].reverse();
+            const entriesWithBalance = reversedForBalance.map(entry => {
+                const amount = entry.totalAmount || 0;
+                runningBalance += amount;
+                return { ...entry, balance: runningBalance };
+            });
 
-        newLedger.sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime());
-        
-        let runningBalance = 0;
-        const reversedForBalance = [...newLedger].reverse();
-        const entriesWithBalance = reversedForBalance.map(entry => {
-            const amount = entry.totalAmount || 0;
-            runningBalance += amount;
-            return { ...entry, balance: runningBalance };
+            return entriesWithBalance.reverse();
         });
-
-        setUnifiedLedger(entriesWithBalance.reverse());
-    }, [unifiedLedger]);
+    }, []);
 
  const filteredLedger = useMemo(() => {
     let processed = [...unifiedLedger];
@@ -280,20 +341,21 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     return processed;
 }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
 
-    const { totalDebitsUSD, totalCreditsUSD } = useMemo(() => {
+    const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
             const amount = entry.totalAmount || 0;
             if (entry.entryType === 'transaction') {
-                acc.totalDebitsUSD += Math.abs(amount);
+                acc.totalDebitUSD += Math.abs(amount);
             } else if(entry.entryType === 'payment') {
-                if (amount > 0) acc.totalCreditsUSD += amount; // Payment to them
-                else acc.totalDebitsUSD += Math.abs(amount); // Receipt from them
+                if (amount > 0) acc.totalCreditUSD += amount; // Payment to them
+                else acc.totalDebitUSD += Math.abs(amount); // Receipt from them
             }
             return acc;
-        }, { totalDebitsUSD: 0, totalCreditsUSD: 0 });
+        }, { totalDebitUSD: 0, totalCreditUSD: 0, totalDebitIQD: 0, totalCreditIQD: 0 });
     }, [filteredLedger]);
-
-    const netBalanceUSD = filteredLedger.length > 0 ? (filteredLedger[0]?.balance || 0) : 0;
+    
+    const netBalanceUSD = summary.totalCreditUSD - summary.totalDebitUSD;
+    const netBalanceIQD = summary.totalCreditIQD - summary.totalDebitIQD;
     
     const handleExport = () => {
         if (filteredLedger.length === 0) {
@@ -320,28 +382,9 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     };
 
     const columns: ColumnDef<UnifiedLedgerEntry>[] = useMemo(() => [
-        { id: 'collapsible', header: '', size: 40, cell: ({ row }) => (
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => row.toggleSelected(!row.getIsSelected())}>
-                <ChevronDown className={cn("h-4 w-4 transition-transform", row.getIsSelected() && "rotate-180")} />
-            </Button>
-        )},
+        { id: 'collapsible', size: 40 },
         { id: 'index', header: '#', size: 40, cell: ({ row }) => row.index + 1 },
-        { id: 'isConfirmed', header: 'تأكيد', size: 50, cell: ({ row }) => {
-            const entry = row.original;
-            const [isConfirmed, setIsConfirmedState] = useState(entry.isConfirmed || false);
-            const handleConfirmChange = async (checked: boolean) => {
-                setIsConfirmedState(checked);
-                const result = await updateBatch(entry.id, entry.entryType as 'transaction' | 'payment', { isConfirmed: checked });
-                if (!result.success) {
-                    toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-                    setIsConfirmedState(!checked);
-                } else {
-                    toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
-                    handleActionSuccess('update', { ...entry, isConfirmed: checked });
-                }
-            };
-            return <Checkbox checked={isConfirmed} onCheckedChange={handleConfirmChange} />;
-        }},
+        { id: 'isConfirmed', header: 'تأكيد', size: 50 },
         { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => row.original.invoiceNumber },
         { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => format(parseISO(row.original.date), 'yyyy-MM-dd') },
         { accessorKey: 'createdAt', header: 'الوقت', cell: ({ row }) => format(parseISO(row.original.createdAt), 'HH:mm') },
@@ -362,7 +405,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { accessorKey: 'balance', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => formatCurrency(row.original.balance, 'USD') },
         { accessorKey: 'userName', header: 'المستخدم' },
         { id: 'actions', header: 'الإجراءات', cell: ({ row }) => <LedgerRowActions entry={row.original} onActionSuccess={handleActionSuccess} exchanges={exchanges}/> },
-    ], [exchanges, handleActionSuccess, toast]);
+    ], [exchanges, handleActionSuccess]);
 
     const table = useReactTable({
       data: filteredLedger,
@@ -397,8 +440,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                 </Select>
                             </div>
                             <div className="md:col-span-3 pt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <StatCard title="إجمالي مطلوب لنا" usd={summary.totalCreditUSD} iqd={summary.totalCreditIQD} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
                                 <StatCard title="إجمالي مطلوب منا" usd={summary.totalDebitUSD} iqd={summary.totalDebitIQD} className="border-red-500/50 bg-red-50 dark:bg-red-950/30" />
+                                <StatCard title="إجمالي مطلوب لنا" usd={summary.totalCreditUSD} iqd={summary.totalCreditIQD} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
                                 <StatCard title="صافي الرصيد" usd={netBalanceUSD} iqd={netBalanceIQD} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
                             </div>
                         </div>
@@ -409,7 +452,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             <Card>
                 <CardHeader>
                      <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-                        <div>
+                         <div>
                             <CardTitle>سجل البورصة الموحد</CardTitle>
                         </div>
                         <div className="flex items-center gap-2">
@@ -495,8 +538,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                         <TableCell colSpan={columns.length} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
                                     </TableRow>
                                 ) : (
-                                    table.getRowModel().rows.map((row) => (
-                                        <LedgerRow key={row.original.id} row={row} index={row.index} exchanges={exchanges} onActionSuccess={handleActionSuccess} />
+                                    table.getRowModel().rows.map((row, index) => (
+                                        <LedgerRow key={row.original.id} row={row} exchanges={exchanges} onActionSuccess={handleActionSuccess} />
                                     ))
                                 )}
                             </TableBody>
