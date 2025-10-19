@@ -44,10 +44,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 import { useForm, FormProvider, useFormContext, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '@/lib/types';
 
 // ---------- Schemas ----------
 
@@ -169,9 +170,9 @@ const ServiceLine = React.forwardRef(function ServiceLine({
 }, ref: React.ForwardedRef<HTMLDivElement>) {
   const { control } = useFormContext<CompanyEntryFormValues>();
 
-  const count = Number(useWatch({ name: countField as any }) || 0);
-  const type = (useWatch({ name: typeField as any }) as "fixed" | "percentage") || "fixed";
-  const val  = Number(useWatch({ name: valueField as any }) || 0);
+  const count = Number(useWatch({ control, name: countField as any }) || 0);
+  const type = (useWatch({ control, name: typeField as any }) as "fixed" | "percentage") || "fixed";
+  const val  = Number(useWatch({ control, name: valueField as any }) || 0);
 
   const result = useMemo(() => computeService(count, type, val), [count, type, val]);
   const parentForm = useFormContext<PeriodFormValues>();
@@ -290,23 +291,18 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     name: "partners",
   });
   
-    const onAdd = (data: CompanyEntryFormValues) => {
-        const computed = computeTotals(data);
-
-        onAddEntry({
-          ...data,
-          computed,
-        });
-
-        form.reset({
-        ...form.getValues(),
-        tickets: 0, visas: 0, hotels: 0, groups: 0,
-        partners: [],
-        hasPartner: false,
-        alrawdatainSharePercentage: 100,
-        notes: '',
-        });
-    };
+  const onAdd = (data: CompanyEntryFormValues) => {
+    const computed = computeTotals(data);
+    onAddEntry({ ...data, computed });
+    form.reset({
+      ...form.getValues(),
+      tickets: 0, visas: 0, hotels: 0, groups: 0,
+      partners: [],
+      hasPartner: false,
+      alrawdatainSharePercentage: 100,
+      notes: '',
+    });
+  };
 
   return (
     <FormProvider {...form}>
@@ -341,72 +337,73 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             </div>
           </div>
 
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <ServiceLine label="التذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
-              <ServiceLine label="الفيزا" icon={CreditCard} color="bg-orange-500" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
-              <ServiceLine label="الفنادق" icon={Hotel} color="bg-purple-500" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
-              <ServiceLine label="الكروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <ServiceLine label="التذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
+            <ServiceLine label="الفيزا" icon={CreditCard} color="bg-orange-500" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
+            <ServiceLine label="الفنادق" icon={Hotel} color="bg-purple-500" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
+            <ServiceLine label="الكروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
           </div>
 
-
-          <Collapsible open={form.watch('hasPartner')}>
-             <CollapsibleContent className="pt-3 space-y-3">
-                <div className="p-4 border rounded-lg bg-muted/30">
-                    <h4 className="font-semibold mb-3">تفاصيل توزيع الأرباح</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <StatCard title="إجمالي الربح الصافي" value={totals.net} currency="USD" />
-                        <StatCard title="حصة الروضتين" value={totals.rodatainShare} currency="USD" />
-                        <StatCard title="متاح للشركاء" value={totals.partnerPool} currency="USD" />
-                        <StatCard title="المتبقي للتوزيع" value={totals.remainder} currency="USD" className="border-blue-500 bg-blue-50 dark:bg-blue-950/50" />
-                    </div>
-                </div>
-                <div className="grid md:grid-cols-3 gap-3">
-                    <Controller
-                    control={form.control}
-                    name="alrawdatainSharePercentage"
-                    render={({ field }) => (
-                        <div className="space-y-1">
-                        <Label>حصة الروضتين (%)</Label>
-                        <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />
-                        <p className="text-xs text-muted-foreground">إذا لا يوجد شركاء، اجعلها 100%.</p>
-                        </div>
-                    )}
-                    />
-                    <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={() => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0, notes: "" })}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
-                </div>
-                {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => {
-                    const partnerShare = totals.partnerBreakdown.find(p => p.id === pf.id)?.share || 0;
-                    return (
-                        <div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2">
-                            <div className="col-span-4"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId`} render={({ field }) => (<Autocomplete options={partnerOptions} value={field.value} onValueChange={(v) => { field.onChange(v); const rel = partnerOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName`, rel?.label || "");}} placeholder="اختر شريكاً" />)}/></div>
-                            <div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type`} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div>
-                            <div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value`} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div>
-                            <div className="col-span-2 text-center"><Label>الحصة المستلمة</Label><div className="font-bold text-blue-600 font-mono p-2 bg-blue-50 rounded-md">{partnerShare.toFixed(2)} USD</div></div>
-                            <div className="col-span-1 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
-                        </div>
-                    )
-                })}</div>}
-            </CollapsibleContent>
-          </Collapsible>
-          
           <Separator />
           
-           <div className="flex items-center justify-between mt-3">
-              <Controller
+          <div className="flex items-center justify-between">
+            <Controller
+              control={form.control}
+              name="hasPartner"
+              render={({ field }) => (
+                <div className="flex items-center gap-2">
+                  <Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-switch" />
+                  <Label htmlFor="has-partners-switch" className="font-semibold">توزيع الأرباح على الشركاء</Label>
+                </div>
+              )}
+            />
+            <Button type="button" onClick={form.handleSubmit(onAdd)} className="mt-1">
+              <PlusCircle className="me-2 h-4 w-4" />
+              إضافة للفترة
+            </Button>
+          </div>
+          
+          <Collapsible open={form.watch('hasPartner')}>
+            <CollapsibleContent className="pt-3 space-y-3">
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <h4 className="font-semibold mb-3">تفاصيل توزيع الأرباح</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard title="إجمالي الربح الصافي" value={totals.net} currency="USD" />
+                  <StatCard title="حصة الروضتين" value={totals.rodatainShare} currency="USD" />
+                  <StatCard title="متاح للشركاء" value={totals.partnerPool} currency="USD" />
+                  <StatCard title="المتبقي للتوزيع" value={totals.remainder} currency="USD" className="border-blue-500 bg-blue-50 dark:bg-blue-950/50" />
+                </div>
+              </div>
+              <div className="grid md:grid-cols-3 gap-3">
+                <Controller
                   control={form.control}
-                  name="hasPartner"
+                  name="alrawdatainSharePercentage"
                   render={({ field }) => (
-                      <div className="flex items-center gap-2">
-                      <Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-switch" />
-                      <Label htmlFor="has-partners-switch" className="font-semibold">توزيع الأرباح على الشركاء</Label>
-                      </div>
+                    <div className="space-y-1">
+                      <Label>حصة الروضتين (%)</Label>
+                      <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />
+                      <p className="text-xs text-muted-foreground">إذا لا يوجد شركاء، اجعلها 100%.</p>
+                    </div>
                   )}
-              />
-               <Button type="button" onClick={form.handleSubmit(onAdd)} className="mt-1">
-                <PlusCircle className="me-2 h-4 w-4" />
-                إضافة للفترة
-              </Button>
-            </div>
+                />
+                <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={() => appendPartner({ id: uuidv4(), relationId: "", relationName: "", type: "percentage", value: 0, notes: "" })}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
+              </div>
+              {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => {
+                const partnerValue = form.watch(`partners.${idx}.value`);
+                const partnerType = form.watch(`partners.${idx}.type`);
+                const partnerShare = partnerType === 'percentage' ? totals.partnerPool * (partnerValue / 100) : partnerValue;
+                return (
+                  <div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2">
+                    <div className="col-span-4"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId`} render={({ field }) => (<Autocomplete options={partnerOptions} value={field.value} onValueChange={(v) => { field.onChange(v); const rel = partnerOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName`, rel?.label || "");}} placeholder="اختر شريكاً" />)}/></div>
+                    <div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type`} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div>
+                    <div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value`} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div>
+                    <div className="col-span-2 text-center"><Label>الحصة المستلمة</Label><div className="font-bold text-blue-600 font-mono p-2 bg-blue-50 rounded-md">{partnerShare.toFixed(2)} USD</div></div>
+                    <div className="col-span-1 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
+                  </div>
+                );
+              })}</div>}
+            </CollapsibleContent>
+          </Collapsible>
         </CardContent>
       </Card>
     </FormProvider>
@@ -629,7 +626,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 رجوع
                             </Button>
                             <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
-                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                                {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                                 حفظ بيانات الفترة ({fields.length} سجلات)
                             </Button>
                         </div>
@@ -648,5 +645,3 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
         </p>
     </div>
 );
-
-    
