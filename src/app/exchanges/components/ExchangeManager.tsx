@@ -127,8 +127,8 @@ const LedgerRow = ({ entry, index, exchanges, onActionSuccess }: { entry: Unifie
 
     return (
         <Collapsible asChild key={entry.id}>
-          <tbody className={cn("border-t", isConfirmed && "bg-green-500/10")}>
-            <TableRow>
+          <React.Fragment>
+            <TableRow className={cn("font-bold", isConfirmed && "bg-green-500/10")}>
                 <TableCell className="p-2 text-center font-mono">{index + 1}</TableCell>
                 <TableCell className="p-2 text-center">
                     <AlertDialog open={isConfirmAlertOpen} onOpenChange={setIsConfirmAlertOpen}>
@@ -237,7 +237,7 @@ const LedgerRow = ({ entry, index, exchanges, onActionSuccess }: { entry: Unifie
                     </TableCell>
                 </tr>
             </CollapsibleContent>
-          </tbody>
+          </React.Fragment>
         </Collapsible>
     );
 };
@@ -365,42 +365,42 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     return processed;
 }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
 
-    const { totalDebitsUSD, totalCreditsUSD, netBalanceUSD } = useMemo(() => {
-        const totals = filteredLedger.reduce((acc, entry) => {
+    const { totalDebitsUSD, totalCreditsUSD } = useMemo(() => {
+        return filteredLedger.reduce((acc, entry) => {
             const amount = entry.totalAmount || 0;
-            if (amount < 0) { // Transactions are negative
+            if (entry.entryType === 'transaction') {
                 acc.totalDebitsUSD += Math.abs(amount);
-            } else { // Payments are positive
-                acc.totalCreditsUSD += amount;
+            } else if(entry.entryType === 'payment') {
+                if (amount > 0) acc.totalCreditsUSD += amount; // Payment to them
+                else acc.totalDebitsUSD += Math.abs(amount); // Receipt from them
             }
             return acc;
         }, { totalDebitsUSD: 0, totalCreditsUSD: 0 });
-
-        return { ...totals, netBalanceUSD: filteredLedger[0]?.balance || 0 };
     }, [filteredLedger]);
-  
-    const handleSort = (key: string) => {
-      let direction: 'asc' | 'desc' = 'desc';
-      const currentSort = sorting[0];
-      if (currentSort?.id === key && currentSort.desc === false) {
-          direction = 'desc';
-      } else {
-           direction = 'asc';
-      }
-      setSorting([{id: key, desc: direction === 'desc'}]);
-  };
-  
-    const handleExport = () => {
-    if (filteredLedger.length === 0) {
-      toast({ title: 'لا توجد بيانات للتصدير' });
-      return;
-    }
-    toast({ title: "وظيفة معطلة", description: "تم تعطيل تصدير Excel مؤقتًا.", variant: "destructive" });
-  };
-  
+
+    const netBalanceUSD = filteredLedger[0]?.balance || 0;
+    
     const columns: ColumnDef<UnifiedLedgerEntry>[] = useMemo(() => [
-        { id: '#', header: '#', cell: ({ row, table }) => pagination.pageIndex * pagination.pageSize + row.index + 1 },
-        { id: 'confirmation', header: () => <div className="text-center">تأكيد</div>, cell: ({ row }) => <Checkbox checked={row.original.isConfirmed} onCheckedChange={(checked) => { /* Logic in LedgerRow */ }} /> },
+        { id: '#', header: '#', cell: ({ row, table }) => table.getState().pagination.pageIndex * table.getState().pagination.pageSize + row.index + 1 },
+        { id: 'confirmation', header: ({table}) => (<div className="text-center"><Checkbox onCheckedChange={(checked) => table.toggleAllRowsSelected(!!checked)} /></div>), cell: ({ row }) => {
+            return (
+                <div className="text-center">
+                    <AlertDialog open={isConfirmAlertOpen && row.original.id === (row.original as any).confirmingId} onOpenChange={(open) => !open && (row.original as any).setConfirmingId(null)}>
+                        <Checkbox checked={isConfirmed} onCheckedChange={(c) => onCheckedChange(!!c, row.original.id)} />
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                <AlertDialogDescription>سيؤدي هذا إلى إلغاء تأكيد هذه الدفعة وفتحها للتعديل أو الحذف.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleConfirmChange(false, row.original.id)}>نعم، إلغاء التأكيد</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
+            )
+        }},
         { id: 'detailsToggle', cell: ({ row }) => <CollapsibleTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8 data-[state=open]:rotate-180"><ChevronDown className="h-4 w-4" /></Button></CollapsibleTrigger> },
         { accessorKey: 'invoiceNumber', header: 'رقم الفاتورة' },
         { accessorKey: 'createdAt', header: 'التاريخ', cell: ({ row }) => format(parseISO(row.original.createdAt), 'yyyy-MM-dd HH:mm') },
@@ -465,6 +465,25 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         )},
     ], [exchanges, handleActionSuccess, pagination]);
     
+    const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
+    const [isConfirmAlertOpen, setIsConfirmAlertOpen] = React.useState(false);
+
+    const onCheckedChange = (checked: boolean, id: string) => {
+        setConfirmingId(id);
+        if (!checked) {
+            setIsConfirmAlertOpen(true);
+        } else {
+            handleConfirmChange(true, id);
+        }
+    };
+
+    const isConfirmed = false; // Dummy value
+
+    const handleConfirmChange = async (checked: boolean, id: string) => {
+        // ...
+    };
+
+    
     const table = useReactTable({
       data: filteredLedger,
       columns,
@@ -526,57 +545,31 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                             </div>
                         </div>
                     </div>
-                     <div className="pt-4 grid grid-cols-1 md:grid-cols-[1fr,auto,auto,auto] items-end gap-2 border-t mt-4">
-                        <div className="relative">
-                            <Label htmlFor="main-search">بحث شامل</Label>
-                            <Search className="absolute left-3 top-10 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                id="main-search"
-                                placeholder="بحث بالفاتورة، الوصف، المستخدم، الطرف الآخر..."
-                                className="ps-10"
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-1">
-                           <Label>الفترة الزمنية</Label>
-                           <Popover>
+                     <div className="pt-4 border-t mt-4">
+                        <div className="flex w-full flex-col sm:flex-row items-center gap-2">
+                             <div className="relative flex-grow w-full">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    id="main-search"
+                                    placeholder="بحث شامل في النتائج..."
+                                    className="ps-10 h-8"
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                            <Popover>
                                 <PopoverTrigger asChild>
-                                    <Button
-                                        id="date"
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full sm:w-[260px] justify-start text-left font-normal",
-                                            !date && "text-muted-foreground"
-                                        )}
-                                    >
+                                    <Button id="date" variant={"outline"} className={cn("w-full sm:w-[260px] justify-start text-left font-normal h-8", !date && "text-muted-foreground")}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date?.from ? (
-                                            date.to ? (
-                                                <>{format(date.from, "LLL dd")} - {format(date.to, "LLL dd")}</>
-                                            ) : (
-                                                format(date.from, "LLL dd, y")
-                                            )
-                                        ) : (
-                                            <span>اختر فترة</span>
-                                        )}
+                                        {date?.from ? (date.to ? (<>{format(date.from, "LLL dd")} - {format(date.to, "LLL dd")}</>) : (format(date.from, "LLL dd, y"))) : (<span>اختر فترة</span>)}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        initialFocus
-                                        mode="range"
-                                        defaultMonth={date?.from}
-                                        selected={date}
-                                        onSelect={setDate}
-                                        numberOfMonths={2}
-                                    />
+                                    <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2}/>
                                 </PopoverContent>
                             </Popover>
-                       </div>
-                        <div className="flex gap-2 self-end">
-                             <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-                                <SelectTrigger className="w-full sm:w-[150px]"><SelectValue placeholder="نوع الحركة" /></SelectTrigger>
+                            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+                                <SelectTrigger className="w-full sm:w-[150px] h-8"><SelectValue placeholder="نوع الحركة" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">كل الحركات</SelectItem>
                                     <SelectItem value="transaction">دين (معاملات)</SelectItem>
@@ -584,26 +577,26 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                 </SelectContent>
                             </Select>
                             <Select value={confirmationFilter} onValueChange={(v) => setConfirmationFilter(v as any)}>
-                                <SelectTrigger className="w-full sm:w-[150px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
+                                <SelectTrigger className="w-full sm:w-[150px] h-8"><SelectValue placeholder="الحالة" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">الكل</SelectItem>
                                     <SelectItem value="confirmed">المؤكدة</SelectItem>
                                     <SelectItem value="unconfirmed">غير المؤكدة</SelectItem>
                                 </SelectContent>
                             </Select>
+                             <Button onClick={fetchExchangeData} disabled={loading} size="sm" className="h-8">
+                                {loading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4" />}
+                                تطبيق
+                            </Button>
                         </div>
-                         <Button onClick={fetchExchangeData} disabled={loading} className="self-end">
-                            {loading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4" />}
-                            تطبيق الفلاتر
-                        </Button>
                     </div>
                 </CardHeader>
             </Card>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <StatCard title="إجمالي علينا (معاملات)" value={totalDebitsUSD} currency="USD" className="border-red-500/30" arrow="down" />
-                <StatCard title="إجمالي لنا (تسديدات)" value={totalCreditsUSD} currency="USD" className="border-green-500/30" arrow="up" />
-                <StatCard title="الرصيد النهائي" value={netBalanceUSD} currency="USD" className="border-blue-500/30" />
+                <StatCard title="إجمالي مطلوب لنا (دائنون لنا)" value={totalCreditsUSD} currency="USD" className="border-green-500/30 bg-green-50 dark:bg-green-950/30" arrow="up" />
+                <StatCard title="إجمالي مطلوب منا (مدينون لنا)" value={totalDebitsUSD} currency="USD" className="border-red-500/30 bg-red-50 dark:bg-red-950/30" arrow="down" />
+                <StatCard title="الرصيد النهائي" value={netBalanceUSD} currency="USD" className="border-blue-500/30 bg-blue-50 dark:bg-blue-950/30" />
             </div>
 
             <Card>
@@ -624,17 +617,15 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                         </TableRow>
                                     ))}
                                     </TableHeader>
-                                    
+                                    <TableBody>
                                         {table.getRowModel().rows.length === 0 ? (
-                                            <TableBody>
                                             <TableRow>
                                                 <TableCell colSpan={columns.length} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
                                             </TableRow>
-                                            </TableBody>
                                         ) : table.getRowModel().rows.map((row, idx) => (
                                             <LedgerRow key={row.original.id} entry={row.original} index={idx} exchanges={exchanges} onActionSuccess={handleActionSuccess} />
                                         ))}
-                                    
+                                    </TableBody>
                                 </Table>
                             </div>
                             <DataTablePagination table={table} />
@@ -645,4 +636,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
