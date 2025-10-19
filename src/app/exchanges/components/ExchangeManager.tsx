@@ -75,7 +75,7 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
             toast({ title: 'تم حذف الدفعة بنجاح' });
             onActionSuccess('delete', { id: result.deletedId });
         } else {
-            toast({ title: "خطأ", description: result.error, variant: 'destructive' });
+            toast({ title: "خطأ", description: result.error, variant: "destructive" });
         }
     };
 
@@ -137,7 +137,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
     
     return (
        <React.Fragment>
-            <TableRow data-state={isOpen ? "open" : "closed"} className={cn("font-bold", isConfirmed && "bg-green-500/10 hover:bg-green-500/20")}>
+            <TableRow className={cn("font-bold", isConfirmed && "bg-primary/10 hover:bg-primary/20")}>
                 {row.getVisibleCells().map((cell: any) => {
                     if (cell.column.id === 'collapsible') {
                         return (
@@ -492,50 +492,33 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         <div className="space-y-6">
              <Card>
                 <CardHeader>
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-                        <div>
-                            <CardTitle>إدارة البورصات والمعاملات</CardTitle>
-                            <CardDescription>نظام تفاعلي لإدارة المعاملات اليومية للبورصات، وتسجيل الدفعات، ومتابعة الأرصدة.</CardDescription>
+                    <div className="flex w-full flex-col items-start gap-4">
+                        <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
+                             <div className="text-right">
+                                <CardTitle>إدارة البورصات والمعاملات</CardTitle>
+                                <CardDescription>نظام تفاعلي لإدارة المعاملات اليومية للبورصات، وتسجيل الدفعات، ومتابعة الأرصدة.</CardDescription>
+                            </div>
+                            <div className="w-full sm:w-auto">
+                                <Label htmlFor="exchange-select" className="font-bold text-sm">البورصة الحالية:</Label>
+                                <Select value={exchangeId} onValueChange={(e) => setExchangeId(e)}>
+                                    <SelectTrigger className="w-full h-9 mt-1">
+                                        <SelectValue placeholder="اختر بورصة..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {exchanges.map((x) => (
+                                            <SelectItem key={x.id} value={x.id}>{x.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
-                        <div className="w-full sm:w-auto">
-                            <Label htmlFor="exchange-select" className="font-bold text-sm">البورصة الحالية:</Label>
-                            <Select value={exchangeId} onValueChange={(e) => setExchangeId(e)}>
-                                <SelectTrigger className="w-full h-9 mt-1">
-                                    <SelectValue placeholder="اختر بورصة..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {exchanges.map((x) => (
-                                        <SelectItem key={x.id} value={x.id}>{x.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border rounded-lg bg-muted">
+                            <StatCard title="إجمالي مطلوب لنا (دائنون لنا)" usd={summary.totalCreditUSD} iqd={summary.totalCreditIQD} className="border-green-500/30 bg-background text-green-600" />
+                            <StatCard title="إجمالي مطلوب منا (مدينون لنا)" usd={summary.totalDebitUSD} iqd={summary.totalDebitIQD} className="border-red-500/30 bg-background text-red-600" />
+                            <StatCard title="صافي الرصيد" usd={netBalanceUSD} iqd={netBalanceIQD} className={cn("border-blue-500/30 bg-background", netBalanceUSD > 0 ? "text-green-600" : netBalanceUSD < 0 ? "text-red-600" : "text-foreground")} />
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border rounded-lg bg-muted">
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-green-500/30">
-                            <div className="text-right">
-                                <p className="text-xs font-bold text-muted-foreground">إجمالي مطلوب لنا (دائنون لنا)</p>
-                                <p className="font-bold font-mono text-lg">{formatCurrency(summary.totalCreditUSD)}</p>
-                            </div>
-                            <ArrowUp className="h-6 w-6 text-green-500" />
-                        </div>
-                        <div className="flex items-center justify-between p-3 rounded-lg bg-background border border-red-500/30">
-                            <div className="text-right">
-                                <p className="text-xs font-bold text-muted-foreground">إجمالي مطلوب منا (مدينون لنا)</p>
-                                <p className="font-bold font-mono text-lg">{formatCurrency(summary.totalDebitUSD)}</p>
-                            </div>
-                             <ArrowDown className="h-6 w-6 text-red-500" />
-                        </div>
-                        <div className={cn("flex items-center justify-between p-3 rounded-lg bg-background border", netBalanceUSD > 0 ? "border-green-500/50" : netBalanceUSD < 0 ? "border-red-500/50" : "border-gray-500/50")}>
-                            <div className="text-right">
-                                <p className="text-xs font-bold text-muted-foreground">صافي الرصيد</p>
-                                <p className={cn("font-bold font-mono text-xl", netBalanceUSD > 0 ? "text-green-600" : netBalanceUSD < 0 ? "text-red-600" : "text-foreground")}>{formatCurrency(netBalanceUSD)}</p>
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
             </Card>
 
             <Card>
