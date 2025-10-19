@@ -254,6 +254,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'createdAt', direction: 'desc' });
+  const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
 
 
   const fetchExchangeData = useCallback(async () => {
@@ -346,6 +347,10 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         });
     }
 
+    if (typeFilter !== 'all') {
+        processed = processed.filter(entry => entry.entryType === typeFilter);
+    }
+
     processed.sort((a, b) => {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -358,26 +363,20 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     });
 
     return processed;
-}, [unifiedLedger, debouncedSearchTerm, sortConfig]);
+}, [unifiedLedger, debouncedSearchTerm, sortConfig, typeFilter]);
 
     const { totalDebitsUSD, totalCreditsUSD, netBalanceUSD } = useMemo(() => {
         const totals = filteredLedger.reduce((acc, entry) => {
             const amount = entry.totalAmount || 0;
-            if(entry.entryType === 'transaction') {
+            if (amount < 0) { // Transactions are negative
                 acc.totalDebitsUSD += Math.abs(amount);
-            } else if (entry.entryType === 'payment') {
-                const paymentDetails = entry.details as ExchangePayment[];
-                const paymentTotal = paymentDetails.reduce((sum, p) => sum + p.amountInUSD, 0);
-                 if(paymentTotal > 0) {
-                    acc.totalCreditsUSD += paymentTotal;
-                } else {
-                    acc.totalDebitsUSD += Math.abs(paymentTotal);
-                }
+            } else { // Payments are positive
+                acc.totalCreditsUSD += amount;
             }
             return acc;
         }, { totalDebitsUSD: 0, totalCreditsUSD: 0 });
 
-        return { ...totals, netBalanceUSD: totals.totalCreditsUSD - totals.totalDebitUSD };
+        return { ...totals, netBalanceUSD: filteredLedger.length > 0 ? (filteredLedger[0].balance || 0) : 0 };
     }, [filteredLedger]);
   
     const handleSort = (key: string) => {
@@ -466,6 +465,16 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
                                 />
+                            </div>
+                             <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+                                    <SelectTrigger className="w-full sm:w-[150px]"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">كل الحركات</SelectItem>
+                                        <SelectItem value="transaction">دين (معاملات)</SelectItem>
+                                        <SelectItem value="payment">تسديد (دفع/قبض)</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
                                 <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
