@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from "react";
@@ -35,7 +34,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import { useAuth } from "@/lib/auth-context";
 
-import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent } from 'lucide-react';
+import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X } from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -59,7 +58,7 @@ const companyEntrySchema = z.object({
   visas: z.coerce.number().int().nonnegative().default(0),
   hotels: z.coerce.number().int().nonnegative().default(0),
   groups: z.coerce.number().int().nonnegative().default(0),
-
+  
   ticketProfitType: z.enum(["fixed", "percentage"]).default("fixed"),
   ticketProfitValue: z.coerce.number().min(0).default(1),
   visaProfitType: z.enum(["fixed", "percentage"]).default("fixed"),
@@ -69,12 +68,14 @@ const companyEntrySchema = z.object({
   groupProfitType: z.enum(["fixed", "percentage"]).default("fixed"),
   groupProfitValue: z.coerce.number().min(0).default(1),
 
+
   discountType: z.enum(["none", "fixed", "percentage"]).default("none"),
   discountValue: z.coerce.number().min(0).default(0),
 
   hasPartners: z.boolean().default(false),
   alrawdatainSharePct: z.coerce.number().min(0).max(100).default(100),
   partners: z.array(partnerSchema).default([]),
+  notes: z.string().optional(),
 }).refine(data => {
     if (!data.hasPartners) return true;
     const totals = computeTotals(data);
@@ -88,7 +89,7 @@ const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
   currency: z.string().min(1, "اختر العملة."),
-  entries: z.array(z.any()).default([]),
+  entries: z.array(companyEntrySchema).default([]),
 });
 
 
@@ -282,13 +283,12 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   const { user } = useAuth() || {};
   const parent = useFormContext<PeriodFormValues>();
   
-  const relationOptions =
-    [
-      ...(navData?.clients || []).map((r: any) => ({ id: r.id, name: r.name })),
-      ...(navData?.suppliers || []).map((r: any) => ({ id: r.id, name: r.name })),
-    ]
-      .filter((v, i, arr) => arr.findIndex((x) => x.id === v.id) === i)
-      .map((r) => ({ value: r.id, label: r.name })) || [];
+    const relationOptions = useMemo(() => {
+    if (!navData) return [];
+    return [...(navData.clients || []), ...(navData.suppliers || [])]
+      .filter((v, i, arr) => arr.findIndex((x) => x.id === v.id) === i) // Ensure uniqueness
+      .map((r) => ({ value: r.id, label: r.name }));
+  }, [navData]);
 
   const companyOptions = (navData?.clients || []).map((c: any) => ({ value: c.id, label: c.name }));
 
@@ -359,6 +359,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
       alrawdatainSharePct: 100,
       discountType: "none",
       discountValue: 0,
+      notes: '',
     });
   };
 
@@ -375,7 +376,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
               name="clientId"
               render={({ field }) => (
                 <div className="space-y-1">
-                  <Label>الشركة المصدّرة</Label>
+                  <Label>الشركة المصدّرة للسكمنت</Label>
                   <Autocomplete
                     options={companyOptions}
                     value={field.value}
@@ -391,7 +392,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             />
             <div className="space-y-1">
               <Label>ملاحظة (اختياري)</Label>
-              <Input placeholder="وصف مختصر لهذا الإدخال" />
+              <Input placeholder="وصف مختصر لهذا الإدخال" {...form.register('notes')} />
             </div>
           </div>
 
@@ -458,7 +459,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
                     />
                     <div className="md:col-span-2 flex items-end justify-end"><Button type="button" variant="outline" onClick={handleAddPartner}><PlusCircle className="h-4 w-4 me-2" />إضافة شريك</Button></div>
                 </div>
-                {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Select value={field.value} onValueChange={(v) => { field.onChange(v); const rel = relationOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}}><SelectTrigger><SelectValue placeholder="اختر شريكاً" /></SelectTrigger><SelectContent>{relationOptions.map((r) => (<SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>))}</SelectContent></Select>)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
+                {partnerFields.length > 0 && <div className="space-y-2">{partnerFields.map((pf, idx) => (<div key={pf.id} className="grid grid-cols-12 items-end gap-2 rounded-md border p-2"><div className="col-span-5"><Label>الشريك (من العلاقات)</Label><Controller control={form.control} name={`partners.${idx}.relationId` as const} render={({ field }) => (<Autocomplete searchAction="all" options={relationOptions} value={field.value} onValueChange={(v) => { field.onChange(v); const rel = relationOptions.find((r) => r.value === v); form.setValue(`partners.${idx}.relationName` as const, rel?.label || "");}} placeholder="اختر شريكاً" />)}/></div><div className="col-span-2"><Label>النوع</Label><Controller control={form.control} name={`partners.${idx}.type` as const} render={({ field }) => (<Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="percentage">نسبة</SelectItem><SelectItem value="fixed">ثابت</SelectItem></SelectContent></Select>)}/></div><div className="col-span-3"><Label>القيمة</Label><Controller control={form.control} name={`partners.${idx}.value` as const} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} />)}/></div><div className="col-span-2 flex items-center justify-end"><Button type="button" variant="ghost" size="icon" onClick={() => removePartner(idx)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></div>))}</div>}
             </CollapsibleContent>
           </Collapsible>
           
@@ -513,7 +514,13 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
 
 // ---------- Wrapper: AddSegmentPeriodDialog ----------
 
-export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess }: AddSegmentPeriodDialogProps) {
+interface AddSegmentPeriodDialogProps {
+  clients: Client[];
+  suppliers: Supplier[];
+  onSuccess: () => Promise<void>;
+}
+
+export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
   const { toast } = useToast();
   const { data: navData } = useVoucherNav();
   const { user } = useAuth() || {};
@@ -523,13 +530,8 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess }
   const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
   const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
   
-  const periodForm = useForm<PeriodFormValues>({
-    resolver: zodResolver(periodSchema),
-    defaultValues: {
-      currency: (navData?.settings?.currencySettings?.defaultCurrency || "USD"),
-      entries: [],
-    },
-  });
+  const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
+  const companyForm = useForm<CompanyEntryFormValues>({ resolver: zodResolver(companyEntrySchema) });
 
   const { control, getValues, reset } = periodForm;
   const { fields, append, remove } = useFieldArray({ control, name: "entries" as const });
@@ -567,12 +569,12 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess }
       fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
       toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
       currency: periodData.currency,
-      meta: {
-        userId: user?.uid,
-        fundBoxId:
-          (navData?.boxes || []).find((b: any) => b.ownerId === user?.uid)?.id || null,
-        createdAt: new Date().toISOString(),
-      },
+      alrawdatainShare: entry.computed.rodatainShare,
+      partnerShare: entry.computed.partnersTotal,
+      total: entry.computed.net,
+      ticketProfits: entry.computed.perService.totalTickets,
+      otherProfits: entry.computed.perService.totalVisas + entry.computed.perService.totalHotels + entry.computed.perService.totalGroups,
+      partnerShares: entry.computed.partnerBreakdown.map((p: any) => ({ partnerId: p.relationId, partnerName: p.relationName, share: p.share })),
     }));
     
     try {
@@ -611,43 +613,11 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess }
                 <Form {...periodForm}>
                   <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                     <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>من تاريخ</FormLabel>
-                        <Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                                {field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}
-                                <CalendarIcon className="ms-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={field.value} onSelect={(d) => { if(d) field.onChange(d); setIsFromCalendarOpen(false); }} initialFocus />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                      <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => { if(d) field.onChange(d); setIsFromCalendarOpen(false); }} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                    )}/>
                     <FormField control={periodForm.control} name="toDate" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>إلى تاريخ</FormLabel>
-                        <Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                                {field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}
-                                <CalendarIcon className="ms-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={field.value} onSelect={(d) => { if(d) field.onChange(d); setIsToCalendarOpen(false); }} initialFocus />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
-                    )} />
+                      <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => { if(d) field.onChange(d); setIsToCalendarOpen(false); }} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                    )}/>
                     <FormField control={periodForm.control} name="currency" render={({ field }) => (
                       <FormItem>
                         <FormLabel>العملة</FormLabel>
@@ -727,4 +697,3 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess }
     </Dialog>
   );
 }
-
