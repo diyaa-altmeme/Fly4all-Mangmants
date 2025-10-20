@@ -273,7 +273,7 @@ const MainNavContent = () => {
   const getVisibleItems = (items: any[]) => items.filter(item => hasPermission(item.permission as Permission));
 
   const menuConfig = useMemo(() => [
-    { id: 'relations', label: 'العلاقات', icon: Contact, activeRoutes: ['/clients', '/suppliers', '/relations'], children: (
+      { id: 'relations', label: 'العلاقات', icon: Contact, activeRoutes: ['/clients', '/suppliers', '/relations'], children: (
       <>
         {hasPermission('relations:read') && <DropdownMenuItem asChild><Link href="/clients" className="justify-between w-full flex items-center gap-2"><span>ادارة العلاقات</span><Users2 className="h-4 w-4" /></Link></DropdownMenuItem>}
         {hasPermission('relations:create') && (
@@ -297,6 +297,9 @@ const MainNavContent = () => {
         ))}
       </>
     )},
+    { id: 'additional_services', label: 'خدمات إضافية', icon: MessageSquare, activeRoutes: ['/chat', '/campaigns'], children: getVisibleItems(additionalServicesItems).map(item => (
+        <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+    ))},
     { id: 'system', label: 'النظام', icon: Network, activeRoutes: ['/settings', '/users', '/boxes', '/coming-soon', '/hr', '/system', '/templates', '/support'], children: (
       <>
         {getVisibleItems(systemItems).map(item => {
@@ -318,13 +321,24 @@ const MainNavContent = () => {
     )},
   ], [hasPermission, handleDataChange]);
 
-  const visibleMenuConfig = useMemo(() => menuConfig.filter(menu => {
-    // A menu is visible if at least one of its sub-items is visible
-    if (menu.id === 'vouchers') return hasPermission('vouchers:read') || hasPermission('vouchers:create');
-    if (menu.id === 'relations') return hasPermission('relations:read') || hasPermission('relations:create');
-    const items = menu.id === 'operations' ? operationsItems : menu.id === 'reports' ? [...reportsItems, ...customReportsItems] : systemItems;
-    return items.some(item => hasPermission(item.permission as Permission));
-  }), [menuConfig, hasPermission]);
+  const visibleMenuConfig = useMemo(() => {
+    const desiredOrder = ['relations', 'operations', 'vouchers', 'reports', 'additional_services', 'system'];
+    
+    const sortedMenu = menuConfig
+        .filter(menu => {
+            if (menu.id === 'vouchers') return hasPermission('vouchers:read') || hasPermission('vouchers:create');
+            if (menu.id === 'relations') return hasPermission('relations:read') || hasPermission('relations:create');
+            const items = menu.id === 'operations' ? operationsItems 
+                        : menu.id === 'reports' ? [...reportsItems, ...customReportsItems] 
+                        : menu.id === 'system' ? systemItems 
+                        : additionalServicesItems;
+            return items.some(item => hasPermission(item.permission as Permission));
+        })
+        .sort((a, b) => desiredOrder.indexOf(a.id) - desiredOrder.indexOf(b.id));
+
+    return sortedMenu;
+
+  }, [menuConfig, hasPermission]);
   
   if (isMobile) {
     // Mobile rendering logic is more complex and depends on the specific UI library.
@@ -346,9 +360,6 @@ const MainNavContent = () => {
                     </AccordionContent>
                 </AccordionItem>
             ))}
-             {getVisibleItems(additionalServicesItems).map(item => (
-                <NavLink key={item.href} href={item.href} active={pathname.startsWith(item.href)} className="w-full justify-end text-base">{item.label}<item.icon className="h-5 w-5" /></NavLink>
-            ))}
         </Accordion>
     )
   }
@@ -366,9 +377,6 @@ const MainNavContent = () => {
                 >
                    {menu.children}
                 </NavMenu>
-            ))}
-            {getVisibleItems(additionalServicesItems).map(item => (
-                <NavLink key={item.href} href={item.href} active={pathname.startsWith(item.href)} className="justify-end">{item.label}<item.icon className="h-4 w-4" /></NavLink>
             ))}
         </nav>
     </div>
