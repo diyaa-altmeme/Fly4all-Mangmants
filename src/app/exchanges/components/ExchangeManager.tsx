@@ -124,14 +124,15 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
 
     const handleConfirmChange = async (checked: boolean) => {
         setIsConfirmed(checked); // Optimistic update
+        onActionSuccess('update', { ...entry, isConfirmed: checked });
         
         const result = await updateBatch(entry.id, entry.entryType as 'transaction' | 'payment', { isConfirmed: checked });
         if (!result.success) {
             toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
              setIsConfirmed(!checked); // Revert on failure
+             onActionSuccess('update', { ...entry, isConfirmed: !checked });
         } else {
              toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
-            onActionSuccess('update', { ...entry, isConfirmed: checked });
         }
     };
     
