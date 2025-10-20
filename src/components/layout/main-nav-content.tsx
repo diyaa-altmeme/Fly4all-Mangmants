@@ -281,7 +281,7 @@ const MainNavContent = () => {
       });
   }
   
-  const menuConfig = useMemo(() => [
+  const menuConfig = [
        { 
            id: 'relations', 
            label: 'العلاقات', 
@@ -420,7 +420,7 @@ const MainNavContent = () => {
                        : menu.id === 'system' ? systemItems 
                        : [];
       return filterItems(childItems).length > 0;
-  }), [hasPermission, user]);
+  });
   
   const renderMobileSubItems = (menu: any) => {
       // ... (code for mobile rendering with permissions)
@@ -542,4 +542,3 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
-
