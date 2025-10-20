@@ -64,12 +64,12 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: { 
+const LedgerRow = ({ row, exchanges, onActionSuccess, table, columns }: { 
     row: Row<UnifiedLedgerEntry>, 
     exchanges: Exchange[], 
-    onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void, 
+    onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void,
+    table: ReturnType<typeof useReactTable>,
     columns: ColumnDef<UnifiedLedgerEntry>[],
-    table: ReturnType<typeof useReactTable>
 }) => {
     const entry = row.original;
     const { toast } = useToast();
@@ -223,7 +223,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: {
                                                     <TableCell className="p-1 text-center"><Badge className={cn("text-white", detailTypeClass)}>{detailType}</Badge></TableCell>
                                                     <TableCell className="p-1 font-mono text-right">{detail.originalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})} {detail.originalCurrency}</TableCell>
                                                     <TableCell className="p-1 font-mono text-right">{detail.originalCurrency !== 'USD' ? detail.rate : '-'}</TableCell>
-                                                    <TableCell className="p-1 font-mono text-right">{formatCurrency(detail.amountInUSD)}</TableCell>
+                                                    <TableCell className="p-1 font-mono text-right whitespace-nowrap">{formatCurrency(detail.amountInUSD)}</TableCell>
                                                     <TableCell className="p-1">{detail.note}</TableCell>
                                                 </TableRow>
                                             )
@@ -272,15 +272,35 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             setLoading(false);
         }
     }, [exchangeId, toast]);
-
+    
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        const currentPage = table.getState().pagination.pageIndex;
         fetchExchangeData();
         router.refresh();
-        setTimeout(() => {
-            table.setPageIndex(currentPage);
-        }, 0);
     }, [fetchExchangeData, router]);
+
+    const table = useReactTable({
+      data: filteredLedger,
+      columns,
+      state: { sorting, rowSelection, pagination },
+      onSortingChange: setSorting,
+      onRowSelectionChange: setRowSelection,
+      onPaginationChange: setPagination,
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      manualPagination: false,
+      meta: {
+        updateData: (rowIndex: number, columnId: string, value: any) => {
+            const itemToUpdateId = filteredLedger[rowIndex].id;
+            setUnifiedLedger((current) =>
+                current.map((item) =>
+                item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
+                )
+            );
+        },
+      },
+    });
 
     const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
         { id: 'sequence', header: 'ت', size: 40, cell: ({ row, table }) => {
@@ -308,13 +328,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
           }
         },
         { accessorKey: 'description', header: 'الوصف', size: 250 },
-        { id: 'debit', header: 'علينا', cell: ({ row }) => {
+        { id: 'debit', header: 'علينا (مدين)', cell: ({ row }) => {
             const entry = row.original;
             const amount = entry.totalAmount || 0;
             const debit = entry.entryType === 'transaction' ? Math.abs(amount) : (amount < 0 ? Math.abs(amount) : 0);
             return <div className="font-bold text-red-600 whitespace-nowrap text-center">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
         }, size: 120},
-        { id: 'credit', header: 'لنا', cell: ({ row }) => {
+        { id: 'credit', header: 'لنا (دائن)', cell: ({ row }) => {
             const entry = row.original;
             const amount = entry.totalAmount || 0;
             const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
@@ -336,16 +356,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
 
     const filteredLedger = useMemo(() => {
         let filteredData = unifiedLedger;
-        if (date?.from || date?.to) {
-            filteredData = filteredData.filter(entry => {
-                const entryDate = parseISO(entry.date);
-                const from = date?.from ? startOfDay(date.from) : null;
-                const to = date?.to ? endOfDay(date.to) : null;
-                if(from && entryDate < from) return false;
-                if(to && entryDate > to) return false;
-                return true;
-            });
-        }
         
         if (debouncedSearchTerm) {
             const lowercasedTerm = debouncedSearchTerm.toLowerCase();
@@ -369,40 +379,27 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         if (confirmationFilter !== 'all') {
             filteredData = filteredData.filter(p => (confirmationFilter === 'confirmed') ? p.isConfirmed : !p.isConfirmed);
         }
+
+        if (date?.from || date?.to) {
+            filteredData = filteredData.filter(entry => {
+                const entryDate = parseISO(entry.date);
+                const from = date?.from ? startOfDay(date.from) : null;
+                const to = date?.to ? endOfDay(date.to) : null;
+                if(from && entryDate < from) return false;
+                if(to && entryDate > to) return false;
+                return true;
+            });
+        }
         
         return filteredData;
     }, [unifiedLedger, debouncedSearchTerm, date, typeFilter, confirmationFilter]);
 
 
-    const table = useReactTable({
-      data: filteredLedger,
-      columns,
-      state: { sorting, rowSelection, pagination },
-      onSortingChange: setSorting,
-      onRowSelectionChange: setRowSelection,
-      onPaginationChange: setPagination,
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-      getPaginationRowModel: getPaginationRowModel(),
-      getFilteredRowModel: getFilteredRowModel(),
-      manualPagination: false,
-      meta: {
-        updateData: (rowIndex: number, columnId: string, value: any) => {
-            const itemToUpdateId = filteredLedger[rowIndex].id;
-            setUnifiedLedger((current) =>
-                current.map((item) =>
-                item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
-                )
-            );
-        },
-      },
-    });
-
     useEffect(() => {
         if (!loading && table) {
             table.setPageIndex(pagination.pageIndex);
         }
-    }, [loading, table, pagination.pageIndex]);
+    }, [loading, table, pagination.pageIndex, filteredLedger]);
 
     useEffect(() => {
         fetchExchangeData();
@@ -551,6 +548,9 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
+                            <Button onClick={refreshAllData} variant="outline" size="icon" className="h-9 w-9" disabled={loading}>
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4" />}
+                            </Button>
                             <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
                                 <Button className="w-full"><PlusCircle className="me-2 h-4 w-4" />معاملة</Button>
                             </AddTransactionsDialog>
@@ -605,8 +605,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             row={row} 
                                             exchanges={exchanges} 
                                             onActionSuccess={handleActionSuccess} 
-                                            columns={columns}
                                             table={table}
+                                            columns={columns}
                                         />
                                     ))
                                 )}
