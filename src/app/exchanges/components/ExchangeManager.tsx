@@ -171,7 +171,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const { toast } = useToast();
   const [exchangeId, setExchangeId] = useState<string>(initialExchangeId || initialExchanges[0]?.id || "");
   const [exchanges, setExchanges] = useState<Exchange[]>(initialExchanges);
-  const [unifiedLedger, setUnifiedLedger] = useState<UnifiedLedgerEntry[]>([]);
+  const [data, setData] = useState<UnifiedLedgerEntry[]>([]);
   const [date, setDate] = React.useState<DateRange | undefined>({
       from: subDays(new Date(), 30),
       to: new Date(),
@@ -183,16 +183,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
   const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
-  const [currentPage, setCurrentPage] = useState(0);
 
   const fetchExchangeData = useCallback(async () => {
     if (exchangeId) {
-      const currentIndex = table?.getState()?.pagination?.pageIndex || 0;
-      setCurrentPage(currentIndex);
       setLoading(true);
       try {
         const ledgerData = await getUnifiedExchangeLedger(exchangeId, date?.from, date?.to);
-        setUnifiedLedger(ledgerData);
+        setData(ledgerData);
       } catch (err: any) {
         toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
       } finally {
@@ -221,7 +218,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     setExchangeId(currentExchanges[0].id);
                 } else if (currentExchanges.length === 0) {
                     setExchangeId("");
-                    setUnifiedLedger([]);
+                    setData([]);
                 } else {
                     await fetchExchangeData();
                 }
@@ -236,12 +233,12 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
-        setUnifiedLedger(currentData => {
+        setData(currentData => {
             if (action === 'delete') {
                 return currentData.filter(entry => entry.id !== updatedData.id);
             }
             if (action === 'update') {
-                    return currentData.map(entry => entry.id === updatedData.id ? { ...entry, ...updatedData } : entry);
+                return currentData.map(entry => entry.id === updatedData.id ? { ...entry, ...updatedData } : entry);
             }
             if (action === 'add') {
                 return [updatedData, ...currentData];
@@ -251,7 +248,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, []);
 
     const filteredLedger = useMemo(() => {
-        let processed = [...unifiedLedger];
+        let processed = [...data];
         
         if (debouncedSearchTerm) {
             const lowercasedTerm = debouncedSearchTerm.toLowerCase();
@@ -279,7 +276,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
         
         return processed;
-    }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
+    }, [data, debouncedSearchTerm, typeFilter, confirmationFilter]);
 
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
@@ -448,7 +445,12 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         {
             id: 'actions',
             header: () => <div className="text-center font-bold">خيارات</div>,
-            cell: ({ row }) => (
+            cell: ({ row }) => {
+                const entry = row.original;
+                const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+                const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
+
+                return (
                 <div className="text-center">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -483,7 +485,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
-            ),
+            )},
             size: 80,
         },
     ], [exchanges, toast, handleActionSuccess]);
@@ -500,22 +502,16 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getFilteredRowModel: getFilteredRowModel(),
       meta: {
           updateData: (rowIndex: number, columnId: string, value: any) => {
-              setUnifiedLedger(old => produce(old, draft => {
-                  const originalIndex = draft.findIndex(item => item.id === filteredLedger[rowIndex].id);
-                  if (originalIndex !== -1) {
+              const originalIndex = data.findIndex(item => item.id === filteredLedger[rowIndex].id);
+              if (originalIndex !== -1) {
+                  const newData = produce(data, draft => {
                       (draft[originalIndex] as any)[columnId] = value;
-                  }
-              }));
+                  });
+                  setData(newData);
+              }
           }
       }
     });
-
-    useEffect(() => {
-      if (table && currentPage > 0) {
-        table.setPageIndex(currentPage);
-      }
-    }, [table, unifiedLedger]);
-
 
     return (
         <div className="space-y-6">
@@ -654,4 +650,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     );
 }
 
-    
