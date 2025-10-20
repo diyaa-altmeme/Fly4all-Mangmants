@@ -8,16 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, Terminal } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useSearchParams } from 'next/navigation';
+import type { Exchange } from '@/lib/types';
 
 function ExchangeManagerLoader() {
     const searchParams = useSearchParams();
     const initialExchangeId = searchParams.get('exchangeId') || '';
 
-    const [exchanges, setExchanges] = React.useState<any[]>([]);
-    const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState<string | null>(null);
+    const [exchanges, setExchanges] = useState<Exchange[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     
-    React.useEffect(() => {
+    const fetchData = useCallback(() => {
+        setLoading(true);
         getExchanges()
             .then(result => {
                 if (result.error || !result.accounts) {
@@ -28,6 +30,10 @@ function ExchangeManagerLoader() {
             .catch(e => setError(e.message))
             .finally(() => setLoading(false));
     }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
     if(loading) {
          return (
