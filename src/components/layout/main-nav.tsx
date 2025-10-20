@@ -121,6 +121,7 @@ const reportsItems = [
     { href: "/reports/advanced", label: "تقارير متقدمة", icon: AreaChart, permission: 'reports:read:all' },
     { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
 ];
+const customReportsItems: any[] = [];
 
 const systemItems = [
     { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'settings:read' },
