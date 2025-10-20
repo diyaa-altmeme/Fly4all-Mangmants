@@ -108,7 +108,14 @@ const operationsItems = [
     { href: "/bookings/fly-changes", label: "تغييرات فلاي والوزن", icon: Package, permission: 'admin' },
 ];
 
-const customReportsItems: any[] = [];
+const customReportsItems: any[] = [
+    { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
+    { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft, permission: 'remittances:read' },
+    { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
+    { href: "/exchanges", label: "إدارة البورصات", icon: ChevronsRightLeft, permission: 'admin' },
+    { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
+    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
+];
 
 const reportsItems = [
     { href: "/reports/debts", label: "تقرير الأرصدة", icon: Wallet, permission: 'reports:debts' },
@@ -230,13 +237,13 @@ const NavMenu = ({ label, icon: Icon, children, activeRoutes, className }: {
     <DropdownMenu>
         <DropdownMenuTrigger asChild>
             <Button variant={isActive ? 'secondary' : 'ghost'} className={cn(
-              "group flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors whitespace-nowrap w-full justify-center",
+              "group flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors w-full justify-center whitespace-nowrap",
               isActive && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
               className
             )}>
-                <ChevronDown className={cn("h-4 w-4 transition-transform duration-200 group-data-[state=open]:-rotate-180")} />
                 {label}
                 <Icon className="h-4 w-4" />
+                <ChevronDown className={cn("h-4 w-4 transition-transform duration-200 group-data-[state=open]:-rotate-180")} />
             </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
@@ -392,7 +399,7 @@ const MainNavContent = () => {
   return (
     <div className="w-full">
         <nav className="flex items-stretch justify-center gap-2">
-             <div className="flex-grow-0">
+             <div className="">
                <NavLink href="/dashboard" active={pathname === '/dashboard'} className="justify-end h-full">
                   الرئيسية
                   <LayoutDashboard className="h-4 w-4" />
@@ -400,12 +407,12 @@ const MainNavContent = () => {
             </div>
             
             {menuConfig.map(menu => (
-                 <div className="flex-grow" key={menu.id}>
+                 <div className="" key={menu.id}>
                     <NavMenu 
                         label={menu.label}
                         icon={menu.icon}
                         activeRoutes={menu.activeRoutes}
-                        className={cn(menu.className, 'whitespace-nowrap')}
+                        className={cn(menu.className)}
                     >
                        {menu.children}
                     </NavMenu>
