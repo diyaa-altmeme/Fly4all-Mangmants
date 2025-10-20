@@ -64,7 +64,7 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
 );
 
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<UnifiedLedgerEntry>, exchanges: Exchange[], onActionSuccess: (action: 'update' | 'delete', data: any) => void, table: ReturnType<typeof useReactTable<UnifiedLedgerEntry>> }) => {
+const LedgerRow = ({ row, exchanges, onActionSuccess, table, columns }: { row: Row<UnifiedLedgerEntry>, exchanges: Exchange[], onActionSuccess: (action: 'update' | 'delete', data: any) => void, table: ReturnType<typeof useReactTable<UnifiedLedgerEntry>>, columns: ColumnDef<UnifiedLedgerEntry>[] }) => {
     const entry = row.original;
     const { toast } = useToast();
     const [isChecked, setIsChecked] = React.useState(entry.isConfirmed || false);
@@ -83,7 +83,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<Unifie
     const handleConfirmChange = async (checked: boolean) => {
         setIsPending(true);
         const currentPage = table.getState().pagination.pageIndex;
-        
+
         // Optimistic update
         table.options.meta?.updateData(row.index, "isConfirmed", checked);
 
@@ -97,7 +97,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<Unifie
             table.options.meta?.updateData(row.index, "isConfirmed", !checked);
         } finally {
             setIsPending(false);
-            table.setPageIndex(currentPage);
+             table.setPageIndex(currentPage);
         }
     };
     
@@ -107,7 +107,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<Unifie
 
     return (
         <Collapsible asChild>
-            <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
+             <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
                 <TableRow data-state={row.getIsExpanded() ? 'open' : 'closed'}>
                     {row.getVisibleCells().map(cell => {
                         if (cell.column.id === 'isConfirmed') {
@@ -147,7 +147,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<Unifie
                                             <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem onClick={copy}><Copy className="me-2 h-4 w-4"/>نسخ التفاصيل</DropdownMenuItem>
+                                             <DropdownMenuItem onClick={copy}><Copy className="me-2 h-4 w-4"/>نسخ التفاصيل</DropdownMenuItem>
                                             <EditBatchDialog batch={row.original} exchanges={exchanges} onSuccess={(updatedBatch) => onActionSuccess('update', updatedBatch)}>
                                                 <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4" /> تعديل</DropdownMenuItem>
                                             </EditBatchDialog>
@@ -246,7 +246,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
 
     const refreshAllData = useCallback(async () => {
         setLoading(true);
-        const currentPage = pageIndex;
         try {
             const result = await getExchanges();
             if (result.accounts) {
@@ -268,11 +267,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             toast({ title: 'خطأ في تحديث البيانات', description: err.message, variant: 'destructive' });
         } finally {
             setLoading(false);
-            setTimeout(() => {
-                table.setPageIndex(currentPage);
-            }, 0);
         }
-    }, [exchangeId, fetchExchangeData, toast, pageIndex]);
+    }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
         if (action === 'delete') {
@@ -440,10 +436,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     });
 
     useEffect(() => {
-        if(table) {
-            table.setPageIndex(pageIndex);
-        }
-    }, [unifiedLedger, table, pageIndex]);
+        table.setPageIndex(pageIndex);
+    }, [filteredLedger, table, pageIndex]);
 
     return (
         <div className="space-y-6">
@@ -553,23 +547,27 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                     </TableRow>
                                 ))}
                             </TableHeader>
-                            <TableBody>
+                            
                                 {loading ? (
+                                    <TableBody>
                                         <TableRow>
                                             <TableCell colSpan={columns.length} className="h-24 text-center">
                                                 <Loader2 className="h-8 w-8 animate-spin mx-auto" />
                                             </TableCell>
                                         </TableRow>
+                                    </TableBody>
                                 ) : table.getRowModel().rows.length === 0 ? (
+                                    <TableBody>
                                         <TableRow>
                                             <TableCell colSpan={columns.length} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
                                         </TableRow>
+                                    </TableBody>
                                 ) : (
                                     table.getRowModel().rows.map((row) => (
-                                        <LedgerRow key={row.original.id} row={row} exchanges={exchanges} onActionSuccess={handleActionSuccess} table={table} />
+                                        <LedgerRow key={row.original.id} row={row} exchanges={exchanges} onActionSuccess={handleActionSuccess} table={table} columns={columns} />
                                     ))
                                 )}
-                            </TableBody>
+                            
                         </Table>
                     </div>
                     <DataTablePagination table={table} />
@@ -578,3 +576,5 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
+    
