@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -64,11 +63,10 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, table, columns }: { 
+const LedgerRow = ({ row, exchanges, onActionSuccess, columns }: { 
     row: Row<UnifiedLedgerEntry>, 
     exchanges: Exchange[], 
     onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void,
-    table: ReturnType<typeof useReactTable>,
     columns: ColumnDef<UnifiedLedgerEntry>[],
 }) => {
     const entry = row.original;
@@ -77,29 +75,20 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table, columns }: {
     const [dialogOpen, setDialogOpen] = React.useState(false);
 
     const handleConfirmChange = async (checked: boolean) => {
-      setIsPending(true);
-    
-      const currentPage = table.getState().pagination.pageIndex;
-      
-      table.options.meta?.updateData(row.index, 'isConfirmed', checked);
-    
-      try {
-        const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
-    
-        if (!result.success) throw new Error(result.error);
-    
-        toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-      } catch (error: any) {
-        toast({
-          title: "خطأ",
-          description: "فشل تحديث حالة التأكيد.",
-          variant: "destructive",
-        });
-        table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
-      } finally {
-        setIsPending(false);
-        table.setPageIndex(currentPage);
-      }
+        setIsPending(true);
+        const { updateData } = table.options.meta as any;
+        updateData(row.index, 'isConfirmed', checked);
+
+        try {
+            const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
+            if (!result.success) throw new Error(result.error);
+            toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+        } catch (error: any) {
+            toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
+            updateData(row.index, 'isConfirmed', !checked);
+        } finally {
+            setIsPending(false);
+        }
     };
 
     const confirmUncheck = () => {
@@ -110,10 +99,16 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table, columns }: {
     const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
     const handleCopy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
 
+    const table = useReactTable<UnifiedLedgerEntry>({
+        data: [],
+        columns: [],
+        getCoreRowModel: getCoreRowModel(),
+    });
+
     return (
         <Collapsible asChild>
-             <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
-                <TableRow>
+            <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
+                <TableRow data-state={row.getIsExpanded() ? "open" : "closed"}>
                     {row.getVisibleCells().map(cell => {
                         if (cell.column.id === 'isConfirmed') {
                             return (
@@ -204,7 +199,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table, columns }: {
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={columns.length + 1} className="p-0">
+                        <TableCell colSpan={columns.length} className="p-0">
                              <div className="p-2 bg-muted">
                                 <Table>
                                     <TableHeader>
@@ -229,8 +224,8 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table, columns }: {
                                                     <TableCell className="p-1 font-semibold">{detail.partyName || detail.paidTo}</TableCell>
                                                     <TableCell className="p-1">{detail.intermediary || (isTransaction ? exchanges.find(ex => ex.id === entry.exchangeId)?.name : '-')}</TableCell>
                                                     <TableCell className="p-1 text-center"><Badge className={cn("text-white", detailTypeClass)}>{detailType}</Badge></TableCell>
-                                                    <TableCell className="p-1 font-mono text-right">{detail.originalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})} {detail.originalCurrency}</TableCell>
-                                                    <TableCell className="p-1 font-mono text-right">{detail.originalCurrency !== 'USD' ? detail.rate : '-'}</TableCell>
+                                                    <TableCell className="p-1 font-mono text-right whitespace-nowrap">{detail.originalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})} {detail.originalCurrency}</TableCell>
+                                                    <TableCell className="p-1 font-mono text-right">{row.original.currency !== 'USD' ? detail.rate : '-'}</TableCell>
                                                     <TableCell className="p-1 font-mono text-right whitespace-nowrap">{formatCurrency(detail.amountInUSD)}</TableCell>
                                                     <TableCell className="p-1">{detail.note}</TableCell>
                                                 </TableRow>
@@ -257,12 +252,68 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [sorting, setSorting] = React.useState<SortingState>([{ id: 'date', desc: true }]);
-    const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
+    const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment_debit' | 'payment_credit'>('all');
     const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
     const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
     const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
-
+    
     const router = useRouter();
+
+    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
+        fetchExchangeData();
+    }, []);
+
+    const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
+        { id: 'sequence', header: 'ت', size: 40, cell: ({ row, table }) => {
+            const { pageIndex, pageSize } = table.getState().pagination;
+            return pageIndex * pageSize + row.index + 1;
+        }},
+        { id: 'collapsible', header: () => null, size: 40 },
+        { id: 'isConfirmed', header: 'تأكيد', size: 50 },
+        { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span>, size: 120 },
+        { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span>, size: 120 },
+        { id: 'entryType', header: 'النوع', size: 100,
+          cell: ({ row }) => {
+              const entry = row.original;
+              const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+              const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
+
+              if (entry.entryType === 'transaction') {
+                  return <Badge variant={'destructive'} className="font-bold cursor-pointer" onClick={copy}>دين</Badge>;
+              } else {
+                  const amount = entry.totalAmount || 0;
+                  return amount > 0 
+                      ? <Badge className="bg-blue-600 font-bold cursor-pointer" onClick={copy}>تسديد</Badge> 
+                      : <Badge className="bg-green-600 font-bold cursor-pointer" onClick={copy}>قبض</Badge>;
+              }
+          }
+        },
+        { accessorKey: 'description', header: 'الوصف', size: 250 },
+        { id: 'debit', header: 'علينا (مدين)', cell: ({ row }) => {
+            const entry = row.original;
+            const amount = entry.totalAmount || 0;
+            const debit = entry.entryType === 'transaction' ? Math.abs(amount) : (amount < 0 ? Math.abs(amount) : 0);
+            return <div className="font-bold text-red-600 whitespace-nowrap text-center">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
+        }, size: 120},
+        { id: 'credit', header: 'لنا (دائن)', cell: ({ row }) => {
+            const entry = row.original;
+            const amount = entry.totalAmount || 0;
+            const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
+            return <div className="font-bold text-green-600 whitespace-nowrap text-center">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
+        }, size: 120},
+        { 
+            accessorKey: 'balance', 
+            header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, 
+            cell: ({ row }) => {
+                const balance = row.original.balance || 0;
+                const colorClass = balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-foreground';
+                return <span className={cn("font-bold text-lg font-mono", colorClass)}>{formatCurrency(balance, 'USD')}</span>
+            },
+            size: 150
+        },
+        { accessorKey: 'userName', header: 'المستخدم', size: 120 },
+        { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80 },
+    ], [exchanges, toast, handleActionSuccess]);
 
     const fetchExchangeData = useCallback(async () => {
         if (exchangeId) {
@@ -280,10 +331,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             setLoading(false);
         }
     }, [exchangeId, toast]);
-    
-    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        fetchExchangeData();
-    }, [fetchExchangeData]);
     
     useEffect(() => {
         fetchExchangeData();
@@ -319,58 +366,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
     }, [exchangeId, fetchExchangeData, toast]);
 
-    const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
-        { id: 'sequence', header: 'ت', size: 40, cell: ({ row, table }) => {
-            const { pageIndex, pageSize } = table.getState().pagination;
-            return pageIndex * pageSize + row.index + 1;
-        }},
-        { id: 'collapsible', header: () => null, size: 40 },
-        { id: 'isConfirmed', header: 'تأكيد', size: 50 },
-        { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span>, size: 120 },
-        { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span>, size: 120 },
-        { id: 'entryType', header: 'النوع', size: 100,
-          cell: ({ row }) => {
-              const entry = row.original;
-              const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-              const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
-
-              if (entry.entryType === 'transaction') {
-                  return <Badge variant={'destructive'} className="font-bold cursor-pointer" onClick={copy}>دين</Badge>;
-              } else {
-                  const amount = entry.totalAmount || 0;
-                  return amount > 0 
-                      ? <Badge className="bg-blue-600 font-bold cursor-pointer" onClick={copy}>دفع</Badge> 
-                      : <Badge className="bg-green-600 font-bold cursor-pointer" onClick={copy}>قبض</Badge>;
-              }
-          }
-        },
-        { accessorKey: 'description', header: 'الوصف', size: 250 },
-        { id: 'debit', header: 'علينا (مدين)', cell: ({ row }) => {
-            const entry = row.original;
-            const amount = entry.totalAmount || 0;
-            const debit = entry.entryType === 'transaction' ? Math.abs(amount) : (amount < 0 ? Math.abs(amount) : 0);
-            return <div className="font-bold text-red-600 whitespace-nowrap text-center">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
-        }, size: 120},
-        { id: 'credit', header: 'لنا (دائن)', cell: ({ row }) => {
-            const entry = row.original;
-            const amount = entry.totalAmount || 0;
-            const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
-            return <div className="font-bold text-green-600 whitespace-nowrap text-center">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
-        }, size: 120},
-        { 
-            accessorKey: 'balance', 
-            header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, 
-            cell: ({ row }) => {
-                const balance = row.original.balance || 0;
-                const colorClass = balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-foreground';
-                return <span className={cn("font-bold text-lg font-mono", colorClass)}>{formatCurrency(balance, 'USD')}</span>
-            },
-            size: 150
-        },
-        { accessorKey: 'userName', header: 'المستخدم', size: 120 },
-        { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80 },
-    ], [exchanges, toast, handleActionSuccess]);
-
     const filteredLedger = useMemo(() => {
         let filteredData = unifiedLedger;
         
@@ -390,7 +385,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
 
         if (typeFilter !== 'all') {
-            filteredData = filteredData.filter(p => p.entryType === typeFilter);
+            if (typeFilter === 'transaction') {
+                filteredData = filteredData.filter(p => p.entryType === 'transaction');
+            } else if (typeFilter === 'payment_debit') {
+                filteredData = filteredData.filter(p => p.entryType === 'payment' && (p.totalAmount || 0) < 0);
+            } else if (typeFilter === 'payment_credit') {
+                filteredData = filteredData.filter(p => p.entryType === 'payment' && (p.totalAmount || 0) > 0);
+            }
         }
 
         if (confirmationFilter !== 'all') {
@@ -410,37 +411,28 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         
         return filteredData;
     }, [unifiedLedger, debouncedSearchTerm, date, typeFilter, confirmationFilter]);
-
+    
     const table = useReactTable({
-      data: filteredLedger,
-      columns,
-      state: { sorting, rowSelection, pagination },
-      onSortingChange: setSorting,
-      onRowSelectionChange: setRowSelection,
-      onPaginationChange: setPagination,
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-      getPaginationRowModel: getPaginationRowModel(),
-      getFilteredRowModel: getFilteredRowModel(),
-      manualPagination: false,
-      meta: {
-        updateData: (rowIndex: number, columnId: string, value: any) => {
-            const itemToUpdateId = filteredLedger[rowIndex].id;
-            setUnifiedLedger((current) =>
-                current.map((item) =>
-                item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
+        data: filteredLedger,
+        columns,
+        state: { sorting, rowSelection, pagination },
+        onSortingChange: setSorting,
+        onRowSelectionChange: setRowSelection,
+        onPaginationChange: setPagination,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        meta: {
+            updateData: (rowIndex: number, columnId: string, value: any) => {
+              setUnifiedLedger((current) =>
+                current.map((item, index) =>
+                  index === rowIndex ? { ...item, [columnId]: value } : item
                 )
-            );
+              );
+            },
         },
-      },
     });
-
-    useEffect(() => {
-        if (!loading && table) {
-            table.setPageIndex(pagination.pageIndex);
-        }
-    }, [loading, table, pagination.pageIndex, filteredLedger]);
-
 
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
@@ -467,7 +459,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
           'رقم الفاتورة': entry.invoiceNumber || 'N/A',
           'التاريخ': entry.date,
           'الوقت': format(parseISO(entry.createdAt), 'HH:mm'),
-          'النوع': entry.entryType === 'transaction' ? 'دين' : (entry.totalAmount && entry.totalAmount > 0 ? 'دفع' : 'قبض'),
+          'النوع': entry.entryType === 'transaction' ? 'دين' : (entry.totalAmount && entry.totalAmount > 0 ? 'تسديد' : 'قبض'),
           'الوصف': entry.description,
           'علينا (مدين)': entry.entryType === 'transaction' ? Math.abs(entry.totalAmount || 0) : (entry.totalAmount && entry.totalAmount < 0 ? Math.abs(entry.totalAmount) : 0),
           'لنا (دائن)': entry.entryType === 'payment' && (entry.totalAmount || 0) > 0 ? entry.totalAmount : 0,
@@ -535,12 +527,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                         <Calendar initialFocus mode="range" defaultMonth={date?.from} selected={date} onSelect={setDate} numberOfMonths={2}/>
                                     </PopoverContent>
                                 </Popover>
-                                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+                                 <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
                                     <SelectTrigger className="w-full sm:w-[150px] h-9"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">كل الحركات</SelectItem>
                                         <SelectItem value="transaction">دين</SelectItem>
-                                        <SelectItem value="payment">تسديد</SelectItem>
+                                        <SelectItem value="payment_credit">تسديد</SelectItem>
+                                        <SelectItem value="payment_debit">قبض</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <Select value={confirmationFilter} onValueChange={(v) => setConfirmationFilter(v as any)}>
@@ -625,3 +618,4 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+    
