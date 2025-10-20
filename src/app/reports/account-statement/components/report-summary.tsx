@@ -63,5 +63,3 @@ export default function ReportSummary({ report }: { report: ReportInfo }) {
         </div>
     );
 }
-
-    
