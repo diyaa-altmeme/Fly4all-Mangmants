@@ -29,7 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { produce } from 'immer';
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, Row, RowSelectionState } from '@tanstack/react-table';
+import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, Row, RowSelectionState, PaginationState } from '@tanstack/react-table';
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useRouter } from 'next/navigation';
@@ -63,28 +63,41 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, columns }: { row: Row<UnifiedLedgerEntry>, exchanges: Exchange[], onActionSuccess: (action: 'update' | 'delete', data: any) => void, columns: ColumnDef<UnifiedLedgerEntry>[] }) => {
+const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: { 
+    row: Row<UnifiedLedgerEntry>, 
+    exchanges: Exchange[], 
+    onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void, 
+    columns: ColumnDef<UnifiedLedgerEntry>[],
+    table: ReturnType<typeof useReactTable>
+}) => {
     const entry = row.original;
     const { toast } = useToast();
     const [isPending, setIsPending] = React.useState(false);
     const [dialogOpen, setDialogOpen] = React.useState(false);
-    const table = useReactTable<UnifiedLedgerEntry>({} as any); // Mock or get from context if needed
 
     const handleConfirmChange = async (checked: boolean) => {
-        setIsPending(true);
-        // Optimistic update
-        table.options.meta?.updateData(row.index, 'isConfirmed', checked);
+      setIsPending(true);
+      const currentPage = table.getState().pagination.pageIndex;
 
-        try {
-            const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
-            if (!result.success) throw new Error(result.error);
-            toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-        } catch (error: any) {
-            toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-            table.options.meta?.updateData(row.index, 'isConfirmed', !checked); // Revert on failure
-        } finally {
-            setIsPending(false);
-        }
+      // Optimistic update
+      table.options.meta?.updateData(row.index, 'isConfirmed', checked);
+    
+      try {
+        const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
+        if (!result.success) throw new Error(result.error);
+        toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+      } catch (error: any) {
+        toast({
+          title: "خطأ",
+          description: "فشل تحديث حالة التأكيد.",
+          variant: "destructive",
+        });
+        // Revert on failure
+        table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
+      } finally {
+        setIsPending(false);
+        table.setPageIndex(currentPage);
+      }
     };
 
 
@@ -221,16 +234,18 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
   const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
-  const [pageIndex, setPageIndex] = useState(0);
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
 
-  const pageIndexRef = React.useRef(0);
+  const router = useRouter();
 
   const fetchExchangeData = useCallback(async () => {
     if (exchangeId) {
+      const currentPage = pagination.pageIndex;
       setLoading(true);
       try {
-        const ledgerData = await getUnifiedExchangeLedger(exchangeId, date?.from, date?.to);
+        const ledgerData = await getUnifiedExchangeLedger(exchangeId);
         setUnifiedLedger(ledgerData);
+        setTimeout(() => table.setPageIndex(currentPage), 0);
       } catch (err: any) {
         toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
       } finally {
@@ -240,48 +255,12 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         setUnifiedLedger([]);
         setLoading(false);
     }
-  }, [exchangeId, date, toast]);
+  }, [exchangeId, toast]);
 
-  const router = useRouter();
-
-  const table = useReactTable({
-      data: filteredLedger,
-      columns,
-      state: { sorting, rowSelection, pagination: { pageIndex, pageSize: 15 } },
-      onSortingChange: setSorting,
-      onRowSelectionChange: setRowSelection,
-      onPaginationChange: (updater) => {
-        const newPage =
-          typeof updater === "function"
-            ? updater({ pageIndex, pageSize: 15 }).pageIndex
-            : updater.pageIndex;
-        setPageIndex(newPage);
-      },
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-      getPaginationRowModel: getPaginationRowModel(),
-      getFilteredRowModel: getFilteredRowModel(),
-      meta: {
-        updateData: (rowIndex: number, columnId: string, value: any) => {
-            const itemToUpdateId = filteredLedger[rowIndex].id;
-            setUnifiedLedger((current) =>
-                current.map((item) =>
-                item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
-                )
-            );
-        },
-      },
-    });
-
-  const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        pageIndexRef.current = table.getState().pagination.pageIndex;
-        fetchExchangeData().then(() => {
-            router.refresh();
-             setTimeout(() => {
-                table.setPageIndex(pageIndexRef.current);
-            }, 0);
-        });
-    }, [fetchExchangeData, router, table]);
+    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
+        fetchExchangeData();
+        router.refresh();
+    }, [fetchExchangeData, router]);
 
     const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
         { id: 'sequence', header: 'ت', size: 40, cell: ({ row, table }) => {
@@ -335,13 +314,83 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80 },
     ], [exchanges, toast, handleActionSuccess]);
 
-  useEffect(() => {
-    fetchExchangeData();
-  }, [fetchExchangeData]);
+    const filteredLedger = useMemo(() => {
+        let filteredData = unifiedLedger;
+        if (date?.from || date?.to) {
+            filteredData = filteredData.filter(entry => {
+                const entryDate = parseISO(entry.date);
+                const from = date?.from ? startOfDay(date.from) : null;
+                const to = date?.to ? endOfDay(date.to) : null;
+                if(from && entryDate < from) return false;
+                if(to && entryDate > to) return false;
+                return true;
+            });
+        }
+        
+        if (debouncedSearchTerm) {
+            const lowercasedTerm = debouncedSearchTerm.toLowerCase();
+             filteredData = filteredData.filter(entry => 
+                (entry.invoiceNumber && entry.invoiceNumber.toLowerCase().includes(lowercasedTerm)) ||
+                (entry.description && entry.description.toLowerCase().includes(lowercasedTerm)) ||
+                (entry.userName && entry.userName.toLowerCase().includes(lowercasedTerm)) ||
+                (entry.details && entry.details.some(
+                    (detail: any) =>
+                        (detail.partyName && detail.partyName.toLowerCase().includes(lowercasedTerm)) ||
+                        (detail.paidTo && detail.paidTo.toLowerCase().includes(lowercasedTerm)) ||
+                        (detail.note && detail.note.toLowerCase().includes(lowercasedTerm))
+                ))
+            );
+        }
+
+        if (typeFilter !== 'all') {
+            filteredData = filteredData.filter(p => p.entryType === typeFilter);
+        }
+
+        if (confirmationFilter !== 'all') {
+            filteredData = filteredData.filter(p => (confirmationFilter === 'confirmed') ? p.isConfirmed : !p.isConfirmed);
+        }
+        
+        return filteredData;
+    }, [unifiedLedger, debouncedSearchTerm, date, typeFilter, confirmationFilter]);
+
+
+    const table = useReactTable({
+      data: filteredLedger,
+      columns,
+      state: { sorting, rowSelection, pagination },
+      onSortingChange: setSorting,
+      onRowSelectionChange: setRowSelection,
+      onPaginationChange: setPagination,
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      manualPagination: false,
+      meta: {
+        updateData: (rowIndex: number, columnId: string, value: any) => {
+            const itemToUpdateId = filteredLedger[rowIndex].id;
+            setUnifiedLedger((current) =>
+                current.map((item) =>
+                item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
+                )
+            );
+        },
+      },
+    });
+    
+    useEffect(() => {
+        if (!loading && table) {
+            table.setPageIndex(pagination.pageIndex);
+        }
+    }, [loading, table, pagination.pageIndex]);
+
+    useEffect(() => {
+        fetchExchangeData();
+    }, [fetchExchangeData]);
   
-  useEffect(() => {
+    useEffect(() => {
       setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
-  }, [initialExchangeId, initialExchanges]);
+    }, [initialExchangeId, initialExchanges]);
 
     const refreshAllData = useCallback(async () => {
         setLoading(true);
@@ -369,30 +418,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
     }, [exchangeId, fetchExchangeData, toast]);
 
-    const filteredLedger = useMemo(() => {
-        return unifiedLedger.filter(entry => {
-            if (debouncedSearchTerm) {
-                const lowercasedTerm = debouncedSearchTerm.toLowerCase();
-                 if (
-                    !entry.invoiceNumber?.toLowerCase().includes(lowercasedTerm) &&
-                    !entry.description?.toLowerCase().includes(lowercasedTerm) &&
-                    !entry.userName?.toLowerCase().includes(lowercasedTerm) &&
-                    !(Array.isArray(entry.details) && entry.details.some(
-                        (detail: any) =>
-                            (detail.partyName && detail.partyName.toLowerCase().includes(lowercasedTerm)) ||
-                            (detail.paidTo && detail.paidTo.toLowerCase().includes(lowercasedTerm)) ||
-                            (detail.note && detail.note.toLowerCase().includes(lowercasedTerm))
-                    ))
-                ) return false;
-            }
 
-            if (typeFilter !== 'all' && entry.entryType !== typeFilter) return false;
-            if (confirmationFilter !== 'all' && (confirmationFilter === 'confirmed' ? !entry.isConfirmed : !entry.isConfirmed)) return false;
-
-            return true;
-        });
-    }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
-    
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
             const amount = entry.totalAmount || 0;
@@ -502,10 +528,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                         <SelectItem value="unconfirmed">غير المؤكدة</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <Button onClick={fetchExchangeData} disabled={loading} className="w-full sm:w-auto h-9">
-                                    {loading ? <Loader2 className="me-2 h-4 w-4 animate-spin"/> : <Filter className="me-2 h-4 w-4" />}
-                                    تطبيق
-                                </Button>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -564,6 +586,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             exchanges={exchanges} 
                                             onActionSuccess={handleActionSuccess} 
                                             columns={columns}
+                                            table={table}
                                         />
                                     ))
                                 )}
@@ -576,4 +599,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
