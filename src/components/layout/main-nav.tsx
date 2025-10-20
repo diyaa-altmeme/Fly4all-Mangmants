@@ -11,7 +11,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Currency } from '@/lib/types';
-import NewStandardReceiptForm from '@/app/accounts/vouchers/components/new-standard-receipt-form';
 import { cn } from '@/lib/utils';
 import { Settings2, Loader2 } from 'lucide-react';
 import { useVoucherNav } from '@/context/voucher-nav-context';
@@ -72,17 +71,18 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
-import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
-import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
-import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
-import AddClientDialog from '@/app/clients/components/add-client-dialog';
 import { DropdownMenuSeparator, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/lib/auth-context';
 import type { Permission } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/permissions';
+import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
+import NewDistributedReceiptDialog from "@/app/accounts/vouchers/components/new-distributed-receipt-dialog";
+import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-payment-voucher-dialog";
+import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
+import NewJournalVoucherDialog from "@/app/accounts/vouchers/components/new-journal-voucher-dialog";
+import AddClientDialog from '@/app/clients/components/add-client-dialog';
 
 
 const NavLink = ({ href, children, active, className }: { href: string; children: React.ReactNode, active: boolean, className?: string }) => (
@@ -132,7 +132,6 @@ const systemItems = [
     { href: "/system/activity-log", label: "سجل النشاطات", icon: History, permission: 'system:audit_log:read' },
     { href: "/system/error-log", label: "سجل الأخطاء", icon: FileWarning, permission: 'system:error_log:read' },
     { href: "/system/data-audit", label: "فحص البيانات", icon: ScanSearch, permission: 'system:data_audit:run' },
-    { href: "/system/deleted-log", label: "سجل المحذوفات", icon: History, permission: 'admin' }, // Placeholder for sub-menu
     { href: "/support", label: "الدعم والمساعدة", icon: HelpCircle, permission: 'public' },
     { href: "/coming-soon", label: "الميزات القادمة", icon: Lightbulb, permission: 'public' },
 ];
@@ -269,62 +268,61 @@ const MainNavContent = () => {
   const handleDataChange = () => {
     router.refresh();
   };
-
+  
   const getVisibleItems = (items: any[]) => items.filter(item => hasPermission(item.permission as Permission));
 
-  const menuConfig = useMemo(() => [
-      { id: 'relations', label: 'العلاقات', icon: Contact, activeRoutes: ['/clients', '/suppliers', '/relations'], children: (
-      <>
-        {hasPermission('relations:read') && <DropdownMenuItem asChild><Link href="/clients" className="justify-between w-full flex items-center gap-2"><span>ادارة العلاقات</span><Users2 className="h-4 w-4" /></Link></DropdownMenuItem>}
-        {hasPermission('relations:create') && (
-          <AddClientDialog onClientAdded={handleDataChange} onClientUpdated={handleDataChange}>
-            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between gap-2 w-full"><span>إضافة علاقة</span><PlusCircle className="h-4 w-4" /></DropdownMenuItem>
-          </AddClientDialog>
-        )}
-        <DropdownMenuSeparator />
-        {hasPermission('settings:read') && <DropdownMenuItem asChild><Link href="/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>}
-      </>
-    )},
-    { id: 'operations', label: 'العمليات المحاسبية', icon: Calculator, activeRoutes: ['/bookings', '/visas', '/subscriptions', '/accounts/remittances', '/segments', '/exchanges'], children: getVisibleItems(operationsItems).map(item => (
-        <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
-      ))
-    },
-    { id: 'vouchers', label: 'السندات', icon: FileText, activeRoutes: ['/accounts/vouchers'], children: <CreateVoucherMenuItems /> },
-    { id: 'reports', label: 'التقارير والأدوات', icon: BarChart3, activeRoutes: ['/reports', '/profits', '/profit-sharing', '/reconciliation', '/finance'], children: (
-      <>
-        {getVisibleItems([...reportsItems, ...customReportsItems]).sort((a,b) => a.label.localeCompare(b.label)).map(item => (
-            <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
-        ))}
-      </>
-    )},
-    { id: 'additional_services', label: 'خدمات إضافية', icon: MessageSquare, activeRoutes: ['/chat', '/campaigns'], children: getVisibleItems(additionalServicesItems).map(item => (
-        <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
-    ))},
-    { id: 'system', label: 'النظام', icon: Network, activeRoutes: ['/settings', '/users', '/boxes', '/coming-soon', '/hr', '/system', '/templates', '/support'], children: (
-      <>
-        {getVisibleItems(systemItems).map(item => {
-          if (item.href === '/system/deleted-log') {
-            return (
-              <DropdownMenuSub key={item.href}>
-                <DropdownMenuSubTrigger>{item.label}<History className="h-4 w-4"/></DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {deletedItemsLog.map(subItem => (
-                    <DropdownMenuItem asChild key={subItem.href}><Link href={subItem.href}>{subItem.label}</Link></DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            )
-          }
-          return <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
-        })}
-      </>
-    )},
-  ], [hasPermission, handleDataChange]);
-
-  const visibleMenuConfig = useMemo(() => {
+  const menuConfig = useMemo(() => {
     const desiredOrder = ['relations', 'operations', 'vouchers', 'reports', 'additional_services', 'system'];
+    const baseConfig = [
+       { id: 'relations', label: 'العلاقات', icon: Contact, activeRoutes: ['/clients', '/suppliers', '/relations'], children: (
+           <>
+                {hasPermission('relations:read') && <DropdownMenuItem asChild><Link href="/clients" className="justify-between w-full flex items-center gap-2"><span>ادارة العلاقات</span><Users2 className="h-4 w-4" /></Link></DropdownMenuItem>}
+                {hasPermission('relations:create') && (
+                  <AddClientDialog onClientAdded={handleDataChange} onClientUpdated={handleDataChange}>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between gap-2 w-full"><span>إضافة علاقة</span><PlusCircle className="h-4 w-4" /></DropdownMenuItem>
+                  </AddClientDialog>
+                )}
+                <DropdownMenuSeparator />
+                {hasPermission('settings:read') && <DropdownMenuItem asChild><Link href="/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>}
+           </>
+      )},
+      { id: 'operations', label: 'العمليات المحاسبية', icon: Calculator, activeRoutes: ['/bookings', '/visas', '/subscriptions', '/accounts/remittances', '/segments', '/exchanges'], children: getVisibleItems(operationsItems).map(item => (
+          <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+        ))
+      },
+      { id: 'vouchers', label: 'السندات', icon: FileText, activeRoutes: ['/accounts/vouchers'], children: <CreateVoucherMenuItems /> },
+      { id: 'reports', label: 'التقارير والأدوات', icon: BarChart3, activeRoutes: ['/reports', '/profits', '/profit-sharing', '/reconciliation', '/finance'], children: (
+           <>
+             {getVisibleItems([...reportsItems, ...customReportsItems]).sort((a,b) => a.label.localeCompare(b.label)).map(item => (
+                 <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+            ))}
+          </>
+      )},
+      { id: 'additional_services', label: 'خدمات إضافية', icon: MessageSquare, activeRoutes: ['/chat', '/campaigns'], children: getVisibleItems(additionalServicesItems).map(item => (
+          <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+      ))},
+      { id: 'system', label: 'النظام', icon: Network, activeRoutes: ['/settings', '/users', '/boxes', '/coming-soon', '/hr', '/system', '/templates', '/support'], children: (
+           <>
+                {getVisibleItems(systemItems).map(item => {
+                  if (item.href === '/system/deleted-log') {
+                    return (
+                      <DropdownMenuSub key={item.href}>
+                        <DropdownMenuSubTrigger>{item.label}<History className="h-4 w-4"/></DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent>
+                          {deletedItemsLog.map(subItem => (
+                            <DropdownMenuItem asChild key={subItem.href}><Link href={subItem.href}>{subItem.label}</Link></DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    )
+                  }
+                  return <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+                })}
+              </>
+      )},
+    ];
     
-    const sortedMenu = menuConfig
+    return baseConfig
         .filter(menu => {
             if (menu.id === 'vouchers') return hasPermission('vouchers:read') || hasPermission('vouchers:create');
             if (menu.id === 'relations') return hasPermission('relations:read') || hasPermission('relations:create');
@@ -336,9 +334,7 @@ const MainNavContent = () => {
         })
         .sort((a, b) => desiredOrder.indexOf(a.id) - desiredOrder.indexOf(b.id));
 
-    return sortedMenu;
-
-  }, [menuConfig, hasPermission]);
+  }, [hasPermission, handleDataChange]);
   
   if (isMobile) {
     // Mobile rendering logic is more complex and depends on the specific UI library.
@@ -347,7 +343,7 @@ const MainNavContent = () => {
     return (
         <Accordion type="single" collapsible className="w-full">
             <NavLink href="/dashboard" active={pathname === '/dashboard'} className="w-full justify-end text-base">الرئيسية<LayoutDashboard className="h-5 w-5" /></NavLink>
-            {visibleMenuConfig.map((menu) => (
+            {menuConfig.map((menu) => (
                 <AccordionItem value={menu.id} key={menu.id}>
                     <AccordionTrigger className="py-3 px-2 font-bold text-base hover:no-underline rounded-md data-[state=open]:text-primary justify-between">
                          <div className="flex items-center gap-2 justify-end">
@@ -368,7 +364,7 @@ const MainNavContent = () => {
     <div className="w-full">
         <nav className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
              <NavLink href="/dashboard" active={pathname === '/dashboard'} className="justify-end">الرئيسية<LayoutDashboard className="h-4 w-4" /></NavLink>
-            {visibleMenuConfig.map(menu => (
+            {menuConfig.map(menu => (
                 <NavMenu 
                     key={menu.id}
                     label={menu.label}
