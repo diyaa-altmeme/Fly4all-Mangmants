@@ -63,11 +63,11 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, updateData }: { 
+const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { 
     row: Row<UnifiedLedgerEntry>, 
     exchanges: Exchange[], 
     onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void,
-    updateData: (rowIndex: number, columnId: string, value: any) => void,
+    table: ReactTable<UnifiedLedgerEntry>
 }) => {
     const entry = row.original;
     const { toast } = useToast();
@@ -76,7 +76,9 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, updateData }: {
 
     const handleConfirmChange = async (checked: boolean) => {
         setIsPending(true);
-        updateData(row.index, 'isConfirmed', checked);
+        const currentPage = table.getState().pagination.pageIndex;
+        
+        table.options.meta?.updateData?.(row.index, 'isConfirmed', checked);
 
         try {
             const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
@@ -84,9 +86,10 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, updateData }: {
             toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
         } catch (error: any) {
             toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-            updateData(row.index, 'isConfirmed', !checked);
+            table.options.meta?.updateData?.(row.index, 'isConfirmed', !checked);
         } finally {
             setIsPending(false);
+            table.setPageIndex(currentPage);
         }
     };
 
@@ -207,7 +210,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, updateData }: {
                                                     <TableCell className="p-1">{detail.intermediary || (isTransaction ? exchanges.find(ex => ex.id === entry.exchangeId)?.name : '-')}</TableCell>
                                                     <TableCell className="p-1 text-center"><Badge className={cn("text-white", detailTypeClass)}>{detailType}</Badge></TableCell>
                                                     <TableCell className="p-1 font-mono text-right whitespace-nowrap">{detail.originalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})} {detail.originalCurrency}</TableCell>
-                                                    <TableCell className="p-1 font-mono text-right">{entry.currency !== 'USD' ? detail.rate : '-'}</TableCell>
+                                                    <TableCell className="p-1 font-mono text-right">{detail.originalCurrency !== 'USD' ? detail.rate : '-'}</TableCell>
                                                     <TableCell className="p-1 font-mono text-right whitespace-nowrap">{formatCurrency(detail.amountInUSD)}</TableCell>
                                                     <TableCell className="p-1">{detail.note}</TableCell>
                                                 </TableRow>
@@ -234,7 +237,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [sorting, setSorting] = React.useState<SortingState>([{ id: 'date', desc: true }]);
-    const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment_credit' | 'payment_debit'>('all');
+    const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment' | 'receipt'>('all');
     const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
     const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
     const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
@@ -258,14 +261,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
     }, [exchangeId, toast, date]);
     
-    useEffect(() => {
-        fetchExchangeData();
-    }, [fetchExchangeData]);
-  
-    useEffect(() => {
-      setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
-    }, [initialExchangeId, initialExchanges]);
-
     const refreshAllData = useCallback(async () => {
         setLoading(true);
         try {
@@ -296,6 +291,10 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         fetchExchangeData();
     }, [fetchExchangeData]);
     
+    useEffect(() => {
+      setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
+    }, [initialExchangeId, initialExchanges]);
+
     const filteredLedger = useMemo(() => {
         let filteredData = unifiedLedger;
         
@@ -317,9 +316,9 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         if (typeFilter !== 'all') {
             if (typeFilter === 'transaction') {
                 filteredData = filteredData.filter(p => p.entryType === 'transaction');
-            } else if (typeFilter === 'payment_credit') {
+            } else if (typeFilter === 'payment') {
                 filteredData = filteredData.filter(p => p.entryType === 'payment' && (p.totalAmount || 0) > 0);
-            } else if (typeFilter === 'payment_debit') {
+            } else if (typeFilter === 'receipt') {
                  filteredData = filteredData.filter(p => p.entryType === 'payment' && (p.totalAmount || 0) < 0);
             }
         }
@@ -399,6 +398,16 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         },
       },
     });
+
+    useEffect(() => {
+        fetchExchangeData();
+    }, [fetchExchangeData]);
+
+    useEffect(() => {
+      if (!loading && table) {
+        table.setPageIndex(pagination.pageIndex);
+      }
+    }, [loading, table, pagination.pageIndex]);
 
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
@@ -498,8 +507,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                     <SelectContent>
                                         <SelectItem value="all">كل الحركات</SelectItem>
                                         <SelectItem value="transaction">دين (معاملات)</SelectItem>
-                                        <SelectItem value="payment_credit">تسديد (دفع)</SelectItem>
-                                        <SelectItem value="payment_debit">قبض</SelectItem>
+                                        <SelectItem value="payment">تسديد (دفع)</SelectItem>
+                                        <SelectItem value="receipt">قبض</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <Select value={confirmationFilter} onValueChange={(v) => setConfirmationFilter(v as any)}>
@@ -513,7 +522,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button onClick={fetchExchangeData} variant="outline" size="icon" className="h-9 w-9" disabled={loading}>
+                            <Button onClick={refreshAllData} variant="outline" size="icon" className="h-9 w-9" disabled={loading}>
                                 {loading ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4" />}
                             </Button>
                             <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
@@ -570,7 +579,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             row={row} 
                                             exchanges={exchanges} 
                                             onActionSuccess={handleActionSuccess} 
-                                            updateData={table.options.meta!.updateData}
+                                            table={table}
                                         />
                                     ))
                                 )}
@@ -583,5 +592,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
-    
