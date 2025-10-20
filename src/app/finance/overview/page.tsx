@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -14,16 +15,17 @@ import { Separator } from "@/components/ui/separator";
 import { Download, Layers3, Repeat, Share2, Search, Filter } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
-
-// Placeholder components for your tools
-const SegmentTool = ({ onSave }: { onSave: (tx: any) => void }) => <div><p>Segment Tool Content</p><Button onClick={() => onSave({ amount: 100, category: 'segment', company: 'Test Seg', kind: 'credit' })}>Save Test</Button></div>;
-const SubscriptionTool = ({ onSave }: { onSave: (tx: any) => void }) => <div><p>Subscription Tool Content</p><Button onClick={() => onSave({ amount: 200, category: 'subscription', company: 'Test Sub', kind: 'credit' })}>Save Test</Button></div>;
-const ProfitShareTool = ({ onSave }: { onSave: (tx: any) => void }) => <div><p>Profit Share Tool Content</p><Button onClick={() => onSave({ amount: 300, category: 'share', company: 'Test Share', kind: 'debit' })}>Save Test</Button></div>;
+import AddSegmentPeriodDialog from "@/app/segments/add-segment-period-dialog";
+import AddSubscriptionDialog from "@/app/subscriptions/components/add-subscription-dialog";
+import AddManualProfitDialog from "@/app/profit-sharing/components/add-manual-profit-dialog";
+import { useVoucherNav } from "@/context/voucher-nav-context";
+import { useRouter } from "next/navigation";
 
 
 export default function FinanceOverviewPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [shareR, setShareR] = useState(50);
   const [shareM, setShareM] = useState(50);
   const [alertMonthlyCap, setAlertMonthlyCap] = useState(15000);
@@ -33,6 +35,8 @@ export default function FinanceOverviewPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<TxCategory | "all">("all");
   const [rows, setRows] = useState<Transaction[]>([]);
+  const { data: navData, loaded: isDataLoaded } = useVoucherNav();
+
 
   useEffect(() => {
     const unsub = watchTransactions(new Date(fromDate + "T00:00:00"), new Date(toDate + "T23:59:59"), (data) => {
@@ -95,6 +99,14 @@ export default function FinanceOverviewPage() {
     a.download = `report_${fromDate}_${toDate}.csv`;
     a.click();
   };
+  
+  const handleSuccess = () => {
+      router.refresh();
+  }
+
+  if (!isDataLoaded || !navData) {
+      return <div>جاري تحميل البيانات...</div>
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -104,18 +116,25 @@ export default function FinanceOverviewPage() {
           <CardDescription>إدارة كل العمليات المالية والتقارير من واجهة واحدة متقدمة.</CardDescription>
         </CardHeader>
         <CardContent>
-           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
-               <div className="flex gap-2">
-                    <Dialog><DialogTrigger asChild><Button variant="secondary"><Layers3 className="me-2 h-4 w-4"/>فتح سكمنت</Button></DialogTrigger><DialogContent className="max-w-4xl"><DialogHeader><DialogTitle>نموذج إدخال سكمنت</DialogTitle></DialogHeader><SegmentTool onSave={handleSave} /></DialogContent></Dialog>
-                    <Dialog><DialogTrigger asChild><Button variant="secondary"><Repeat className="me-2 h-4 w-4"/>فتح اشتراكات</Button></DialogTrigger><DialogContent className="max-w-4xl"><DialogHeader><DialogTitle>نموذج إدخال اشتراك</DialogTitle></DialogHeader><SubscriptionTool onSave={handleSave} /></DialogContent></Dialog>
-                    <Dialog><DialogTrigger asChild><Button variant="secondary"><Share2 className="me-2 h-4 w-4"/>فتح توزيع الحصص</Button></DialogTrigger><DialogContent className="max-w-4xl"><DialogHeader><DialogTitle>نموذج توزيع الحصص</DialogTitle></DialogHeader><ProfitShareTool onSave={handleSave} /></DialogContent></Dialog>
-               </div>
-                <div className="flex gap-2 items-center w-full sm:w-auto">
-                    <div className="relative flex-grow">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-                        <Input placeholder="🔍 ابحث عن شركة أو علاقة..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full ps-10" />
-                    </div>
-                    <Button onClick={searchCompany}><Filter className="me-2 h-4 w-4"/>عرض الكشف</Button>
+           <div className="flex flex-wrap gap-2 items-center justify-between">
+                <div className="flex gap-2">
+                    <AddSegmentPeriodDialog 
+                        clients={navData.clients || []} 
+                        suppliers={navData.suppliers || []} 
+                        onSuccess={handleSuccess} 
+                    />
+                    <AddSubscriptionDialog onSubscriptionAdded={handleSuccess} />
+                    <AddManualProfitDialog partners={navData.clients || []} onSuccess={handleSuccess} />
+                </div>
+
+                <div className="flex gap-2 items-center">
+                    <Input
+                    placeholder="🔍 ابحث عن شركة أو علاقة..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="min-w-[220px]"
+                    />
+                    <Button onClick={searchCompany}>عرض كشف الشركة</Button>
                 </div>
             </div>
 
