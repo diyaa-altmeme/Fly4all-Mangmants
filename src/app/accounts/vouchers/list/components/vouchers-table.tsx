@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Voucher } from '../actions';
@@ -27,7 +27,7 @@ import EditVoucherDialog from './edit-voucher-dialog';
 import type { VoucherListSettings, VoucherTableColumn } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-
+import Link from 'next/link';
 
 interface VouchersTableProps {
   vouchers: Voucher[];
@@ -38,25 +38,28 @@ interface VouchersTableProps {
 const formatCurrency = (amount: number | undefined | null, currency: string) => {
     if (amount === undefined || amount === null || isNaN(Number(amount))) return '-';
     if (amount === 0) return '-';
-    return `${new Intl.NumberFormat('en-US').format(Number(amount))} ${currency}`;
+    const formatted = new Intl.NumberFormat('en-US').format(Math.abs(Number(amount)));
+    return `${amount < 0 ? `(${formatted})` : formatted} ${currency}`;
 };
 
 const VoucherTypeIcon = ({ type }: { type: string }) => {
-    switch (type) {
-        case 'journal_from_standard_receipt': return <FileDown className="h-4 w-4 text-green-600" />;
-        case 'journal_from_distributed_receipt': return <GitBranch className="h-4 w-4 text-purple-600" />;
-        case 'journal_from_payment': return <FileUp className="h-4 w-4 text-red-600" />;
-        case 'journal_from_expense': return <Banknote className="h-4 w-4 text-orange-600" />;
-        case 'journal_from_remittance': return <ArrowRightLeft className="h-4 w-4 text-blue-600" />;
-        case 'journal_voucher': return <BookUser className="h-4 w-4 text-gray-600" />;
-        default: return <FileText className="h-4 w-4 text-gray-500" />;
-    }
+    const typeMap: Record<string, React.ElementType> = {
+      'journal_from_standard_receipt': FileDown,
+      'journal_from_distributed_receipt': GitBranch,
+      'journal_from_payment': FileUp,
+      'journal_from_expense': Banknote,
+      'journal_from_remittance': ArrowRightLeft,
+      'journal_voucher': BookUser,
+    };
+    const Icon = typeMap[type] || FileText;
+    return <Icon className="h-4 w-4" />;
 };
 
-const VoucherRow = ({ voucher, onDataChanged, columns }: { 
+const VoucherRow = ({ voucher, onDataChanged, columns, settings }: { 
     voucher: Voucher; 
     onDataChanged: () => void; 
-    columns: VoucherTableColumn[];
+    columns: any[];
+    settings: VoucherListSettings;
 }) => {
     const { toast } = useToast();
     const [isEditing, setIsEditing] = React.useState(false);
@@ -77,15 +80,16 @@ const VoucherRow = ({ voucher, onDataChanged, columns }: {
             case 'date': return format(parseISO(voucher.date), 'yyyy-MM-dd');
             case 'voucherType': return <div className="flex items-center justify-end gap-2"><VoucherTypeIcon type={voucher.voucherType} /><span>{voucher.voucherTypeLabel}</span></div>;
             case 'companyName': return voucher.companyName;
-            case 'boxName': return <Badge variant="outline">{voucher.boxName}</Badge>;
-            case 'debit': return <span className="font-mono text-red-600">{formatCurrency(voucher.debit, voucher.currency)}</span>;
-            case 'credit': return <span className="font-mono text-green-600">{formatCurrency(voucher.credit, voucher.currency)}</span>;
-            case 'details': return <span className="text-muted-foreground">{voucher.details}</span>;
+            case 'boxName': return voucher.boxName && voucher.boxName !== 'N/A' ? <Badge variant="outline">{voucher.boxName}</Badge> : '-';
+            case 'totalAmount': return <span className="font-mono font-bold">{formatCurrency(voucher.totalAmount, voucher.currency)}</span>;
+            case 'notes': return <span className="text-muted-foreground text-xs">{voucher.notes}</span>;
             case 'officer': return <span className="text-muted-foreground">{voucher.officer}</span>;
             case 'actions': return (
                 <div className="flex items-center justify-center gap-1">
-                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-muted/50" onClick={() => setIsEditing(true)}>
-                        <Pencil className="h-4 w-4"/>
+                    <Button asChild variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:bg-muted/50">
+                      <Link href={`/accounts/vouchers/${voucher.id}/edit`}>
+                         <Pencil className="h-4 w-4"/>
+                      </Link>
                     </Button>
                      <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -106,7 +110,10 @@ const VoucherRow = ({ voucher, onDataChanged, columns }: {
                     </AlertDialog>
                 </div>
             )
-            default: return null;
+            default: 
+                const originalValue = voucher.originalData?.[colId];
+                if(originalValue !== undefined) return String(originalValue);
+                return null;
         }
     }
 
@@ -117,14 +124,6 @@ const VoucherRow = ({ voucher, onDataChanged, columns }: {
                 <TableCell key={col.id} className="text-right p-2">{renderCell(col.id)}</TableCell>
             ))}
         </TableRow>
-        {isEditing && (
-            <EditVoucherDialog
-                voucherId={voucher.id}
-                onVoucherUpdated={onDataChanged}
-                open={isEditing}
-                onOpenChange={setIsEditing}
-            />
-        )}
         </>
     );
 };
@@ -154,6 +153,7 @@ export default function VouchersTable({ vouchers, onDataChanged, settings }: Vou
                     voucher={voucher} 
                     onDataChanged={onDataChanged}
                     columns={settings.columns}
+                    settings={settings}
                 />
               )
             )}
