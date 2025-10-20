@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import type { ReportInfo, AccountType, ReportTransaction, Currency, DebtsReportData, Client, Supplier, AppSettings, Box, StructuredDescription, BookingEntry, VisaBookingEntry, Subscription, JournalVoucher, JournalEntry, DebtsReportEntry, InvoiceReportItem, ClientTransactionSummary, TreeNode, Exchange } from '@/lib/types';
@@ -1003,3 +1004,4 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
     return rootNodes;
 });
+

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -70,7 +71,7 @@ function UsersPageContainer() {
 
 export default function UsersPage() {
   return (
-    <ProtectedPage permission="users:read">
+    <ProtectedPage requiredPermission="users:read">
         <div className="space-y-6">
             <div className="px-0 sm:px-6">
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة المستخدمين والصلاحيات</h1>
@@ -81,3 +82,4 @@ export default function UsersPage() {
     </ProtectedPage>
   );
 }
+
