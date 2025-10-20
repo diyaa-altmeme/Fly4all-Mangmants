@@ -38,20 +38,22 @@ const VouchersListContent = () => {
     const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
+            // Fetch all necessary auxiliary data first
             const [clientsRes, usersData, boxesData, suppliersData, settingsData] = await Promise.all([
                 getClients({ all: true }),
                 getUsers(),
                 getBoxes(),
-                getSuppliers({all: true}),
+                getSuppliers({ all: true }),
                 getSettings(),
             ]);
-            
+
             const allRelations = clientsRes.clients;
             const fetchedClients = allRelations.filter(r => r.relationType === 'client' || r.relationType === 'both');
-
+            
             setSettings(settingsData);
             setVoucherListSettings(settingsData.voucherSettings?.listSettings);
 
+            // Now fetch the main data using the auxiliary data
             const vouchersData = await getAllVouchers(fetchedClients, suppliersData, boxesData, usersData, settingsData);
             setVouchers(vouchersData);
 
