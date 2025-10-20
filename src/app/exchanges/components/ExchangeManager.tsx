@@ -61,6 +61,41 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
+const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<UnifiedLedgerEntry>, exchanges: Exchange[], onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void, table: any }) => {
+    const entry = row.original;
+    const { toast } = useToast();
+    const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+
+    const copyToClipboard = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(textToCopy);
+        toast({ title: "تم نسخ التفاصيل بنجاح" });
+    };
+
+    return (
+        <Collapsible asChild>
+            <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
+                <TableRow>
+                    {row.getVisibleCells().map(cell => (
+                        <TableCell key={cell.id} style={{ width: cell.column.getSize() }} className="p-2">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                    ))}
+                </TableRow>
+                <CollapsibleContent asChild>
+                    <TableRow>
+                        <TableCell colSpan={10} className="p-0">
+                            <div className="p-4 bg-muted/50">
+                                {/* Details content here */}
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                </CollapsibleContent>
+            </tbody>
+        </Collapsible>
+    );
+};
+
 
 export default function ExchangeManager({ initialExchanges, initialExchangeId }: ExchangeManagerProps) {
   const { toast } = useToast();
@@ -129,13 +164,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
-        if (action === 'delete') {
-            setUnifiedLedger(currentData => currentData.filter(entry => entry.id !== updatedData.id));
-        } else if (action === 'add') {
-             fetchExchangeData(); // Re-fetch for adds to ensure sorting and balance are correct
-        } else if (action === 'update') {
-            setUnifiedLedger(currentData => currentData.map(entry => entry.id === updatedData.id ? { ...entry, ...updatedData } : entry));
-        }
+        fetchExchangeData();
     }, [fetchExchangeData]);
 
     const filteredLedger = useMemo(() => {
@@ -243,8 +272,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                 
                 const handleConfirmChange = async (checked: boolean) => {
                     setIsPending(true);
+                    const currentPage = table.getState().pagination.pageIndex;
                     
-                    // Optimistic UI update
                     table.options.meta?.updateData(row.index, 'isConfirmed', checked);
                     
                     try {
@@ -253,10 +282,10 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                         toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
                     } catch (error: any) {
                         toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-                        // Revert optimistic update on failure
                         table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
                     } finally {
                         setIsPending(false);
+                        table.setPageIndex(currentPage);
                     }
                 };
 
