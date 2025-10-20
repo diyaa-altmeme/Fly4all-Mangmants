@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { Suspense, useState, useEffect, useCallback } from 'react';
@@ -78,3 +79,4 @@ export default function SubscriptionsPage() {
         </div>
     );
 }
+
