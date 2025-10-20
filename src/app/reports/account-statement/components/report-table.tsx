@@ -13,8 +13,8 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Info, MoreHorizontal } from "lucide-react";
-
+import { ChevronDown, Info, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import Link from 'next/link';
 
 const formatCurrency = (amount: number, currency: string) => {
   if (Math.abs(amount) < 0.01) return `0.00`;
@@ -47,6 +47,8 @@ const DetailedDescription = ({ description }: { description: StructuredDescripti
 
 
 const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => {
+    const [isEditing, setIsEditing] = React.useState(false);
+
     return (
         <tr className="text-sm text-center font-medium">
             <td className="p-2 font-mono">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd') : '-'}</td>
@@ -68,9 +70,14 @@ const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => 
             <td className={cn("p-2 font-mono font-bold", transaction.balance < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balance, transaction.currency)}</td>
             <td className="p-2 text-xs">{transaction.officer}</td>
              <td className="p-2 text-center">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreHorizontal className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1 justify-center">
+                    <Button asChild size="icon" variant="ghost" className="h-7 w-7 text-blue-600">
+                        <Link href={`/accounts/vouchers/${transaction.id}/edit`}>
+                            <Pencil className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                </div>
             </td>
         </tr>
     );
