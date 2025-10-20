@@ -11,6 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Currency } from '@/lib/types';
+import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
 import { cn } from '@/lib/utils';
 import { Settings2, Loader2 } from 'lucide-react';
 import { useVoucherNav } from '@/context/voucher-nav-context';
@@ -77,7 +78,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/lib/auth-context';
 import type { Permission } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/permissions';
-import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
 import NewDistributedReceiptDialog from "@/app/accounts/vouchers/components/new-distributed-receipt-dialog";
 import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-payment-voucher-dialog";
 import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
@@ -104,11 +104,15 @@ const NavLink = ({ href, children, active, className }: { href: string; children
 const operationsItems = [
     { href: "/bookings", label: "حجوزات الطيران", icon: Ticket, permission: 'bookings:read' },
     { href: "/visas", label: "حجوزات الفيزا", icon: CreditCard, permission: 'visas:read' },
-    { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
-    { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft, permission: 'remittances:read' },
-    { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
     { href: "/bookings/fly-changes", label: "تغييرات فلاي والوزن", icon: Package, permission: 'admin' },
-    { href: "/exchanges", label: "إدارة البورصات", icon: ChevronsRightLeft, permission: 'admin' },
+];
+
+const customReportsItems = [
+    { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
+    { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
+    { href: "/exchanges", label: "البورصات", icon: ChevronsRightLeft, permission: 'admin' },
+    { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
+    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
 ];
 
 const reportsItems = [
@@ -116,12 +120,9 @@ const reportsItems = [
     { href: "/reports/account-statement", label: "كشف حساب", icon: FileText, permission: 'reports:account_statement' },
     { href: "/finance/overview", label: "المالية الموحدة", icon: FileBarChart, permission: 'admin' },
     { href: "/profits", label: "الأرباح الشهرية", icon: BarChart3, permission: 'reports:profits' },
-    { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
     { href: "/reconciliation", label: "التدقيق الذكي", icon: Wand2, permission: 'admin' },
     { href: "/reports/advanced", label: "تقارير متقدمة", icon: AreaChart, permission: 'reports:read:all' },
-    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
 ];
-const customReportsItems: any[] = [];
 
 const systemItems = [
     { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'settings:read' },
@@ -225,11 +226,12 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
     )
 }
 
-const NavMenu = ({ label, icon: Icon, children, activeRoutes }: {
+const NavMenu = ({ label, icon: Icon, children, activeRoutes, className }: {
   label: string;
   icon: React.ElementType;
   children: React.ReactNode;
   activeRoutes: string[];
+  className?: string;
 }) => {
   const pathname = usePathname();
   const isActive = activeRoutes.some(route => pathname.startsWith(route));
@@ -239,7 +241,8 @@ const NavMenu = ({ label, icon: Icon, children, activeRoutes }: {
         <DropdownMenuTrigger asChild>
             <Button variant={isActive ? 'secondary' : 'ghost'} className={cn(
               "group flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors whitespace-nowrap w-full justify-end",
-              isActive && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+              isActive && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
+              className
             )}>
                 <ChevronDown className={cn("h-4 w-4 transition-transform duration-200 group-data-[state=open]:-rotate-180")} />
                 {label}
@@ -272,7 +275,7 @@ const MainNavContent = () => {
   const getVisibleItems = (items: any[]) => items.filter(item => hasPermission(item.permission as Permission));
 
   const menuConfig = useMemo(() => {
-    const desiredOrder = ['relations', 'operations', 'vouchers', 'reports', 'additional_services', 'system'];
+    const desiredOrder = ['relations', 'operations', 'vouchers', 'custom-reports', 'reports', 'additional_services', 'system'];
     const baseConfig = [
        { id: 'relations', label: 'العلاقات', icon: Contact, activeRoutes: ['/clients', '/suppliers', '/relations'], children: (
            <>
@@ -286,14 +289,18 @@ const MainNavContent = () => {
                 {hasPermission('settings:read') && <DropdownMenuItem asChild><Link href="/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>}
            </>
       )},
-      { id: 'operations', label: 'العمليات المحاسبية', icon: Calculator, activeRoutes: ['/bookings', '/visas', '/subscriptions', '/accounts/remittances', '/segments', '/exchanges'], children: getVisibleItems(operationsItems).map(item => (
+      { id: 'operations', label: 'العمليات المحاسبية', icon: Calculator, activeRoutes: ['/bookings', '/visas'], children: getVisibleItems(operationsItems).map(item => (
           <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
         ))
       },
       { id: 'vouchers', label: 'السندات', icon: FileText, activeRoutes: ['/accounts/vouchers'], children: <CreateVoucherMenuItems /> },
-      { id: 'reports', label: 'التقارير والأدوات', icon: BarChart3, activeRoutes: ['/reports', '/profits', '/profit-sharing', '/reconciliation', '/finance'], children: (
+      { id: 'custom-reports', label: 'تقارير مخصصة', icon: FileBarChart, activeRoutes: ['/subscriptions', '/segments', '/exchanges', '/profit-sharing', '/reports/flight-analysis'], className: "bg-destructive text-destructive-foreground", children: getVisibleItems(customReportsItems).map(item => (
+          <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+        ))
+      },
+      { id: 'reports', label: 'التقارير والأدوات', icon: BarChart3, activeRoutes: ['/reports', '/profits', '/reconciliation', '/finance'], children: (
            <>
-             {getVisibleItems([...reportsItems, ...customReportsItems]).sort((a,b) => a.label.localeCompare(b.label)).map(item => (
+             {getVisibleItems(reportsItems).sort((a,b) => a.label.localeCompare(b.label)).map(item => (
                  <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
             ))}
           </>
@@ -326,10 +333,17 @@ const MainNavContent = () => {
         .filter(menu => {
             if (menu.id === 'vouchers') return hasPermission('vouchers:read') || hasPermission('vouchers:create');
             if (menu.id === 'relations') return hasPermission('relations:read') || hasPermission('relations:create');
-            const items = menu.id === 'operations' ? operationsItems 
-                        : menu.id === 'reports' ? [...reportsItems, ...customReportsItems] 
-                        : menu.id === 'system' ? systemItems 
-                        : additionalServicesItems;
+            
+            let items: any[] = [];
+            switch(menu.id) {
+                case 'operations': items = operationsItems; break;
+                case 'reports': items = reportsItems; break;
+                case 'custom-reports': items = customReportsItems; break;
+                case 'system': items = systemItems; break;
+                case 'additional_services': items = additionalServicesItems; break;
+                default: return false;
+            }
+            
             return items.some(item => hasPermission(item.permission as Permission));
         })
         .sort((a, b) => desiredOrder.indexOf(a.id) - desiredOrder.indexOf(b.id));
@@ -370,6 +384,7 @@ const MainNavContent = () => {
                     label={menu.label}
                     icon={menu.icon}
                     activeRoutes={menu.activeRoutes}
+                    className={menu.className}
                 >
                    {menu.children}
                 </NavMenu>
@@ -383,3 +398,5 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
+
+    
