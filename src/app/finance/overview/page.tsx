@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { format } from "date-fns";
-import { addTransaction, watchTransactions, type Transaction, type TxCategory, type TxKind } from "@/lib/transactions";
+import type { Transaction, TxCategory, TxKind } from "@/lib/transactions";
 import UnifiedReportTable from "@/components/finance/UnifiedReportTable";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -79,9 +79,9 @@ export default function FinanceOverviewPage() {
     ];
   }, [navData]);
 
-  const handleSuccess = () => {
+  const handleSuccess = async () => {
     router.refresh();
-    fetchData(true); // Force refetch
+    await fetchData(true); // Force refetch
   }
 
   const exportCSV = () => {
@@ -108,6 +108,11 @@ export default function FinanceOverviewPage() {
     a.click();
   };
   
+  const allPartners = useMemo(() => {
+      if(!navData) return [];
+      return [...(navData.clients || []), ...(navData.suppliers || [])];
+  }, [navData]);
+
 
   if (!isDataLoaded) {
     return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -129,7 +134,7 @@ export default function FinanceOverviewPage() {
                         onSuccess={handleSuccess} 
                     />
                     <AddSubscriptionDialog onSubscriptionAdded={handleSuccess} />
-                    <AddManualProfitDialog partners={navData?.clients || []} onSuccess={handleSuccess} />
+                    <AddManualProfitDialog partners={allPartners} onSuccess={handleSuccess} />
                 </div>
 
                 <div className="flex gap-2 items-center">

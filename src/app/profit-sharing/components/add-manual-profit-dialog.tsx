@@ -28,15 +28,15 @@ import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Currency } from "@/lib/types";
+import type { Currency, Client } from "@/lib/types";
 import { Label } from "@/components/ui/label";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useAuth } from "@/lib/auth-context";
 import { ArrowRight } from "lucide-react";
 
 const partnerSchema = z.object({
-  id: z.string().min(1, "اسم الشريك مطلوب."),
-  name: z.string(),
+  partnerId: z.string().min(1, "اسم الشريك مطلوب."),
+  partnerName: z.string(),
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
   amount: z.coerce.number(), // Added for data consistency
 });
@@ -96,11 +96,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     name: "partners",
   });
   
-  const partnerOptions = useMemo(() => {
-    return partnersFromProps.map(p => ({ value: p.id, label: p.name }));
-  }, [partnersFromProps]);
-
-  const sourceAccountOptions = useMemo(() => {
+  const allAccountsOptions = useMemo(() => {
     if (!navData) return [];
     return [
       ...(navData.clients || []).map(c => ({ value: c.id, label: `عميل: ${c.name}` })),
@@ -135,10 +131,8 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
 
   const distribution = useMemo(() => {
     const calculatedPartners: PartnerShare[] = (watchedPartners || []).map(p => {
-         const partnerInfo = partnersFromProps.find(opt => opt.id === p.id);
          return {
             ...p,
-            name: partnerInfo?.name || p.name,
             amount: ((Number(watchedProfit) || 0) * (p.percentage || 0)) / 100
          }
     });
@@ -148,7 +142,9 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
             id: 'alrawdatain_share',
             name: 'حصة الروضتين',
             percentage: remainingPercentage,
-            amount: ((Number(watchedProfit) || 0) * remainingPercentage) / 100
+            amount: ((Number(watchedProfit) || 0) * remainingPercentage) / 100,
+            partnerId: 'alrawdatain_share',
+            partnerName: 'حصة الروضتين',
         });
     }
 
@@ -172,9 +168,9 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
         sourceAccountId: data.sourceAccountId,
         profit: data.profit,
         currency: data.currency,
-        partners: distribution.map(({ id, name, percentage, amount }) => ({ 
-            partnerId: id, // Use partnerId to match ProfitShare type
-            partnerName: name, 
+        partners: distribution.map(({ partnerId, partnerName, percentage, amount }) => ({ 
+            partnerId: partnerId, 
+            partnerName, 
             percentage, 
             amount 
         })),
@@ -206,13 +202,13 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
            return;
       }
 
-      const selectedPartner = partnersFromProps.find(p => p.id === currentPartnerId);
+      const selectedPartner = allAccountsOptions.find(p => p.value === currentPartnerId);
       if(!selectedPartner) {
            toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
            return;
       }
       const amount = ((Number(watchedProfit) || 0) * newPercentage) / 100;
-      const newPartner = { id: selectedPartner.id, name: selectedPartner.name, percentage: newPercentage, amount };
+      const newPartner = { partnerId: selectedPartner.value, partnerName: selectedPartner.label, percentage: newPercentage, amount };
       append(newPartner);
       setCurrentPartnerId('');
       setCurrentPercentage('');
@@ -255,7 +251,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                         </FormItem> 
                     )}/>
                      <div className="md:col-span-2">
-                       <FormField control={control} name="sourceAccountId" render={({ field }) => ( <FormItem><FormLabel>مصدر الأرباح</FormLabel><FormControl><Autocomplete options={sourceAccountOptions} value={field.value} onValueChange={field.onChange} placeholder="اختر حساب المصدر..."/></FormControl><FormMessage /></FormItem> )}/>
+                       <FormField control={control} name="sourceAccountId" render={({ field }) => ( <FormItem><FormLabel>مصدر الأرباح</FormLabel><FormControl><Autocomplete options={allAccountsOptions} value={field.value} onValueChange={field.onChange} placeholder="اختر حساب المصدر..."/></FormControl><FormMessage /></FormItem> )}/>
                     </div>
                   </div>
               )}
@@ -266,7 +262,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                           <div className="flex items-end gap-2 mb-2 p-2 rounded-lg bg-muted/50">
                                 <div className="flex-grow space-y-1.5">
                                     <Label>الشريك</Label>
-                                    <Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريكًا..."/>
+                                    <Autocomplete options={allAccountsOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريكًا..."/>
                                 </div>
                                 <div className="w-40 space-y-1.5">
                                     <Label>النسبة</Label>
@@ -297,16 +293,16 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                               </TableHeader>
                               <TableBody>
                                   {distribution.map((d, index) => (
-                                      <TableRow key={`${d.id}-${index}`} className={d.id === 'alrawdatain_share' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
+                                      <TableRow key={`${d.partnerId}-${index}`} className={d.partnerId === 'alrawdatain_share' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
                                           <TableCell className="font-semibold flex items-center gap-2">
-                                              {d.id === 'alrawdatain_share' && <Landmark className="h-4 w-4 text-green-600"/>}
-                                              {d.name}
+                                              {d.partnerId === 'alrawdatain_share' && <Landmark className="h-4 w-4 text-green-600"/>}
+                                              {d.partnerName}
                                           </TableCell>
                                           <TableCell className="text-center font-mono">{Number(d.percentage).toFixed(2)}%</TableCell>
                                           <TableCell className="text-right font-mono font-bold">{d.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {watchedCurrency}</TableCell>
                                            <TableCell className="text-center">
-                                            {d.id !== 'alrawdatain_share' && (
-                                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(fields.findIndex(f => f.id === d.id))}>
+                                            {d.partnerId !== 'alrawdatain_share' && (
+                                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(fields.findIndex(f => f.partnerId === d.partnerId))}>
                                                   <Trash2 className="h-4 w-4" />
                                               </Button>
                                             )}
