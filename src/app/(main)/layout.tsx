@@ -52,10 +52,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 shadow-sm">
                  <MainNavResponsive />
                  <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-                    <div className="ml-auto flex-1 sm:flex-initial">
-                        <GlobalSearch />
+                    <div className="ml-auto flex items-center gap-2">
+                        <ThemeToggle />
+                        <NotificationCenter />
                     </div>
-                    <NotificationCenter />
                     <UserNav />
                 </div>
             </header>
