@@ -306,7 +306,9 @@ const MainNavContent = () => {
       { id: 'system', label: 'النظام', icon: Network, activeRoutes: ['/settings', '/users', '/boxes', '/coming-soon', '/hr', '/system', '/templates', '/support'], children: (
            <>
                 {getVisibleItems(systemItems).map(item => (
-                 <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+                 <DropdownMenuItem asChild key={item.label}>
+                    <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
+                </DropdownMenuItem>
                 ))}
               </>
       )},
@@ -395,7 +397,7 @@ const MainNavContent = () => {
 
   return (
     <div className="w-full">
-        <nav className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
+        <nav className="flex flex-col md:flex-row items-stretch md:items-center gap-2 justify-center">
              <NavLink href="/dashboard" active={pathname === '/dashboard'} className="justify-end">الرئيسية<LayoutDashboard className="h-4 w-4" /></NavLink>
             {menuConfig.map(menu => (
                 <NavMenu 
@@ -403,7 +405,7 @@ const MainNavContent = () => {
                     label={menu.label}
                     icon={menu.icon}
                     activeRoutes={menu.activeRoutes}
-                    className={menu.className}
+                    className={cn(menu.className, 'whitespace-nowrap')}
                 >
                    {menu.children}
                 </NavMenu>
@@ -417,3 +419,6 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
+
+
+    
