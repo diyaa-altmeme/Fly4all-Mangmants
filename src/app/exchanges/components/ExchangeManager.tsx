@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -78,6 +79,8 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
         }
     };
     
+    const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف'}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -92,7 +95,6 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
                     </DropdownMenuItem>
                 </EditBatchDialog>
                 <DropdownMenuItem onClick={() => { 
-                    const textToCopy = `اسم البورصة: ${exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف'}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
                     navigator.clipboard.writeText(textToCopy);
                     toast({ title: "تم نسخ التفاصيل بنجاح" });
                 }}>
@@ -122,13 +124,40 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
 const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedgerEntry>; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void }) => {
     const entry = row.original;
     const { toast } = useToast();
-    const [isOpen, setIsOpen] = useState(false);
+    
+    const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف'}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+    const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
+
+    const confirmUncheck = (checked: boolean) => {
+        if (!checked) {
+            handleConfirmChange(false);
+            return;
+        }
+
+        const alert = new AlertDialog({
+            children: (
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                        <AlertDialogDescription>سيتم إلغاء تأكيد هذه الدفعة. هل تريد المتابعة؟</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => (row.original as any).isConfirmed = true}>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleConfirmChange(false)}>نعم، قم بالإلغاء</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            ),
+        });
+    }
 
     const handleConfirmChange = async (checked: boolean) => {
-        // Optimistic update
+        if (!checked) {
+            confirmUncheck(false);
+            return;
+        }
+        
         row.toggleSelected(checked);
         const originalStatus = entry.isConfirmed;
-        // This is a direct mutation on the row's data for UI, but the source array is updated via `updateData` meta function.
         (row.original as any).isConfirmed = checked; 
         
         try {
@@ -146,7 +175,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
     
     return (
        <React.Fragment>
-            <TableRow data-state={isOpen ? 'open' : 'closed'} className={cn("font-bold", entry.isConfirmed && "bg-primary/10 hover:bg-primary/20")}>
+            <TableRow data-state={row.getIsSelected() ? 'open' : 'closed'} className={cn("font-bold", entry.isConfirmed && "bg-primary/10 hover:bg-primary/20")}>
                 {row.getVisibleCells().map((cell: any) => {
                     if (cell.column.id === 'collapsible') {
                         return (
@@ -155,12 +184,12 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => setIsOpen(!isOpen)}
+                                    onClick={() => row.toggleSelected(!row.getIsSelected())}
                                 >
                                     <ChevronDown
                                         className={cn(
                                             "h-4 w-4 transition-transform",
-                                            isOpen && "rotate-180"
+                                            row.getIsSelected() && "rotate-180"
                                         )}
                                     />
                                 </Button>
@@ -177,6 +206,17 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
                             </TableCell>
                         );
                     }
+                    if (cell.column.id === 'entryType') {
+                         const entry = row.original;
+                         if (entry.entryType === 'transaction') {
+                            return <TableCell key={cell.id}><Badge onClick={copy} variant={'destructive'} className="font-bold cursor-pointer">دين</Badge></TableCell>;
+                        } else {
+                            const amount = entry.totalAmount || 0;
+                            return <TableCell key={cell.id}>{amount > 0 
+                                ? <Badge onClick={copy} className="bg-blue-600 font-bold cursor-pointer">دفع</Badge> 
+                                : <Badge onClick={copy} className="bg-green-600 font-bold cursor-pointer">قبض</Badge>}</TableCell>;
+                        }
+                    }
                     return (
                         <TableCell
                             key={cell.id}
@@ -188,7 +228,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
                     );
                 })}
             </TableRow>
-            {isOpen && (
+            {row.getIsSelected() && (
                 <TableRow>
                     <TableCell colSpan={13} className="p-0">
                         <div className="p-2 bg-muted/50">
@@ -211,11 +251,11 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {(entry.details || []).map((detail: any, index: number) => {
+                                    {(row.original.details || []).map((detail: any, index: number) => {
                                         let typeLabel = '';
                                         let typeClass = '';
 
-                                        if (entry.entryType === 'transaction') {
+                                        if (row.original.entryType === 'transaction') {
                                             typeLabel = 'دين';
                                             typeClass = 'bg-red-500';
                                         } else {
@@ -234,10 +274,10 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
                                                     {detail.partyName || detail.paidTo}
                                                 </TableCell>
                                                 <TableCell className="p-2 text-right">
-                                                    {entry.entryType === 'transaction'
-                                                        ? exchanges.find((ex) => ex.id === entry.exchangeId)
+                                                    {row.original.entryType === 'transaction'
+                                                        ? exchanges.find((ex) => ex.id === row.original.exchangeId)
                                                             ?.name || 'غير معروف'
-                                                        : detail.intermediary || entry.userName}
+                                                        : detail.intermediary || row.original.userName}
                                                 </TableCell>
                                                 <TableCell className="p-2 text-center">
                                                     <Badge
@@ -281,7 +321,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const { toast } = useToast();
   const [exchangeId, setExchangeId] = useState<string>(initialExchangeId || initialExchanges[0]?.id || "");
   const [exchanges, setExchanges] = useState<Exchange[]>(initialExchanges);
-  const [unifiedLedger, setUnifiedLedger] = useState<UnifiedLedgerEntry[]>([]);
+  const [data, setData] = useState<UnifiedLedgerEntry[]>([]);
   const [date, setDate] = React.useState<DateRange | undefined>({
       from: subDays(new Date(), 30),
       to: new Date(),
@@ -299,7 +339,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       setLoading(true);
       try {
         const ledgerData = await getUnifiedExchangeLedger(exchangeId, date?.from, date?.to);
-        setUnifiedLedger(ledgerData);
+        setData(ledgerData);
       } catch (err: any) {
         toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
       } finally {
@@ -328,7 +368,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     setExchangeId(currentExchanges[0].id);
                 } else if (currentExchanges.length === 0) {
                     setExchangeId("");
-                    setUnifiedLedger([]);
+                    setData([]);
                 } else {
                     await fetchExchangeData();
                 }
@@ -343,22 +383,17 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        setUnifiedLedger(produce(draft => {
-            if (action === 'delete') {
-                return draft.filter(entry => entry.id !== data.id);
-            } else if (action === 'update') {
-                const index = draft.findIndex(entry => entry.id === data.id);
-                if (index !== -1) {
-                    draft[index] = { ...draft[index], ...data };
-                }
-            } else { // 'add'
-                draft.unshift(data);
-            }
-        }));
+        if (action === 'delete') {
+            setData(prev => prev.filter(entry => entry.id !== data.id));
+        } else if (action === 'add') {
+             setData(prev => [data, ...prev]);
+        } else { // update
+            setData(prev => prev.map(entry => entry.id === data.id ? { ...entry, ...data } : entry));
+        }
     }, []);
 
     const filteredLedger = useMemo(() => {
-        let processed = [...unifiedLedger];
+        let processed = [...data];
         
         if (debouncedSearchTerm) {
             const lowercasedTerm = debouncedSearchTerm.toLowerCase();
@@ -386,7 +421,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
         
         return processed;
-    }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
+    }, [data, debouncedSearchTerm, typeFilter, confirmationFilter]);
 
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
@@ -429,38 +464,24 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     };
 
     const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
-        { id: 'collapsible', size: 40, cell: ({ row }) => <div className="p-1 text-center"><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => row.toggleSelected(!row.getIsSelected())}><ChevronDown className={cn("h-4 w-4 transition-transform", row.getIsSelected() && "rotate-180")} /></Button></div> },
-        { id: 'isConfirmed', header: 'تأكيد', size: 50, cell: ({ row }) => <div className="p-2 text-center"><Checkbox checked={row.getIsSelected()} onCheckedChange={(value) => row.toggleSelected(!!value)} /></div> },
-        { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span> },
-        { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span> },
-        { accessorKey: 'entryType', header: 'النوع', cell: ({ row }) => {
-            const entry = row.original;
-            const exchangeName = exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'بورصة غير معروفة';
-            const textToCopy = `اسم البورصة: ${exchangeName}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-            const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
-            
-            if (entry.entryType === 'transaction') {
-                return <Badge onClick={copy} variant={'destructive'} className="font-bold cursor-pointer">دين</Badge>;
-            } else {
-                const amount = entry.totalAmount || 0;
-                return amount > 0 
-                    ? <Badge onClick={copy} className="bg-blue-600 font-bold cursor-pointer">دفع</Badge> 
-                    : <Badge onClick={copy} className="bg-green-600 font-bold cursor-pointer">قبض</Badge>;
-            }
-        }},
+        { id: 'collapsible', size: 40 },
+        { id: 'isConfirmed', header: 'تأكيد', size: 50 },
+        { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span>, size: 120 },
+        { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span>, size: 120 },
+        { id: 'entryType', header: 'النوع', size: 100 },
         { accessorKey: 'description', header: 'الوصف', size: 250 },
         { id: 'debit', header: 'علينا', cell: ({ row }) => {
             const entry = row.original;
             const amount = entry.totalAmount || 0;
             const debit = entry.entryType === 'transaction' ? Math.abs(amount) : (amount < 0 ? Math.abs(amount) : 0);
             return <div className="font-bold text-red-600">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
-        }},
+        }, size: 120},
         { id: 'credit', header: 'لنا', cell: ({ row }) => {
             const entry = row.original;
             const amount = entry.totalAmount || 0;
             const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
             return <div className="font-bold text-green-600">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
-        }},
+        }, size: 120},
         { 
             accessorKey: 'balance', 
             header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, 
@@ -468,12 +489,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                 const balance = row.original.balance || 0;
                 const colorClass = balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-foreground';
                 return <span className={cn("font-bold text-lg font-mono", colorClass)}>{formatCurrency(balance, 'USD')}</span>
-            }
+            },
+            size: 150
         },
-        { accessorKey: 'userName', header: 'المستخدم' },
-        { id: 'actions', header: 'الإجراءات', cell: ({ row }) => <LedgerRowActions entry={row.original} onActionSuccess={handleActionSuccess} exchanges={exchanges}/> },
-    ], [exchanges, handleActionSuccess, toast]);
-
+        { accessorKey: 'userName', header: 'المستخدم', size: 120 },
+        { id: 'actions', header: 'الإجراءات', size: 80 },
+    ], []);
+    
     const table = useReactTable({
       data: filteredLedger,
       columns,
@@ -486,7 +508,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getFilteredRowModel: getFilteredRowModel(),
       meta: {
           updateData: (rowIndex: number, columnId: string, value: any) => {
-              setUnifiedLedger(produce(draft => {
+              setData(produce(draft => {
                   (draft[rowIndex] as any)[columnId] = value;
               }));
           }
@@ -630,4 +652,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     );
 }
 
-    
