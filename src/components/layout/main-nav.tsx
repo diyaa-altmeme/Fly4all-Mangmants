@@ -112,7 +112,7 @@ const customReportsItems: any[] = [
     { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
     { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft, permission: 'remittances:read' },
     { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
-    { href: "/exchanges", label: "إدارة البورصات", icon: ChevronsRightLeft, permission: 'admin' },
+    { href: "/exchanges/report", label: "إدارة البورصات", icon: ChevronsRightLeft, permission: 'admin' },
     { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
     { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
 ];
@@ -283,7 +283,7 @@ const MainNavContent = () => {
                   </AddClientDialog>
                 )}
                 <DropdownMenuSeparator />
-                {hasPermission('settings:read') && <DropdownMenuItem asChild><Link href="/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>}
+                {hasPermission('settings:read') && <DropdownMenuItem asChild><Link href="/clients/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>}
            </>
       )},
       { id: 'operations', label: 'العمليات المحاسبية', icon: Calculator, activeRoutes: ['/bookings', '/visas'], children: getVisibleItems(operationsItems).map(item => (
