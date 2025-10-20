@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import type { Exchange, UnifiedLedgerEntry, ExchangeTransaction, ExchangePayment } from '@/lib/types';
 import { getUnifiedExchangeLedger, getExchanges, deleteExchangeTransactionBatch, deleteExchangePaymentBatch, updateBatch } from '../actions';
 import { useToast } from "@/hooks/use-toast";
@@ -63,27 +63,30 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-
-const LedgerRow = ({ row, exchanges, onActionSuccess, onConfirmChange, columns }: { row: Row<UnifiedLedgerEntry>, exchanges: Exchange[], onActionSuccess: (action: 'update' | 'delete', data: any) => void, onConfirmChange: (rowId: string, checked: boolean) => void, columns: ColumnDef<UnifiedLedgerEntry>[] }) => {
+const LedgerRow = ({ row, exchanges, onActionSuccess, columns }: { row: Row<UnifiedLedgerEntry>, exchanges: Exchange[], onActionSuccess: (action: 'update' | 'delete', data: any) => void, columns: ColumnDef<UnifiedLedgerEntry>[] }) => {
     const entry = row.original;
     const { toast } = useToast();
     const [isPending, setIsPending] = React.useState(false);
     const [dialogOpen, setDialogOpen] = React.useState(false);
+    const table = useReactTable<UnifiedLedgerEntry>({} as any); // Mock or get from context if needed
 
     const handleConfirmChange = async (checked: boolean) => {
         setIsPending(true);
-        onConfirmChange(entry.id, checked); // Optimistic update
+        // Optimistic update
+        table.options.meta?.updateData(row.index, 'isConfirmed', checked);
+
         try {
-            const result = await updateBatch(entry.id, entry.entryType as 'transaction' | 'payment', { isConfirmed: checked });
+            const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
             if (!result.success) throw new Error(result.error);
             toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
         } catch (error: any) {
             toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-            onConfirmChange(entry.id, !checked); // Revert on failure
+            table.options.meta?.updateData(row.index, 'isConfirmed', !checked); // Revert on failure
         } finally {
             setIsPending(false);
         }
     };
+
 
     const confirmUncheck = () => {
         setDialogOpen(false);
@@ -91,11 +94,11 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, onConfirmChange, columns }
     };
 
     const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-    const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
+    const handleCopy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
 
     return (
         <Collapsible asChild>
-             <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
+            <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
                 <TableRow data-state={row.getIsExpanded() ? "open" : "closed"}>
                     {row.getVisibleCells().map(cell => {
                         if (cell.column.id === 'isConfirmed') {
@@ -135,7 +138,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, onConfirmChange, columns }
                                             <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent>
-                                            <DropdownMenuItem onClick={copy}><Copy className="me-2 h-4 w-4"/>نسخ التفاصيل</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={handleCopy}><Copy className="me-2 h-4 w-4"/>نسخ التفاصيل</DropdownMenuItem>
                                             <EditBatchDialog batch={row.original} exchanges={exchanges} onSuccess={(updatedBatch) => onActionSuccess('update', updatedBatch)}>
                                                 <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4" /> تعديل</DropdownMenuItem>
                                             </EditBatchDialog>
@@ -220,6 +223,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
   const [pageIndex, setPageIndex] = useState(0);
 
+  const pageIndexRef = React.useRef(0);
+
   const fetchExchangeData = useCallback(async () => {
     if (exchangeId) {
       setLoading(true);
@@ -237,66 +242,47 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }
   }, [exchangeId, date, toast]);
 
-  useEffect(() => {
-    fetchExchangeData();
-  }, [fetchExchangeData]);
-  
-  useEffect(() => {
-      setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
-  }, [initialExchangeId, initialExchanges]);
+  const router = useRouter();
 
-    const refreshAllData = useCallback(async () => {
-        setLoading(true);
-        const currentPage = pageIndex;
-        try {
-            const result = await getExchanges();
-            if (result.accounts) {
-                const currentExchanges = result.accounts;
-                setExchanges(currentExchanges);
-                const currentSelectionIsValid = currentExchanges.some(ex => ex.id === exchangeId);
-                if (!currentSelectionIsValid && currentExchanges.length > 0) {
-                    setExchangeId(currentExchanges[0].id);
-                } else if (currentExchanges.length === 0) {
-                    setExchangeId("");
-                    setUnifiedLedger([]);
-                } else {
-                    await fetchExchangeData();
-                }
-            } else {
-                 toast({ title: "خطأ", description: "فشل تحديث قائمة البورصات.", variant: "destructive" });
-            }
-        } catch (err: any) {
-            toast({ title: 'خطأ في تحديث البيانات', description: err.message, variant: 'destructive' });
-        } finally {
-            setLoading(false);
-            setPageIndex(currentPage);
-        }
-    }, [exchangeId, fetchExchangeData, toast, pageIndex]);
+  const table = useReactTable({
+      data: filteredLedger,
+      columns,
+      state: { sorting, rowSelection, pagination: { pageIndex, pageSize: 15 } },
+      onSortingChange: setSorting,
+      onRowSelectionChange: setRowSelection,
+      onPaginationChange: (updater) => {
+        const newPage =
+          typeof updater === "function"
+            ? updater({ pageIndex, pageSize: 15 }).pageIndex
+            : updater.pageIndex;
+        setPageIndex(newPage);
+      },
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      meta: {
+        updateData: (rowIndex: number, columnId: string, value: any) => {
+            const itemToUpdateId = filteredLedger[rowIndex].id;
+            setUnifiedLedger((current) =>
+                current.map((item) =>
+                item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
+                )
+            );
+        },
+      },
+    });
 
-    const filteredLedger = useMemo(() => {
-        return unifiedLedger.filter(entry => {
-            if (debouncedSearchTerm) {
-                const lowercasedTerm = debouncedSearchTerm.toLowerCase();
-                 if (
-                    !entry.invoiceNumber?.toLowerCase().includes(lowercasedTerm) &&
-                    !entry.description?.toLowerCase().includes(lowercasedTerm) &&
-                    !entry.userName?.toLowerCase().includes(lowercasedTerm) &&
-                    !(Array.isArray(entry.details) && entry.details.some(
-                        (detail: any) =>
-                            (detail.partyName && detail.partyName.toLowerCase().includes(lowercasedTerm)) ||
-                            (detail.paidTo && detail.paidTo.toLowerCase().includes(lowercasedTerm)) ||
-                            (detail.note && detail.note.toLowerCase().includes(lowercasedTerm))
-                    ))
-                ) return false;
-            }
-
-            if (typeFilter !== 'all' && entry.entryType !== typeFilter) return false;
-            if (confirmationFilter !== 'all' && (confirmationFilter === 'confirmed' ? !entry.isConfirmed : entry.isConfirmed)) return false;
-
-            return true;
+  const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
+        pageIndexRef.current = table.getState().pagination.pageIndex;
+        fetchExchangeData().then(() => {
+            router.refresh();
+             setTimeout(() => {
+                table.setPageIndex(pageIndexRef.current);
+            }, 0);
         });
-    }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
-    
+    }, [fetchExchangeData, router, table]);
+
     const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
         { id: 'sequence', header: 'ت', size: 40, cell: ({ row, table }) => {
             const { pageIndex, pageSize } = table.getState().pagination;
@@ -309,13 +295,16 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { id: 'entryType', header: 'النوع', size: 100,
           cell: ({ row }) => {
               const entry = row.original;
+              const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+              const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
+
               if (entry.entryType === 'transaction') {
-                  return <Badge variant={'destructive'} className="font-bold cursor-pointer">دين</Badge>;
+                  return <Badge variant={'destructive'} className="font-bold cursor-pointer" onClick={copy}>دين</Badge>;
               } else {
                   const amount = entry.totalAmount || 0;
                   return amount > 0 
-                      ? <Badge className="bg-blue-600 font-bold cursor-pointer">دفع</Badge> 
-                      : <Badge className="bg-green-600 font-bold cursor-pointer">قبض</Badge>;
+                      ? <Badge className="bg-blue-600 font-bold cursor-pointer" onClick={copy}>دفع</Badge> 
+                      : <Badge className="bg-green-600 font-bold cursor-pointer" onClick={copy}>قبض</Badge>;
               }
           }
         },
@@ -344,55 +333,66 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         },
         { accessorKey: 'userName', header: 'المستخدم', size: 120 },
         { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80 },
-    ], [exchanges, toast]);
-    
-    const table = useReactTable({
-      data: filteredLedger,
-      columns,
-      state: { sorting, rowSelection, pagination: { pageIndex, pageSize: 15 } },
-      onSortingChange: setSorting,
-      onRowSelectionChange: setRowSelection,
-      onPaginationChange: (updater) => {
-        const newPage = typeof updater === "function" ? updater({ pageIndex, pageSize: 15 }).pageIndex : updater.pageIndex;
-        setPageIndex(newPage);
-      },
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-      getPaginationRowModel: getPaginationRowModel(),
-      getFilteredRowModel: getFilteredRowModel(),
-      meta: {
-        updateData: (rowIndex: number, columnId: string, value: any) => {
-            setUnifiedLedger(produce(draft => {
-                const item = draft.find(d => d.id === table.getRowModel().rows[rowIndex]?.original.id);
-                if(item) {
-                    (item as any)[columnId] = value;
+    ], [exchanges, toast, handleActionSuccess]);
+
+  useEffect(() => {
+    fetchExchangeData();
+  }, [fetchExchangeData]);
+  
+  useEffect(() => {
+      setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
+  }, [initialExchangeId, initialExchanges]);
+
+    const refreshAllData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const result = await getExchanges();
+            if (result.accounts) {
+                const currentExchanges = result.accounts;
+                setExchanges(currentExchanges);
+                const currentSelectionIsValid = currentExchanges.some(ex => ex.id === exchangeId);
+                if (!currentSelectionIsValid && currentExchanges.length > 0) {
+                    setExchangeId(currentExchanges[0].id);
+                } else if (currentExchanges.length === 0) {
+                    setExchangeId("");
+                    setUnifiedLedger([]);
+                } else {
+                    await fetchExchangeData();
                 }
-            }));
-        },
-      },
-    });
-
-    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        const currentPage = table.getState().pagination.pageIndex;
-        fetchExchangeData().then(() => {
-            setTimeout(() => table.setPageIndex(currentPage), 0);
-        });
-    }, [fetchExchangeData, table]);
-    
-    const handleConfirmChangeInRow = useCallback(
-        (rowId: string, checked: boolean) => {
-        setUnifiedLedger(
-            produce(draft => {
-            const item = draft.find(d => d.id === rowId);
-            if (item) {
-                item.isConfirmed = checked;
+            } else {
+                 toast({ title: "خطأ", description: "فشل تحديث قائمة البورصات.", variant: "destructive" });
             }
-            })
-        );
-        },
-        []
-    );
+        } catch (err: any) {
+            toast({ title: 'خطأ في تحديث البيانات', description: err.message, variant: 'destructive' });
+        } finally {
+            setLoading(false);
+        }
+    }, [exchangeId, fetchExchangeData, toast]);
 
+    const filteredLedger = useMemo(() => {
+        return unifiedLedger.filter(entry => {
+            if (debouncedSearchTerm) {
+                const lowercasedTerm = debouncedSearchTerm.toLowerCase();
+                 if (
+                    !entry.invoiceNumber?.toLowerCase().includes(lowercasedTerm) &&
+                    !entry.description?.toLowerCase().includes(lowercasedTerm) &&
+                    !entry.userName?.toLowerCase().includes(lowercasedTerm) &&
+                    !(Array.isArray(entry.details) && entry.details.some(
+                        (detail: any) =>
+                            (detail.partyName && detail.partyName.toLowerCase().includes(lowercasedTerm)) ||
+                            (detail.paidTo && detail.paidTo.toLowerCase().includes(lowercasedTerm)) ||
+                            (detail.note && detail.note.toLowerCase().includes(lowercasedTerm))
+                    ))
+                ) return false;
+            }
+
+            if (typeFilter !== 'all' && entry.entryType !== typeFilter) return false;
+            if (confirmationFilter !== 'all' && (confirmationFilter === 'confirmed' ? !entry.isConfirmed : !entry.isConfirmed)) return false;
+
+            return true;
+        });
+    }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
+    
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
             const amount = entry.totalAmount || 0;
@@ -563,7 +563,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             row={row} 
                                             exchanges={exchanges} 
                                             onActionSuccess={handleActionSuccess} 
-                                            onConfirmChange={handleConfirmChangeInRow} 
                                             columns={columns}
                                         />
                                     ))
@@ -578,4 +577,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     );
 }
 
-```
