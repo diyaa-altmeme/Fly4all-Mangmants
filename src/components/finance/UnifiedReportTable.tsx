@@ -10,11 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import ReportSummary from "@/app/reports/account-statement/components/report-summary";
 
 const formatCurrency = (amount: number, currency: string) => {
-    try {
-        return new Intl.NumberFormat("ar-IQ", { style: "currency", currency: currency }).format(amount);
-    } catch(e) {
-        return `${amount.toLocaleString()} ${currency}`;
+    const formattedAmount = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(amount));
+    if (amount < 0) {
+        return `(${formattedAmount}) ${currency}`;
     }
+    return `${formattedAmount} ${currency}`;
 };
 
 export default function UnifiedReportTable({
@@ -56,7 +56,7 @@ export default function UnifiedReportTable({
       <div className="overflow-auto rounded border max-h-[60vh]">
         <Table>
           <thead className="bg-muted sticky top-0">
-            <tr className="text-right">
+            <tr className="text-right font-bold">
               <th className="p-2">التاريخ</th>
               <th className="p-2">النوع</th>
               <th className="p-2">البيان</th>
@@ -73,11 +73,12 @@ export default function UnifiedReportTable({
               <tr><td className="p-3 text-center" colSpan={10}>لا توجد بيانات ضمن النطاق المحدد.</td></tr>
             ) : transactions.map((r) => (
               <tr key={r.id} className={cn(
+                  "font-bold",
                   r.credit > 0 ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20",
               )}>
                 <td className="p-2 whitespace-nowrap">{format(new Date(r.date), "yyyy-MM-dd")}</td>
                 <td className="p-2">{r.type}</td>
-                <td className="p-2 text-xs">{typeof r.description === 'string' ? r.description : r.description.title}</td>
+                <td className="p-2 text-xs font-normal">{typeof r.description === 'string' ? r.description : r.description.title}</td>
                 <td className="p-2 font-mono text-red-600">{r.debit > 0 ? formatCurrency(r.debit, r.currency || 'IQD') : "-"}</td>
                 <td className="p-2 font-mono text-green-600">{r.credit > 0 ? formatCurrency(r.credit, r.currency || 'IQD') : "-"}</td>
                 <td className="p-2 font-mono">{formatCurrency(r.balance, r.currency || 'IQD')}</td>
