@@ -78,18 +78,6 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
         }
     };
     
-    const handleCopy = () => {
-        const exchangeName = exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'بورصة غير معروفة';
-        const textToCopy = `
-اسم البورصة: ${exchangeName}
-تاريخ العملية: ${entry.date}
-رقم الفاتورة: ${entry.invoiceNumber || 'N/A'}
-الوصف: ${entry.description}
-`.trim();
-        navigator.clipboard.writeText(textToCopy);
-        toast({ title: "تم نسخ التفاصيل بنجاح" });
-    };
-
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -103,9 +91,6 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
                         <Edit className="me-2 h-4 w-4" /> تعديل
                     </DropdownMenuItem>
                 </EditBatchDialog>
-                <DropdownMenuItem onSelect={handleCopy}>
-                    <Copy className="me-2 h-4 w-4" /> نسخ التفاصيل
-                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -456,13 +441,17 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span> },
         { accessorKey: 'entryType', header: 'النوع', cell: ({ row }) => {
             const entry = row.original;
+            const exchangeName = exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'بورصة غير معروفة';
+            const textToCopy = `اسم البورصة: ${exchangeName}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+            const copy = () => { navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
+            
             if (entry.entryType === 'transaction') {
-                return <Badge variant={'destructive'} className="font-bold">دين</Badge>;
+                return <Badge onClick={copy} variant={'destructive'} className="font-bold cursor-pointer">دين</Badge>;
             } else {
                 const amount = entry.totalAmount || 0;
                 return amount > 0 
-                    ? <Badge className="bg-blue-600 font-bold">دفع</Badge> 
-                    : <Badge className="bg-green-600 font-bold">قبض</Badge>;
+                    ? <Badge onClick={copy} className="bg-blue-600 font-bold cursor-pointer">دفع</Badge> 
+                    : <Badge onClick={copy} className="bg-green-600 font-bold cursor-pointer">قبض</Badge>;
             }
         }},
         { accessorKey: 'description', header: 'الوصف', size: 250 },
@@ -489,7 +478,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         },
         { accessorKey: 'userName', header: 'المستخدم' },
         { id: 'actions', header: 'الإجراءات', cell: ({ row }) => <LedgerRowActions entry={row.original} onActionSuccess={handleActionSuccess} exchanges={exchanges}/> },
-    ], [exchanges, handleActionSuccess]);
+    ], [exchanges, handleActionSuccess, toast]);
 
     const table = useReactTable({
       data: filteredLedger,
