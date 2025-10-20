@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -26,10 +27,6 @@ const VouchersListContent = () => {
     const { toast } = useToast();
     const [vouchers, setVouchers] = React.useState<Voucher[]>([]);
     const [settings, setSettings] = React.useState<AppSettings | null>(null);
-    const [clients, setClients] = React.useState<Client[]>([]);
-    const [suppliers, setSuppliers] = React.useState<Supplier[]>([]);
-    const [users, setUsers] = React.useState<User[]>([]);
-    const [boxes, setBoxes] = React.useState<Box[]>([]);
     const [loading, setLoading] = React.useState(true);
 
     const [voucherListSettings, setVoucherListSettings] = React.useState<VoucherListSettings | undefined>(undefined);
@@ -52,10 +49,6 @@ const VouchersListContent = () => {
             const allRelations = clientsRes.clients;
             const fetchedClients = allRelations.filter(r => r.relationType === 'client' || r.relationType === 'both');
 
-            setClients(fetchedClients);
-            setSuppliers(suppliersData);
-            setUsers(usersData);
-            setBoxes(boxesData);
             setSettings(settingsData);
             setVoucherListSettings(settingsData.voucherSettings?.listSettings);
 
@@ -80,6 +73,7 @@ const VouchersListContent = () => {
         if(result.success) {
             setVoucherListSettings(newSettings);
             toast({ title: 'تم تحديث إعدادات العرض' });
+            fetchData();
         } else {
             toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
         }
