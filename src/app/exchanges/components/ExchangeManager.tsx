@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -10,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Loader2, ArrowUp, ArrowDown, MoreHorizontal, Edit, Trash2, ChevronDown, Calendar as CalendarIcon, Filter, GitCompareArrows, Search, UserPlus, ArrowUpDown, RefreshCw, Download, CheckCheck } from 'lucide-react';
+import { PlusCircle, Loader2, ArrowUp, ArrowDown, MoreHorizontal, Edit, Trash2, ChevronDown, Calendar as CalendarIcon, Filter, GitCompareArrows, Search, UserPlus, ArrowUpDown, RefreshCw, Download, CheckCheck, Copy } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -21,7 +20,7 @@ import AddTransactionsDialog from "./add-transactions-dialog";
 import AddPaymentsDialog from "./add-payments-dialog";
 import AddExchangeDialog from './add-exchange-dialog';
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import EditBatchDialog from "./EditBatchDialog";
 import { Input } from "@/components/ui/input";
@@ -78,6 +77,18 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
             toast({ title: "خطأ", description: result.error, variant: "destructive" });
         }
     };
+    
+    const handleCopy = () => {
+        const exchangeName = exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'بورصة غير معروفة';
+        const textToCopy = `
+اسم البورصة: ${exchangeName}
+تاريخ العملية: ${entry.date}
+رقم الفاتورة: ${entry.invoiceNumber || 'N/A'}
+الوصف: ${entry.description}
+`.trim();
+        navigator.clipboard.writeText(textToCopy);
+        toast({ title: "تم نسخ التفاصيل بنجاح" });
+    };
 
     return (
         <DropdownMenu>
@@ -92,6 +103,10 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
                         <Edit className="me-2 h-4 w-4" /> تعديل
                     </DropdownMenuItem>
                 </EditBatchDialog>
+                <DropdownMenuItem onSelect={handleCopy}>
+                    <Copy className="me-2 h-4 w-4" /> نسخ التفاصيل
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
                         <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive">
