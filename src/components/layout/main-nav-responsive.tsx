@@ -12,7 +12,7 @@ export default function MainNavResponsive() {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
     return (
-        <div className="flex items-center">
+        <div className="flex items-center w-full">
             {/* Mobile Menu */}
             <div className="md:hidden">
                 <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
@@ -47,7 +47,7 @@ export default function MainNavResponsive() {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="hidden md:flex items-center gap-1 flex-grow">
                  <MainNav />
             </nav>
         </div>
