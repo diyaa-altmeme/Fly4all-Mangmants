@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -76,30 +77,22 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: {
     const [dialogOpen, setDialogOpen] = React.useState(false);
 
     const handleConfirmChange = async (checked: boolean) => {
-      setIsPending(true);
-      const currentPage = table.getState().pagination.pageIndex;
-
-      // Optimistic update
-      table.options.meta?.updateData(row.index, 'isConfirmed', checked);
-    
-      try {
-        const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
-        if (!result.success) throw new Error(result.error);
-        toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-      } catch (error: any) {
-        toast({
-          title: "خطأ",
-          description: "فشل تحديث حالة التأكيد.",
-          variant: "destructive",
-        });
-        // Revert on failure
-        table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
-      } finally {
-        setIsPending(false);
-        table.setPageIndex(currentPage);
-      }
+        setIsPending(true);
+        const currentPage = table.getState().pagination.pageIndex;
+        
+        table.options.meta?.updateData(row.index, 'isConfirmed', checked);
+        try {
+            const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
+            if (!result.success) throw new Error(result.error);
+            toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+        } catch (error: any) {
+            toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
+            table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
+        } finally {
+            setIsPending(false);
+            table.setPageIndex(currentPage);
+        }
     };
-
 
     const confirmUncheck = () => {
         setDialogOpen(false);
@@ -111,8 +104,8 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: {
 
     return (
         <Collapsible asChild>
-            <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
-                <TableRow data-state={row.getIsExpanded() ? "open" : "closed"}>
+             <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
+                <TableRow>
                     {row.getVisibleCells().map(cell => {
                         if (cell.column.id === 'isConfirmed') {
                             return (
@@ -204,14 +197,39 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: {
                 <CollapsibleContent asChild>
                     <TableRow>
                         <TableCell colSpan={columns.length + 1} className="p-0">
-                            <div className="p-2 bg-muted">
-                                {entry.details.map((detail: any, index) => (
-                                    <div key={index} className="flex justify-between items-center text-xs p-1 border-b">
-                                        <span className="font-semibold">{detail.partyName || detail.paidTo}</span>
-                                        <span>{detail.note}</span>
-                                        <span className="font-mono">{detail.originalAmount.toLocaleString()} {detail.originalCurrency}</span>
-                                    </div>
-                                ))}
+                             <div className="p-2 bg-muted">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="text-xs">
+                                            <TableHead className="p-1">الطرف</TableHead>
+                                            <TableHead className="p-1">بواسطة</TableHead>
+                                            <TableHead className="p-1">النوع</TableHead>
+                                            <TableHead className="p-1">المبلغ الأصلي</TableHead>
+                                            <TableHead className="p-1">سعر الصرف</TableHead>
+                                            <TableHead className="p-1">المعادل بالدولار</TableHead>
+                                            <TableHead className="p-1">ملاحظات</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(entry.details as any[]).map((detail, index) => {
+                                            const isTransaction = entry.entryType === 'transaction';
+                                            const detailType = isTransaction ? 'دين' : (detail.type === 'payment' ? 'دفع' : 'قبض');
+                                            const detailTypeClass = isTransaction ? 'bg-red-500' : (detail.type === 'payment' ? 'bg-blue-500' : 'bg-green-500');
+                                            
+                                            return (
+                                                <TableRow key={index} className="text-xs">
+                                                    <TableCell className="p-1 font-semibold">{detail.partyName || detail.paidTo}</TableCell>
+                                                    <TableCell className="p-1">{detail.intermediary || (isTransaction ? exchanges.find(ex => ex.id === entry.exchangeId)?.name : '-')}</TableCell>
+                                                    <TableCell className="p-1 text-center"><Badge className={cn("text-white", detailTypeClass)}>{detailType}</Badge></TableCell>
+                                                    <TableCell className="p-1 font-mono text-right">{detail.originalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})} {detail.originalCurrency}</TableCell>
+                                                    <TableCell className="p-1 font-mono text-right">{detail.originalCurrency !== 'USD' ? detail.rate : '-'}</TableCell>
+                                                    <TableCell className="p-1 font-mono text-right">{formatCurrency(detail.amountInUSD)}</TableCell>
+                                                    <TableCell className="p-1">{detail.note}</TableCell>
+                                                </TableRow>
+                                            )
+                                        })}
+                                    </TableBody>
+                                </Table>
                             </div>
                         </TableCell>
                     </TableRow>
@@ -222,44 +240,46 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: {
 }
 
 export default function ExchangeManager({ initialExchanges, initialExchangeId }: ExchangeManagerProps) {
-  const { toast } = useToast();
-  const [exchangeId, setExchangeId] = useState<string>(initialExchangeId || initialExchanges[0]?.id || "");
-  const [exchanges, setExchanges] = useState<Exchange[]>(initialExchanges);
-  const [unifiedLedger, setUnifiedLedger] = useState<UnifiedLedgerEntry[]>([]);
-  const [date, setDate] = React.useState<DateRange | undefined>(undefined);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
-  const [sorting, setSorting] = React.useState<SortingState>([{ id: 'date', desc: true }]);
-  const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
-  const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
-  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
+    const { toast } = useToast();
+    const [exchangeId, setExchangeId] = useState<string>(initialExchangeId || initialExchanges[0]?.id || "");
+    const [exchanges, setExchanges] = useState<Exchange[]>(initialExchanges);
+    const [unifiedLedger, setUnifiedLedger] = useState<UnifiedLedgerEntry[]>([]);
+    const [date, setDate] = React.useState<DateRange | undefined>(undefined);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
+    const [sorting, setSorting] = React.useState<SortingState>([{ id: 'date', desc: true }]);
+    const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
+    const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
+    const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+    const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
 
-  const router = useRouter();
+    const router = useRouter();
 
-  const fetchExchangeData = useCallback(async () => {
-    if (exchangeId) {
-      const currentPage = pagination.pageIndex;
-      setLoading(true);
-      try {
-        const ledgerData = await getUnifiedExchangeLedger(exchangeId);
-        setUnifiedLedger(ledgerData);
-        setTimeout(() => table.setPageIndex(currentPage), 0);
-      } catch (err: any) {
-        toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
-      } finally {
-        setLoading(false);
-      }
-    } else {
-        setUnifiedLedger([]);
-        setLoading(false);
-    }
-  }, [exchangeId, toast]);
+    const fetchExchangeData = useCallback(async () => {
+        if (exchangeId) {
+            setLoading(true);
+            try {
+                const ledgerData = await getUnifiedExchangeLedger(exchangeId);
+                setUnifiedLedger(ledgerData);
+            } catch (err: any) {
+                toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            setUnifiedLedger([]);
+            setLoading(false);
+        }
+    }, [exchangeId, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
+        const currentPage = table.getState().pagination.pageIndex;
         fetchExchangeData();
         router.refresh();
+        setTimeout(() => {
+            table.setPageIndex(currentPage);
+        }, 0);
     }, [fetchExchangeData, router]);
 
     const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
@@ -292,13 +312,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             const entry = row.original;
             const amount = entry.totalAmount || 0;
             const debit = entry.entryType === 'transaction' ? Math.abs(amount) : (amount < 0 ? Math.abs(amount) : 0);
-            return <div className="font-bold text-red-600 whitespace-nowrap">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
+            return <div className="font-bold text-red-600 whitespace-nowrap text-center">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
         }, size: 120},
         { id: 'credit', header: 'لنا', cell: ({ row }) => {
             const entry = row.original;
             const amount = entry.totalAmount || 0;
             const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
-            return <div className="font-bold text-green-600 whitespace-nowrap">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
+            return <div className="font-bold text-green-600 whitespace-nowrap text-center">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
         }, size: 120},
         { 
             accessorKey: 'balance', 
@@ -377,7 +397,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         },
       },
     });
-    
+
     useEffect(() => {
         if (!loading && table) {
             table.setPageIndex(pagination.pageIndex);
@@ -599,3 +619,5 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
+    
