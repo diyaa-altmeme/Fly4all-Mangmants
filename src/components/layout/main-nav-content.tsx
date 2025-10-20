@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Currency } from '@/lib/types';
 import NewStandardReceiptForm from '@/app/accounts/vouchers/components/new-standard-receipt-form';
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 import { Settings2, Loader2 } from 'lucide-react';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
@@ -542,4 +543,3 @@ export function MainNav() {
     return <MainNavContent />;
 }
 
-    
