@@ -108,18 +108,12 @@ const operationsItems = [
     { href: "/bookings/fly-changes", label: "تغييرات فلاي والوزن", icon: Package, permission: 'admin' },
 ];
 
-const customReportsItems: { href: string; label: string; icon: React.ElementType; permission: Permission }[] = [
-    { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
-    { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
-    { href: "/exchanges", label: "البورصات", icon: ChevronsRightLeft, permission: 'admin' },
-    { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
-    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
-];
+const customReportsItems: any[] = [];
 
 const reportsItems = [
     { href: "/reports/debts", label: "تقرير الأرصدة", icon: Wallet, permission: 'reports:debts' },
     { href: "/reports/account-statement", label: "كشف حساب", icon: FileText, permission: 'reports:account_statement' },
-    { href: "/finance/overview", label: "المالية الموحدة", icon: FileBarChart, permission: 'admin' },
+    { href: "/finance/overview", label: "المالية الموحدة", icon: FileBarChart, permission: 'admin'},
     { href: "/profits", label: "الأرباح الشهرية", icon: BarChart3, permission: 'reports:profits' },
     { href: "/reconciliation", label: "التدقيق الذكي", icon: Wand2, permission: 'admin' },
     { href: "/reports/advanced", label: "تقارير متقدمة", icon: AreaChart, permission: 'reports:read:all' },
@@ -236,7 +230,7 @@ const NavMenu = ({ label, icon: Icon, children, activeRoutes, className }: {
     <DropdownMenu>
         <DropdownMenuTrigger asChild>
             <Button variant={isActive ? 'secondary' : 'ghost'} className={cn(
-              "group flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors whitespace-nowrap w-full justify-end",
+              "group flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors whitespace-nowrap w-full justify-center",
               isActive && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground",
               className
             )}>
@@ -397,18 +391,25 @@ const MainNavContent = () => {
 
   return (
     <div className="w-full">
-        <nav className="flex flex-col md:flex-row items-stretch md:items-center gap-2 justify-center">
-             <NavLink href="/dashboard" active={pathname === '/dashboard'} className="justify-end">الرئيسية<LayoutDashboard className="h-4 w-4" /></NavLink>
+        <nav className="flex items-stretch justify-center gap-2">
+             <div className="flex-grow-0">
+               <NavLink href="/dashboard" active={pathname === '/dashboard'} className="justify-end h-full">
+                  الرئيسية
+                  <LayoutDashboard className="h-4 w-4" />
+              </NavLink>
+            </div>
+            
             {menuConfig.map(menu => (
-                <NavMenu 
-                    key={menu.id}
-                    label={menu.label}
-                    icon={menu.icon}
-                    activeRoutes={menu.activeRoutes}
-                    className={cn(menu.className, 'whitespace-nowrap')}
-                >
-                   {menu.children}
-                </NavMenu>
+                 <div className="flex-grow" key={menu.id}>
+                    <NavMenu 
+                        label={menu.label}
+                        icon={menu.icon}
+                        activeRoutes={menu.activeRoutes}
+                        className={cn(menu.className, 'whitespace-nowrap')}
+                    >
+                       {menu.children}
+                    </NavMenu>
+                </div>
             ))}
         </nav>
     </div>
@@ -419,6 +420,5 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
-
 
     
