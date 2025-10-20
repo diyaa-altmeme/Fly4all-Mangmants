@@ -2,6 +2,17 @@
 import React, { useMemo } from "react";
 import { format } from "date-fns";
 import type { Transaction } from "@/lib/transactions";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Pencil, Trash2 } from "lucide-react";
+
+const formatCurrency = (amount: number, currency: string) => {
+    try {
+        return new Intl.NumberFormat("ar-IQ", { style: "currency", currency: currency }).format(amount);
+    } catch(e) {
+        return `${amount.toLocaleString()} ${currency}`;
+    }
+};
 
 export default function UnifiedReportTable({
   rows,
@@ -42,41 +53,57 @@ export default function UnifiedReportTable({
             <tr className="text-right">
               <th className="p-2">التاريخ</th>
               <th className="p-2">الشركة</th>
+              <th className="p-2">الحساب</th>
               <th className="p-2">التصنيف</th>
               <th className="p-2">مدين</th>
               <th className="p-2">دائن</th>
               <th className="p-2">الرصيد</th>
+              <th className="p-2">الحالة</th>
               <th className="p-2">ملاحظات</th>
+              <th className="p-2">إجراءات</th>
             </tr>
           </thead>
           <tbody>
             {computed.withBal.length === 0 ? (
-              <tr><td className="p-3" colSpan={7}>لا توجد بيانات ضمن النطاق</td></tr>
+              <tr><td className="p-3 text-center" colSpan={10}>لا توجد بيانات ضمن النطاق المحدد.</td></tr>
             ) : computed.withBal.map((r) => (
-              <tr key={r.id} className={r.kind === "credit" ? "bg-green-50" : "bg-red-50"}>
+              <tr key={r.id} className={cn(
+                  r.kind === "credit" ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20",
+                  r.category === "segment" && "border-l-4 border-blue-400",
+                  r.category === "subscription" && "border-l-4 border-yellow-400",
+                  r.category === "profit" && "border-l-4 border-purple-400"
+              )}>
                 <td className="p-2 whitespace-nowrap">{format(r.date, "yyyy-MM-dd")}</td>
-                <td className="p-2">{r.company}</td>
+                <td className="p-2 font-semibold">{r.company}</td>
+                <td className="p-2">{r.accountName || '-'}</td>
                 <td className="p-2">{mapCategory(r.category)}</td>
-                <td className="p-2">{r.kind === "debit" ? r.amount.toLocaleString() : "-"}</td>
-                <td className="p-2">{r.kind === "credit" ? r.amount.toLocaleString() : "-"}</td>
-                <td className="p-2">{(r as any).balance?.toLocaleString()}</td>
+                <td className="p-2 font-mono text-red-600">{r.kind === "debit" ? formatCurrency(r.amount, r.currency || 'IQD') : "-"}</td>
+                <td className="p-2 font-mono text-green-600">{r.kind === "credit" ? formatCurrency(r.amount, r.currency || 'IQD') : "-"}</td>
+                <td className="p-2 font-mono">{formatCurrency((r as any).balance, r.currency || 'IQD')}</td>
+                <td className="p-2">{r.status || 'مكتملة'}</td>
                 <td className="p-2">{r.notes || ""}</td>
+                <td className="p-2">
+                    <div className="flex items-center gap-1">
+                        <Button size="icon" variant="ghost" className="h-7 w-7"><Pencil className="h-4 w-4" /></Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                </td>
               </tr>
             ))}
           </tbody>
-          <tfoot className="bg-muted/50">
-            <tr className="font-semibold">
-              <td className="p-2" colSpan={3}>الإجمالي</td>
-              <td className="p-2">{computed.totalDebit.toLocaleString()}</td>
-              <td className="p-2">{computed.totalCredit.toLocaleString()}</td>
-              <td className="p-2">{computed.net.toLocaleString()}</td>
-              <td className="p-2"></td>
+          <tfoot className="bg-muted/50 font-bold">
+            <tr>
+              <td className="p-2" colSpan={4}>الإجمالي</td>
+              <td className="p-2 font-mono text-red-600">{formatCurrency(computed.totalDebit, 'IQD')}</td>
+              <td className="p-2 font-mono text-green-600">{formatCurrency(computed.totalCredit, 'IQD')}</td>
+              <td className="p-2 font-mono">{formatCurrency(computed.net, 'IQD')}</td>
+              <td className="p-2" colSpan={3}></td>
             </tr>
             <tr>
-              <td className="p-2" colSpan={3}>توزيع الصافي</td>
-              <td className="p-2" colSpan={2}>الروضتين: {computed.rShare.toLocaleString()}</td>
-              <td className="p-2">متين: {computed.mShare.toLocaleString()}</td>
-              <td className="p-2"></td>
+              <td className="p-2" colSpan={4}>توزيع الصافي</td>
+              <td className="p-2 font-mono" colSpan={2}>الروضتين: {formatCurrency(computed.rShare, 'IQD')}</td>
+              <td className="p-2 font-mono" colSpan={2}>متين: {formatCurrency(computed.mShare, 'IQD')}</td>
+              <td className="p-2" colSpan={2}></td>
             </tr>
           </tfoot>
         </table>

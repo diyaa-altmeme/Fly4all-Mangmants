@@ -5,14 +5,19 @@ import { db } from "./firebase";
 
 export type TxCategory = "segment" | "subscription" | "profit" | "share" | "other";
 export type TxKind = "credit" | "debit";
+export type TxStatus = "pending" | "completed" | "cancelled";
+export type Currency = "IQD" | "USD" | "EUR";
 
 export type Transaction = {
   id?: string;
   date: Date;
   company: string;
+  accountName?: string;
   kind: TxKind;
   category: TxCategory;
+  currency?: Currency;
   amount: number;
+  status?: TxStatus;
   notes?: string;
   createdAt?: Timestamp;
   createdBy?: string;
@@ -41,9 +46,12 @@ export function watchTransactions(from: Date, to: Date, cb: (rows: Transaction[]
         id: d.id,
         date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
         company: data.company,
+        accountName: data.accountName,
         kind: data.kind,
         category: data.category,
+        currency: data.currency || 'IQD',
         amount: Number(data.amount || 0),
+        status: data.status || 'completed',
         notes: data.notes || "",
         createdAt: data.createdAt,
         createdBy: data.createdBy,
