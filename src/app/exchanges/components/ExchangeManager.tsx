@@ -166,19 +166,16 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
-        if(action === 'add' || action === 'delete') {
-            fetchExchangeData();
-        } else if (action === 'update') {
-            setUnifiedLedger(currentLedger => {
-                const index = currentLedger.findIndex(item => item.id === updatedData.id);
-                if (index !== -1) {
-                    const newLedger = [...currentLedger];
-                    newLedger[index] = { ...newLedger[index], ...updatedData };
-                    return newLedger;
-                }
-                return currentLedger;
-            });
-        }
+      if (action === 'add' || action === 'delete') {
+          fetchExchangeData();
+      } else if (action === 'update') {
+          // This ensures the table data is updated without a full refetch, preserving pagination.
+          setUnifiedLedger(currentLedger => 
+              currentLedger.map(item => 
+                  item.id === updatedData.id ? { ...item, ...updatedData } : item
+              )
+          );
+      }
     }, [fetchExchangeData]);
 
     const filteredLedger = useMemo(() => {
@@ -286,8 +283,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                 
                 const handleConfirmChange = async (checked: boolean) => {
                     setIsPending(true);
-                    setPageIndex(table.getState().pagination.pageIndex);
                     
+                    // Optimistic UI update
                     table.options.meta?.updateData(row.index, 'isConfirmed', checked);
                     
                     try {
@@ -296,6 +293,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                         toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
                     } catch (error: any) {
                         toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
+                        // Revert optimistic update on failure
                         table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
                     } finally {
                         setIsPending(false);
@@ -430,7 +428,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     const table = useReactTable({
       data: filteredLedger,
       columns,
-      state: { sorting, rowSelection, pagination: { pageIndex } },
+      state: { sorting, rowSelection, pagination: { pageIndex, pageSize: 15 } },
       onSortingChange: setSorting,
       onRowSelectionChange: setRowSelection,
       onPaginationChange: (updater) => {
@@ -443,13 +441,12 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getFilteredRowModel: getFilteredRowModel(),
       meta: {
           updateData: (rowIndex: number, columnId: string, value: any) => {
-              const updatedData = produce(unifiedLedger, draft => {
-                  const itemToUpdate = draft.find(item => item.id === filteredLedger[rowIndex].id);
-                  if (itemToUpdate) {
-                      (itemToUpdate as any)[columnId] = value;
-                  }
-              });
-              setUnifiedLedger(updatedData);
+              const itemToUpdateId = filteredLedger[rowIndex].id;
+              setUnifiedLedger(current => 
+                  current.map(item =>
+                      item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
+                  )
+              );
           }
       }
     });
@@ -565,23 +562,27 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                     </TableRow>
                                 ))}
                             </TableHeader>
-                            <TableBody>
+                            
                                 {loading ? (
-                                     <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">
-                                            <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                                        </TableCell>
-                                    </TableRow>
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell colSpan={columns.length} className="h-24 text-center">
+                                                <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
                                 ) : table.getRowModel().rows.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={columns.length} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
-                                    </TableRow>
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell colSpan={columns.length} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
+                                        </TableRow>
+                                    </TableBody>
                                 ) : (
                                     table.getRowModel().rows.map((row) => (
                                         <LedgerRow key={row.original.id} row={row} exchanges={exchanges} onActionSuccess={handleActionSuccess} table={table} />
                                     ))
                                 )}
-                            </TableBody>
+                            
                         </Table>
                     </div>
                     <DataTablePagination table={table} />
