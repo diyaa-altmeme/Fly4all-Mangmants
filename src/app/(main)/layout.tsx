@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -36,18 +35,21 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     }
 
     if (!user) {
+        // This should ideally not happen if the layout is used correctly within the AuthProvider logic
         router.replace('/');
         return <Preloader />;
     }
     
+    // This is a portal for client users, they get a different layout
     if ('isClient' in user && user.isClient) {
-        // Render a different, simpler layout for client portal users
+        // For now, redirecting to a placeholder or a simpler layout
+        // In the future, this can be a full-fledged client portal layout
         return <div>{children}</div>;
     }
 
     return (
-        <div className="flex min-h-screen w-full flex-col bg-muted/40">
-            <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6 shadow-sm">
+        <div className="flex min-h-screen w-full flex-col bg-muted/40" dir="rtl">
+            <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 shadow-sm">
                  <MainNavResponsive />
                  <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
                     <div className="ml-auto flex-1 sm:flex-initial">
@@ -63,4 +65,3 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
     );
 }
-
