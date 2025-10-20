@@ -116,8 +116,9 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
     const entry = row.original as UnifiedLedgerEntry;
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
+    
+    // Local state for optimistic update, synced with prop
     const [isConfirmed, setIsConfirmed] = useState(entry.isConfirmed || false);
-
     useEffect(() => {
         setIsConfirmed(entry.isConfirmed || false);
     }, [entry.isConfirmed]);
@@ -339,28 +340,18 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        setUnifiedLedger(currentLedger => {
-            let newLedger: UnifiedLedgerEntry[];
+        setUnifiedLedger(produce(draft => {
             if (action === 'delete') {
-                newLedger = currentLedger.filter(entry => entry.id !== data.id);
+                return draft.filter(entry => entry.id !== data.id);
             } else if (action === 'update') {
-                newLedger = currentLedger.map(entry => entry.id === data.id ? { ...entry, ...data } : entry);
+                const index = draft.findIndex(entry => entry.id === data.id);
+                if (index !== -1) {
+                    draft[index] = { ...draft[index], ...data };
+                }
             } else { // 'add'
-                newLedger = [data, ...currentLedger];
+                draft.unshift(data);
             }
-            
-            newLedger.sort((a, b) => new Date(b.createdAt || b.date).getTime() - new Date(a.createdAt || a.date).getTime());
-            
-            let runningBalance = 0;
-            const reversedForBalance = [...newLedger].reverse();
-            const entriesWithBalance = reversedForBalance.map(entry => {
-                const amount = entry.totalAmount || 0;
-                runningBalance += amount;
-                return { ...entry, balance: runningBalance };
-            });
-
-            return entriesWithBalance.reverse();
-        });
+        }));
     }, []);
 
  const filteredLedger = useMemo(() => {
