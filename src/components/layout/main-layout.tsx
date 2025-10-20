@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -71,50 +72,50 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
     return (
-        <div className="flex min-h-screen w-full flex-col bg-background">
-            <header className="bg-white/80 dark:bg-dark-800/80 backdrop-blur-md shadow-sm sticky top-0 z-40 w-full glass-effect glass-effect-dark">
-                <div className="flex items-center justify-between p-4">
-                    <div className="flex items-center space-x-4 space-x-reverse">
-                         <div className="md:hidden">
-                            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-                                <SheetTrigger asChild>
-                                    <Button variant="ghost" size="icon">
-                                        <Menu className="h-6 w-6"/>
-                                        <span className="sr-only">Toggle Navigation</span>
-                                    </Button>
-                                </SheetTrigger>
-                                <SheetContent side="right" className="w-[300px] sm:w-[340px] p-0 flex flex-col">
-                                    <SheetHeader className="p-4 flex flex-row items-center justify-between border-b shrink-0 text-right">
-                                        <SheetTitle className="flex items-center gap-2">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary-500 to-blue-500 flex items-center justify-center">
-                                                <Rocket className="text-white"/>
-                                            </div>
-                                            <span className="gradient-text font-bold">شركتي</span>
-                                        </SheetTitle>
-                                        <Button variant="ghost" size="icon" onClick={() => setIsSheetOpen(false)}>
-                                            <X className="h-5 w-5" />
-                                        </Button>
-                                    </SheetHeader>
-                                    <ScrollArea className="flex-grow">
-                                        <MainNav />
-                                    </ScrollArea>
-                                </SheetContent>
-                            </Sheet>
-                        </div>
-                        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl">
-                            <span className="gradient-text">نظام الإدارة الذكي</span>
-                            <Rocket className="h-6 w-6 text-primary-500 bounce-element" />
-                        </Link>
-                        <nav className="hidden md:flex items-center space-x-6 space-x-reverse">
-                            <MainNav />
-                        </nav>
-                    </div>
+        <div className="flex min-h-screen w-full flex-col bg-muted/40">
+             <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6 shadow-sm">
+                 <div className="md:hidden">
+                    <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+                        <SheetTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <Menu className="h-6 w-6"/>
+                                <span className="sr-only">Toggle Navigation</span>
+                            </Button>
+                        </SheetTrigger>
+                        <SheetContent side="right" className="w-[300px] sm:w-[340px] p-0 flex flex-col">
+                            <SheetHeader className="p-4 flex flex-row items-center justify-between border-b shrink-0 text-right">
+                                <SheetTitle className="flex items-center gap-2">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-blue-500 flex items-center justify-center">
+                                        <Rocket className="text-white"/>
+                                    </div>
+                                    <span className="text-primary font-bold">شركتي</span>
+                                </SheetTitle>
+                                 <Button variant="ghost" size="icon" onClick={() => setIsSheetOpen(false)}>
+                                    <X className="h-5 w-5" />
+                                </Button>
+                            </SheetHeader>
+                            <div className="flex-grow overflow-y-auto">
+                                <MainNav />
+                            </div>
+                        </SheetContent>
+                    </Sheet>
+                </div>
+                
+                 <Link href="/dashboard" className="items-center gap-2 font-bold text-lg hidden md:flex whitespace-nowrap">
+                    <Rocket className="h-6 w-6 text-primary" />
+                    <span className="text-primary">حسابات الروضتين</span>
+                </Link>
 
-                    <div className="flex items-center space-x-4 space-x-reverse">
-                        <GlobalSearch />
+                 <nav className="hidden md:flex items-center gap-1 flex-grow mx-4">
+                    <MainNav />
+                </nav>
+
+                 <div className="flex w-full items-center gap-4 md:ml-auto md:w-auto md:gap-2 lg:gap-4 justify-end">
+                    <div className="ml-auto flex items-center gap-2">
+                        <ThemeToggle />
                         <NotificationCenter />
-                        <UserNav />
                     </div>
+                    <UserNav />
                 </div>
             </header>
             <TopLoader />
@@ -124,9 +125,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
             )}>
                 {children}
             </main>
-            <div className="fixed bottom-6 left-6 z-50">
-                <ThemeToggle />
-            </div>
         </div>
     );
 };
