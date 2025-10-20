@@ -29,7 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { produce } from 'immer';
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, Row } from '@tanstack/react-table';
+import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, Row, RowSelectionState } from '@tanstack/react-table';
 import { Separator } from "@/components/ui/separator";
 
 interface ExchangeManagerProps {
@@ -91,6 +91,13 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
                         <Edit className="me-2 h-4 w-4" /> تعديل
                     </DropdownMenuItem>
                 </EditBatchDialog>
+                <DropdownMenuItem onClick={() => { 
+                    const textToCopy = `اسم البورصة: ${exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف'}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+                    navigator.clipboard.writeText(textToCopy);
+                    toast({ title: "تم نسخ التفاصيل بنجاح" });
+                }}>
+                    <Copy className="me-2 h-4 w-4" /> نسخ التفاصيل
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -118,20 +125,28 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
     const [isOpen, setIsOpen] = useState(false);
 
     const handleConfirmChange = async (checked: boolean) => {
-        onActionSuccess('update', { ...entry, isConfirmed: checked });
+        // Optimistic update
+        row.toggleSelected(checked);
+        const originalStatus = entry.isConfirmed;
+        // This is a direct mutation on the row's data for UI, but the source array is updated via `updateData` meta function.
+        (row.original as any).isConfirmed = checked; 
         
-        const result = await updateBatch(entry.id, entry.entryType as 'transaction' | 'payment', { isConfirmed: checked });
-        if (!result.success) {
-            toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-             onActionSuccess('update', { ...entry, isConfirmed: !checked });
-        } else {
+        try {
+            const result = await updateBatch(entry.id, entry.entryType as 'transaction' | 'payment', { isConfirmed: checked });
+            if (!result.success) {
+                throw new Error(result.error);
+            }
              toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
+        } catch (error: any) {
+            toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
+             (row.original as any).isConfirmed = originalStatus; // Revert on failure
+             row.toggleSelected(originalStatus);
         }
     };
     
     return (
        <React.Fragment>
-            <TableRow className={cn("font-bold", entry.isConfirmed && "bg-primary/10 hover:bg-primary/20")}>
+            <TableRow data-state={isOpen ? 'open' : 'closed'} className={cn("font-bold", entry.isConfirmed && "bg-primary/10 hover:bg-primary/20")}>
                 {row.getVisibleCells().map((cell: any) => {
                     if (cell.column.id === 'collapsible') {
                         return (
@@ -277,6 +292,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'date', desc: true }]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
   const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
 
   const fetchExchangeData = useCallback(async () => {
     if (exchangeId) {
@@ -341,36 +357,36 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }));
     }, []);
 
- const filteredLedger = useMemo(() => {
-    let processed = [...unifiedLedger];
-    
-    if (debouncedSearchTerm) {
-        const lowercasedTerm = debouncedSearchTerm.toLowerCase();
-        processed = processed.filter(entry => {
-            return (
-                entry.invoiceNumber?.toLowerCase().includes(lowercasedTerm) ||
-                entry.description?.toLowerCase().includes(lowercasedTerm) ||
-                entry.userName?.toLowerCase().includes(lowercasedTerm) ||
-                (Array.isArray(entry.details) && entry.details.some(
-                    (detail: any) =>
-                        (detail.partyName && detail.partyName.toLowerCase().includes(lowercasedTerm)) ||
-                        (detail.paidTo && detail.paidTo.toLowerCase().includes(lowercasedTerm)) ||
-                        (detail.note && detail.note.toLowerCase().includes(lowercasedTerm))
-                ))
-            );
-        });
-    }
+    const filteredLedger = useMemo(() => {
+        let processed = [...unifiedLedger];
+        
+        if (debouncedSearchTerm) {
+            const lowercasedTerm = debouncedSearchTerm.toLowerCase();
+            processed = processed.filter(entry => {
+                return (
+                    entry.invoiceNumber?.toLowerCase().includes(lowercasedTerm) ||
+                    entry.description?.toLowerCase().includes(lowercasedTerm) ||
+                    entry.userName?.toLowerCase().includes(lowercasedTerm) ||
+                    (Array.isArray(entry.details) && entry.details.some(
+                        (detail: any) =>
+                            (detail.partyName && detail.partyName.toLowerCase().includes(lowercasedTerm)) ||
+                            (detail.paidTo && detail.paidTo.toLowerCase().includes(lowercasedTerm)) ||
+                            (detail.note && detail.note.toLowerCase().includes(lowercasedTerm))
+                    ))
+                );
+            });
+        }
 
-    if (typeFilter !== 'all') {
-        processed = processed.filter(entry => entry.entryType === typeFilter);
-    }
+        if (typeFilter !== 'all') {
+            processed = processed.filter(entry => entry.entryType === typeFilter);
+        }
 
-    if (confirmationFilter !== 'all') {
-        processed = processed.filter(entry => (confirmationFilter === 'confirmed') ? entry.isConfirmed : !entry.isConfirmed);
-    }
-    
-    return processed;
-}, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
+        if (confirmationFilter !== 'all') {
+            processed = processed.filter(entry => (confirmationFilter === 'confirmed') ? entry.isConfirmed : !entry.isConfirmed);
+        }
+        
+        return processed;
+    }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
 
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
@@ -412,16 +428,16 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         toast({ title: "تم التصدير بنجاح" });
     };
 
-    const columns: ColumnDef<UnifiedLedgerEntry>[] = useMemo(() => [
+    const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
         { id: 'collapsible', size: 40, cell: ({ row }) => <div className="p-1 text-center"><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => row.toggleSelected(!row.getIsSelected())}><ChevronDown className={cn("h-4 w-4 transition-transform", row.getIsSelected() && "rotate-180")} /></Button></div> },
-        { id: 'isConfirmed', header: 'تأكيد', size: 50, cell: ({ row }) => <div className="p-2 text-center"><Checkbox checked={row.original.isConfirmed} onCheckedChange={(checked) => handleActionSuccess('update', { ...row.original, isConfirmed: checked })} /></div> },
+        { id: 'isConfirmed', header: 'تأكيد', size: 50, cell: ({ row }) => <div className="p-2 text-center"><Checkbox checked={row.getIsSelected()} onCheckedChange={(value) => row.toggleSelected(!!value)} /></div> },
         { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span> },
         { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span> },
         { accessorKey: 'entryType', header: 'النوع', cell: ({ row }) => {
             const entry = row.original;
             const exchangeName = exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'بورصة غير معروفة';
             const textToCopy = `اسم البورصة: ${exchangeName}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-            const copy = () => { navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
+            const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
             
             if (entry.entryType === 'transaction') {
                 return <Badge onClick={copy} variant={'destructive'} className="font-bold cursor-pointer">دين</Badge>;
@@ -461,12 +477,20 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     const table = useReactTable({
       data: filteredLedger,
       columns,
-      state: { sorting },
+      state: { sorting, rowSelection },
       onSortingChange: setSorting,
+      onRowSelectionChange: setRowSelection,
       getCoreRowModel: getCoreRowModel(),
       getSortedRowModel: getSortedRowModel(),
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
+      meta: {
+          updateData: (rowIndex: number, columnId: string, value: any) => {
+              setUnifiedLedger(produce(draft => {
+                  (draft[rowIndex] as any)[columnId] = value;
+              }));
+          }
+      }
     });
 
     return (
