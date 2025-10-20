@@ -108,7 +108,7 @@ const operationsItems = [
     { href: "/bookings/fly-changes", label: "تغييرات فلاي والوزن", icon: Package, permission: 'admin' },
 ];
 
-const customReportsItems: any[] = [
+const customReportsItems: { href: string; label: string; icon: React.ElementType; permission: Permission }[] = [
     { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
     { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
     { href: "/exchanges", label: "البورصات", icon: ChevronsRightLeft, permission: 'admin' },
@@ -333,8 +333,46 @@ const MainNavContent = () => {
 
   }, [hasPermission, handleDataChange]);
   
+  const renderMobileSubItems = (menu: typeof menuConfig[0]) => {
+      if (menu.id === 'vouchers') {
+          return <CreateVoucherMenuItems isMobile={true} />;
+      }
+
+      if (menu.id === 'relations') {
+           return (
+            <div className="flex flex-col gap-1">
+                {hasPermission('relations:read') && <MobileSubItem href="/clients" icon={Users2}>ادارة العلاقات</MobileSubItem>}
+                {hasPermission('relations:create') && (
+                    <AddClientDialog onClientAdded={handleDataChange} onClientUpdated={handleDataChange}>
+                        <button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full">
+                           <span>إضافة علاقة</span>
+                           <PlusCircle className="h-4 w-4" />
+                        </button>
+                    </AddClientDialog>
+                )}
+                {hasPermission('settings:read') && <MobileSubItem href="/settings" icon={Settings}>الإعدادات</MobileSubItem>}
+            </div>
+        )
+      }
+      
+      const itemsToRender = 
+          menu.id === 'operations' ? operationsItems :
+          menu.id === 'reports' ? reportsItems :
+          menu.id === 'custom-reports' ? customReportsItems :
+          menu.id === 'system' ? systemItems :
+          menu.id === 'additional_services' ? additionalServicesItems :
+          [];
+
+      return (
+        <div className="flex flex-col gap-1">
+            {getVisibleItems(itemsToRender).map(item => (
+                <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>
+            ))}
+        </div>
+      );
+  }
+
   if (isMobile) {
-    // This logic is simplified as the detailed mobile navigation is not fully implemented here
     return (
         <Accordion type="single" collapsible className="w-full">
             <NavLink href="/dashboard" active={pathname === '/dashboard'} className="w-full justify-end text-base">الرئيسية<LayoutDashboard className="h-5 w-5" /></NavLink>
@@ -347,7 +385,7 @@ const MainNavContent = () => {
                          </div>
                     </AccordionTrigger>
                     <AccordionContent className="pr-6 border-r-2 border-primary/50 mr-4">
-                        {/* Simplified for brevity, detailed mobile logic can be complex */}
+                        {renderMobileSubItems(menu)}
                     </AccordionContent>
                 </AccordionItem>
             ))}
