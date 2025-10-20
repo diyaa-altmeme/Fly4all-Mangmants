@@ -71,19 +71,17 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, onConfirmChange, columns }
     const [dialogOpen, setDialogOpen] = React.useState(false);
 
     const handleConfirmChange = async (checked: boolean) => {
-        const currentPage = row.table.getState().pagination.pageIndex;
         setIsPending(true);
-        onConfirmChange(entry.id, checked);
+        onConfirmChange(entry.id, checked); // Optimistic update
         try {
             const result = await updateBatch(entry.id, entry.entryType as 'transaction' | 'payment', { isConfirmed: checked });
             if (!result.success) throw new Error(result.error);
             toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
         } catch (error: any) {
             toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-            onConfirmChange(entry.id, !checked); // Revert optimistic update
+            onConfirmChange(entry.id, !checked); // Revert on failure
         } finally {
             setIsPending(false);
-            row.table.setPageIndex(currentPage);
         }
     };
 
@@ -271,20 +269,9 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             toast({ title: 'خطأ في تحديث البيانات', description: err.message, variant: 'destructive' });
         } finally {
             setLoading(false);
-            table.setPageIndex(currentPage);
+            setPageIndex(currentPage);
         }
     }, [exchangeId, fetchExchangeData, toast, pageIndex]);
-
-    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        const currentPage = table.getState().pagination.pageIndex;
-        if (action === 'delete') {
-            setUnifiedLedger(prev => prev.filter(item => item.id !== data.id));
-        } else {
-            fetchExchangeData().then(() => {
-                setTimeout(() => table.setPageIndex(currentPage), 0);
-            });
-        }
-    }, [fetchExchangeData, table]);
 
     const filteredLedger = useMemo(() => {
         return unifiedLedger.filter(entry => {
@@ -310,6 +297,102 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         });
     }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
     
+    const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
+        { id: 'sequence', header: 'ت', size: 40, cell: ({ row, table }) => {
+            const { pageIndex, pageSize } = table.getState().pagination;
+            return pageIndex * pageSize + row.index + 1;
+        }},
+        { id: 'collapsible', header: () => null, size: 40 },
+        { id: 'isConfirmed', header: 'تأكيد', size: 50 },
+        { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span>, size: 120 },
+        { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span>, size: 120 },
+        { id: 'entryType', header: 'النوع', size: 100,
+          cell: ({ row }) => {
+              const entry = row.original;
+              if (entry.entryType === 'transaction') {
+                  return <Badge variant={'destructive'} className="font-bold cursor-pointer">دين</Badge>;
+              } else {
+                  const amount = entry.totalAmount || 0;
+                  return amount > 0 
+                      ? <Badge className="bg-blue-600 font-bold cursor-pointer">دفع</Badge> 
+                      : <Badge className="bg-green-600 font-bold cursor-pointer">قبض</Badge>;
+              }
+          }
+        },
+        { accessorKey: 'description', header: 'الوصف', size: 250 },
+        { id: 'debit', header: 'علينا', cell: ({ row }) => {
+            const entry = row.original;
+            const amount = entry.totalAmount || 0;
+            const debit = entry.entryType === 'transaction' ? Math.abs(amount) : (amount < 0 ? Math.abs(amount) : 0);
+            return <div className="font-bold text-red-600 whitespace-nowrap">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
+        }, size: 120},
+        { id: 'credit', header: 'لنا', cell: ({ row }) => {
+            const entry = row.original;
+            const amount = entry.totalAmount || 0;
+            const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
+            return <div className="font-bold text-green-600 whitespace-nowrap">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
+        }, size: 120},
+        { 
+            accessorKey: 'balance', 
+            header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, 
+            cell: ({ row }) => {
+                const balance = row.original.balance || 0;
+                const colorClass = balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-foreground';
+                return <span className={cn("font-bold text-lg font-mono", colorClass)}>{formatCurrency(balance, 'USD')}</span>
+            },
+            size: 150
+        },
+        { accessorKey: 'userName', header: 'المستخدم', size: 120 },
+        { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80 },
+    ], [exchanges, toast]);
+    
+    const table = useReactTable({
+      data: filteredLedger,
+      columns,
+      state: { sorting, rowSelection, pagination: { pageIndex, pageSize: 15 } },
+      onSortingChange: setSorting,
+      onRowSelectionChange: setRowSelection,
+      onPaginationChange: (updater) => {
+        const newPage = typeof updater === "function" ? updater({ pageIndex, pageSize: 15 }).pageIndex : updater.pageIndex;
+        setPageIndex(newPage);
+      },
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      meta: {
+        updateData: (rowIndex: number, columnId: string, value: any) => {
+            setUnifiedLedger(produce(draft => {
+                const item = draft.find(d => d.id === table.getRowModel().rows[rowIndex]?.original.id);
+                if(item) {
+                    (item as any)[columnId] = value;
+                }
+            }));
+        },
+      },
+    });
+
+    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
+        const currentPage = table.getState().pagination.pageIndex;
+        fetchExchangeData().then(() => {
+            setTimeout(() => table.setPageIndex(currentPage), 0);
+        });
+    }, [fetchExchangeData, table]);
+    
+    const handleConfirmChangeInRow = useCallback(
+        (rowId: string, checked: boolean) => {
+        setUnifiedLedger(
+            produce(draft => {
+            const item = draft.find(d => d.id === rowId);
+            if (item) {
+                item.isConfirmed = checked;
+            }
+            })
+        );
+        },
+        []
+    );
+
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
             const amount = entry.totalAmount || 0;
@@ -349,99 +432,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         XLSX.writeFile(wb, `Statement-${exchangeName.replace(/:/g, '')}-${new Date().toISOString().split('T')[0]}.xlsx`);
         toast({ title: "تم التصدير بنجاح" });
     };
-
-    const handleConfirmChangeInRow = useCallback(
-        (rowId: string, checked: boolean) => {
-        setUnifiedLedger(
-            produce(draft => {
-            const item = draft.find(d => d.id === rowId);
-            if (item) {
-                item.isConfirmed = checked;
-            }
-            })
-        );
-        },
-        []
-    );
-
-    const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
-        { id: 'sequence', header: 'ت', size: 40 },
-        { id: 'collapsible', header: () => null, size: 40 },
-        { id: 'isConfirmed', header: 'تأكيد', size: 50 },
-        { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span>, size: 120 },
-        { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span>, size: 120 },
-        { id: 'entryType', header: 'النوع', size: 100,
-          cell: ({ row }) => {
-              const entry = row.original;
-              const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-              const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
-
-              if (entry.entryType === 'transaction') {
-                  return <Badge onClick={copy} variant={'destructive'} className="font-bold cursor-pointer">دين</Badge>;
-              } else {
-                  const amount = entry.totalAmount || 0;
-                  return amount > 0 
-                      ? <Badge onClick={copy} className="bg-blue-600 font-bold cursor-pointer">دفع</Badge> 
-                      : <Badge onClick={copy} className="bg-green-600 font-bold cursor-pointer">قبض</Badge>;
-              }
-          }
-        },
-        { accessorKey: 'description', header: 'الوصف', size: 250 },
-        { id: 'debit', header: 'علينا', cell: ({ row }) => {
-            const entry = row.original;
-            const amount = entry.totalAmount || 0;
-            const debit = entry.entryType === 'transaction' ? Math.abs(amount) : (amount < 0 ? Math.abs(amount) : 0);
-            return <div className="font-bold text-red-600 whitespace-nowrap">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
-        }, size: 120},
-        { id: 'credit', header: 'لنا', cell: ({ row }) => {
-            const entry = row.original;
-            const amount = entry.totalAmount || 0;
-            const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
-            return <div className="font-bold text-green-600 whitespace-nowrap">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
-        }, size: 120},
-        { 
-            accessorKey: 'balance', 
-            header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, 
-            cell: ({ row }) => {
-                const balance = row.original.balance || 0;
-                const colorClass = balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-foreground';
-                return <span className={cn("font-bold text-lg font-mono", colorClass)}>{formatCurrency(balance, 'USD')}</span>
-            },
-            size: 150
-        },
-        { accessorKey: 'userName', header: 'المستخدم', size: 120 },
-        { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80 },
-    ], [exchanges, toast, handleActionSuccess]);
-    
-    const table = useReactTable({
-      data: filteredLedger,
-      columns,
-      state: { sorting, rowSelection, pagination: { pageIndex, pageSize: 15 } },
-      onSortingChange: setSorting,
-      onRowSelectionChange: setRowSelection,
-      onPaginationChange: (updater) => {
-        const newPage = typeof updater === "function" ? updater({ pageIndex, pageSize: 15 }).pageIndex : updater.pageIndex;
-        setPageIndex(newPage);
-      },
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-      getPaginationRowModel: getPaginationRowModel(),
-      getFilteredRowModel: getFilteredRowModel(),
-      meta: {
-        updateData: (rowIndex: number, columnId: string, value: any) => {
-          const itemToUpdateId = table.getRowModel().rows[rowIndex]?.original.id;
-          if (!itemToUpdateId) return;
-          setUnifiedLedger(
-            produce(draft => {
-              const item = draft.find(d => d.id === itemToUpdateId);
-              if (item) {
-                (item as any)[columnId] = value;
-              }
-            })
-          );
-        },
-      }
-    });
 
     return (
         <div className="space-y-6">
@@ -588,6 +578,4 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     );
 }
 
-    
-
-    
+```
