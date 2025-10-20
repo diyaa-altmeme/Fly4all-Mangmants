@@ -46,7 +46,7 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
         setIsFetching(true);
         try {
             const [allRelationsRes, boxes, users, settings, exchangesRes] = await Promise.all([
-                getClients({ all: true, includeInactive: false }),
+                getClients({ all: true, includeInactive: false, relationType: 'all' }),
                 getBoxes(),
                 getUsers({ all: true }),
                 getSettings(),

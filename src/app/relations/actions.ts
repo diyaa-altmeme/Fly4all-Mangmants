@@ -16,6 +16,8 @@ import { getSuppliers } from '../suppliers/actions';
 import { getBoxes } from '../boxes/actions';
 import { getUsers } from '../users/actions';
 import { createAuditLog } from '../system/activity-log/actions';
+import { getNextVoucherNumber } from '@/lib/sequences';
+import { FieldValue } from 'firebase-admin/firestore';
 
 
 const getUsername = async () => {
@@ -56,14 +58,13 @@ export async function getClients(options: {
         
         // Apply filters
         if (relationType && relationType !== 'all') {
-             // If searching for 'client', also include 'both'
-            const typesToInclude = relationType === 'client' ? ['client', 'both'] 
-                                 : relationType === 'supplier' ? ['supplier', 'both']
-                                 : [relationType];
-
-            if (typesToInclude.length > 0) {
-                 query = query.where('relationType', 'in', typesToInclude);
-            }
+            const typesToInclude = relationType === 'client' 
+                ? ['client', 'both'] 
+                : relationType === 'supplier' 
+                    ? ['supplier', 'both']
+                    : [relationType];
+            
+            query = query.where('relationType', 'in', typesToInclude);
         }
         if (paymentType && paymentType !== 'all') {
             query = query.where('paymentType', '==', paymentType);
@@ -196,9 +197,11 @@ export async function addClient(data: Partial<Omit<Client, 'id'>>): Promise<{ su
 
     try {
         const username = user.name;
+        const newCode = await getNextVoucherNumber('CL');
         
         const clientData: Partial<Client> = {
             ...data,
+            code: newCode,
             createdAt: new Date().toISOString(),
             createdBy: username,
             balance: { USD: 0, IQD: 0 },
@@ -241,32 +244,34 @@ export async function addMultipleClients(clientsData: Omit<Client, 'id' | 'creat
     const user = await getCurrentUserFromSession();
      if (!user) return { success: false, count: 0, error: "Unauthorized" };
     
-    const batch = db.batch();
     
-    clientsData.forEach(clientData => {
-        const docRef = db.collection('clients').doc();
-        const dataToSave: Partial<Client> = {
-            ...clientData,
-            createdAt: new Date().toISOString(),
-            createdBy: `مستورد بواسطة ${user.name}`,
-            type: clientData.type || 'individual',
-            relationType: clientData.relationType || 'client',
-            status: clientData.status || 'active',
-            balance: { USD: 0, IQD: 0 },
-            lastTransaction: null,
-            useCount: 0,
-            avatarUrl: '',
-        };
-
-        if (!dataToSave.password) {
-            delete dataToSave.password;
-        }
-        
-        batch.set(docRef, dataToSave);
-    });
-
     try {
-        await batch.commit();
+        for (const clientData of clientsData) {
+            const batch = db.batch(); // Create a new batch for each client to get a new code
+            const docRef = db.collection('clients').doc();
+            const newCode = await getNextVoucherNumber('CL');
+            
+            const dataToSave: Partial<Client> = {
+                ...clientData,
+                code: newCode,
+                createdAt: new Date().toISOString(),
+                createdBy: `مستورد بواسطة ${user.name}`,
+                type: clientData.type || 'individual',
+                relationType: clientData.relationType || 'client',
+                status: clientData.status || 'active',
+                balance: { USD: 0, IQD: 0 },
+                lastTransaction: null,
+                useCount: 0,
+                avatarUrl: '',
+            };
+
+            if (!dataToSave.password) {
+                delete dataToSave.password;
+            }
+            
+            batch.set(docRef, dataToSave);
+            await batch.commit();
+        }
 
         await createAuditLog({
             userId: user.uid,
