@@ -31,6 +31,7 @@ import { produce } from 'immer';
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, Row, RowSelectionState } from '@tanstack/react-table';
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface ExchangeManagerProps {
     initialExchanges: Exchange[];
@@ -64,9 +65,10 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
 const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<UnifiedLedgerEntry>, exchanges: Exchange[], onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void, table: any }) => {
     const entry = row.original;
     const { toast } = useToast();
+    
     const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-
-    const copyToClipboard = (e: React.MouseEvent) => {
+    
+    const copy = (e: React.MouseEvent) => {
         e.stopPropagation();
         navigator.clipboard.writeText(textToCopy);
         toast({ title: "تم نسخ التفاصيل بنجاح" });
@@ -164,7 +166,19 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
-        fetchExchangeData();
+        if(action === 'add' || action === 'delete') {
+            fetchExchangeData();
+        } else if (action === 'update') {
+            setUnifiedLedger(currentLedger => {
+                const index = currentLedger.findIndex(item => item.id === updatedData.id);
+                if (index !== -1) {
+                    const newLedger = [...currentLedger];
+                    newLedger[index] = { ...newLedger[index], ...updatedData };
+                    return newLedger;
+                }
+                return currentLedger;
+            });
+        }
     }, [fetchExchangeData]);
 
     const filteredLedger = useMemo(() => {
@@ -272,7 +286,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                 
                 const handleConfirmChange = async (checked: boolean) => {
                     setIsPending(true);
-                    const currentPage = table.getState().pagination.pageIndex;
+                    setPageIndex(table.getState().pagination.pageIndex);
                     
                     table.options.meta?.updateData(row.index, 'isConfirmed', checked);
                     
@@ -285,7 +299,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                         table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
                     } finally {
                         setIsPending(false);
-                        table.setPageIndex(currentPage);
                     }
                 };
 
@@ -303,7 +316,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                     <AlertDialogDescription>سيتم إلغاء تأكيد هذه الدفعة. هل تريد المتابعة؟</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                    <AlertDialogCancel onClick={() => setDialogOpen(false)}>إلغاء</AlertDialogCancel>
+                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
                                     <AlertDialogAction onClick={confirmUncheck}>نعم، قم بالإلغاء</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
@@ -417,7 +430,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     const table = useReactTable({
       data: filteredLedger,
       columns,
-      state: { sorting, rowSelection, pagination: { pageIndex, pageSize: 15 } },
+      state: { sorting, rowSelection, pagination: { pageIndex } },
       onSortingChange: setSorting,
       onRowSelectionChange: setRowSelection,
       onPaginationChange: (updater) => {
@@ -431,9 +444,9 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       meta: {
           updateData: (rowIndex: number, columnId: string, value: any) => {
               const updatedData = produce(unifiedLedger, draft => {
-                  const originalIndex = draft.findIndex(item => item.id === filteredLedger[rowIndex].id);
-                  if (originalIndex !== -1) {
-                      (draft[originalIndex] as any)[columnId] = value;
+                  const itemToUpdate = draft.find(item => item.id === filteredLedger[rowIndex].id);
+                  if (itemToUpdate) {
+                      (itemToUpdate as any)[columnId] = value;
                   }
               });
               setUnifiedLedger(updatedData);
