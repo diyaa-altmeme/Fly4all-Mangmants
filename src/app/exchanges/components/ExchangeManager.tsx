@@ -77,21 +77,29 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table, columns }: {
     const [dialogOpen, setDialogOpen] = React.useState(false);
 
     const handleConfirmChange = async (checked: boolean) => {
-        setIsPending(true);
-        const currentPage = table.getState().pagination.pageIndex;
-        
-        table.options.meta?.updateData(row.index, 'isConfirmed', checked);
-        try {
-            const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
-            if (!result.success) throw new Error(result.error);
-            toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-        } catch (error: any) {
-            toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-            table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
-        } finally {
-            setIsPending(false);
-            table.setPageIndex(currentPage);
-        }
+      setIsPending(true);
+    
+      const currentPage = table.getState().pagination.pageIndex;
+      
+      table.options.meta?.updateData(row.index, 'isConfirmed', checked);
+    
+      try {
+        const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
+    
+        if (!result.success) throw new Error(result.error);
+    
+        toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+      } catch (error: any) {
+        toast({
+          title: "خطأ",
+          description: "فشل تحديث حالة التأكيد.",
+          variant: "destructive",
+        });
+        table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
+      } finally {
+        setIsPending(false);
+        table.setPageIndex(currentPage);
+      }
     };
 
     const confirmUncheck = () => {
@@ -275,32 +283,41 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
         fetchExchangeData();
-        router.refresh();
-    }, [fetchExchangeData, router]);
+    }, [fetchExchangeData]);
+    
+    useEffect(() => {
+        fetchExchangeData();
+    }, [fetchExchangeData]);
+  
+    useEffect(() => {
+      setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
+    }, [initialExchangeId, initialExchanges]);
 
-    const table = useReactTable({
-      data: filteredLedger,
-      columns,
-      state: { sorting, rowSelection, pagination },
-      onSortingChange: setSorting,
-      onRowSelectionChange: setRowSelection,
-      onPaginationChange: setPagination,
-      getCoreRowModel: getCoreRowModel(),
-      getSortedRowModel: getSortedRowModel(),
-      getPaginationRowModel: getPaginationRowModel(),
-      getFilteredRowModel: getFilteredRowModel(),
-      manualPagination: false,
-      meta: {
-        updateData: (rowIndex: number, columnId: string, value: any) => {
-            const itemToUpdateId = filteredLedger[rowIndex].id;
-            setUnifiedLedger((current) =>
-                current.map((item) =>
-                item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
-                )
-            );
-        },
-      },
-    });
+    const refreshAllData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const result = await getExchanges();
+            if (result.accounts) {
+                const currentExchanges = result.accounts;
+                setExchanges(currentExchanges);
+                const currentSelectionIsValid = currentExchanges.some(ex => ex.id === exchangeId);
+                if (!currentSelectionIsValid && currentExchanges.length > 0) {
+                    setExchangeId(currentExchanges[0].id);
+                } else if (currentExchanges.length === 0) {
+                    setExchangeId("");
+                    setUnifiedLedger([]);
+                } else {
+                    await fetchExchangeData();
+                }
+            } else {
+                 toast({ title: "خطأ", description: "فشل تحديث قائمة البورصات.", variant: "destructive" });
+            }
+        } catch (err: any) {
+            toast({ title: 'خطأ في تحديث البيانات', description: err.message, variant: 'destructive' });
+        } finally {
+            setLoading(false);
+        }
+    }, [exchangeId, fetchExchangeData, toast]);
 
     const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
         { id: 'sequence', header: 'ت', size: 40, cell: ({ row, table }) => {
@@ -394,46 +411,35 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         return filteredData;
     }, [unifiedLedger, debouncedSearchTerm, date, typeFilter, confirmationFilter]);
 
+    const table = useReactTable({
+      data: filteredLedger,
+      columns,
+      state: { sorting, rowSelection, pagination },
+      onSortingChange: setSorting,
+      onRowSelectionChange: setRowSelection,
+      onPaginationChange: setPagination,
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      manualPagination: false,
+      meta: {
+        updateData: (rowIndex: number, columnId: string, value: any) => {
+            const itemToUpdateId = filteredLedger[rowIndex].id;
+            setUnifiedLedger((current) =>
+                current.map((item) =>
+                item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
+                )
+            );
+        },
+      },
+    });
 
     useEffect(() => {
         if (!loading && table) {
             table.setPageIndex(pagination.pageIndex);
         }
     }, [loading, table, pagination.pageIndex, filteredLedger]);
-
-    useEffect(() => {
-        fetchExchangeData();
-    }, [fetchExchangeData]);
-  
-    useEffect(() => {
-      setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
-    }, [initialExchangeId, initialExchanges]);
-
-    const refreshAllData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const result = await getExchanges();
-            if (result.accounts) {
-                const currentExchanges = result.accounts;
-                setExchanges(currentExchanges);
-                const currentSelectionIsValid = currentExchanges.some(ex => ex.id === exchangeId);
-                if (!currentSelectionIsValid && currentExchanges.length > 0) {
-                    setExchangeId(currentExchanges[0].id);
-                } else if (currentExchanges.length === 0) {
-                    setExchangeId("");
-                    setUnifiedLedger([]);
-                } else {
-                    await fetchExchangeData();
-                }
-            } else {
-                 toast({ title: "خطأ", description: "فشل تحديث قائمة البورصات.", variant: "destructive" });
-            }
-        } catch (err: any) {
-            toast({ title: 'خطأ في تحديث البيانات', description: err.message, variant: 'destructive' });
-        } finally {
-            setLoading(false);
-        }
-    }, [exchangeId, fetchExchangeData, toast]);
 
 
     const summary = useMemo(() => {
@@ -619,5 +625,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
-    
