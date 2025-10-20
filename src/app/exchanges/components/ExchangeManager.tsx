@@ -32,6 +32,7 @@ import { DataTablePagination } from "@/components/ui/data-table-pagination";
 import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, Row, RowSelectionState } from '@tanstack/react-table';
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useRouter } from 'next/navigation';
 
 interface ExchangeManagerProps {
     initialExchanges: Exchange[];
@@ -62,52 +63,12 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<UnifiedLedgerEntry>, exchanges: Exchange[], onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void, table: any }) => {
-    const entry = row.original;
-    const { toast } = useToast();
-    
-    const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-    
-    const copy = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        navigator.clipboard.writeText(textToCopy);
-        toast({ title: "تم نسخ التفاصيل بنجاح" });
-    };
-
-    return (
-        <Collapsible asChild>
-            <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
-                <TableRow>
-                    {row.getVisibleCells().map(cell => (
-                        <TableCell key={cell.id} style={{ width: cell.column.getSize() }} className="p-2">
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                    ))}
-                </TableRow>
-                <CollapsibleContent asChild>
-                    <TableRow>
-                        <TableCell colSpan={10} className="p-0">
-                            <div className="p-4 bg-muted/50">
-                                {/* Details content here */}
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                </CollapsibleContent>
-            </tbody>
-        </Collapsible>
-    );
-};
-
-
 export default function ExchangeManager({ initialExchanges, initialExchangeId }: ExchangeManagerProps) {
   const { toast } = useToast();
   const [exchangeId, setExchangeId] = useState<string>(initialExchangeId || initialExchanges[0]?.id || "");
   const [exchanges, setExchanges] = useState<Exchange[]>(initialExchanges);
-  const [unifiedLedger, setUnifiedLedger] = useState<UnifiedLedgerEntry[]>([]);
-  const [date, setDate] = React.useState<DateRange | undefined>({
-      from: subDays(new Date(), 30),
-      to: new Date(),
-  });
+  const [data, setData] = useState<UnifiedLedgerEntry[]>([]);
+  const [date, setDate] = React.useState<DateRange | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -122,12 +83,15 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       setLoading(true);
       try {
         const ledgerData = await getUnifiedExchangeLedger(exchangeId, date?.from, date?.to);
-        setUnifiedLedger(ledgerData);
+        setData(ledgerData);
       } catch (err: any) {
         toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
       } finally {
         setLoading(false);
       }
+    } else {
+        setData([]);
+        setLoading(false);
     }
   }, [exchangeId, date, toast]);
 
@@ -151,7 +115,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     setExchangeId(currentExchanges[0].id);
                 } else if (currentExchanges.length === 0) {
                     setExchangeId("");
-                    setUnifiedLedger([]);
+                    setData([]);
                 } else {
                     await fetchExchangeData();
                 }
@@ -166,49 +130,39 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
-      if (action === 'add' || action === 'delete') {
-          fetchExchangeData();
-      } else if (action === 'update') {
-          // This ensures the table data is updated without a full refetch, preserving pagination.
-          setUnifiedLedger(currentLedger => 
-              currentLedger.map(item => 
-                  item.id === updatedData.id ? { ...item, ...updatedData } : item
-              )
-          );
-      }
+        if (action === 'delete') {
+            setData(prev => prev.filter(item => item.id !== updatedData.id));
+        } else if (action === 'add') {
+            fetchExchangeData(); // Refetch for simplicity on add
+        } else { // update
+            setData(prev => prev.map(item => item.id === updatedData.id ? { ...item, ...updatedData } : item));
+        }
     }, [fetchExchangeData]);
 
     const filteredLedger = useMemo(() => {
-        let processed = [...unifiedLedger];
-        
-        if (debouncedSearchTerm) {
-            const lowercasedTerm = debouncedSearchTerm.toLowerCase();
-            processed = processed.filter(entry => {
-                return (
-                    entry.invoiceNumber?.toLowerCase().includes(lowercasedTerm) ||
-                    entry.description?.toLowerCase().includes(lowercasedTerm) ||
-                    entry.userName?.toLowerCase().includes(lowercasedTerm) ||
-                    (Array.isArray(entry.details) && entry.details.some(
+        return data.filter(entry => {
+            if (debouncedSearchTerm) {
+                const lowercasedTerm = debouncedSearchTerm.toLowerCase();
+                 if (
+                    !entry.invoiceNumber?.toLowerCase().includes(lowercasedTerm) &&
+                    !entry.description?.toLowerCase().includes(lowercasedTerm) &&
+                    !entry.userName?.toLowerCase().includes(lowercasedTerm) &&
+                    !(Array.isArray(entry.details) && entry.details.some(
                         (detail: any) =>
                             (detail.partyName && detail.partyName.toLowerCase().includes(lowercasedTerm)) ||
                             (detail.paidTo && detail.paidTo.toLowerCase().includes(lowercasedTerm)) ||
                             (detail.note && detail.note.toLowerCase().includes(lowercasedTerm))
                     ))
-                );
-            });
-        }
+                ) return false;
+            }
 
-        if (typeFilter !== 'all') {
-            processed = processed.filter(entry => entry.entryType === typeFilter);
-        }
+            if (typeFilter !== 'all' && entry.entryType !== typeFilter) return false;
+            if (confirmationFilter !== 'all' && (confirmationFilter === 'confirmed' ? !entry.isConfirmed : entry.isConfirmed)) return false;
 
-        if (confirmationFilter !== 'all') {
-            processed = processed.filter(entry => (confirmationFilter === 'confirmed') ? entry.isConfirmed : !entry.isConfirmed);
-        }
-        
-        return processed;
-    }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
-
+            return true;
+        });
+    }, [data, debouncedSearchTerm, typeFilter, confirmationFilter]);
+    
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
             const amount = entry.totalAmount || 0;
@@ -284,7 +238,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                 const handleConfirmChange = async (checked: boolean) => {
                     setIsPending(true);
                     
-                    // Optimistic UI update
+                    const currentPage = table.getState().pagination.pageIndex;
+
                     table.options.meta?.updateData(row.index, 'isConfirmed', checked);
                     
                     try {
@@ -293,10 +248,10 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                         toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
                     } catch (error: any) {
                         toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-                        // Revert optimistic update on failure
                         table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
                     } finally {
                         setIsPending(false);
+                        table.setPageIndex(currentPage);
                     }
                 };
 
@@ -358,13 +313,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             const entry = row.original;
             const amount = entry.totalAmount || 0;
             const debit = entry.entryType === 'transaction' ? Math.abs(amount) : (amount < 0 ? Math.abs(amount) : 0);
-            return <div className="font-bold text-red-600">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
+            return <div className="font-bold text-red-600 whitespace-nowrap">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
         }, size: 120},
         { id: 'credit', header: 'لنا', cell: ({ row }) => {
             const entry = row.original;
             const amount = entry.totalAmount || 0;
             const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
-            return <div className="font-bold text-green-600">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
+            return <div className="font-bold text-green-600 whitespace-nowrap">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
         }, size: 120},
         { 
             accessorKey: 'balance', 
@@ -442,7 +397,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       meta: {
           updateData: (rowIndex: number, columnId: string, value: any) => {
               const itemToUpdateId = filteredLedger[rowIndex].id;
-              setUnifiedLedger(current => 
+              setData(current => 
                   current.map(item =>
                       item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
                   )
@@ -555,7 +510,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <TableRow key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => (
-                                        <TableHead key={header.id} className="p-2 font-bold" style={{ width: header.getSize() }}>
+                                        <TableHead key={header.id} className="p-2 font-bold whitespace-nowrap" style={{ width: header.getSize() }}>
                                             {flexRender(header.column.columnDef.header, header.getContext())}
                                         </TableHead>
                                     ))}
@@ -578,9 +533,11 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                         </TableRow>
                                     </TableBody>
                                 ) : (
-                                    table.getRowModel().rows.map((row) => (
-                                        <LedgerRow key={row.original.id} row={row} exchanges={exchanges} onActionSuccess={handleActionSuccess} table={table} />
-                                    ))
+                                    <TableBody>
+                                        {table.getRowModel().rows.map((row) => (
+                                            <LedgerRow key={row.original.id} row={row} exchanges={exchanges} onActionSuccess={handleActionSuccess} table={table} />
+                                        ))}
+                                    </TableBody>
                                 )}
                             
                         </Table>
