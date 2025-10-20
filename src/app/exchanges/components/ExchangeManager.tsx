@@ -65,7 +65,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<Unifie
     const entry = row.original;
     const { toast } = useToast();
     
-    const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف'}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+    const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
     const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
 
     return (
@@ -183,9 +183,12 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
   const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  const [currentPage, setCurrentPage] = useState(0);
 
   const fetchExchangeData = useCallback(async () => {
     if (exchangeId) {
+      const currentIndex = table?.getState()?.pagination?.pageIndex || 0;
+      setCurrentPage(currentIndex);
       setLoading(true);
       try {
         const ledgerData = await getUnifiedExchangeLedger(exchangeId, date?.from, date?.to);
@@ -233,20 +236,19 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
-        if(action === 'add') {
-            fetchExchangeData();
-        } else {
-             setUnifiedLedger(currentData => {
-                if (action === 'delete') {
-                    return currentData.filter(entry => entry.id !== updatedData.id);
-                }
-                if (action === 'update') {
-                     return currentData.map(entry => entry.id === updatedData.id ? { ...entry, ...updatedData } : entry);
-                }
-                return currentData;
-            });
-        }
-    }, [fetchExchangeData]);
+        setUnifiedLedger(currentData => {
+            if (action === 'delete') {
+                return currentData.filter(entry => entry.id !== updatedData.id);
+            }
+            if (action === 'update') {
+                    return currentData.map(entry => entry.id === updatedData.id ? { ...entry, ...updatedData } : entry);
+            }
+            if (action === 'add') {
+                return [updatedData, ...currentData];
+            }
+            return currentData;
+        });
+    }, []);
 
     const filteredLedger = useMemo(() => {
         let processed = [...unifiedLedger];
@@ -453,6 +455,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                             <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
+                             <DropdownMenuItem onClick={copy}><Copy className="me-2 h-4 w-4"/>نسخ التفاصيل</DropdownMenuItem>
                              <EditBatchDialog batch={row.original} exchanges={exchanges} onSuccess={(updatedBatch) => handleActionSuccess('update', updatedBatch)}>
                                 <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4" /> تعديل</DropdownMenuItem>
                             </EditBatchDialog>
@@ -497,7 +500,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getFilteredRowModel: getFilteredRowModel(),
       meta: {
           updateData: (rowIndex: number, columnId: string, value: any) => {
-              setData(old => produce(old, draft => {
+              setUnifiedLedger(old => produce(old, draft => {
                   const originalIndex = draft.findIndex(item => item.id === filteredLedger[rowIndex].id);
                   if (originalIndex !== -1) {
                       (draft[originalIndex] as any)[columnId] = value;
@@ -506,6 +509,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
           }
       }
     });
+
+    useEffect(() => {
+      if (table && currentPage > 0) {
+        table.setPageIndex(currentPage);
+      }
+    }, [table, unifiedLedger]);
+
 
     return (
         <div className="space-y-6">
@@ -643,3 +653,5 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
+    
