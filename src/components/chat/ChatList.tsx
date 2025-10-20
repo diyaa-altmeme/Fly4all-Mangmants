@@ -29,7 +29,10 @@ export default function ChatList({ onSelectChat, selectedChatId }: ChatListProps
     const { user } = useAuth();
 
     useEffect(() => {
-        if (!user) return;
+        if (!user || !('uid' in user)) {
+            setLoading(false);
+            return;
+        }
 
         const q = query(
             collection(db, `userChats/${user.uid}/summaries`),
@@ -53,11 +56,11 @@ export default function ChatList({ onSelectChat, selectedChatId }: ChatListProps
 
     const handleSelectChat = async (chatId: string) => {
         onSelectChat(chatId);
-        if(user) {
+        if(user && 'uid' in user) {
             const chatSummaryRef = doc(db, `userChats/${user.uid}/summaries/${chatId}`);
-            const chatDoc = await getDocs(query(collection(db, `userChats/${user.uid}/summaries`), where('__name__', '==', chatId)));
+            const chatDocSnap = await getDoc(chatSummaryRef);
 
-            if (!chatDoc.empty && chatDoc.docs[0].data().unreadCount > 0) {
+            if (chatDocSnap.exists() && chatDocSnap.data().unreadCount > 0) {
                  const batch = writeBatch(db);
                  batch.update(chatSummaryRef, { unreadCount: 0 });
                  await batch.commit();
@@ -87,6 +90,14 @@ export default function ChatList({ onSelectChat, selectedChatId }: ChatListProps
             avatarUrl: chat.otherMemberAvatar,
             icon: <User className="h-5 w-5" />
         };
+    }
+
+    if (!user || !('uid' in user)) {
+        return (
+             <div className="flex justify-center items-center h-full p-8 text-muted-foreground text-center">
+                الرجاء تسجيل الدخول لعرض المحادثات.
+            </div>
+        )
     }
 
     return (
@@ -144,7 +155,7 @@ export default function ChatList({ onSelectChat, selectedChatId }: ChatListProps
                                         </div>
                                         <div className="flex justify-between items-center mt-1">
                                             <p className="text-sm text-muted-foreground truncate">
-                                                {lastMessage?.text || 'مرفق'}
+                                                {lastMessage?.text || 'ملف مرفق'}
                                             </p>
                                              {chat.unreadCount > 0 && (
                                                 <Badge className="w-5 h-5 flex items-center justify-center p-0">{chat.unreadCount}</Badge>
