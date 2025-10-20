@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { format } from "date-fns";
 import { addTransaction, watchTransactions, type Transaction, type TxCategory, type TxKind } from "@/lib/transactions";
 import UnifiedReportTable from "@/components/finance/UnifiedReportTable";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Download, Layers3, Repeat, Share2, Search, Filter } from "lucide-react";
+import { Download, Layers3, Repeat, Share2, Search, Filter, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth-context";
 import AddSegmentPeriodDialog from "@/app/segments/add-segment-period-dialog";
@@ -20,6 +20,9 @@ import AddSubscriptionDialog from "@/app/subscriptions/components/add-subscripti
 import AddManualProfitDialog from "@/app/profit-sharing/components/add-manual-profit-dialog";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useRouter } from "next/navigation";
+import { Autocomplete } from "@/components/ui/autocomplete";
+import { getAccountStatement } from "@/app/reports/actions";
+import type { ReportInfo } from "@/lib/types";
 
 
 export default function FinanceOverviewPage() {
@@ -31,81 +34,83 @@ export default function FinanceOverviewPage() {
   const [alertMonthlyCap, setAlertMonthlyCap] = useState(15000);
   const [fromDate, setFromDate] = useState(format(new Date(), "yyyy-MM-01"));
   const [toDate, setToDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [filterCompany, setFilterCompany] = useState("");
+  const [accountId, setAccountId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<TxCategory | "all">("all");
-  const [rows, setRows] = useState<Transaction[]>([]);
-  const { data: navData, loaded: isDataLoaded } = useVoucherNav();
-
-
-  useEffect(() => {
-    const unsub = watchTransactions(new Date(fromDate + "T00:00:00"), new Date(toDate + "T23:59:59"), (data) => {
-      let list = data;
-      if (filterCompany) list = list.filter(r => r.company?.toLowerCase().includes(filterCompany.toLowerCase()));
-      if (filterCategory !== "all") list = list.filter(r => r.category === filterCategory);
-      setRows(list);
-    });
-    return () => unsub();
-  }, [fromDate, toDate, filterCompany, filterCategory]);
-
-  const handleSave = async (tx: Omit<Transaction, "id" | "createdAt">) => {
-    try {
-        await addTransaction({
-            ...tx,
-            date: new Date(tx.date),
-            currency: tx.currency || "IQD",
-            createdBy: user?.uid || "system"
-        });
-        toast({ title: "تمت الإضافة بنجاح!" });
-
-        if (tx.amount > 10000) {
-            toast({
-                title: "تنبيه: عملية بمبلغ كبير",
-                description: `تم تسجيل عملية بمبلغ (${tx.amount.toLocaleString()})`,
-                variant: 'default' 
-            });
-        }
-    } catch(e: any) {
-         toast({ title: "خطأ", description: e.message, variant: "destructive" });
-    }
-  };
-
-  const searchCompany = () => {
-    setFilterCompany(searchTerm);
-  };
+  const [report, setReport] = useState<ReportInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const { data: navData, loaded: isDataLoaded, fetchData } = useVoucherNav();
   
+  useEffect(() => {
+    if (!isDataLoaded) {
+      fetchData();
+    }
+  }, [isDataLoaded, fetchData]);
+
+  const handleGenerateReport = async () => {
+    if (!accountId) {
+      toast({ title: "الرجاء اختيار حساب", variant: "destructive" });
+      return;
+    }
+    setIsLoading(true);
+    setReport(null);
+    try {
+      const reportData = await getAccountStatement({
+        accountId: accountId,
+        currency: "both",
+        dateRange: { from: new Date(fromDate), to: new Date(toDate) },
+        typeFilter: filterCategory === "all" ? [] : [filterCategory],
+      });
+      setReport(reportData);
+    } catch (e: any) {
+      toast({ title: "خطأ في جلب التقرير", description: e.message, variant: "destructive" });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const allAccounts = useMemo(() => {
+    if (!navData) return [];
+    return [
+      ...(navData.clients || []).map(c => ({ value: c.id, label: `عميل: ${c.name}` })),
+      ...(navData.suppliers || []).map(s => ({ value: s.id, label: `مورد: ${s.name}` })),
+      ...(navData.boxes || []).map(b => ({ value: b.id, label: `صندوق: ${b.name}` })),
+      ...(navData.exchanges || []).map(ex => ({ value: ex.id, label: `بورصة: ${ex.name}` })),
+    ];
+  }, [navData]);
+
+  const handleSuccess = () => {
+    router.refresh();
+    fetchData(true); // Force refetch
+  }
+
   const exportCSV = () => {
-    const header = ["التاريخ", "الشركة", "الحساب", "التصنيف", "النوع", "العملة", "المبلغ", "الرصيد", "الحالة", "ملاحظات"];
-    let running = 0;
-    const lines = rows.map(r => {
-      running += r.kind === "credit" ? r.amount : -r.amount;
-      return [
-        format(r.date, "yyyy-MM-dd"),
-        r.company,
-        r.accountName || '-',
-        r.category,
-        r.kind === "credit" ? "دائن" : "مدين",
-        r.currency,
-        r.amount,
-        running,
-        r.status || 'مكتملة',
-        r.notes || ""
-      ].map(val => `"${String(val).replace(/"/g, '""')}"`); // Escape quotes and wrap in quotes
-    });
+    if (!report?.transactions || report.transactions.length === 0) {
+        toast({ title: "لا توجد بيانات للتصدير", variant: "destructive"});
+        return;
+    }
+    const header = ["التاريخ", "النوع", "البيان", "مدين", "دائن", "الرصيد", "العملة", "الموظف"];
+    const lines = report.transactions.map(r => [
+      format(new Date(r.date), "yyyy-MM-dd"),
+      r.type,
+      typeof r.description === 'string' ? r.description : r.description.title,
+      r.debit,
+      r.credit,
+      r.balance,
+      r.currency,
+      r.officer || ""
+    ].map(val => `"${String(val).replace(/"/g, '""')}"`));
     const csv = [header.join(","), ...lines.map(r => r.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `report_${fromDate}_${toDate}.csv`;
+    a.download = `report_${accountId}_${fromDate}_${toDate}.csv`;
     a.click();
   };
   
-  const handleSuccess = () => {
-      router.refresh();
-  }
 
-  if (!isDataLoaded || !navData) {
-      return <div>جاري تحميل البيانات...</div>
+  if (!isDataLoaded) {
+    return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
   }
 
   return (
@@ -119,22 +124,26 @@ export default function FinanceOverviewPage() {
            <div className="flex flex-wrap gap-2 items-center justify-between">
                 <div className="flex gap-2">
                     <AddSegmentPeriodDialog 
-                        clients={navData.clients || []} 
-                        suppliers={navData.suppliers || []} 
+                        clients={navData?.clients || []} 
+                        suppliers={navData?.suppliers || []} 
                         onSuccess={handleSuccess} 
                     />
                     <AddSubscriptionDialog onSubscriptionAdded={handleSuccess} />
-                    <AddManualProfitDialog partners={navData.clients || []} onSuccess={handleSuccess} />
+                    <AddManualProfitDialog partners={navData?.clients || []} onSuccess={handleSuccess} />
                 </div>
 
                 <div className="flex gap-2 items-center">
-                    <Input
-                    placeholder="🔍 ابحث عن شركة أو علاقة..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="min-w-[220px]"
+                    <Autocomplete
+                      options={allAccounts}
+                      value={accountId}
+                      onValueChange={setAccountId}
+                      placeholder="🔍 ابحث عن شركة أو علاقة..."
+                      className="min-w-[220px]"
                     />
-                    <Button onClick={searchCompany}>عرض كشف الشركة</Button>
+                    <Button onClick={handleGenerateReport} disabled={isLoading}>
+                      {isLoading ? <Loader2 className="animate-spin me-2" /> : null}
+                      عرض كشف الحساب
+                    </Button>
                 </div>
             </div>
 
@@ -156,10 +165,11 @@ export default function FinanceOverviewPage() {
       <Card>
         <CardHeader>
           <CardTitle>كشف الحساب الموحد</CardTitle>
-          <CardDescription>عرض مباشر وتحليل مالي شامل. {filterCompany && <span>عرض كشف حساب لـ: <b>{filterCompany}</b></span>}</CardDescription>
+          {report && <CardDescription>عرض مباشر وتحليل مالي شامل لـ: <b>{allAccounts.find(a => a.value === accountId)?.label}</b></CardDescription>}
         </CardHeader>
         <CardContent>
-          <UnifiedReportTable rows={rows} shareR={shareR} shareM={shareM} />
+           {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div> :
+           <UnifiedReportTable report={report} shareR={shareR} shareM={shareM} />}
         </CardContent>
       </Card>
     </div>
