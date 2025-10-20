@@ -29,7 +29,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { produce } from 'immer';
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel } from '@tanstack/react-table';
+import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, Row } from '@tanstack/react-table';
 import { Separator } from "@/components/ui/separator";
 
 interface ExchangeManagerProps {
@@ -112,25 +112,17 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
 };
 
 
-const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void }) => {
-    const entry = row.original as UnifiedLedgerEntry;
+const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedgerEntry>; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void }) => {
+    const entry = row.original;
     const { toast } = useToast();
     const [isOpen, setIsOpen] = useState(false);
-    
-    // Local state for optimistic update, synced with prop
-    const [isConfirmed, setIsConfirmed] = useState(entry.isConfirmed || false);
-    useEffect(() => {
-        setIsConfirmed(entry.isConfirmed || false);
-    }, [entry.isConfirmed]);
 
     const handleConfirmChange = async (checked: boolean) => {
-        setIsConfirmed(checked); // Optimistic update
         onActionSuccess('update', { ...entry, isConfirmed: checked });
         
         const result = await updateBatch(entry.id, entry.entryType as 'transaction' | 'payment', { isConfirmed: checked });
         if (!result.success) {
             toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-             setIsConfirmed(!checked); // Revert on failure
              onActionSuccess('update', { ...entry, isConfirmed: !checked });
         } else {
              toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
@@ -139,7 +131,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
     
     return (
        <React.Fragment>
-            <TableRow className={cn("font-bold", isConfirmed && "bg-primary/10 hover:bg-primary/20")}>
+            <TableRow className={cn("font-bold", entry.isConfirmed && "bg-primary/10 hover:bg-primary/20")}>
                 {row.getVisibleCells().map((cell: any) => {
                     if (cell.column.id === 'collapsible') {
                         return (
@@ -164,7 +156,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
                         return (
                             <TableCell key={cell.id} className="p-2 text-center font-bold">
                                 <Checkbox
-                                    checked={isConfirmed}
+                                    checked={entry.isConfirmed}
                                     onCheckedChange={handleConfirmChange}
                                 />
                             </TableCell>
@@ -250,7 +242,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: any; exchanges: E
                                                 <TableCell className="p-2 font-mono text-right">
                                                     {detail.rate}
                                                 </TableCell>
-                                                <TableCell className="p-2 font-mono text-right font-bold">
+                                                <TableCell className="p-2 font-mono font-bold text-right">
                                                     {formatCurrency(detail.amountInUSD, 'USD')}
                                                 </TableCell>
                                                 <TableCell className="p-2 text-right">
@@ -285,11 +277,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'date', desc: true }]);
   const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
   const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
-  
-  const [pagination, setPagination] = React.useState({
-    pageIndex: 0,
-    pageSize: 15,
-  });
 
   const fetchExchangeData = useCallback(async () => {
     if (exchangeId) {
@@ -426,8 +413,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     };
 
     const columns: ColumnDef<UnifiedLedgerEntry>[] = useMemo(() => [
-        { id: 'collapsible', size: 40 },
-        { id: 'isConfirmed', header: 'تأكيد', size: 50 },
+        { id: 'collapsible', size: 40, cell: ({ row }) => <div className="p-1 text-center"><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => row.toggleSelected(!row.getIsSelected())}><ChevronDown className={cn("h-4 w-4 transition-transform", row.getIsSelected() && "rotate-180")} /></Button></div> },
+        { id: 'isConfirmed', header: 'تأكيد', size: 50, cell: ({ row }) => <div className="p-2 text-center"><Checkbox checked={row.original.isConfirmed} onCheckedChange={(checked) => handleActionSuccess('update', { ...row.original, isConfirmed: checked })} /></div> },
         { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span> },
         { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span> },
         { accessorKey: 'entryType', header: 'النوع', cell: ({ row }) => {
@@ -474,14 +461,12 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     const table = useReactTable({
       data: filteredLedger,
       columns,
-      state: { sorting, pagination },
-      onPaginationChange: setPagination,
+      state: { sorting },
       onSortingChange: setSorting,
       getCoreRowModel: getCoreRowModel(),
       getSortedRowModel: getSortedRowModel(),
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
-      manualPagination: false, 
     });
 
     return (
@@ -511,7 +496,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                         <div className="w-full grid grid-cols-1 md:grid-cols-3 gap-3 p-3 border rounded-lg bg-muted">
                             <StatCard title="إجمالي مطلوب لنا (دائنون لنا)" usd={summary.totalCreditUSD} iqd={summary.totalCreditIQD} className="border-green-500/30 bg-background text-green-600" />
                             <StatCard title="إجمالي مطلوب منا (مدينون لنا)" usd={summary.totalDebitUSD} iqd={summary.totalDebitIQD} className="border-red-500/30 bg-background text-red-600" />
-                            <StatCard title="صافي الرصيد" usd={netBalanceUSD} iqd={netBalanceIQD} className={cn("border-blue-500/30 bg-background", netBalanceUSD > 0 ? "text-green-600" : netBalanceUSD < 0 ? "text-red-600" : "text-foreground")} />
+                            <StatCard title="صافي الرصيد الإجمالي" usd={netBalanceUSD} iqd={netBalanceIQD} className={cn("border-blue-500/30 bg-background", netBalanceUSD > 0 ? "text-green-600" : netBalanceUSD < 0 ? "text-red-600" : "text-foreground")} />
                         </div>
                     </div>
                 </CardHeader>
@@ -607,7 +592,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                         <TableCell colSpan={columns.length} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
                                     </TableRow>
                                 ) : (
-                                    table.getRowModel().rows.map((row, index) => (
+                                    table.getRowModel().rows.map((row) => (
                                         <LedgerRow key={row.original.id} row={row} exchanges={exchanges} onActionSuccess={handleActionSuccess} />
                                     ))
                                 )}
@@ -620,3 +605,5 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
+    
