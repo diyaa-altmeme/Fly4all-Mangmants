@@ -171,7 +171,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const { toast } = useToast();
   const [exchangeId, setExchangeId] = useState<string>(initialExchangeId || initialExchanges[0]?.id || "");
   const [exchanges, setExchanges] = useState<Exchange[]>(initialExchanges);
-  const [data, setData] = useState<UnifiedLedgerEntry[]>([]);
+  const [unifiedLedger, setUnifiedLedger] = useState<UnifiedLedgerEntry[]>([]);
   const [date, setDate] = React.useState<DateRange | undefined>({
       from: subDays(new Date(), 30),
       to: new Date(),
@@ -189,7 +189,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       setLoading(true);
       try {
         const ledgerData = await getUnifiedExchangeLedger(exchangeId, date?.from, date?.to);
-        setData(ledgerData);
+        setUnifiedLedger(ledgerData);
       } catch (err: any) {
         toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
       } finally {
@@ -218,7 +218,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     setExchangeId(currentExchanges[0].id);
                 } else if (currentExchanges.length === 0) {
                     setExchangeId("");
-                    setData([]);
+                    setUnifiedLedger([]);
                 } else {
                     await fetchExchangeData();
                 }
@@ -233,22 +233,23 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
-        setData(currentData => {
-            if (action === 'delete') {
-                return currentData.filter(entry => entry.id !== updatedData.id);
-            }
-            if (action === 'add') {
-                 return [updatedData, ...currentData];
-            }
-            if (action === 'update') {
-                 return currentData.map(entry => entry.id === updatedData.id ? { ...entry, ...updatedData } : entry);
-            }
-            return currentData;
-        });
-    }, []);
+        if(action === 'add') {
+            fetchExchangeData();
+        } else {
+             setUnifiedLedger(currentData => {
+                if (action === 'delete') {
+                    return currentData.filter(entry => entry.id !== updatedData.id);
+                }
+                if (action === 'update') {
+                     return currentData.map(entry => entry.id === updatedData.id ? { ...entry, ...updatedData } : entry);
+                }
+                return currentData;
+            });
+        }
+    }, [fetchExchangeData]);
 
     const filteredLedger = useMemo(() => {
-        let processed = [...data];
+        let processed = [...unifiedLedger];
         
         if (debouncedSearchTerm) {
             const lowercasedTerm = debouncedSearchTerm.toLowerCase();
@@ -276,7 +277,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
         
         return processed;
-    }, [data, debouncedSearchTerm, typeFilter, confirmationFilter]);
+    }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
 
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
@@ -320,6 +321,15 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
 
     const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
         {
+            id: 'sequence',
+            header: 'ت',
+            cell: ({ row, table }) => {
+                const { pageIndex, pageSize } = table.getState().pagination;
+                return (pageIndex * pageSize) + row.index + 1;
+            },
+            size: 40,
+        },
+        {
             id: 'collapsible',
             header: () => null,
             cell: ({ row }) => (
@@ -356,6 +366,11 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     }
                 };
 
+                const confirmUncheck = () => {
+                    setDialogOpen(false);
+                    handleConfirmChange(false);
+                };
+
                 return (
                     <>
                         <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -366,10 +381,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel onClick={() => setDialogOpen(false)}>إلغاء</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => {
-                                        setDialogOpen(false);
-                                        handleConfirmChange(false);
-                                    }}>نعم، قم بالإلغاء</AlertDialogAction>
+                                    <AlertDialogAction onClick={confirmUncheck}>نعم، قم بالإلغاء</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
@@ -394,7 +406,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { id: 'entryType', header: 'النوع', size: 100,
           cell: ({ row }) => {
               const entry = row.original;
-              const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف'}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+              const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
               const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
 
               if (entry.entryType === 'transaction') {
@@ -441,19 +453,9 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                             <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                            <EditBatchDialog batch={row.original} exchanges={exchanges} onSuccess={(updatedBatch) => handleActionSuccess('update', updatedBatch)}>
+                             <EditBatchDialog batch={row.original} exchanges={exchanges} onSuccess={(updatedBatch) => handleActionSuccess('update', updatedBatch)}>
                                 <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4" /> تعديل</DropdownMenuItem>
                             </EditBatchDialog>
-                            <DropdownMenuItem onClick={(e) => {
-                                const entry = row.original;
-                                const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف'}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-                                e.stopPropagation(); 
-                                navigator.clipboard.writeText(textToCopy); 
-                                toast({ title: "تم نسخ التفاصيل بنجاح" });
-                            }}>
-                                <Copy className="me-2 h-4 w-4" /> نسخ التفاصيل
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="me-2 h-4 w-4" /> حذف</DropdownMenuItem>
@@ -641,5 +643,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
-    
