@@ -7,7 +7,7 @@ import { getVoucherById } from '@/app/accounts/vouchers/list/actions';
 import { getClients } from '@/app/relations/actions';
 import { getBoxes } from '@/app/boxes/actions';
 import { getSettings } from '@/app/settings/actions';
-import EditVoucherForm from './components/edit-voucher-form';
+import EditVoucherForm from '@/app/accounts/vouchers/[id]/edit/components/edit-voucher-form';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal, Loader2 } from 'lucide-react';
 import { getUsers } from '@/app/users/actions';

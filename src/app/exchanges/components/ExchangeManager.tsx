@@ -61,117 +61,12 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<UnifiedLedgerEntry>; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void; table: any }) => {
-    const entry = row.original;
-    const { toast } = useToast();
-    
-    const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-    const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
-
-    return (
-       <React.Fragment>
-            <TableRow data-state={row.getIsExpanded() ? 'open' : 'closed'} className={cn("font-bold", entry.isConfirmed && "bg-primary/10 hover:bg-primary/20")}>
-                {row.getVisibleCells().map((cell: any) => (
-                    <TableCell key={cell.id} className="p-2 font-bold" style={{ width: cell.column.getSize() }}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                ))}
-            </TableRow>
-            {row.getIsExpanded() && (
-                <TableRow>
-                    <TableCell colSpan={13} className="p-0">
-                        <div className="p-2 bg-muted/50">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="p-2 font-bold text-right">الطرف</TableHead>
-                                        <TableHead className="p-2 font-bold text-right">بواسطة</TableHead>
-                                        <TableHead className="p-2 font-bold text-center">النوع</TableHead>
-                                        <TableHead className="p-2 font-bold text-right">
-                                            المبلغ الأصلي
-                                        </TableHead>
-                                        <TableHead className="p-2 font-bold text-right">
-                                            سعر الصرف
-                                        </TableHead>
-                                        <TableHead className="p-2 font-bold text-right">
-                                            المعادل بالدولار
-                                        </TableHead>
-                                        <TableHead className="p-2 font-bold text-right">ملاحظات</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {(row.original.details || []).map((detail: any, index: number) => {
-                                        let typeLabel = '';
-                                        let typeClass = '';
-
-                                        if (row.original.entryType === 'transaction') {
-                                            typeLabel = 'دين';
-                                            typeClass = 'bg-red-500';
-                                        } else {
-                                            if (detail.type === 'payment') {
-                                                typeLabel = 'دفع';
-                                                typeClass = 'bg-blue-500';
-                                            } else if (detail.type === 'receipt') {
-                                                typeLabel = 'قبض';
-                                                typeClass = 'bg-green-500';
-                                            }
-                                        }
-
-                                        return (
-                                            <TableRow key={index} className="bg-background font-bold">
-                                                <TableCell className="p-2 text-right">
-                                                    {detail.partyName || detail.paidTo}
-                                                </TableCell>
-                                                <TableCell className="p-2 text-right">
-                                                    {row.original.entryType === 'transaction'
-                                                        ? exchanges.find((ex) => ex.id === row.original.exchangeId)
-                                                            ?.name || 'غير معروف'
-                                                        : detail.intermediary || row.original.userName}
-                                                </TableCell>
-                                                <TableCell className="p-2 text-center">
-                                                    <Badge
-                                                        variant={
-                                                            typeClass === 'destructive'
-                                                                ? 'destructive'
-                                                                : 'default'
-                                                        }
-                                                        className={cn(typeClass)}
-                                                        onClick={copy}
-                                                    >
-                                                        {typeLabel}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="p-2 font-mono text-right">
-                                                    {detail.originalAmount.toLocaleString()} {detail.originalCurrency}
-                                                </TableCell>
-                                                <TableCell className="p-2 font-mono text-right">
-                                                    {detail.rate}
-                                                </TableCell>
-                                                <TableCell className="p-2 font-mono font-bold text-right">
-                                                    {formatCurrency(detail.amountInUSD, 'USD')}
-                                                </TableCell>
-                                                <TableCell className="p-2 text-right">
-                                                    {detail.note}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </TableCell>
-                </TableRow>
-            )}
-       </React.Fragment>
-    );
-};
-
 
 export default function ExchangeManager({ initialExchanges, initialExchangeId }: ExchangeManagerProps) {
   const { toast } = useToast();
   const [exchangeId, setExchangeId] = useState<string>(initialExchangeId || initialExchanges[0]?.id || "");
   const [exchanges, setExchanges] = useState<Exchange[]>(initialExchanges);
-  const [data, setData] = useState<UnifiedLedgerEntry[]>([]);
+  const [unifiedLedger, setUnifiedLedger] = useState<UnifiedLedgerEntry[]>([]);
   const [date, setDate] = React.useState<DateRange | undefined>({
       from: subDays(new Date(), 30),
       to: new Date(),
@@ -183,13 +78,14 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
   const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
+  const [pageIndex, setPageIndex] = useState(0);
 
   const fetchExchangeData = useCallback(async () => {
     if (exchangeId) {
       setLoading(true);
       try {
         const ledgerData = await getUnifiedExchangeLedger(exchangeId, date?.from, date?.to);
-        setData(ledgerData);
+        setUnifiedLedger(ledgerData);
       } catch (err: any) {
         toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
       } finally {
@@ -218,7 +114,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     setExchangeId(currentExchanges[0].id);
                 } else if (currentExchanges.length === 0) {
                     setExchangeId("");
-                    setData([]);
+                    setUnifiedLedger([]);
                 } else {
                     await fetchExchangeData();
                 }
@@ -233,22 +129,17 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
-        setData(currentData => {
-            if (action === 'delete') {
-                return currentData.filter(entry => entry.id !== updatedData.id);
-            }
-            if (action === 'update') {
-                return currentData.map(entry => entry.id === updatedData.id ? { ...entry, ...updatedData } : entry);
-            }
-            if (action === 'add') {
-                return [updatedData, ...currentData];
-            }
-            return currentData;
-        });
-    }, []);
+        if (action === 'delete') {
+            setUnifiedLedger(currentData => currentData.filter(entry => entry.id !== updatedData.id));
+        } else if (action === 'add') {
+             fetchExchangeData(); // Re-fetch for adds to ensure sorting and balance are correct
+        } else if (action === 'update') {
+            setUnifiedLedger(currentData => currentData.map(entry => entry.id === updatedData.id ? { ...entry, ...updatedData } : entry));
+        }
+    }, [fetchExchangeData]);
 
     const filteredLedger = useMemo(() => {
-        let processed = [...data];
+        let processed = [...unifiedLedger];
         
         if (debouncedSearchTerm) {
             const lowercasedTerm = debouncedSearchTerm.toLowerCase();
@@ -276,7 +167,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
         
         return processed;
-    }, [data, debouncedSearchTerm, typeFilter, confirmationFilter]);
+    }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
 
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
@@ -349,16 +240,20 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                 React.useEffect(() => {
                     setIsChecked(row.original.isConfirmed || false);
                 }, [row.original.isConfirmed]);
-
+                
                 const handleConfirmChange = async (checked: boolean) => {
                     setIsPending(true);
+                    
+                    // Optimistic UI update
                     table.options.meta?.updateData(row.index, 'isConfirmed', checked);
+                    
                     try {
                         const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
                         if (!result.success) throw new Error(result.error);
                         toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
                     } catch (error: any) {
                         toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
+                        // Revert optimistic update on failure
                         table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
                     } finally {
                         setIsPending(false);
@@ -493,22 +388,26 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     const table = useReactTable({
       data: filteredLedger,
       columns,
-      state: { sorting, rowSelection },
+      state: { sorting, rowSelection, pagination: { pageIndex, pageSize: 15 } },
       onSortingChange: setSorting,
       onRowSelectionChange: setRowSelection,
+      onPaginationChange: (updater) => {
+        const newPage = typeof updater === "function" ? updater({ pageIndex, pageSize: 15 }).pageIndex : updater.pageIndex;
+        setPageIndex(newPage);
+      },
       getCoreRowModel: getCoreRowModel(),
       getSortedRowModel: getSortedRowModel(),
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
       meta: {
           updateData: (rowIndex: number, columnId: string, value: any) => {
-              const originalIndex = data.findIndex(item => item.id === filteredLedger[rowIndex].id);
-              if (originalIndex !== -1) {
-                  const newData = produce(data, draft => {
+              const updatedData = produce(unifiedLedger, draft => {
+                  const originalIndex = draft.findIndex(item => item.id === filteredLedger[rowIndex].id);
+                  if (originalIndex !== -1) {
                       (draft[originalIndex] as any)[columnId] = value;
-                  });
-                  setData(newData);
-              }
+                  }
+              });
+              setUnifiedLedger(updatedData);
           }
       }
     });
@@ -650,3 +549,4 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     );
 }
 
+    
