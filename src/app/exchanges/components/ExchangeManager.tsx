@@ -1,12 +1,11 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import type { Exchange, UnifiedLedgerEntry, ExchangeTransaction, ExchangePayment } from '@/lib/types';
 import { getUnifiedExchangeLedger, getExchanges, deleteExchangeTransactionBatch, deleteExchangePaymentBatch, updateBatch } from '../actions';
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +13,7 @@ import { PlusCircle, Loader2, ArrowUp, ArrowDown, MoreHorizontal, Edit, Trash2, 
 import { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format, subDays, parseISO } from "date-fns";
+import { format, subDays, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { cn } from "@/lib/utils";
 import AddTransactionsDialog from "./add-transactions-dialog";
@@ -64,12 +63,11 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: { 
+const LedgerRow = ({ row, exchanges, onActionSuccess, updateData }: { 
     row: Row<UnifiedLedgerEntry>, 
     exchanges: Exchange[], 
     onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void,
-    columns: ColumnDef<UnifiedLedgerEntry>[],
-    table: ReactTable<UnifiedLedgerEntry>,
+    updateData: (rowIndex: number, columnId: string, value: any) => void,
 }) => {
     const entry = row.original;
     const { toast } = useToast();
@@ -78,7 +76,6 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: {
 
     const handleConfirmChange = async (checked: boolean) => {
         setIsPending(true);
-        const { updateData } = table.options.meta as any;
         updateData(row.index, 'isConfirmed', checked);
 
         try {
@@ -105,97 +102,86 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: {
         <Collapsible asChild>
             <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
                 <TableRow data-state={row.getIsExpanded() ? "open" : "closed"}>
-                    {row.getVisibleCells().map(cell => {
-                        if (cell.column.id === 'isConfirmed') {
-                            return (
-                               <TableCell key={cell.id} className="p-1 text-center">
-                                    <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                                <AlertDialogDescription>سيتم إلغاء تأكيد هذه الدفعة. هل تريد المتابعة؟</AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                                <AlertDialogAction onClick={confirmUncheck}>نعم، قم بالإلغاء</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                     <Checkbox
-                                        checked={entry.isConfirmed}
-                                        onCheckedChange={(checked) => {
-                                            if (entry.isConfirmed && !checked) {
-                                                setDialogOpen(true);
-                                            } else {
-                                                handleConfirmChange(true);
-                                            }
-                                        }}
-                                        disabled={isPending}
-                                    />
-                                </TableCell>
-                            )
-                        }
-                        if (cell.column.id === 'actions') {
-                            return (
-                                 <TableCell key={cell.id} className="text-center p-1">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent>
-                                            <DropdownMenuItem onClick={handleCopy}><Copy className="me-2 h-4 w-4"/>نسخ التفاصيل</DropdownMenuItem>
-                                            <EditBatchDialog batch={row.original} exchanges={exchanges} onSuccess={(updatedBatch) => onActionSuccess('update', updatedBatch)}>
-                                                <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4" /> تعديل</DropdownMenuItem>
-                                            </EditBatchDialog>
-                                            <AlertDialog>
-                                                <AlertDialogTrigger asChild>
-                                                    <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="me-2 h-4 w-4" /> حذف</DropdownMenuItem>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذه الدفعة وكل المعاملات المرتبطة بها.</AlertDialogDescription></AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={async () => {
-                                                            const deleteAction = row.original.entryType === 'transaction' ? deleteExchangeTransactionBatch : deleteExchangePaymentBatch;
-                                                            const result = await deleteAction(row.original.id);
-                                                            if (result.success && result.deletedId) {
-                                                                toast({ title: 'تم حذف الدفعة بنجاح' });
-                                                                onActionSuccess('delete', { id: result.deletedId });
-                                                            } else {
-                                                                toast({ title: "خطأ", description: result.error, variant: "destructive" });
-                                                            }
-                                                        }}>نعم، احذف</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
-                                            </AlertDialog>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            )
-                        }
-                         if (cell.column.id === 'collapsible') {
-                            return (
-                                 <TableCell key={cell.id} className="text-center p-1">
-                                    {row.original.details && row.original.details.length > 0 && (
-                                         <CollapsibleTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                <ChevronDown className={cn("h-4 w-4 transition-transform", row.getIsExpanded() && "rotate-180")} />
-                                            </Button>
-                                        </CollapsibleTrigger>
-                                    )}
-                                </TableCell>
-                            )
-                         }
-                        return (
-                            <TableCell key={cell.id} className="p-2" style={{ width: cell.column.getSize() }}>
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                        )
-                    })}
+                    <TableCell className="p-1 text-center">
+                        {row.original.details && row.original.details.length > 0 && (
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <ChevronDown className={cn("h-4 w-4 transition-transform", row.getIsExpanded() && "rotate-180")} />
+                                </Button>
+                            </CollapsibleTrigger>
+                        )}
+                    </TableCell>
+                    <TableCell className="p-1 text-center">
+                        <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                    <AlertDialogDescription>سيتم إلغاء تأكيد هذه الدفعة. هل تريد المتابعة؟</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                    <AlertDialogAction onClick={confirmUncheck}>نعم، قم بالإلغاء</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                         <Checkbox
+                            checked={entry.isConfirmed}
+                            onCheckedChange={(checked) => {
+                                if (entry.isConfirmed && !checked) {
+                                    setDialogOpen(true);
+                                } else {
+                                    handleConfirmChange(true);
+                                }
+                            }}
+                            disabled={isPending}
+                        />
+                    </TableCell>
+                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'invoiceNumber')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'invoiceNumber')?.getContext())}</TableCell>
+                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'date')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'date')?.getContext())}</TableCell>
+                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'entryType')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'entryType')?.getContext())}</TableCell>
+                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'description')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'description')?.getContext())}</TableCell>
+                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'debit')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'debit')?.getContext())}</TableCell>
+                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'credit')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'credit')?.getContext())}</TableCell>
+                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'balance')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'balance')?.getContext())}</TableCell>
+                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'userName')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'userName')?.getContext())}</TableCell>
+                    <TableCell className="text-center p-1">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onClick={handleCopy}><Copy className="me-2 h-4 w-4"/>نسخ التفاصيل</DropdownMenuItem>
+                                <EditBatchDialog batch={row.original} exchanges={exchanges} onSuccess={(updatedBatch) => onActionSuccess('update', updatedBatch)}>
+                                    <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4" /> تعديل</DropdownMenuItem>
+                                </EditBatchDialog>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="me-2 h-4 w-4" /> حذف</DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذه الدفعة وكل المعاملات المرتبطة بها.</AlertDialogDescription></AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                            <AlertDialogAction onClick={async () => {
+                                                const deleteAction = row.original.entryType === 'transaction' ? deleteExchangeTransactionBatch : deleteExchangePaymentBatch;
+                                                const result = await deleteAction(row.original.id);
+                                                if (result.success && result.deletedId) {
+                                                    toast({ title: 'تم حذف الدفعة بنجاح' });
+                                                    onActionSuccess('delete', { id: result.deletedId });
+                                                } else {
+                                                    toast({ title: "خطأ", description: result.error, variant: "destructive" });
+                                                }
+                                            }}>نعم، احذف</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={columns.length} className="p-0">
+                        <TableCell colSpan={11} className="p-0">
                              <div className="p-2 bg-muted">
                                 <Table>
                                     <TableHeader>
@@ -221,7 +207,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: {
                                                     <TableCell className="p-1">{detail.intermediary || (isTransaction ? exchanges.find(ex => ex.id === entry.exchangeId)?.name : '-')}</TableCell>
                                                     <TableCell className="p-1 text-center"><Badge className={cn("text-white", detailTypeClass)}>{detailType}</Badge></TableCell>
                                                     <TableCell className="p-1 font-mono text-right whitespace-nowrap">{detail.originalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})} {detail.originalCurrency}</TableCell>
-                                                    <TableCell className="p-1 font-mono text-right">{row.original.currency !== 'USD' ? detail.rate : '-'}</TableCell>
+                                                    <TableCell className="p-1 font-mono text-right">{entry.currency !== 'USD' ? detail.rate : '-'}</TableCell>
                                                     <TableCell className="p-1 font-mono text-right whitespace-nowrap">{formatCurrency(detail.amountInUSD)}</TableCell>
                                                     <TableCell className="p-1">{detail.note}</TableCell>
                                                 </TableRow>
@@ -248,7 +234,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [sorting, setSorting] = React.useState<SortingState>([{ id: 'date', desc: true }]);
-    const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment_debit' | 'payment_credit'>('all');
+    const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment_credit' | 'payment_debit'>('all');
     const [confirmationFilter, setConfirmationFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
     const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({});
     const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
@@ -259,7 +245,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         if (exchangeId) {
             setLoading(true);
             try {
-                const ledgerData = await getUnifiedExchangeLedger(exchangeId);
+                const ledgerData = await getUnifiedExchangeLedger(exchangeId, date?.from, date?.to);
                 setUnifiedLedger(ledgerData);
             } catch (err: any) {
                 toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
@@ -270,12 +256,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             setUnifiedLedger([]);
             setLoading(false);
         }
-    }, [exchangeId, toast]);
+    }, [exchangeId, toast, date]);
     
-    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        fetchExchangeData();
-    }, [fetchExchangeData]);
-  
     useEffect(() => {
         fetchExchangeData();
     }, [fetchExchangeData]);
@@ -310,58 +292,10 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
     }, [exchangeId, fetchExchangeData, toast]);
 
-    const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
-        { id: 'sequence', header: 'ت', size: 40, cell: ({ row, table }) => {
-            const { pageIndex, pageSize } = table.getState().pagination;
-            return pageIndex * pageSize + row.index + 1;
-        }},
-        { id: 'collapsible', header: () => null, size: 40 },
-        { id: 'isConfirmed', header: 'تأكيد', size: 50 },
-        { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span>, size: 120 },
-        { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span>, size: 120 },
-        { id: 'entryType', header: 'النوع', size: 100,
-          cell: ({ row }) => {
-              const entry = row.original;
-              const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-              const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
-
-              if (entry.entryType === 'transaction') {
-                  return <Badge variant={'destructive'} className="font-bold cursor-pointer" onClick={copy}>دين</Badge>;
-              } else {
-                  const amount = entry.totalAmount || 0;
-                  return amount > 0 
-                      ? <Badge className="bg-blue-600 font-bold cursor-pointer" onClick={copy}>تسديد</Badge> 
-                      : <Badge className="bg-green-600 font-bold cursor-pointer" onClick={copy}>قبض</Badge>;
-              }
-          }
-        },
-        { accessorKey: 'description', header: 'الوصف', size: 250 },
-        { id: 'debit', header: 'علينا (مدين)', cell: ({ row }) => {
-            const entry = row.original;
-            const amount = entry.totalAmount || 0;
-            const debit = entry.entryType === 'transaction' ? Math.abs(amount) : (amount < 0 ? Math.abs(amount) : 0);
-            return <div className="font-bold text-red-600 whitespace-nowrap text-center">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
-        }, size: 120},
-        { id: 'credit', header: 'لنا (دائن)', cell: ({ row }) => {
-            const entry = row.original;
-            const amount = entry.totalAmount || 0;
-            const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
-            return <div className="font-bold text-green-600 whitespace-nowrap text-center">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
-        }, size: 120},
-        { 
-            accessorKey: 'balance', 
-            header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, 
-            cell: ({ row }) => {
-                const balance = row.original.balance || 0;
-                const colorClass = balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-foreground';
-                return <span className={cn("font-bold text-lg font-mono", colorClass)}>{formatCurrency(balance, 'USD')}</span>
-            },
-            size: 150
-        },
-        { accessorKey: 'userName', header: 'المستخدم', size: 120 },
-        { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80 },
-    ], [exchanges, toast, handleActionSuccess]);
-
+    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
+        fetchExchangeData();
+    }, [fetchExchangeData]);
+    
     const filteredLedger = useMemo(() => {
         let filteredData = unifiedLedger;
         
@@ -393,21 +327,55 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         if (confirmationFilter !== 'all') {
             filteredData = filteredData.filter(p => (confirmationFilter === 'confirmed') ? p.isConfirmed : !p.isConfirmed);
         }
-
-        if (date?.from || date?.to) {
-            filteredData = filteredData.filter(entry => {
-                const entryDate = parseISO(entry.date);
-                const from = date?.from ? startOfDay(date.from) : null;
-                const to = date?.to ? endOfDay(date.to) : null;
-                if(from && entryDate < from) return false;
-                if(to && entryDate > to) return false;
-                return true;
-            });
-        }
         
         return filteredData;
-    }, [unifiedLedger, debouncedSearchTerm, date, typeFilter, confirmationFilter]);
+    }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
     
+     const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
+        { id: 'collapsible', header: () => null, size: 40 },
+        { id: 'isConfirmed', header: 'تأكيد', size: 50 },
+        { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span>, size: 120 },
+        { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span>, size: 120 },
+        { id: 'entryType', header: 'النوع', size: 100,
+          cell: ({ row }) => {
+              const entry = row.original;
+              if (entry.entryType === 'transaction') {
+                  return <Badge variant={'destructive'} className="font-bold">دين</Badge>;
+              } else {
+                  const amount = entry.totalAmount || 0;
+                  return amount > 0 
+                      ? <Badge className="bg-blue-600 font-bold">تسديد</Badge> 
+                      : <Badge className="bg-green-600 font-bold">قبض</Badge>;
+              }
+          }
+        },
+        { accessorKey: 'description', header: 'الوصف', size: 250 },
+        { id: 'debit', header: 'علينا (مدين)', cell: ({ row }) => {
+            const entry = row.original;
+            const amount = entry.totalAmount || 0;
+            const debit = entry.entryType === 'transaction' ? Math.abs(amount) : (amount < 0 ? Math.abs(amount) : 0);
+            return <div className="font-bold text-red-600 whitespace-nowrap text-center">{debit > 0 ? formatCurrency(debit, 'USD') : '-'}</div>;
+        }, size: 120},
+        { id: 'credit', header: 'لنا (دائن)', cell: ({ row }) => {
+            const entry = row.original;
+            const amount = entry.totalAmount || 0;
+            const credit = entry.entryType === 'payment' && amount > 0 ? amount : 0;
+            return <div className="font-bold text-green-600 whitespace-nowrap text-center">{credit > 0 ? formatCurrency(credit, 'USD') : '-'}</div>;
+        }, size: 120},
+        { 
+            accessorKey: 'balance', 
+            header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>المحصلة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, 
+            cell: ({ row }) => {
+                const balance = row.original.balance || 0;
+                const colorClass = balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-600' : 'text-foreground';
+                return <span className={cn("font-bold text-lg font-mono", colorClass)}>{formatCurrency(balance, 'USD')}</span>
+            },
+            size: 150
+        },
+        { accessorKey: 'userName', header: 'المستخدم', size: 120 },
+        { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80 },
+    ], []);
+
     const table = useReactTable({
       data: filteredLedger,
       columns,
@@ -419,7 +387,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getSortedRowModel: getSortedRowModel(),
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
-      manualPagination: false, // We're handling filtering in-memory
+      manualPagination: false,
       meta: {
         updateData: (rowIndex: number, columnId: string, value: any) => {
           const itemToUpdateId = filteredLedger[rowIndex].id;
@@ -431,12 +399,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         },
       },
     });
-
-    useEffect(() => {
-      if (!loading && table) {
-        table.setPageIndex(pagination.pageIndex);
-      }
-    }, [loading, table, pagination.pageIndex]);
 
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
@@ -551,7 +513,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button onClick={refreshAllData} variant="outline" size="icon" className="h-9 w-9" disabled={loading}>
+                            <Button onClick={fetchExchangeData} variant="outline" size="icon" className="h-9 w-9" disabled={loading}>
                                 {loading ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4" />}
                             </Button>
                             <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={(b) => handleActionSuccess('add', b)}>
@@ -608,8 +570,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             row={row} 
                                             exchanges={exchanges} 
                                             onActionSuccess={handleActionSuccess} 
-                                            table={table}
-                                            columns={columns}
+                                            updateData={table.options.meta!.updateData}
                                         />
                                     ))
                                 )}
@@ -622,3 +583,5 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
+    
