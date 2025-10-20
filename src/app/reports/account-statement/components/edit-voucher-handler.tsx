@@ -10,8 +10,15 @@ import NewJournalVoucherDialog from '@/components/vouchers/components/new-journa
 import BookingDialog from '@/app/bookings/components/add-booking-dialog';
 import EditVisaDialog from '@/app/visas/components/edit-visa-dialog';
 import { getVoucherById } from '@/app/accounts/vouchers/list/actions';
-import { getBookingById } from '@/app/bookings/actions'; // You might need to create this
+import { getBookings } from '@/app/bookings/actions'; // You might need to create this
 import { getVisaBookingById } from '@/app/visas/actions'; // You might need to create this
+import { getSubscriptionById } from '@/app/subscriptions/actions';
+import EditSegmentPeriodDialog from '@/components/segments/edit-segment-period-dialog';
+import EditManualProfitDialog from '@/app/profit-sharing/components/edit-manual-profit-dialog';
+import { useVoucherNav } from '@/context/voucher-nav-context';
+import { getMonthlyProfits } from '@/app/profit-sharing/actions';
+import AddSubscriptionDialog from '@/app/subscriptions/components/add-subscription-dialog';
+import { parseISO } from 'date-fns';
 
 interface EditVoucherHandlerProps {
   voucherId: string;
@@ -23,8 +30,10 @@ const EditVoucherHandler = ({ voucherId, onVoucherUpdated, children }: EditVouch
   const [data, setData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const { data: navData } = useVoucherNav();
 
   const handleOpen = async () => {
+    if (data) return; // Data already loaded
     setLoading(true);
     setError(null);
     try {
@@ -46,7 +55,45 @@ const EditVoucherHandler = ({ voucherId, onVoucherUpdated, children }: EditVouch
 
   const voucherType = data.voucherType;
 
+  if (voucherType === 'segment') {
+    return (
+        <EditSegmentPeriodDialog 
+            existingPeriod={{
+                fromDate: data.originalData.fromDate,
+                toDate: data.originalData.toDate,
+                entries: [data.originalData]
+            }} 
+            clients={navData?.clients || []} 
+            suppliers={navData?.suppliers || []} 
+            onSuccess={onVoucherUpdated}
+        />
+    )
+  }
+  
+  if (data.originalData?.manualProfitId) {
+      // Logic to fetch the full manual profit period to pass to the dialog
+      // This is a simplified approach. A dedicated fetch function would be better.
+      // For now, we assume we have enough data or that the component can handle it.
+      return (
+           <EditManualProfitDialog
+            period={{...data.originalData, id: data.originalData.manualProfitId, totalProfit: data.originalData.profit }}
+            partners={[...(navData?.clients || []), ...(navData?.suppliers || [])]}
+            onSuccess={onVoucherUpdated}
+        />
+      )
+  }
+
   switch (voucherType) {
+    case 'subscription':
+      return (
+          <AddSubscriptionDialog
+            isEditing
+            initialData={{...data.originalData, purchaseDate: parseISO(data.originalData.purchaseDate), startDate: parseISO(data.originalData.startDate)}}
+            onSubscriptionUpdated={onVoucherUpdated}
+          >
+            {children}
+          </AddSubscriptionDialog>
+      );
     case 'journal_from_standard_receipt':
       return (
         <NewStandardReceiptDialog onVoucherAdded={onVoucherUpdated} isEditing initialData={data.originalData}>
