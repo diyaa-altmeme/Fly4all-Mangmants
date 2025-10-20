@@ -71,6 +71,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, onConfirmChange, columns }
     const [dialogOpen, setDialogOpen] = React.useState(false);
 
     const handleConfirmChange = async (checked: boolean) => {
+        const currentPage = row.table.getState().pagination.pageIndex;
         setIsPending(true);
         onConfirmChange(entry.id, checked);
         try {
@@ -82,6 +83,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, onConfirmChange, columns }
             onConfirmChange(entry.id, !checked); // Revert optimistic update
         } finally {
             setIsPending(false);
+            row.table.setPageIndex(currentPage);
         }
     };
 
@@ -95,112 +97,112 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, onConfirmChange, columns }
 
     return (
         <Collapsible asChild>
-            <>
-            <TableRow data-state={row.getIsExpanded() ? 'open' : 'closed'} className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
-                {row.getVisibleCells().map(cell => {
-                    if (cell.column.id === 'isConfirmed') {
+             <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
+                <TableRow data-state={row.getIsExpanded() ? "open" : "closed"}>
+                    {row.getVisibleCells().map(cell => {
+                        if (cell.column.id === 'isConfirmed') {
+                            return (
+                               <TableCell key={cell.id} className="p-1 text-center">
+                                    <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                                <AlertDialogDescription>سيتم إلغاء تأكيد هذه الدفعة. هل تريد المتابعة؟</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                                <AlertDialogAction onClick={confirmUncheck}>نعم، قم بالإلغاء</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                     <Checkbox
+                                        checked={entry.isConfirmed}
+                                        onCheckedChange={(checked) => {
+                                            if (entry.isConfirmed && !checked) {
+                                                setDialogOpen(true);
+                                            } else {
+                                                handleConfirmChange(true);
+                                            }
+                                        }}
+                                        disabled={isPending}
+                                    />
+                                </TableCell>
+                            )
+                        }
+                        if (cell.column.id === 'actions') {
+                            return (
+                                 <TableCell key={cell.id} className="text-center p-1">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuItem onClick={copy}><Copy className="me-2 h-4 w-4"/>نسخ التفاصيل</DropdownMenuItem>
+                                            <EditBatchDialog batch={row.original} exchanges={exchanges} onSuccess={(updatedBatch) => onActionSuccess('update', updatedBatch)}>
+                                                <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4" /> تعديل</DropdownMenuItem>
+                                            </EditBatchDialog>
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="me-2 h-4 w-4" /> حذف</DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذه الدفعة وكل المعاملات المرتبطة بها.</AlertDialogDescription></AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={async () => {
+                                                            const deleteAction = row.original.entryType === 'transaction' ? deleteExchangeTransactionBatch : deleteExchangePaymentBatch;
+                                                            const result = await deleteAction(row.original.id);
+                                                            if (result.success && result.deletedId) {
+                                                                toast({ title: 'تم حذف الدفعة بنجاح' });
+                                                                onActionSuccess('delete', { id: result.deletedId });
+                                                            } else {
+                                                                toast({ title: "خطأ", description: result.error, variant: "destructive" });
+                                                            }
+                                                        }}>نعم، احذف</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </TableCell>
+                            )
+                        }
+                         if (cell.column.id === 'collapsible') {
+                            return (
+                                 <TableCell key={cell.id} className="text-center p-1">
+                                    {row.original.details && row.original.details.length > 0 && (
+                                         <CollapsibleTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <ChevronDown className={cn("h-4 w-4 transition-transform", row.getIsExpanded() && "rotate-180")} />
+                                            </Button>
+                                        </CollapsibleTrigger>
+                                    )}
+                                </TableCell>
+                            )
+                         }
                         return (
-                           <TableCell key={cell.id} className="p-1 text-center">
-                                <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                            <AlertDialogDescription>سيتم إلغاء تأكيد هذه الدفعة. هل تريد المتابعة؟</AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                            <AlertDialogAction onClick={confirmUncheck}>نعم، قم بالإلغاء</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                                 <Checkbox
-                                    checked={entry.isConfirmed}
-                                    onCheckedChange={(checked) => {
-                                        if (entry.isConfirmed && !checked) {
-                                            setDialogOpen(true);
-                                        } else {
-                                            handleConfirmChange(true);
-                                        }
-                                    }}
-                                    disabled={isPending}
-                                />
+                            <TableCell key={cell.id} className="p-2" style={{ width: cell.column.getSize() }}>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
                             </TableCell>
                         )
-                    }
-                    if (cell.column.id === 'actions') {
-                        return (
-                             <TableCell key={cell.id} className="text-center p-1">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                        <DropdownMenuItem onClick={copy}><Copy className="me-2 h-4 w-4"/>نسخ التفاصيل</DropdownMenuItem>
-                                        <EditBatchDialog batch={row.original} exchanges={exchanges} onSuccess={(updatedBatch) => onActionSuccess('update', updatedBatch)}>
-                                            <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4" /> تعديل</DropdownMenuItem>
-                                        </EditBatchDialog>
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive"><Trash2 className="me-2 h-4 w-4" /> حذف</DropdownMenuItem>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف هذه الدفعة وكل المعاملات المرتبطة بها.</AlertDialogDescription></AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={async () => {
-                                                        const deleteAction = row.original.entryType === 'transaction' ? deleteExchangeTransactionBatch : deleteExchangePaymentBatch;
-                                                        const result = await deleteAction(row.original.id);
-                                                        if (result.success && result.deletedId) {
-                                                            toast({ title: 'تم حذف الدفعة بنجاح' });
-                                                            onActionSuccess('delete', { id: result.deletedId });
-                                                        } else {
-                                                            toast({ title: "خطأ", description: result.error, variant: "destructive" });
-                                                        }
-                                                    }}>نعم، احذف</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </TableCell>
-                        )
-                    }
-                     if (cell.column.id === 'collapsible') {
-                        return (
-                             <TableCell key={cell.id} className="text-center p-1">
-                                {row.original.details && row.original.details.length > 0 && (
-                                     <CollapsibleTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                                            <ChevronDown className={cn("h-4 w-4 transition-transform", row.getIsExpanded() && "rotate-180")} />
-                                        </Button>
-                                    </CollapsibleTrigger>
-                                )}
-                            </TableCell>
-                        )
-                     }
-                    return (
-                        <TableCell key={cell.id} className="p-2" style={{ width: cell.column.getSize() }}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                    )
-                })}
-            </TableRow>
-             <CollapsibleContent asChild>
-                <TableRow>
-                    <TableCell colSpan={columns.length + 1} className="p-0">
-                        <div className="p-2 bg-muted">
-                            {entry.details.map((detail: any, index) => (
-                                <div key={index} className="flex justify-between items-center text-xs p-1 border-b">
-                                    <span className="font-semibold">{detail.partyName || detail.paidTo}</span>
-                                    <span>{detail.note}</span>
-                                    <span className="font-mono">{detail.originalAmount.toLocaleString()} {detail.originalCurrency}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </TableCell>
+                    })}
                 </TableRow>
-            </CollapsibleContent>
-            </>
+                <CollapsibleContent asChild>
+                    <TableRow>
+                        <TableCell colSpan={columns.length + 1} className="p-0">
+                            <div className="p-2 bg-muted">
+                                {entry.details.map((detail: any, index) => (
+                                    <div key={index} className="flex justify-between items-center text-xs p-1 border-b">
+                                        <span className="font-semibold">{detail.partyName || detail.paidTo}</span>
+                                        <span>{detail.note}</span>
+                                        <span className="font-mono">{detail.originalAmount.toLocaleString()} {detail.originalCurrency}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                </CollapsibleContent>
+            </tbody>
         </Collapsible>
     )
 }
@@ -247,7 +249,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
 
     const refreshAllData = useCallback(async () => {
         setLoading(true);
-        const currentPage = pageIndex; 
+        const currentPage = pageIndex;
         try {
             const result = await getExchanges();
             if (result.accounts) {
@@ -269,19 +271,20 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             toast({ title: 'خطأ في تحديث البيانات', description: err.message, variant: 'destructive' });
         } finally {
             setLoading(false);
-            setTimeout(() => {
-                table.setPageIndex(currentPage);
-            }, 0);
+            table.setPageIndex(currentPage);
         }
     }, [exchangeId, fetchExchangeData, toast, pageIndex]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
+        const currentPage = table.getState().pagination.pageIndex;
         if (action === 'delete') {
             setUnifiedLedger(prev => prev.filter(item => item.id !== data.id));
         } else {
-            refreshAllData();
+            fetchExchangeData().then(() => {
+                setTimeout(() => table.setPageIndex(currentPage), 0);
+            });
         }
-    }, [refreshAllData]);
+    }, [fetchExchangeData, table]);
 
     const filteredLedger = useMemo(() => {
         return unifiedLedger.filter(entry => {
@@ -347,6 +350,20 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         toast({ title: "تم التصدير بنجاح" });
     };
 
+    const handleConfirmChangeInRow = useCallback(
+        (rowId: string, checked: boolean) => {
+        setUnifiedLedger(
+            produce(draft => {
+            const item = draft.find(d => d.id === rowId);
+            if (item) {
+                item.isConfirmed = checked;
+            }
+            })
+        );
+        },
+        []
+    );
+
     const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
         { id: 'sequence', header: 'ت', size: 40 },
         { id: 'collapsible', header: () => null, size: 40 },
@@ -410,7 +427,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getSortedRowModel: getSortedRowModel(),
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
-       meta: {
+      meta: {
         updateData: (rowIndex: number, columnId: string, value: any) => {
           const itemToUpdateId = table.getRowModel().rows[rowIndex]?.original.id;
           if (!itemToUpdateId) return;
@@ -425,20 +442,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         },
       }
     });
-
-    const handleConfirmChangeInRow = useCallback(
-        (rowId: string, checked: boolean) => {
-        setUnifiedLedger(
-            produce(draft => {
-            const item = draft.find(d => d.id === rowId);
-            if (item) {
-                item.isConfirmed = checked;
-            }
-            })
-        );
-        },
-        []
-    );
 
     return (
         <div className="space-y-6">
@@ -570,7 +573,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             row={row} 
                                             exchanges={exchanges} 
                                             onActionSuccess={handleActionSuccess} 
-                                            table={table} 
                                             onConfirmChange={handleConfirmChangeInRow} 
                                             columns={columns}
                                         />
@@ -585,5 +587,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
+    
 
     
