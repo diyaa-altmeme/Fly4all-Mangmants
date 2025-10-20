@@ -16,9 +16,9 @@ import { Button } from "@/components/ui/button";
 import { ChevronDown, Info, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import Link from 'next/link';
 
-const formatCurrency = (amount: number, currency: string) => {
+const formatCurrency = (amount: number) => {
   if (Math.abs(amount) < 0.01) return `0.00`;
-  return `${new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}`;
+  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
 };
 
 const DetailedDescription = ({ description }: { description: StructuredDescription | string }) => {
@@ -47,8 +47,6 @@ const DetailedDescription = ({ description }: { description: StructuredDescripti
 
 
 const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => {
-    const [isEditing, setIsEditing] = React.useState(false);
-
     return (
         <tr className="text-sm text-center font-medium">
             <td className="p-2 font-mono">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd') : '-'}</td>
@@ -62,13 +60,13 @@ const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => 
              <td className="p-2 text-right text-xs">
                 {transaction.notes}
             </td>
-            <td className="p-2 font-mono font-bold text-red-600">{transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}</td>
-            <td className="p-2 font-mono font-bold text-green-600">{transaction.credit > 0 ? formatCurrency(transaction.credit, transaction.currency) : '-'}</td>
+            <td className="p-2 font-mono font-bold text-red-600 text-center">{transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}</td>
+            <td className="p-2 font-mono font-bold text-green-600 text-center">{transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}</td>
             <td className="p-2 font-mono text-center">
                 <Badge variant={transaction.currency === 'USD' ? 'default' : 'secondary'} className={cn(transaction.currency === 'USD' && 'bg-accent text-accent-foreground')}>{transaction.currency}</Badge>
             </td>
-            <td className={cn("p-2 font-mono font-bold", transaction.balance < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balance, transaction.currency)}</td>
-            <td className="p-2 text-xs">{transaction.officer}</td>
+            <td className={cn("p-2 font-mono font-bold text-center", transaction.balance < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balance)}</td>
+            <td className="p-2 text-xs text-center">{transaction.officer}</td>
              <td className="p-2 text-center">
                 <div className="flex items-center gap-1 justify-center">
                     <Button asChild size="icon" variant="ghost" className="h-7 w-7 text-blue-600">
@@ -111,5 +109,3 @@ export default function ReportTable({ transactions, reportType }: { transactions
         </Table>
     );
 }
-
-      
