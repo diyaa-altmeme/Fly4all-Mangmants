@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -29,7 +30,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { produce } from 'immer';
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, Row, RowSelectionState, PaginationState } from '@tanstack/react-table';
+import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, Row, RowSelectionState, PaginationState, type Table as ReactTable } from '@tanstack/react-table';
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useRouter } from 'next/navigation';
@@ -63,11 +64,12 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, columns }: { 
+const LedgerRow = ({ row, exchanges, onActionSuccess, columns, table }: { 
     row: Row<UnifiedLedgerEntry>, 
     exchanges: Exchange[], 
     onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void,
     columns: ColumnDef<UnifiedLedgerEntry>[],
+    table: ReactTable<UnifiedLedgerEntry>,
 }) => {
     const entry = row.original;
     const { toast } = useToast();
@@ -98,12 +100,6 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, columns }: {
 
     const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
     const handleCopy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
-
-    const table = useReactTable<UnifiedLedgerEntry>({
-        data: [],
-        columns: [],
-        getCoreRowModel: getCoreRowModel(),
-    });
 
     return (
         <Collapsible asChild>
@@ -259,9 +255,60 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     
     const router = useRouter();
 
+    const fetchExchangeData = useCallback(async () => {
+        if (exchangeId) {
+            setLoading(true);
+            try {
+                const ledgerData = await getUnifiedExchangeLedger(exchangeId);
+                setUnifiedLedger(ledgerData);
+            } catch (err: any) {
+                toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            setUnifiedLedger([]);
+            setLoading(false);
+        }
+    }, [exchangeId, toast]);
+    
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
         fetchExchangeData();
-    }, []);
+    }, [fetchExchangeData]);
+  
+    useEffect(() => {
+        fetchExchangeData();
+    }, [fetchExchangeData]);
+  
+    useEffect(() => {
+      setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
+    }, [initialExchangeId, initialExchanges]);
+
+    const refreshAllData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const result = await getExchanges();
+            if (result.accounts) {
+                const currentExchanges = result.accounts;
+                setExchanges(currentExchanges);
+                const currentSelectionIsValid = currentExchanges.some(ex => ex.id === exchangeId);
+                if (!currentSelectionIsValid && currentExchanges.length > 0) {
+                    setExchangeId(currentExchanges[0].id);
+                } else if (currentExchanges.length === 0) {
+                    setExchangeId("");
+                    setUnifiedLedger([]);
+                } else {
+                    await fetchExchangeData();
+                }
+            } else {
+                 toast({ title: "خطأ", description: "فشل تحديث قائمة البورصات.", variant: "destructive" });
+            }
+        } catch (err: any) {
+            toast({ title: 'خطأ في تحديث البيانات', description: err.message, variant: 'destructive' });
+        } finally {
+            setLoading(false);
+        }
+    }, [exchangeId, fetchExchangeData, toast]);
 
     const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
         { id: 'sequence', header: 'ت', size: 40, cell: ({ row, table }) => {
@@ -315,57 +362,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80 },
     ], [exchanges, toast, handleActionSuccess]);
 
-    const fetchExchangeData = useCallback(async () => {
-        if (exchangeId) {
-            setLoading(true);
-            try {
-                const ledgerData = await getUnifiedExchangeLedger(exchangeId);
-                setUnifiedLedger(ledgerData);
-            } catch (err: any) {
-                toast({ title: 'خطأ في تحميل البيانات', description: err.message, variant: 'destructive' });
-            } finally {
-                setLoading(false);
-            }
-        } else {
-            setUnifiedLedger([]);
-            setLoading(false);
-        }
-    }, [exchangeId, toast]);
-    
-    useEffect(() => {
-        fetchExchangeData();
-    }, [fetchExchangeData]);
-  
-    useEffect(() => {
-      setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
-    }, [initialExchangeId, initialExchanges]);
-
-    const refreshAllData = useCallback(async () => {
-        setLoading(true);
-        try {
-            const result = await getExchanges();
-            if (result.accounts) {
-                const currentExchanges = result.accounts;
-                setExchanges(currentExchanges);
-                const currentSelectionIsValid = currentExchanges.some(ex => ex.id === exchangeId);
-                if (!currentSelectionIsValid && currentExchanges.length > 0) {
-                    setExchangeId(currentExchanges[0].id);
-                } else if (currentExchanges.length === 0) {
-                    setExchangeId("");
-                    setUnifiedLedger([]);
-                } else {
-                    await fetchExchangeData();
-                }
-            } else {
-                 toast({ title: "خطأ", description: "فشل تحديث قائمة البورصات.", variant: "destructive" });
-            }
-        } catch (err: any) {
-            toast({ title: 'خطأ في تحديث البيانات', description: err.message, variant: 'destructive' });
-        } finally {
-            setLoading(false);
-        }
-    }, [exchangeId, fetchExchangeData, toast]);
-
     const filteredLedger = useMemo(() => {
         let filteredData = unifiedLedger;
         
@@ -387,10 +383,10 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         if (typeFilter !== 'all') {
             if (typeFilter === 'transaction') {
                 filteredData = filteredData.filter(p => p.entryType === 'transaction');
-            } else if (typeFilter === 'payment_debit') {
-                filteredData = filteredData.filter(p => p.entryType === 'payment' && (p.totalAmount || 0) < 0);
             } else if (typeFilter === 'payment_credit') {
                 filteredData = filteredData.filter(p => p.entryType === 'payment' && (p.totalAmount || 0) > 0);
+            } else if (typeFilter === 'payment_debit') {
+                 filteredData = filteredData.filter(p => p.entryType === 'payment' && (p.totalAmount || 0) < 0);
             }
         }
 
@@ -413,26 +409,34 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [unifiedLedger, debouncedSearchTerm, date, typeFilter, confirmationFilter]);
     
     const table = useReactTable({
-        data: filteredLedger,
-        columns,
-        state: { sorting, rowSelection, pagination },
-        onSortingChange: setSorting,
-        onRowSelectionChange: setRowSelection,
-        onPaginationChange: setPagination,
-        getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        meta: {
-            updateData: (rowIndex: number, columnId: string, value: any) => {
-              setUnifiedLedger((current) =>
-                current.map((item, index) =>
-                  index === rowIndex ? { ...item, [columnId]: value } : item
-                )
-              );
-            },
+      data: filteredLedger,
+      columns,
+      state: { sorting, rowSelection, pagination },
+      onSortingChange: setSorting,
+      onRowSelectionChange: setRowSelection,
+      onPaginationChange: setPagination,
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getPaginationRowModel: getPaginationRowModel(),
+      getFilteredRowModel: getFilteredRowModel(),
+      manualPagination: false, // We're handling filtering in-memory
+      meta: {
+        updateData: (rowIndex: number, columnId: string, value: any) => {
+          const itemToUpdateId = filteredLedger[rowIndex].id;
+          setUnifiedLedger(current =>
+            current.map(item =>
+              item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
+            )
+          );
         },
+      },
     });
+
+    useEffect(() => {
+      if (!loading && table) {
+        table.setPageIndex(pagination.pageIndex);
+      }
+    }, [loading, table, pagination.pageIndex]);
 
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
@@ -531,8 +535,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                     <SelectTrigger className="w-full sm:w-[150px] h-9"><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">كل الحركات</SelectItem>
-                                        <SelectItem value="transaction">دين</SelectItem>
-                                        <SelectItem value="payment_credit">تسديد</SelectItem>
+                                        <SelectItem value="transaction">دين (معاملات)</SelectItem>
+                                        <SelectItem value="payment_credit">تسديد (دفع)</SelectItem>
                                         <SelectItem value="payment_debit">قبض</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -618,4 +622,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-    
