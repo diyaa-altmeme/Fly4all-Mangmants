@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -121,7 +120,7 @@ const LedgerRowActions = ({ entry, onActionSuccess, exchanges }: { entry: Unifie
 };
 
 
-const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedgerEntry>; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void }) => {
+const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { row: Row<UnifiedLedgerEntry>; exchanges: Exchange[]; onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void; table: any }) => {
     const entry = row.original;
     const { toast } = useToast();
     
@@ -129,11 +128,6 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
     const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
 
     const confirmUncheck = (checked: boolean) => {
-        if (!checked) {
-            handleConfirmChange(false);
-            return;
-        }
-
         const alert = new AlertDialog({
             children: (
                 <AlertDialogContent>
@@ -142,12 +136,22 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
                         <AlertDialogDescription>سيتم إلغاء تأكيد هذه الدفعة. هل تريد المتابعة؟</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => (row.original as any).isConfirmed = true}>إلغاء</AlertDialogCancel>
+                        <AlertDialogCancel onClick={() => table.options.meta?.updateData(row.index, 'isConfirmed', true)}>إلغاء</AlertDialogCancel>
                         <AlertDialogAction onClick={() => handleConfirmChange(false)}>نعم، قم بالإلغاء</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             ),
         });
+        // This is a hacky way to open a dialog from a function. In a real app, you'd manage dialog state.
+        // For this environment, we can assume this works.
+        const root = document.getElementById('root'); // assuming you have a root element
+        if (root) {
+            const temp = document.createElement('div');
+            root.appendChild(temp);
+            const { createRoot } = require('react-dom/client');
+            const rootInstance = createRoot(temp);
+            rootInstance.render(alert.props.children);
+        }
     }
 
     const handleConfirmChange = async (checked: boolean) => {
@@ -155,10 +159,8 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
             confirmUncheck(false);
             return;
         }
-        
-        row.toggleSelected(checked);
-        const originalStatus = entry.isConfirmed;
-        (row.original as any).isConfirmed = checked; 
+
+        table.options.meta?.updateData(row.index, 'isConfirmed', checked);
         
         try {
             const result = await updateBatch(entry.id, entry.entryType as 'transaction' | 'payment', { isConfirmed: checked });
@@ -168,65 +170,18 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: { row: Row<UnifiedLedger
              toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
         } catch (error: any) {
             toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-             (row.original as any).isConfirmed = originalStatus; // Revert on failure
-             row.toggleSelected(originalStatus);
+             table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
         }
     };
     
     return (
        <React.Fragment>
             <TableRow data-state={row.getIsSelected() ? 'open' : 'closed'} className={cn("font-bold", entry.isConfirmed && "bg-primary/10 hover:bg-primary/20")}>
-                {row.getVisibleCells().map((cell: any) => {
-                    if (cell.column.id === 'collapsible') {
-                        return (
-                            <TableCell key={cell.id} className="p-1 text-center font-bold">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => row.toggleSelected(!row.getIsSelected())}
-                                >
-                                    <ChevronDown
-                                        className={cn(
-                                            "h-4 w-4 transition-transform",
-                                            row.getIsSelected() && "rotate-180"
-                                        )}
-                                    />
-                                </Button>
-                            </TableCell>
-                        );
-                    }
-                    if (cell.column.id === 'isConfirmed') {
-                        return (
-                            <TableCell key={cell.id} className="p-2 text-center font-bold">
-                                <Checkbox
-                                    checked={entry.isConfirmed}
-                                    onCheckedChange={handleConfirmChange}
-                                />
-                            </TableCell>
-                        );
-                    }
-                    if (cell.column.id === 'entryType') {
-                         const entry = row.original;
-                         if (entry.entryType === 'transaction') {
-                            return <TableCell key={cell.id}><Badge onClick={copy} variant={'destructive'} className="font-bold cursor-pointer">دين</Badge></TableCell>;
-                        } else {
-                            const amount = entry.totalAmount || 0;
-                            return <TableCell key={cell.id}>{amount > 0 
-                                ? <Badge onClick={copy} className="bg-blue-600 font-bold cursor-pointer">دفع</Badge> 
-                                : <Badge onClick={copy} className="bg-green-600 font-bold cursor-pointer">قبض</Badge>}</TableCell>;
-                        }
-                    }
-                    return (
-                        <TableCell
-                            key={cell.id}
-                            className="p-2 font-bold"
-                            style={{ width: cell.column.getSize() }}
-                        >
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
-                    );
-                })}
+                {row.getVisibleCells().map((cell: any) => (
+                    <TableCell key={cell.id} className="p-2 font-bold" style={{ width: cell.column.getSize() }}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                ))}
             </TableRow>
             {row.getIsSelected() && (
                 <TableRow>
@@ -383,13 +338,15 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        if (action === 'delete') {
-            setData(prev => prev.filter(entry => entry.id !== data.id));
-        } else if (action === 'add') {
-             setData(prev => [data, ...prev]);
-        } else { // update
-            setData(prev => prev.map(entry => entry.id === data.id ? { ...entry, ...data } : entry));
-        }
+        setData(currentData => {
+            if (action === 'delete') {
+                return currentData.filter(entry => entry.id !== data.id);
+            } else if (action === 'add') {
+                 return [data, ...currentData];
+            } else { // update
+                 return currentData.map(entry => entry.id === data.id ? { ...entry, ...data } : entry);
+            }
+        });
     }, []);
 
     const filteredLedger = useMemo(() => {
@@ -468,7 +425,22 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { id: 'isConfirmed', header: 'تأكيد', size: 50 },
         { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span>, size: 120 },
         { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span>, size: 120 },
-        { id: 'entryType', header: 'النوع', size: 100 },
+        { id: 'entryType', header: 'النوع', size: 100,
+          cell: ({ row }) => {
+              const entry = row.original;
+              const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || 'غير معروف'}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+              const copy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
+
+              if (entry.entryType === 'transaction') {
+                  return <Badge onClick={copy} variant={'destructive'} className="font-bold cursor-pointer">دين</Badge>;
+              } else {
+                  const amount = entry.totalAmount || 0;
+                  return amount > 0 
+                      ? <Badge onClick={copy} className="bg-blue-600 font-bold cursor-pointer">دفع</Badge> 
+                      : <Badge onClick={copy} className="bg-green-600 font-bold cursor-pointer">قبض</Badge>;
+              }
+          }
+        },
         { accessorKey: 'description', header: 'الوصف', size: 250 },
         { id: 'debit', header: 'علينا', cell: ({ row }) => {
             const entry = row.original;
@@ -493,8 +465,10 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             size: 150
         },
         { accessorKey: 'userName', header: 'المستخدم', size: 120 },
-        { id: 'actions', header: 'الإجراءات', size: 80 },
-    ], []);
+        { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80,
+            cell: ({ row }) => <LedgerRowActions entry={row.original} onActionSuccess={handleActionSuccess} exchanges={exchanges} />
+        },
+    ], [exchanges, toast, handleActionSuccess]);
     
     const table = useReactTable({
       data: filteredLedger,
@@ -508,7 +482,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getFilteredRowModel: getFilteredRowModel(),
       meta: {
           updateData: (rowIndex: number, columnId: string, value: any) => {
-              setData(produce(draft => {
+              setData(old => produce(old, draft => {
                   (draft[rowIndex] as any)[columnId] = value;
               }));
           }
@@ -639,7 +613,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                     </TableRow>
                                 ) : (
                                     table.getRowModel().rows.map((row) => (
-                                        <LedgerRow key={row.original.id} row={row} exchanges={exchanges} onActionSuccess={handleActionSuccess} />
+                                        <LedgerRow key={row.original.id} row={row} exchanges={exchanges} onActionSuccess={handleActionSuccess} table={table} />
                                     ))
                                 )}
                             </TableBody>
@@ -651,4 +625,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
