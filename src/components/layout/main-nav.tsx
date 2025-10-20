@@ -1,5 +1,4 @@
-// This file is deprecated. Navigation logic is now in main-nav-responsive.tsx and main-nav-content.tsx.
-// For safety, we'll keep it but it should be removed later.
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -105,16 +104,11 @@ const NavLink = ({ href, children, active, className }: { href: string; children
 const operationsItems = [
     { href: "/bookings", label: "حجوزات الطيران", icon: Ticket, permission: 'bookings:read' },
     { href: "/visas", label: "حجوزات الفيزا", icon: CreditCard, permission: 'visas:read' },
-    { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft, permission: 'remittances:read' },
-    { href: "/bookings/fly-changes", label: "تغييرات فلاي والوزن", icon: Package, permission: 'admin' },
-];
-
-const customReportsItems = [
     { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
+    { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft, permission: 'remittances:read' },
     { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
-    { href: "/exchanges", label: "البورصات", icon: ChevronsRightLeft, permission: 'admin' },
-    { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
-    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
+    { href: "/bookings/fly-changes", label: "تغييرات فلاي والوزن", icon: Package, permission: 'admin' },
+    { href: "/exchanges", label: "إدارة البورصات", icon: ChevronsRightLeft, permission: 'admin' },
 ];
 
 const reportsItems = [
@@ -122,8 +116,10 @@ const reportsItems = [
     { href: "/reports/account-statement", label: "كشف حساب", icon: FileText, permission: 'reports:account_statement' },
     { href: "/finance/overview", label: "المالية الموحدة", icon: FileBarChart, permission: 'admin' },
     { href: "/profits", label: "الأرباح الشهرية", icon: BarChart3, permission: 'reports:profits' },
+    { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
     { href: "/reconciliation", label: "التدقيق الذكي", icon: Wand2, permission: 'admin' },
     { href: "/reports/advanced", label: "تقارير متقدمة", icon: AreaChart, permission: 'reports:read:all' },
+    { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
 ];
 
 const systemItems = [
@@ -258,6 +254,127 @@ const NavMenu = ({ label, icon: Icon, children, activeRoutes }: {
 };
 
 
-export const MainNav = () => {
-    return <div />;
+const MainNavContent = () => {
+  const pathname = usePathname();
+  const router = useRouter();
+  const isMobile = useIsMobile();
+  const { hasPermission } = useAuth();
+  const { fetchData } = useVoucherNav();
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const handleDataChange = () => {
+    router.refresh();
+  };
+
+  const getVisibleItems = (items: any[]) => items.filter(item => hasPermission(item.permission as Permission));
+
+  const menuConfig = useMemo(() => [
+    { id: 'relations', label: 'العلاقات', icon: Contact, activeRoutes: ['/clients', '/suppliers', '/relations'], children: (
+      <>
+        {hasPermission('relations:read') && <DropdownMenuItem asChild><Link href="/clients" className="justify-between w-full flex items-center gap-2"><span>ادارة العلاقات</span><Users2 className="h-4 w-4" /></Link></DropdownMenuItem>}
+        {hasPermission('relations:create') && (
+          <AddClientDialog onClientAdded={handleDataChange} onClientUpdated={handleDataChange}>
+            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between gap-2 w-full"><span>إضافة علاقة</span><PlusCircle className="h-4 w-4" /></DropdownMenuItem>
+          </AddClientDialog>
+        )}
+        <DropdownMenuSeparator />
+        {hasPermission('settings:read') && <DropdownMenuItem asChild><Link href="/settings" className="justify-between w-full flex items-center gap-2"><span>الإعدادات</span><Settings className="h-4 w-4" /></Link></DropdownMenuItem>}
+      </>
+    )},
+    { id: 'operations', label: 'العمليات المحاسبية', icon: Calculator, activeRoutes: ['/bookings', '/visas', '/subscriptions', '/accounts/remittances', '/segments', '/exchanges'], children: getVisibleItems(operationsItems).map(item => (
+        <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+      ))
+    },
+    { id: 'vouchers', label: 'السندات', icon: FileText, activeRoutes: ['/accounts/vouchers'], children: <CreateVoucherMenuItems /> },
+    { id: 'reports', label: 'التقارير والأدوات', icon: BarChart3, activeRoutes: ['/reports', '/profits', '/profit-sharing', '/reconciliation', '/finance'], children: (
+      <>
+        {getVisibleItems([...reportsItems, ...customReportsItems]).sort((a,b) => a.label.localeCompare(b.label)).map(item => (
+            <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+        ))}
+      </>
+    )},
+    { id: 'system', label: 'النظام', icon: Network, activeRoutes: ['/settings', '/users', '/boxes', '/coming-soon', '/hr', '/system', '/templates', '/support'], children: (
+      <>
+        {getVisibleItems(systemItems).map(item => {
+          if (item.href === '/system/deleted-log') {
+            return (
+              <DropdownMenuSub key={item.href}>
+                <DropdownMenuSubTrigger>{item.label}<History className="h-4 w-4"/></DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {deletedItemsLog.map(subItem => (
+                    <DropdownMenuItem asChild key={subItem.href}><Link href={subItem.href}>{subItem.label}</Link></DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )
+          }
+          return <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+        })}
+      </>
+    )},
+  ], [hasPermission, handleDataChange]);
+
+  const visibleMenuConfig = useMemo(() => menuConfig.filter(menu => {
+    // A menu is visible if at least one of its sub-items is visible
+    if (menu.id === 'vouchers') return hasPermission('vouchers:read') || hasPermission('vouchers:create');
+    if (menu.id === 'relations') return hasPermission('relations:read') || hasPermission('relations:create');
+    const items = menu.id === 'operations' ? operationsItems : menu.id === 'reports' ? [...reportsItems, ...customReportsItems] : systemItems;
+    return items.some(item => hasPermission(item.permission as Permission));
+  }), [menuConfig, hasPermission]);
+  
+  if (isMobile) {
+    // Mobile rendering logic is more complex and depends on the specific UI library.
+    // This part assumes a drawer or similar component would be used.
+    // The implementation of the drawer itself is in main-nav-responsive.tsx.
+    return (
+        <Accordion type="single" collapsible className="w-full">
+            <NavLink href="/dashboard" active={pathname === '/dashboard'} className="w-full justify-end text-base">الرئيسية<LayoutDashboard className="h-5 w-5" /></NavLink>
+            {visibleMenuConfig.map((menu) => (
+                <AccordionItem value={menu.id} key={menu.id}>
+                    <AccordionTrigger className="py-3 px-2 font-bold text-base hover:no-underline rounded-md data-[state=open]:text-primary justify-between">
+                         <div className="flex items-center gap-2 justify-end">
+                            {menu.label}
+                            <menu.icon className="h-5 w-5" />
+                         </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pr-6 border-r-2 border-primary/50 mr-4">
+                        {/* Simplified children rendering for mobile */}
+                    </AccordionContent>
+                </AccordionItem>
+            ))}
+             {getVisibleItems(additionalServicesItems).map(item => (
+                <NavLink key={item.href} href={item.href} active={pathname.startsWith(item.href)} className="w-full justify-end text-base">{item.label}<item.icon className="h-5 w-5" /></NavLink>
+            ))}
+        </Accordion>
+    )
+  }
+
+  return (
+    <div className="w-full">
+        <nav className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
+             <NavLink href="/dashboard" active={pathname === '/dashboard'} className="justify-end">الرئيسية<LayoutDashboard className="h-4 w-4" /></NavLink>
+            {visibleMenuConfig.map(menu => (
+                <NavMenu 
+                    key={menu.id}
+                    label={menu.label}
+                    icon={menu.icon}
+                    activeRoutes={menu.activeRoutes}
+                >
+                   {menu.children}
+                </NavMenu>
+            ))}
+            {getVisibleItems(additionalServicesItems).map(item => (
+                <NavLink key={item.href} href={item.href} active={pathname.startsWith(item.href)} className="justify-end">{item.label}<item.icon className="h-4 w-4" /></NavLink>
+            ))}
+        </nav>
+    </div>
+  );
+};
+
+
+export function MainNav() {
+    return <MainNavContent />;
 }
