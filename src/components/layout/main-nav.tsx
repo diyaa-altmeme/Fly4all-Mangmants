@@ -12,6 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import type { Currency } from '@/lib/types';
 import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
+import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
+import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
+import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
+import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
+import AddClientDialog from '@/app/clients/components/add-client-dialog';
 import { cn } from '@/lib/utils';
 import { Settings2, Loader2 } from 'lucide-react';
 import { useVoucherNav } from '@/context/voucher-nav-context';
@@ -69,6 +74,7 @@ import {
     ScanSearch,
     Paintbrush,
     Send,
+    Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -78,11 +84,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/lib/auth-context';
 import type { Permission } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/permissions';
-import NewDistributedReceiptDialog from "@/app/accounts/vouchers/components/new-distributed-receipt-dialog";
-import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-payment-voucher-dialog";
-import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
-import NewJournalVoucherDialog from "@/app/accounts/vouchers/components/new-journal-voucher-dialog";
-import AddClientDialog from '@/app/clients/components/add-client-dialog';
 
 
 const NavLink = ({ href, children, active, className }: { href: string; children: React.ReactNode, active: boolean, className?: string }) => (
@@ -107,7 +108,7 @@ const operationsItems = [
     { href: "/bookings/fly-changes", label: "تغييرات فلاي والوزن", icon: Package, permission: 'admin' },
 ];
 
-const customReportsItems = [
+const customReportsItems: any[] = [
     { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
     { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
     { href: "/exchanges", label: "البورصات", icon: ChevronsRightLeft, permission: 'admin' },
@@ -133,15 +134,10 @@ const systemItems = [
     { href: "/system/activity-log", label: "سجل النشاطات", icon: History, permission: 'system:audit_log:read' },
     { href: "/system/error-log", label: "سجل الأخطاء", icon: FileWarning, permission: 'system:error_log:read' },
     { href: "/system/data-audit", label: "فحص البيانات", icon: ScanSearch, permission: 'system:data_audit:run' },
+    { href: "/system/deleted-log", label: "سجل المحذوفات", icon: Trash2, permission: 'admin' },
     { href: "/support", label: "الدعم والمساعدة", icon: HelpCircle, permission: 'public' },
     { href: "/coming-soon", label: "الميزات القادمة", icon: Lightbulb, permission: 'public' },
 ];
-
-const deletedItemsLog = [
-    { href: "/bookings/deleted-bookings", label: "سجلات الحجوزات", icon: Ticket },
-    { href: "/subscriptions/deleted-subscriptions", label: "سجلات الاشتراكات", icon: Repeat },
-    { href: "/segments/deleted-segments", label: "سجلات السكمنت", icon: Layers3 },
-]
 
 const additionalServicesItems = [
     { href: "/chat", label: "المحادثات", icon: MessageSquare, permission: 'public' },
@@ -294,10 +290,9 @@ const MainNavContent = () => {
         ))
       },
       { id: 'vouchers', label: 'السندات', icon: FileText, activeRoutes: ['/accounts/vouchers'], children: <CreateVoucherMenuItems /> },
-      { id: 'custom-reports', label: 'تقارير مخصصة', icon: FileBarChart, activeRoutes: ['/subscriptions', '/segments', '/exchanges', '/profit-sharing', '/reports/flight-analysis'], className: "bg-destructive text-destructive-foreground", children: getVisibleItems(customReportsItems).map(item => (
-          <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
-        ))
-      },
+      { id: 'custom-reports', label: 'تقارير مخصصة', icon: FileBarChart, activeRoutes: ['/subscriptions', '/segments', '/exchanges', '/profit-sharing', '/reports/flight-analysis'], children: getVisibleItems(customReportsItems).map(item => (
+        <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+      ))},
       { id: 'reports', label: 'التقارير والأدوات', icon: BarChart3, activeRoutes: ['/reports', '/profits', '/reconciliation', '/finance'], children: (
            <>
              {getVisibleItems(reportsItems).sort((a,b) => a.label.localeCompare(b.label)).map(item => (
@@ -310,21 +305,9 @@ const MainNavContent = () => {
       ))},
       { id: 'system', label: 'النظام', icon: Network, activeRoutes: ['/settings', '/users', '/boxes', '/coming-soon', '/hr', '/system', '/templates', '/support'], children: (
            <>
-                {getVisibleItems(systemItems).map(item => {
-                  if (item.href === '/system/deleted-log') {
-                    return (
-                      <DropdownMenuSub key={item.href}>
-                        <DropdownMenuSubTrigger>{item.label}<History className="h-4 w-4"/></DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          {deletedItemsLog.map(subItem => (
-                            <DropdownMenuItem asChild key={subItem.href}><Link href={subItem.href}>{subItem.label}</Link></DropdownMenuItem>
-                          ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    )
-                  }
-                  return <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
-                })}
+                {getVisibleItems(systemItems).map(item => (
+                 <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+                ))}
               </>
       )},
     ];
@@ -351,9 +334,7 @@ const MainNavContent = () => {
   }, [hasPermission, handleDataChange]);
   
   if (isMobile) {
-    // Mobile rendering logic is more complex and depends on the specific UI library.
-    // This part assumes a drawer or similar component would be used.
-    // The implementation of the drawer itself is in main-nav-responsive.tsx.
+    // This logic is simplified as the detailed mobile navigation is not fully implemented here
     return (
         <Accordion type="single" collapsible className="w-full">
             <NavLink href="/dashboard" active={pathname === '/dashboard'} className="w-full justify-end text-base">الرئيسية<LayoutDashboard className="h-5 w-5" /></NavLink>
@@ -366,7 +347,7 @@ const MainNavContent = () => {
                          </div>
                     </AccordionTrigger>
                     <AccordionContent className="pr-6 border-r-2 border-primary/50 mr-4">
-                        {/* Simplified children rendering for mobile */}
+                        {/* Simplified for brevity, detailed mobile logic can be complex */}
                     </AccordionContent>
                 </AccordionItem>
             ))}
@@ -398,5 +379,3 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
-
-    
