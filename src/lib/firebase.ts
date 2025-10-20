@@ -1,27 +1,14 @@
-// إعداد Firebase للاستخدام في المتصفح (Client-side)
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getDatabase, Database } from 'firebase/database';
+import { initializeApp, getApps } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
 
-// معلومات مشروعك في Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyCtlF3onBhtwg0Hh3iOOEjygi9mj81wxrA",
-  authDomain: "fly4all-78277122-3cbd0.firebaseapp.com",
-  projectId: "fly4all-78277122-3cbd0",
-  storageBucket: "fly4all-78277122-3cbd0.appspot.com",
-  messagingSenderId: "108505683067",
-  appId: "1:108505683067:web:3ab7755349630154e77ede",
-  // Add the databaseURL for Realtime Database
-  databaseURL: "https://fly4all-78277122-3cbd0.firebaseio.com"
+  apiKey: process.env.NEXT_PUBLIC_FB_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FB_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FB_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FB_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FB_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FB_APP_ID!,
 };
 
-// تهيئة Firebase (نتحقق إذا كان مهيأ مسبقاً لتجنب الأخطاء)
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-
-// إنشاء وتصدير كائنات الخدمات
-export const auth: Auth = getAuth(app);
-export const db: Firestore = getFirestore(app);
-export const rtdb: Database = getDatabase(app);
-
-export default app;
+export const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+export const db = getFirestore(app);
