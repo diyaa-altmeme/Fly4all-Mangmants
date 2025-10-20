@@ -190,7 +190,7 @@ async function getTransactionsForAccount(accountId: string, accountsMap: Map<str
 
         if (relevantDebit) {
              transactions.push({
-                id: `journal-${voucher.id}-debit`,
+                id: voucher.id,
                 invoiceNumber: voucher.invoiceNumber || 'N/A',
                 date: dateIso,
                 description: description,
@@ -205,7 +205,7 @@ async function getTransactionsForAccount(accountId: string, accountsMap: Map<str
         }
         if (relevantCredit) {
              transactions.push({
-                id: `journal-${voucher.id}-credit`,
+                id: voucher.id,
                 invoiceNumber: voucher.invoiceNumber || 'N/A',
                 date: dateIso,
                 description: description,
