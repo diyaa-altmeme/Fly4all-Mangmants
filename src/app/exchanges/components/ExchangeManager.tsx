@@ -32,6 +32,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import EditBatchDialog from "./EditBatchDialog";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -90,7 +91,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, setUnifiedLedger }: {
       setIsPending(true);
       const currentPage = table.getState().pagination.pageIndex;
     
-      table.options.meta?.updateData(row.index, 'isConfirmed', checked);
+      (table.options.meta as any)?.updateData(row.index, 'isConfirmed', checked);
     
       try {
         const result = await updateBatch(
@@ -100,7 +101,8 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, setUnifiedLedger }: {
         );
     
         if (!result.success) throw new Error(result.error);
-    
+        
+        // This direct state update prevents the full-table flicker
         setUnifiedLedger(currentLedger =>
           currentLedger.map(item =>
             item.id === row.original.id ? { ...item, isConfirmed: checked } : item
@@ -114,7 +116,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, setUnifiedLedger }: {
           description: 'فشل تحديث حالة التأكيد.',
           variant: 'destructive',
         });
-        table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
+        (table.options.meta as any)?.updateData(row.index, 'isConfirmed', !checked);
       } finally {
         setIsPending(false);
         table.setPageIndex(currentPage);
@@ -279,7 +281,7 @@ const getColumns = (setUnifiedLedger: React.Dispatch<React.SetStateAction<Unifie
             );
         
             if (!result.success) throw new Error(result.error);
-        
+
             setUnifiedLedger(currentLedger =>
               currentLedger.map(item =>
                 item.id === row.original.id ? { ...item, isConfirmed: checked } : item
@@ -293,8 +295,6 @@ const getColumns = (setUnifiedLedger: React.Dispatch<React.SetStateAction<Unifie
               description: 'فشل تحديث حالة التأكيد.',
               variant: 'destructive',
             });
-            // Revert on failure is tricky without the direct meta update, but we refetch anyway.
-            // Let's rely on the parent component's refetch logic for now.
           } finally {
             setIsPending(false);
             table.setPageIndex(currentPage);
@@ -486,6 +486,16 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getSortedRowModel: getSortedRowModel(),
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
+      meta: {
+        updateData: (rowIndex: number, columnId: string, value: any) => {
+          const itemToUpdateId = filteredLedger[rowIndex].id;
+          setUnifiedLedger(current =>
+            current.map(item =>
+              item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
+            )
+          );
+        },
+      },
     });
 
     useEffect(() => {
@@ -670,7 +680,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             row={row} 
                                             exchanges={exchanges} 
                                             onActionSuccess={handleActionSuccess}
-                                            setUnifiedLedger={setUnifiedLedger} 
+                                            setUnifiedLedger={setUnifiedLedger}
                                         />
                                     ))
                                 )}
@@ -683,5 +693,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
 
     
