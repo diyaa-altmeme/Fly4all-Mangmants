@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -95,8 +96,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
     const handleConfirmChange = async (checked: boolean) => {
         setIsPending(true);
         const currentPage = table.getState().pagination.pageIndex;
-        table.options.meta?.updateData(row.index, 'isConfirmed', checked);
-      
+        
         try {
           const result = await updateBatch(
             row.original.id,
@@ -119,7 +119,12 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
             description: 'فشل تحديث حالة التأكيد.',
             variant: 'destructive',
           });
-          table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
+          // Revert UI change on failure
+          setUnifiedLedger(currentLedger =>
+            currentLedger.map(item =>
+              item.id === row.original.id ? { ...item, isConfirmed: !checked } : item
+            )
+          );
         } finally {
           setIsPending(false);
           table.setPageIndex(currentPage);
@@ -287,17 +292,17 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
     }, [exchangeId, toast, date]);
     
-    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
+    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
         if (action === 'add' || action === 'delete') {
-          fetchExchangeData();
+            fetchExchangeData();
         } else if (action === 'update') {
-          setUnifiedLedger(currentLedger =>
-            currentLedger.map(item =>
-              item.id === updatedData.id ? { ...item, ...updatedData } : item
-            )
-          );
+            setUnifiedLedger(currentLedger =>
+                currentLedger.map(item =>
+                    item.id === data.id ? { ...item, ...data } : item
+                )
+            );
         }
-      }, [fetchExchangeData]);
+    }, [fetchExchangeData]);
 
     const refreshAllData = useCallback(async () => {
         setLoading(true);
@@ -372,6 +377,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { id: 'isConfirmed', header: 'تأكيد', cell: ({ row, table }) => {
             const [isPending, setIsPending] = React.useState(false);
             const [dialogOpen, setDialogOpen] = React.useState(false);
+            const { setUnifiedLedger } = (table.options.meta as any);
             
             const handleConfirmChange = async (checked: boolean) => {
                 setIsPending(true);
@@ -386,7 +392,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
               
                   if (!result.success) throw new Error(result.error);
               
-                  setUnifiedLedger(currentLedger =>
+                  setUnifiedLedger((currentLedger: any[]) =>
                     currentLedger.map(item =>
                       item.id === row.original.id ? { ...item, isConfirmed: checked } : item
                     )
@@ -399,7 +405,11 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     description: 'فشل تحديث حالة التأكيد.',
                     variant: 'destructive',
                   });
-                  table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
+                   setUnifiedLedger((currentLedger: any[]) =>
+                    currentLedger.map(item =>
+                      item.id === row.original.id ? { ...item, isConfirmed: !checked } : item
+                    )
+                  );
                 } finally {
                   setIsPending(false);
                   table.setPageIndex(currentPage);
@@ -478,15 +488,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
       meta: {
-        updateData: (rowIndex: number, columnId: string, value: any) => {
-          const itemToUpdateId = filteredLedger[rowIndex].id;
-          setUnifiedLedger(current =>
-            current.map(item =>
-              item.id === itemToUpdateId ? { ...item, [columnId]: value } : item
-            )
-          );
-        },
-        setUnifiedLedger: setUnifiedLedger,
+        setUnifiedLedger: setUnifiedLedger
       },
     });
 
@@ -684,5 +686,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
-    
