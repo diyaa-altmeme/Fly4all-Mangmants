@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import type { Exchange, ExchangeDashboardData, UnifiedLedgerEntry } from '@/app/exchanges/actions';
+import type { ExchangeDashboardData, UnifiedLedgerEntry } from '@/app/exchanges/actions';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, GitCompareArrows, ArrowUp, ArrowDown, PlusCircle, RefreshCw, Loader2, Share2, MoreHorizontal } from 'lucide-react';
@@ -17,6 +17,7 @@ import AddPaymentsDialog from './add-payments-dialog';
 import { useToast } from '@/hooks/use-toast';
 import ShareBalanceDialog from './ShareBalanceDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import type { Exchange } from '@/lib/types';
 
 const formatCurrency = (amount: number, withSign = false) => {
     if (typeof amount !== 'number' || isNaN(amount)) return '$0.00';
@@ -140,7 +141,7 @@ export const ExchangeCard = ({ exchange, exchanges, onRefresh }: { exchange: Exc
                         <PlusCircle className="me-2 h-4 w-4" /> معاملة جديدة
                     </Button>
                 </AddTransactionsDialog>
-                <AddPaymentsDialog exchangeId={exchange.id} exchanges={exchanges} onSuccess={() => onRefresh()}>
+                <AddPaymentsDialog exchangeId={exchange.id} exchanges={exchanges} onSuccess={onRefresh}>
                     <Button className="w-full" variant="outline">
                         <PlusCircle className="me-2 h-4 w-4" /> تسديد جديد
                     </Button>
