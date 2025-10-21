@@ -43,6 +43,12 @@ import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowMode
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useRouter } from 'next/navigation';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 
 interface ExchangeManagerProps {
@@ -89,36 +95,36 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
     const handleConfirmChange = async (checked: boolean) => {
         setIsPending(true);
         const currentPage = table.getState().pagination.pageIndex;
-        (table.options.meta as any)?.updateData(row.index, 'isConfirmed', checked);
-
+        table.options.meta?.updateData(row.index, 'isConfirmed', checked);
+      
         try {
-            const result = await updateBatch(
-              row.original.id,
-              row.original.entryType as 'transaction' | 'payment',
-              { isConfirmed: checked }
-            );
-
-            if (!result.success) throw new Error(result.error);
-            
-            setUnifiedLedger(currentLedger =>
-                currentLedger.map(item =>
-                    item.id === row.original.id ? { ...item, isConfirmed: checked } : item
-                )
-            );
-            
-            toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+          const result = await updateBatch(
+            row.original.id,
+            row.original.entryType as 'transaction' | 'payment',
+            { isConfirmed: checked }
+          );
+      
+          if (!result.success) throw new Error(result.error);
+      
+          setUnifiedLedger(currentLedger =>
+            currentLedger.map(item =>
+              item.id === row.original.id ? { ...item, isConfirmed: checked } : item
+            )
+          );
+      
+          toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
         } catch (error: any) {
-            toast({
-              title: 'خطأ',
-              description: 'فشل تحديث حالة التأكيد.',
-              variant: 'destructive',
-            });
-            (table.options.meta as any)?.updateData(row.index, 'isConfirmed', !checked);
+          toast({
+            title: 'خطأ',
+            description: 'فشل تحديث حالة التأكيد.',
+            variant: 'destructive',
+          });
+          table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
         } finally {
-            setIsPending(false);
-            table.setPageIndex(currentPage);
+          setIsPending(false);
+          table.setPageIndex(currentPage);
         }
-    };
+      };
     
     const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
     const handleCopy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
@@ -283,15 +289,15 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
         if (action === 'add' || action === 'delete') {
-            fetchExchangeData();
+          fetchExchangeData();
         } else if (action === 'update') {
-            setUnifiedLedger(currentLedger =>
-              currentLedger.map(item =>
-                item.id === updatedData.id ? { ...item, ...updatedData } : item
-              )
-            );
+          setUnifiedLedger(currentLedger =>
+            currentLedger.map(item =>
+              item.id === updatedData.id ? { ...item, ...updatedData } : item
+            )
+          );
         }
-    }, [fetchExchangeData]);
+      }, [fetchExchangeData]);
 
     const refreshAllData = useCallback(async () => {
         setLoading(true);
@@ -368,39 +374,37 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             const [dialogOpen, setDialogOpen] = React.useState(false);
             
             const handleConfirmChange = async (checked: boolean) => {
-              setIsPending(true);
-              const currentPage = table.getState().pagination.pageIndex;
-              (table.options.meta as any)?.updateData?.(row.index, 'isConfirmed', checked);
-
-              try {
-                const result = await updateBatch(
-                  row.original.id,
-                  row.original.entryType as 'transaction' | 'payment',
-                  { isConfirmed: checked }
-                );
-
-                if (!result.success) throw new Error(result.error);
-                
-                // Optimistically update local state instead of full refetch
-                 setUnifiedLedger(currentLedger =>
+                setIsPending(true);
+                const currentPage = table.getState().pagination.pageIndex;
+              
+                try {
+                  const result = await updateBatch(
+                    row.original.id,
+                    row.original.entryType as 'transaction' | 'payment',
+                    { isConfirmed: checked }
+                  );
+              
+                  if (!result.success) throw new Error(result.error);
+              
+                  setUnifiedLedger(currentLedger =>
                     currentLedger.map(item =>
-                        item.id === row.original.id ? { ...item, isConfirmed: checked } : item
+                      item.id === row.original.id ? { ...item, isConfirmed: checked } : item
                     )
-                );
-                
-                toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-              } catch (error: any) {
-                toast({
-                  title: 'خطأ',
-                  description: 'فشل تحديث حالة التأكيد.',
-                  variant: 'destructive',
-                });
-                (table.options.meta as any)?.updateData?.(row.index, 'isConfirmed', !checked);
-              } finally {
-                setIsPending(false);
-                table.setPageIndex(currentPage);
-              }
-            };
+                  );
+              
+                  toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+                } catch (error: any) {
+                  toast({
+                    title: 'خطأ',
+                    description: 'فشل تحديث حالة التأكيد.',
+                    variant: 'destructive',
+                  });
+                  table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
+                } finally {
+                  setIsPending(false);
+                  table.setPageIndex(currentPage);
+                }
+              };
             
             const confirmUncheck = () => {
                 setDialogOpen(false);
@@ -680,3 +684,5 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
+    
