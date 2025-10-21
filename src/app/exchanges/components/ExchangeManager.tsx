@@ -81,12 +81,14 @@ import {
   Calendar as CalendarIcon,
   PlusCircle,
   XCircle,
+  Filter,
 } from "lucide-react";
 
-import { DateRange } from "react-day-picker";
+// Motion
+import { AnimatePresence, motion } from "framer-motion";
 import AddTransactionsDialog from "./add-transactions-dialog";
 import AddPaymentsDialog from "./add-payments-dialog";
-import AddExchangeDialog from './add-exchange-dialog';
+import AddExchangeDialog from "./add-exchange-dialog";
 import EditBatchDialog from "./EditBatchDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
@@ -116,8 +118,18 @@ const getCredit = (e: UnifiedLedgerEntry) => {
   return 0;
 };
 
-type TypeFilter = "all" | "transaction" | "payment" | "receipt";
+type TypeFilter = "all" | "transaction" | "payment_credit" | "payment_debit";
 type ConfirmFilter = "all" | "confirmed" | "unconfirmed";
+
+const defaultRange: DateRange = { from: subDays(new Date(), 30), to: new Date() };
+
+type Filters = {
+    search: string;
+    type: TypeFilter;
+    confirmed: ConfirmFilter;
+    user: string;
+    dateRange: DateRange | undefined;
+};
 
 /* ================= Row Component (HTML-safe) ================= */
 
@@ -187,7 +199,7 @@ function LedgerRow({
       );
     }
     navigator.clipboard.writeText(lines.join("\n"));
-    toast({ title: "تم نسخ التفاصيل" });
+    toast({ title: "تم نسخ المعلومات" });
   };
   
 
@@ -348,15 +360,6 @@ function LedgerRow({
   );
 }
 
-const defaultRange: DateRange = { from: subDays(new Date(), 30), to: new Date() };
-
-type Filters = {
-    search: string;
-    type: TypeFilter;
-    confirmed: ConfirmFilter;
-    user: string;
-    dateRange: DateRange | undefined;
-};
 
 /* ================= Main Component ================= */
 
@@ -427,7 +430,7 @@ export default function ExchangeManager({
 
     // Confirmed filter
     if (filters.confirmed !== "all") {
-        const want = filters.confirmed === "confirmed";
+        const want = filters.confirmed === "yes";
         arr = arr.filter((e) => !!e.isConfirmed === want);
     }
 
@@ -501,18 +504,27 @@ export default function ExchangeManager({
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader className="gap-3">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-            <div>
-              <CardTitle>إدارة المعاملات</CardTitle>
-              <CardDescription>
-                فلاتر متقدمة، ملخص مالي، وتفاصيل قابلة للطي.
-              </CardDescription>
-            </div>
+        <CardHeader>
+          <CardTitle>إدارة المعاملات</CardTitle>
+          <CardDescription>فلاتر متقدمة، ملخص مالي، وتفاصيل قابلة للطي.</CardDescription>
+        </CardHeader>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={load}><Button><PlusCircle className="me-2 h-4 w-4" /> معاملة</Button></AddTransactionsDialog>
-              <AddPaymentsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={load}><Button variant="secondary"><PlusCircle className="me-2 h-4 w-4" /> تسديد</Button></AddPaymentsDialog>
+        <CardContent className="space-y-4">
+          {/* ===== Summary Bar ===== */}
+          <div className="grid gap-3 sm:grid-cols-3 rounded-lg border bg-muted/30 p-3">
+             <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
+              <span className="text-sm text-muted-foreground">علينا (USD)</span>
+              <span className="font-bold text-red-600">{formatCurrency(summary.totalDebitUSD, "USD")}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
+              <span className="text-sm text-muted-foreground">لنا (USD)</span>
+              <span className="font-semibold text-green-600">{formatCurrency(summary.creditUSD, "USD")}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
+              <span className="text-sm text-muted-foreground">المحصلة</span>
+              <span className={cn("font-semibold", netUSD >= 0 ? "text-green-700" : "text-red-700")}>
+                {formatCurrency(netUSD, "USD")}
+              </span>
             </div>
           </div>
           
@@ -536,50 +548,26 @@ export default function ExchangeManager({
               <SelectContent><SelectItem value="all">كل الحالات</SelectItem><SelectItem value="yes">مؤكد</SelectItem><SelectItem value="no">غير مؤكد</SelectItem></SelectContent>
             </Select>
             <Select value={filters.user} onValueChange={(v: any) => setFilters((f) => ({ ...f, user: v }))}>
-              <SelectTrigger className="w-full sm:w-[180px] h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[150px] h-9"><SelectValue /></SelectTrigger>
               <SelectContent><SelectItem value="all">كل المستخدمين</SelectItem>{usersList.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
             </Select>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full sm:w-[240px] justify-start h-9">
                   <CalendarIcon className="h-4 w-4 ml-2" />
-                  {filters.dateRange?.from ? format(filters.dateRange.from, "LLL dd, y") : "من"} - {filters.dateRange?.to ? format(filters.dateRange.to, "LLL dd, y") : "إلى"}
+                  {filters.dateRange?.from ? format(filters.dateRange.from, "dd/MM/yy") : "من"} - {filters.dateRange?.to ? format(filters.dateRange.to, "dd/MM/yy") : "إلى"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-auto p-0"><Calendar mode="range" selected={filters.dateRange} onSelect={(r) => setFilters((f) => ({ ...f, dateRange: r }))} numberOfMonths={2} /></PopoverContent>
+              <PopoverContent align="start" className="w-auto p-0"><Calendar mode="range" selected={filters.dateRange} onSelect={(r) => setFilters((f) => ({ ...f, dateRange: r }))} numberOfMonths={2} /></PopoverContent>
             </Popover>
 
             <div className="ms-auto flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
-                <Filter className="me-2 h-4 w-4" />
-                تصفية/تحديث
-              </Button>
+              <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={load}><Button><PlusCircle className="me-2 h-4 w-4" /> معاملة</Button></AddTransactionsDialog>
+              <AddPaymentsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={load}><Button variant="secondary"><PlusCircle className="me-2 h-4 w-4" /> تسديد</Button></AddPaymentsDialog>
             </div>
           </div>
           
-
-          {/* ===== Summary Bar ===== */}
-          <div className="grid gap-3 sm:grid-cols-3 rounded-lg border bg-muted/30 p-3 mt-4">
-             <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
-              <span className="text-sm text-muted-foreground">علينا (USD)</span>
-              <span className="font-bold text-red-600">{formatCurrency(summary.debitUSD, "USD")}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
-              <span className="text-sm text-muted-foreground">لنا (USD)</span>
-              <span className="font-semibold text-green-600">{formatCurrency(summary.creditUSD, "USD")}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
-              <span className="text-sm text-muted-foreground">المحصلة</span>
-              <span className={cn("font-semibold", netUSD >= 0 ? "text-green-700" : "text-red-700")}>
-                {formatCurrency(netUSD, "USD")}
-              </span>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-      {/* TABLE */}
-      <Card>
-        <CardContent className="p-0">
+          {/* ===== Table ===== */}
           <div className="border rounded-md overflow-x-auto">
             <Table>
               <TableHeader className="bg-muted/40">
@@ -594,23 +582,10 @@ export default function ExchangeManager({
                   <TableHead className="w-[80px] text-center">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
-
               {loading ? (
-                <TableBody>
-                  <TableRow>
-                    <TableCell colSpan={8} className="py-10 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
+                <TableBody><TableRow><TableCell colSpan={8} className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow></TableBody>
               ) : pageSlice.length === 0 ? (
-                <TableBody>
-                  <TableRow>
-                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                      لا توجد بيانات مطابقة.
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
+                <TableBody><TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">لا توجد بيانات مطابقة.</TableCell></TableRow></TableBody>
               ) : (
                 pageSlice.map((entry) => (
                   <LedgerRow
@@ -632,30 +607,9 @@ export default function ExchangeManager({
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1}>الأولى</Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                السابق
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-              >
-                التالي
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(totalPages)}
-                disabled={page === totalPages}
-              >
-                الأخيرة
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>السابق</Button>
+              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>التالي</Button>
+              <Button variant="outline" size="sm" onClick={() => setPage(totalPages)} disabled={page === totalPages}>الأخيرة</Button>
             </div>
           </div>
         </CardContent>
@@ -663,4 +617,3 @@ export default function ExchangeManager({
     </div>
   );
 }
-```
