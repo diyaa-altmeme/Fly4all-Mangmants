@@ -70,7 +70,6 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-// ✅ الأعمدة تتلقى الآن دالة handleConfirmChange من المكون الأب
 const getColumns = (
   setUnifiedLedger: React.Dispatch<React.SetStateAction<UnifiedLedgerEntry[]>>,
   handleConfirmChange: (id: string, entryType: string, checked: boolean) => Promise<void>
@@ -210,7 +209,6 @@ const getColumns = (
   },
 ];
 
-
 export default function ExchangeManager({ initialExchanges, initialExchangeId }: { initialExchanges: Exchange[], initialExchangeId: string }) {
     const { toast } = useToast();
     const [exchangeId, setExchangeId] = useState(initialExchangeId || initialExchanges[0]?.id || '');
@@ -248,6 +246,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     useEffect(() => {
         fetchExchangeData();
     }, [fetchExchangeData]);
+    
+    useEffect(() => {
+      if (!loading && table) {
+        table.setPageIndex(pagination.pageIndex);
+      }
+    }, [loading, pagination.pageIndex]);
+
 
     const refreshAllData = useCallback(async () => {
         setLoading(true);
@@ -275,38 +280,38 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
     }, [exchangeId, fetchExchangeData, toast]);
 
-    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
+    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
         if (action === 'add' || action === 'delete') {
             fetchExchangeData();
         } else if (action === 'update') {
             setUnifiedLedger(currentLedger =>
-                currentLedger.map(item =>
-                    item.id === data.id ? { ...item, ...data } : item
-                )
+            currentLedger.map(item =>
+                item.id === updatedData.id ? { ...item, ...updatedData } : item
+            )
             );
         }
     }, [fetchExchangeData]);
-
+    
     const handleConfirmChange = async (id: string, entryType: string, checked: boolean) => {
-      try {
-        const result = await updateBatch(id, entryType as 'transaction' | 'payment', { isConfirmed: checked });
-        if (!result.success) throw new Error(result.error);
-        setUnifiedLedger(current =>
-          current.map(item => (item.id === id ? { ...item, isConfirmed: checked } : item))
-        );
-        toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
-      } catch (error: any) {
-        toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
-        // Revert UI on failure
-        setUnifiedLedger(current =>
-          current.map(item => (item.id === id ? { ...item, isConfirmed: !checked } : item))
-        );
-      }
+        try {
+          const result = await updateBatch(id, entryType as 'transaction' | 'payment', { isConfirmed: checked });
+          if (!result.success) throw new Error(result.error);
+          setUnifiedLedger(current =>
+            current.map(item => (item.id === id ? { ...item, isConfirmed: checked } : item))
+          );
+          toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
+        } catch (error: any) {
+          toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+          // Revert UI on failure
+          setUnifiedLedger(current =>
+            current.map(item => (item.id === id ? { ...item, isConfirmed: !checked } : item))
+          );
+        }
     };
 
-    const columns = useMemo(() => getColumns(setUnifiedLedger, handleConfirmChange), [handleConfirmChange]);
+    const columns = useMemo(() => getColumns(setUnifiedLedger, handleConfirmChange), [setUnifiedLedger, handleConfirmChange]);
     
-     const filteredLedger = useMemo(() => {
+    const filteredLedger = useMemo(() => {
         let filteredData = unifiedLedger;
         
         if (debouncedSearchTerm) {
@@ -353,12 +358,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
     });
-    
-    useEffect(() => {
-      if (!loading && table) {
-        table.setPageIndex(pagination.pageIndex);
-      }
-    }, [loading, table, pagination.pageIndex]);
 
     const summary = useMemo(() => {
         return filteredLedger.reduce((acc, entry) => {
@@ -503,44 +502,43 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                             <TableHeader>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <TableRow key={headerGroup.id}>
-                                        <TableHead className="p-1 w-[50px]"></TableHead>
-                                    {headerGroup.headers.map((header) => (
-                                        <TableHead key={header.id} className="p-2 font-bold whitespace-nowrap" style={{ width: header.getSize() }}>
-                                            {flexRender(header.column.columnDef.header, header.getContext())}
-                                        </TableHead>
-                                    ))}
-                                    <TableHead className="p-1 text-center w-[120px]">خيارات</TableHead>
+                                        {headerGroup.headers.map((header) => (
+                                            <TableHead key={header.id} className="p-2 font-bold whitespace-nowrap" style={{ width: header.getSize() }}>
+                                                {flexRender(header.column.columnDef.header, header.getContext())}
+                                            </TableHead>
+                                        ))}
                                     </TableRow>
                                 ))}
                             </TableHeader>
-                            
-                                {loading ? (
-                                    <TableBody>
-                                        <TableRow>
-                                            <TableCell colSpan={columns.length + 2} className="h-24 text-center">
-                                                <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-                                            </TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                ) : table.getRowModel().rows.length === 0 ? (
-                                    <TableBody>
-                                        <TableRow>
-                                            <TableCell colSpan={columns.length + 2} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                ) : (
-                                    table.getRowModel().rows.map((row) => (
-                                        <LedgerRow 
-                                            key={row.original.id} 
-                                            row={row} 
-                                            exchanges={exchanges} 
-                                            onActionSuccess={handleActionSuccess}
-                                            table={table}
-                                            setUnifiedLedger={setUnifiedLedger}
-                                        />
-                                    ))
-                                )}
-                            
+                            {loading ? (
+                              <TableBody>
+                                <TableRow>
+                                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                                    <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                                  </TableCell>
+                                </TableRow>
+                              </TableBody>
+                            ) : table.getRowModel().rows.length === 0 ? (
+                              <TableBody>
+                                <TableRow>
+                                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                                    لا توجد بيانات.
+                                  </TableCell>
+                                </TableRow>
+                              </TableBody>
+                            ) : (
+                              <TableBody>
+                                {table.getRowModel().rows.map((row) => (
+                                  <TableRow key={row.id}>
+                                    {row.getVisibleCells().map((cell) => (
+                                      <TableCell key={cell.id} className="text-center">
+                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                      </TableCell>
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            )}
                         </Table>
                     </div>
                     <DataTablePagination table={table} />
@@ -549,5 +547,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
-    
