@@ -214,7 +214,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
                                                     <TableCell className="p-1 text-center"><Badge className={cn("text-white", detailTypeClass)}>{detailType}</Badge></TableCell>
                                                     <TableCell className="p-1 font-mono text-right whitespace-nowrap">{detail.originalAmount.toLocaleString(undefined, {minimumFractionDigits: 2})} {detail.originalCurrency}</TableCell>
                                                     <TableCell className="p-1 font-mono text-right">{detail.originalCurrency !== 'USD' ? detail.rate : '-'}</TableCell>
-                                                    <TableCell className="p-1 font-mono text-right whitespace-nowrap">{formatCurrency(detail.amountInUSD)}</TableCell>
+                                                    <TableCell className="p-1 font-mono font-bold text-right whitespace-nowrap">{formatCurrency(detail.amountInUSD)}</TableCell>
                                                     <TableCell className="p-1">{detail.note}</TableCell>
                                                 </TableRow>
                                             )
@@ -366,7 +366,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
 
                 if (!result.success) throw new Error(result.error);
                 toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-                onActionSuccess('update', {...row.original, isConfirmed: checked});
+                handleActionSuccess('update', {...row.original, isConfirmed: checked});
               } catch (error: any) {
                 toast({
                   title: 'خطأ',
@@ -429,7 +429,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             size: 150
         },
         { accessorKey: 'userName', header: 'المستخدم', size: 120 },
-    ], [exchanges, toast, onActionSuccess]);
+    ], [exchanges, toast, handleActionSuccess]);
     
     const table = useReactTable({
       data: filteredLedger,
