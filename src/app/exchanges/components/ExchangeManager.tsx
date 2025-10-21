@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -81,22 +80,22 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess }: { 
+const LedgerRow = ({ row, exchanges, onActionSuccess, setUnifiedLedger }: { 
     row: Row<UnifiedLedgerEntry>, 
     exchanges: Exchange[], 
-    onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void
+    onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void,
+    setUnifiedLedger: React.Dispatch<React.SetStateAction<UnifiedLedgerEntry[]>>
 }) => {
     const entry = row.original;
     const { toast } = useToast();
     const [isPending, setIsPending] = React.useState(false);
     const [auditLogOpen, setAuditLogOpen] = useState(false);
     const table = (row as any).table;
-    const { setUnifiedLedger } = (table.options.meta as any);
-
+    
     const handleConfirmChange = async (checked: boolean) => {
         setIsPending(true);
         const currentPage = table.getState().pagination.pageIndex;
-        
+      
         try {
           const result = await updateBatch(
             row.original.id,
@@ -106,6 +105,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
       
           if (!result.success) throw new Error(result.error);
       
+          // Update local state directly
           setUnifiedLedger(currentLedger =>
             currentLedger.map(item =>
               item.id === row.original.id ? { ...item, isConfirmed: checked } : item
@@ -120,7 +120,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
             variant: 'destructive',
           });
           // Revert UI change on failure
-          setUnifiedLedger(currentLedger =>
+           setUnifiedLedger(currentLedger =>
             currentLedger.map(item =>
               item.id === row.original.id ? { ...item, isConfirmed: !checked } : item
             )
@@ -130,6 +130,14 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
           table.setPageIndex(currentPage);
         }
       };
+    
+    const confirmUncheck = () => {
+        setDialogOpen(false);
+        handleConfirmChange(false);
+    };
+
+    const [dialogOpen, setDialogOpen] = React.useState(false);
+
     
     const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
     const handleCopy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
@@ -297,9 +305,9 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             fetchExchangeData();
         } else if (action === 'update') {
             setUnifiedLedger(currentLedger =>
-                currentLedger.map(item =>
-                    item.id === data.id ? { ...item, ...data } : item
-                )
+            currentLedger.map(item =>
+                item.id === data.id ? { ...item, ...data } : item
+            )
             );
         }
     }, [fetchExchangeData]);
@@ -374,11 +382,16 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             const { pageIndex, pageSize } = table.getState().pagination;
             return pageIndex * pageSize + row.index + 1;
         }, size: 40 },
-        { id: 'isConfirmed', header: 'تأكيد', cell: ({ row, table }) => {
+        { id: 'isConfirmed', header: 'تأكيد', cell: ({ row }) => {
             const [isPending, setIsPending] = React.useState(false);
             const [dialogOpen, setDialogOpen] = React.useState(false);
-            const { setUnifiedLedger } = (table.options.meta as any);
-            
+             const confirmUncheck = () => {
+                setDialogOpen(false);
+                handleConfirmChange(false);
+            };
+            const table = (row as any).table;
+            const { setUnifiedLedger: setLedger } = (table.options.meta as any)
+
             const handleConfirmChange = async (checked: boolean) => {
                 setIsPending(true);
                 const currentPage = table.getState().pagination.pageIndex;
@@ -392,7 +405,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
               
                   if (!result.success) throw new Error(result.error);
               
-                  setUnifiedLedger((currentLedger: any[]) =>
+                  setLedger((currentLedger: any[]) =>
                     currentLedger.map(item =>
                       item.id === row.original.id ? { ...item, isConfirmed: checked } : item
                     )
@@ -405,7 +418,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                     description: 'فشل تحديث حالة التأكيد.',
                     variant: 'destructive',
                   });
-                   setUnifiedLedger((currentLedger: any[]) =>
+                   setLedger((currentLedger: any[]) =>
                     currentLedger.map(item =>
                       item.id === row.original.id ? { ...item, isConfirmed: !checked } : item
                     )
@@ -415,11 +428,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                   table.setPageIndex(currentPage);
                 }
               };
-            
-            const confirmUncheck = () => {
-                setDialogOpen(false);
-                handleConfirmChange(false);
-            };
 
             return (
                 <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -488,7 +496,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
       meta: {
-        setUnifiedLedger: setUnifiedLedger
+        setUnifiedLedger: setUnifiedLedger,
       },
     });
 
@@ -673,7 +681,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             key={row.original.id} 
                                             row={row} 
                                             exchanges={exchanges} 
-                                            onActionSuccess={handleActionSuccess} 
+                                            onActionSuccess={handleActionSuccess}
+                                            setUnifiedLedger={setUnifiedLedger} 
                                         />
                                     ))
                                 )}
@@ -686,3 +695,5 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
+    
