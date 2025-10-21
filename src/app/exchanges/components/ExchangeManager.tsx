@@ -33,7 +33,7 @@ import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowMode
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog";
 
 interface ExchangeManagerProps {
     initialExchanges: Exchange[];
@@ -264,6 +264,16 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
     }, [exchangeId, toast, date]);
     
+    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
+        if(action === 'add') {
+            setUnifiedLedger(current => [data, ...current]);
+        } else if (action === 'delete') {
+            setUnifiedLedger(current => current.filter(item => item.id !== data.id));
+        } else if (action === 'update') {
+            setUnifiedLedger(current => current.map(item => item.id === data.id ? data : item));
+        }
+    }, []);
+
     const refreshAllData = useCallback(async () => {
         setLoading(true);
         try {
@@ -289,16 +299,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             setLoading(false);
         }
     }, [exchangeId, fetchExchangeData, toast]);
-
-    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        if(action === 'add') {
-            setUnifiedLedger(current => [data, ...current]);
-        } else if (action === 'delete') {
-            setUnifiedLedger(current => current.filter(item => item.id !== data.id));
-        } else if (action === 'update') {
-            setUnifiedLedger(current => current.map(item => item.id === data.id ? data : item));
-        }
-    }, []);
     
     useEffect(() => {
       setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
@@ -355,7 +355,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             const handleConfirmChange = async (checked: boolean) => {
               setIsPending(true);
               const currentPage = table.getState().pagination.pageIndex;
-              table.options.meta?.updateData?.(row.index, 'isConfirmed', checked);
+              (table.options.meta as any)?.updateData?.(row.index, 'isConfirmed', checked);
 
               try {
                 const result = await updateBatch(
@@ -373,7 +373,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                   description: 'فشل تحديث حالة التأكيد.',
                   variant: 'destructive',
                 });
-                table.options.meta?.updateData?.(row.index, 'isConfirmed', !checked);
+                (table.options.meta as any)?.updateData?.(row.index, 'isConfirmed', !checked);
               } finally {
                 setIsPending(false);
                 table.setPageIndex(currentPage);
