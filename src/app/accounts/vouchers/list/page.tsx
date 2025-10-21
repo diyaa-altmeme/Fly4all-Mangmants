@@ -11,7 +11,8 @@ import type {
   AppSettings,
   VoucherListSettings,
 } from '@/lib/types';
-import { Button } from '@/components/ui/button';
+
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -28,9 +29,6 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import VouchersTable from './components/vouchers-table';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import VouchersListSettingsDialog from './components/vouchers-list-settings-dialog';
-import { updateSettings, getSettings } from '@/app/settings/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import {
@@ -41,63 +39,89 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useDebounce } from '@/hooks/use-debounce';
-import { getAllVouchers } from './actions';
-import { getClients } from '@/app/relations/actions';
-import { getUsers } from '@/app/users/actions';
-import { getBoxes } from '@/app/boxes/actions';
-import { getSuppliers } from '@/app/suppliers/actions';
+import {
+  getAllVouchers,
+  getClients,
+  getUsers,
+  getBoxes,
+  getSuppliers,
+  getSettings,
+  updateSettings,
+} from './actions';
+import VouchersListSettingsDialog from './components/vouchers-list-settings-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const VouchersListContent = () => {
-  const router = useRouter();
   const { toast } = useToast();
   const [vouchers, setVouchers] = React.useState<Voucher[]>([]);
   const [settings, setSettings] = React.useState<AppSettings | null>(null);
+  const [voucherListSettings, setVoucherListSettings] =
+    React.useState<VoucherListSettings | undefined>();
   const [loading, setLoading] = React.useState(true);
-
-  const [voucherListSettings, setVoucherListSettings] = React.useState<
-    VoucherListSettings | undefined
-  >(undefined);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [filterType, setFilterType] = React.useState('all');
-
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
+  // ✅ تحميل شامل للبيانات مع التحقق من الأخطاء
   const fetchData = React.useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch all necessary auxiliary data first
-      const [clientsRes, usersData, boxesData, suppliersData, settingsData] =
-        await Promise.all([
-          getClients({ all: true }),
-          getUsers(),
-          getBoxes(),
-          getSuppliers({ all: true }),
-          getSettings(),
-        ]);
+      const [
+        clientsRes,
+        usersData,
+        boxesData,
+        suppliersData,
+        settingsData,
+      ] = await Promise.allSettled([
+        getClients({ all: true }),
+        getUsers(),
+        getBoxes(),
+        getSuppliers({ all: true }),
+        getSettings(),
+      ]);
 
-      const allRelations = clientsRes.clients;
-      const fetchedClients = allRelations.filter(
-        (r) => r.relationType === 'client' || r.relationType === 'both'
+      // ✅ التحقق من جميع النتائج
+      if (clientsRes.status !== 'fulfilled' || !clientsRes.value?.clients)
+        throw new Error('فشل تحميل العملاء');
+      if (usersData.status !== 'fulfilled')
+        throw new Error('فشل تحميل المستخدمين');
+      if (boxesData.status !== 'fulfilled')
+        throw new Error('فشل تحميل الصناديق');
+      if (suppliersData.status !== 'fulfilled')
+        throw new Error('فشل تحميل الموردين');
+      if (settingsData.status !== 'fulfilled' || !settingsData.value)
+        throw new Error('فشل تحميل الإعدادات');
+
+      const fetchedClients = clientsRes.value.clients.filter(
+        (r: any) => r.relationType === 'client' || r.relationType === 'both'
       );
 
-      setSettings(settingsData);
-      setVoucherListSettings(settingsData.voucherSettings?.listSettings);
+      const settings = settingsData.value;
+      setSettings(settings);
+      setVoucherListSettings(settings.voucherSettings?.listSettings);
 
-      // Now fetch the main data using the auxiliary data
+      // ✅ جلب السندات الرئيسية
       const vouchersData = await getAllVouchers(
         fetchedClients,
-        suppliersData,
-        boxesData,
-        usersData,
-        settingsData
+        suppliersData.value,
+        boxesData.value,
+        usersData.value,
+        settings
       );
-      setVouchers(vouchersData);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
+
+      if (!vouchersData?.length) {
+        toast({
+          title: 'تنبيه',
+          description: 'لم يتم العثور على أي سندات مالية.',
+        });
+      }
+
+      setVouchers(vouchersData || []);
+    } catch (error: any) {
+      console.error('خطأ في تحميل السندات:', error);
       toast({
         title: 'خطأ',
-        description: 'فشل في تحميل البيانات.',
+        description: error.message || 'فشل في تحميل البيانات.',
         variant: 'destructive',
       });
     } finally {
@@ -127,6 +151,7 @@ const VouchersListContent = () => {
     }
   };
 
+  // ✅ فلترة البيانات مع بحث سريع
   const filteredVouchers = React.useMemo(() => {
     return vouchers.filter((v) => {
       const typeMatch = filterType === 'all' || v.voucherType === filterType;
@@ -142,6 +167,7 @@ const VouchersListContent = () => {
     });
   }, [vouchers, debouncedSearchTerm, filterType]);
 
+  // ✅ واجهة التحميل
   if (loading || !settings || !voucherListSettings) {
     return (
       <Card>
@@ -171,7 +197,7 @@ const VouchersListContent = () => {
           </div>
           <Select value={filterType} onValueChange={setFilterType}>
             <SelectTrigger className="w-[180px]">
-              <SelectValue />
+              <SelectValue placeholder="النوع" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل الأنواع</SelectItem>
@@ -187,6 +213,7 @@ const VouchersListContent = () => {
             </SelectContent>
           </Select>
         </div>
+
         <div className="flex items-center gap-2">
           <Button
             onClick={() => fetchData()}
@@ -194,20 +221,32 @@ const VouchersListContent = () => {
             size="icon"
             className="h-8 w-8"
           >
-            <RefreshCw className="h-4 w-4" />
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
           </Button>
+
           <VouchersListSettingsDialog
             settings={voucherListSettings}
             onSettingsChanged={handleSettingsChanged}
           />
         </div>
       </CardHeader>
+
       <CardContent>
-        <VouchersTable
-          vouchers={filteredVouchers}
-          onDataChanged={fetchData}
-          settings={voucherListSettings}
-        />
+        {filteredVouchers.length > 0 ? (
+          <VouchersTable
+            vouchers={filteredVouchers}
+            onDataChanged={fetchData}
+            settings={voucherListSettings}
+          />
+        ) : (
+          <div className="py-10 text-center text-muted-foreground">
+            لا توجد سندات مطابقة للبحث أو الفلاتر المحددة.
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -217,7 +256,7 @@ export default function VouchersListPage() {
   return (
     <div className="space-y-6">
       <CardHeader className="px-0 sm:px-6">
-        <CardTitle>سجل السندات الموحد</CardTitle>
+        <CardTitle>📑 سجل السندات الموحد</CardTitle>
         <CardDescription>
           عرض جميع السندات والحركات المالية في النظام مع إمكانية الفلترة والبحث.
         </CardDescription>
