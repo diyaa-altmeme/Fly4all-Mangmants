@@ -83,34 +83,41 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
     const { toast } = useToast();
     const [isPending, setIsPending] = React.useState(false);
     const [auditLogOpen, setAuditLogOpen] = useState(false);
+    const table = (row as any).table;
+    const { setUnifiedLedger } = (table.options.meta as any);
 
     const handleConfirmChange = async (checked: boolean) => {
-      setIsPending(true);
-      const table = (row as any).table;
-      const currentPage = table.getState().pagination.pageIndex;
-      (table.options.meta as any)?.updateData(row.index, 'isConfirmed', checked);
+        setIsPending(true);
+        const currentPage = table.getState().pagination.pageIndex;
+        (table.options.meta as any)?.updateData(row.index, 'isConfirmed', checked);
 
-      try {
-        const result = await updateBatch(
-          row.original.id,
-          row.original.entryType as 'transaction' | 'payment',
-          { isConfirmed: checked }
-        );
+        try {
+            const result = await updateBatch(
+              row.original.id,
+              row.original.entryType as 'transaction' | 'payment',
+              { isConfirmed: checked }
+            );
 
-        if (!result.success) throw new Error(result.error);
-        toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-        onActionSuccess('update', {...row.original, isConfirmed: checked});
-      } catch (error: any) {
-        toast({
-          title: 'خطأ',
-          description: 'فشل تحديث حالة التأكيد.',
-          variant: 'destructive',
-        });
-        (table.options.meta as any)?.updateData(row.index, 'isConfirmed', !checked);
-      } finally {
-        setIsPending(false);
-        table.setPageIndex(currentPage);
-      }
+            if (!result.success) throw new Error(result.error);
+            
+            setUnifiedLedger(currentLedger =>
+                currentLedger.map(item =>
+                    item.id === row.original.id ? { ...item, isConfirmed: checked } : item
+                )
+            );
+            
+            toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+        } catch (error: any) {
+            toast({
+              title: 'خطأ',
+              description: 'فشل تحديث حالة التأكيد.',
+              variant: 'destructive',
+            });
+            (table.options.meta as any)?.updateData(row.index, 'isConfirmed', !checked);
+        } finally {
+            setIsPending(false);
+            table.setPageIndex(currentPage);
+        }
     };
     
     const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
@@ -274,15 +281,17 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         }
     }, [exchangeId, toast, date]);
     
-    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        if(action === 'add') {
-            setUnifiedLedger(current => [data, ...current]);
-        } else if (action === 'delete') {
-            setUnifiedLedger(current => current.filter(item => item.id !== data.id));
+    const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', updatedData: any) => {
+        if (action === 'add' || action === 'delete') {
+            fetchExchangeData();
         } else if (action === 'update') {
-            setUnifiedLedger(current => current.map(item => item.id === data.id ? data : item));
+            setUnifiedLedger(currentLedger =>
+              currentLedger.map(item =>
+                item.id === updatedData.id ? { ...item, ...updatedData } : item
+              )
+            );
         }
-    }, []);
+    }, [fetchExchangeData]);
 
     const refreshAllData = useCallback(async () => {
         setLoading(true);
@@ -357,11 +366,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { id: 'isConfirmed', header: 'تأكيد', cell: ({ row, table }) => {
             const [isPending, setIsPending] = React.useState(false);
             const [dialogOpen, setDialogOpen] = React.useState(false);
-            const confirmUncheck = () => {
-                setDialogOpen(false);
-                handleConfirmChange(false);
-            };
-
+            
             const handleConfirmChange = async (checked: boolean) => {
               setIsPending(true);
               const currentPage = table.getState().pagination.pageIndex;
@@ -375,8 +380,15 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                 );
 
                 if (!result.success) throw new Error(result.error);
+                
+                // Optimistically update local state instead of full refetch
+                 setUnifiedLedger(currentLedger =>
+                    currentLedger.map(item =>
+                        item.id === row.original.id ? { ...item, isConfirmed: checked } : item
+                    )
+                );
+                
                 toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-                onActionSuccess('update', {...row.original, isConfirmed: checked});
               } catch (error: any) {
                 toast({
                   title: 'خطأ',
@@ -388,6 +400,11 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                 setIsPending(false);
                 table.setPageIndex(currentPage);
               }
+            };
+            
+            const confirmUncheck = () => {
+                setDialogOpen(false);
+                handleConfirmChange(false);
             };
 
             return (
@@ -456,7 +473,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getSortedRowModel: getSortedRowModel(),
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
-      manualPagination: false, // We handle pagination client-side for now
       meta: {
         updateData: (rowIndex: number, columnId: string, value: any) => {
           const itemToUpdateId = filteredLedger[rowIndex].id;
@@ -466,6 +482,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             )
           );
         },
+        setUnifiedLedger: setUnifiedLedger,
       },
     });
 
@@ -473,7 +490,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         fetchExchangeData();
     }, [fetchExchangeData]);
     
-    useEffect(() => {
+     useEffect(() => {
       if (!loading && table) {
         table.setPageIndex(pagination.pageIndex);
       }
@@ -663,5 +680,3 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
-
-    
