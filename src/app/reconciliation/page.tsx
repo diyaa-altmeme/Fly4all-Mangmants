@@ -7,7 +7,7 @@ import { Loader2, AlertTriangle, FileUp, ListChecks } from 'lucide-react';
 import type { ReconciliationResult, ReconciliationSettings, FilterRule, Client, Supplier } from '@/lib/types';
 import FileUploader from '@/components/reconciliation/file-uploader';
 import { performReconciliation, defaultSettings } from '@/lib/reconciliation';
-import ReconciliationResults from './components/reconciliation-results';
+import ReconciliationResults from '@/app/reconciliation/components/reconciliation-results';
 import { useToast } from '@/hooks/use-toast';
 import { addReconciliationLog } from './actions';
 import { useAuth } from '@/lib/auth-context';
