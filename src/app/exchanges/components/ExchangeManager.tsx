@@ -20,8 +20,18 @@ import AddTransactionsDialog from "./add-transactions-dialog";
 import AddPaymentsDialog from "./add-payments-dialog";
 import AddExchangeDialog from './add-exchange-dialog';
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Dialog, DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog";
 import EditBatchDialog from "./EditBatchDialog";
 import { Input } from "@/components/ui/input";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -33,7 +43,7 @@ import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowMode
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useRouter } from 'next/navigation';
-import { Dialog, DialogHeader, DialogTitle, DialogContent } from "@/components/ui/dialog";
+
 
 interface ExchangeManagerProps {
     initialExchanges: Exchange[];
@@ -78,7 +88,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
       setIsPending(true);
       const table = (row as any).table;
       const currentPage = table.getState().pagination.pageIndex;
-      table.options.meta?.updateData(row.index, 'isConfirmed', checked);
+      (table.options.meta as any)?.updateData(row.index, 'isConfirmed', checked);
 
       try {
         const result = await updateBatch(
@@ -96,7 +106,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
           description: 'فشل تحديث حالة التأكيد.',
           variant: 'destructive',
         });
-        table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
+        (table.options.meta as any)?.updateData(row.index, 'isConfirmed', !checked);
       } finally {
         setIsPending(false);
         table.setPageIndex(currentPage);
@@ -366,7 +376,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
 
                 if (!result.success) throw new Error(result.error);
                 toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-                handleActionSuccess('update', {...row.original, isConfirmed: checked});
+                onActionSuccess('update', {...row.original, isConfirmed: checked});
               } catch (error: any) {
                 toast({
                   title: 'خطأ',
@@ -434,7 +444,11 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     const table = useReactTable({
       data: filteredLedger,
       columns,
-      state: { sorting, rowSelection, pagination },
+      state: {
+        sorting,
+        rowSelection,
+        pagination,
+      },
       onSortingChange: setSorting,
       onRowSelectionChange: setRowSelection,
       onPaginationChange: setPagination,
@@ -442,7 +456,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
       getSortedRowModel: getSortedRowModel(),
       getPaginationRowModel: getPaginationRowModel(),
       getFilteredRowModel: getFilteredRowModel(),
-      manualPagination: false,
+      manualPagination: false, // We handle pagination client-side for now
       meta: {
         updateData: (rowIndex: number, columnId: string, value: any) => {
           const itemToUpdateId = filteredLedger[rowIndex].id;
@@ -459,7 +473,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         fetchExchangeData();
     }, [fetchExchangeData]);
     
-     useEffect(() => {
+    useEffect(() => {
       if (!loading && table) {
         table.setPageIndex(pagination.pageIndex);
       }
@@ -649,3 +663,5 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         </div>
     );
 }
+
+    
