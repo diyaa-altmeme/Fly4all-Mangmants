@@ -103,7 +103,7 @@ const VoucherRow = ({
         );
       case 'date':
         return format(parseISO(voucher.date), 'yyyy-MM-dd');
-      case 'voucherType':
+      case 'voucherTypeLabel':
         return (
           <div className="flex items-center justify-end gap-2">
             <VoucherTypeIcon type={voucher.voucherType} />
