@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -63,11 +64,10 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { 
+const LedgerRow = ({ row, exchanges, onActionSuccess }: { 
     row: Row<UnifiedLedgerEntry>, 
     exchanges: Exchange[], 
-    onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void,
-    table: ReactTable<UnifiedLedgerEntry>
+    onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void
 }) => {
     const entry = row.original;
     const { toast } = useToast();
@@ -76,20 +76,21 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: {
 
     const handleConfirmChange = async (checked: boolean) => {
         setIsPending(true);
-        const currentPage = table.getState().pagination.pageIndex;
-        
-        table.options.meta?.updateData?.(row.index, 'isConfirmed', checked);
+        // Correct usage of updateData from meta
+        // const { updateData } = (row.table.options.meta as any);
+        // updateData(row.index, 'isConfirmed', checked);
 
         try {
             const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
             if (!result.success) throw new Error(result.error);
             toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+            onActionSuccess('update', {...row.original, isConfirmed: checked});
         } catch (error: any) {
             toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-            table.options.meta?.updateData?.(row.index, 'isConfirmed', !checked);
+            // Revert on failure
+            onActionSuccess('update', row.original);
         } finally {
             setIsPending(false);
-            table.setPageIndex(currentPage);
         }
     };
 
@@ -112,7 +113,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: {
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    {table.getVisibleCells().map(cell => (
+                    {row.getVisibleCells().map(cell => (
                          <TableCell key={cell.id} className="p-1" style={{ width: cell.column.getSize() }}>
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </TableCell>
@@ -258,8 +259,14 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, fetchExchangeData, toast]);
 
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-        fetchExchangeData();
-    }, [fetchExchangeData]);
+        if(action === 'add') {
+            setUnifiedLedger(current => [data, ...current]);
+        } else if (action === 'delete') {
+            setUnifiedLedger(current => current.filter(item => item.id !== data.id));
+        } else if (action === 'update') {
+            setUnifiedLedger(current => current.map(item => item.id === data.id ? data : item));
+        }
+    }, []);
     
     useEffect(() => {
       setExchangeId(initialExchangeId || initialExchanges[0]?.id || "");
@@ -585,7 +592,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             row={row} 
                                             exchanges={exchanges} 
                                             onActionSuccess={handleActionSuccess} 
-                                            table={table}
                                         />
                                     ))
                                 )}
