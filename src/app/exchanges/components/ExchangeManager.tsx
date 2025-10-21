@@ -12,7 +12,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, startOfDay, endOfDay, isBefore, isAfter, subDays } from "date-fns";
 
 // UI
 import {
@@ -79,26 +79,27 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Calendar as CalendarIcon,
+  PlusCircle,
+  XCircle,
 } from "lucide-react";
 
-// Motion
-import { AnimatePresence, motion } from "framer-motion";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { DateRange } from "react-day-picker";
 import AddTransactionsDialog from "./add-transactions-dialog";
 import AddPaymentsDialog from "./add-payments-dialog";
 import AddExchangeDialog from './add-exchange-dialog';
 import EditBatchDialog from "./EditBatchDialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Label } from "@/components/ui/label";
 
-// ===== Helpers =====
-const formatCurrency = (amount?: number, currency = "USD") => {
-  if (amount == null) return "-";
-  return (
-    new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount) + ` ${currency}`
-  );
-};
+/* ================= Helpers ================= */
+
+const formatCurrency = (v?: number, c = "USD") =>
+  v === undefined || v === null
+    ? "-"
+    : `${new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(v)} ${c}`;
 
 const getTypeLabel = (e: UnifiedLedgerEntry) =>
   e.entryType === "transaction" ? "دين" : (e.totalAmount || 0) > 0 ? "دفع" : "قبض";
@@ -118,7 +119,7 @@ const getCredit = (e: UnifiedLedgerEntry) => {
 type TypeFilter = "all" | "transaction" | "payment" | "receipt";
 type ConfirmFilter = "all" | "confirmed" | "unconfirmed";
 
-// ===== Row Component (HTML-safe) =====
+/* ================= Row Component (HTML-safe) ================= */
 
 function LedgerRow({
   entry,
@@ -141,7 +142,7 @@ function LedgerRow({
     entry.entryType === "transaction"
       ? { label: "دين", className: "bg-red-600/90 text-white" }
       : (entry.totalAmount || 0) > 0
-      ? { label: "تسديد", className: "bg-blue-600 text-white" }
+      ? { label: "دفع", className: "bg-blue-600 text-white" }
       : { label: "قبض", className: "bg-green-600 text-white" };
 
   const doConfirm = async (checked: boolean) => {
@@ -347,6 +348,16 @@ function LedgerRow({
   );
 }
 
+const defaultRange: DateRange = { from: subDays(new Date(), 30), to: new Date() };
+
+type Filters = {
+    search: string;
+    type: TypeFilter;
+    confirmed: ConfirmFilter;
+    user: string;
+    dateRange: DateRange | undefined;
+};
+
 /* ================= Main Component ================= */
 
 export default function ExchangeManager({
@@ -462,11 +473,11 @@ export default function ExchangeManager({
   const netUSD = summary.creditUSD - summary.debitUSD;
 
   /* ---------- Pagination ---------- */
-  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageSlice = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
-  }, [filtered, page, pageSize]);
+  }, [filtered, page]);
 
   /* ---------- Mutations ---------- */
   const onConfirm = async (id: string, type: "transaction" | "payment", checked: boolean) => {
@@ -490,29 +501,18 @@ export default function ExchangeManager({
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>إدارة المعاملات</CardTitle>
-          <CardDescription>
-            فلاتر متقدمة، ملخص مالي، وتفاصيل قابلة للطي.
-          </CardDescription>
-        </CardHeader>
+        <CardHeader className="gap-3">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+            <div>
+              <CardTitle>إدارة المعاملات</CardTitle>
+              <CardDescription>
+                فلاتر متقدمة، ملخص مالي، وتفاصيل قابلة للطي.
+              </CardDescription>
+            </div>
 
-        <CardContent className="space-y-4">
-          {/* ===== Summary Bar (Fixed, tidy layout) ===== */}
-          <div className="grid gap-3 sm:grid-cols-3 rounded-lg border bg-muted/30 p-3">
-             <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
-              <span className="text-sm text-muted-foreground">علينا (USD)</span>
-              <span className="font-semibold text-red-600">{formatCurrency(summary.debitUSD, "USD")}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
-              <span className="text-sm text-muted-foreground">لنا (USD)</span>
-              <span className="font-semibold text-green-600">{formatCurrency(summary.creditUSD, "USD")}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
-              <span className="text-sm text-muted-foreground">المحصلة</span>
-              <span className={cn("font-semibold", netUSD >= 0 ? "text-green-700" : "text-red-700")}>
-                {formatCurrency(netUSD, "USD")}
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={load}><Button><PlusCircle className="me-2 h-4 w-4" /> معاملة</Button></AddTransactionsDialog>
+              <AddPaymentsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={load}><Button variant="secondary"><PlusCircle className="me-2 h-4 w-4" /> تسديد</Button></AddPaymentsDialog>
             </div>
           </div>
           
@@ -543,7 +543,7 @@ export default function ExchangeManager({
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full sm:w-[240px] justify-start h-9">
                   <CalendarIcon className="h-4 w-4 ml-2" />
-                  {filters.dateRange?.from ? format(filters.dateRange.from, "dd/MM/yy") : "من"} - {filters.dateRange?.to ? format(filters.dateRange.to, "dd/MM/yy") : "إلى"}
+                  {filters.dateRange?.from ? format(filters.dateRange.from, "LLL dd, y") : "من"} - {filters.dateRange?.to ? format(filters.dateRange.to, "LLL dd, y") : "إلى"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-auto p-0"><Calendar mode="range" selected={filters.dateRange} onSelect={(r) => setFilters((f) => ({ ...f, dateRange: r }))} numberOfMonths={2} /></PopoverContent>
@@ -551,13 +551,35 @@ export default function ExchangeManager({
 
             <div className="ms-auto flex items-center gap-2">
               <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
-                <Search className="me-2 h-4 w-4" />
+                <Filter className="me-2 h-4 w-4" />
                 تصفية/تحديث
               </Button>
             </div>
           </div>
           
-          {/* ===== Table ===== */}
+
+          {/* ===== Summary Bar ===== */}
+          <div className="grid gap-3 sm:grid-cols-3 rounded-lg border bg-muted/30 p-3 mt-4">
+             <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
+              <span className="text-sm text-muted-foreground">علينا (USD)</span>
+              <span className="font-bold text-red-600">{formatCurrency(summary.debitUSD, "USD")}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
+              <span className="text-sm text-muted-foreground">لنا (USD)</span>
+              <span className="font-semibold text-green-600">{formatCurrency(summary.creditUSD, "USD")}</span>
+            </div>
+            <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
+              <span className="text-sm text-muted-foreground">المحصلة</span>
+              <span className={cn("font-semibold", netUSD >= 0 ? "text-green-700" : "text-red-700")}>
+                {formatCurrency(netUSD, "USD")}
+              </span>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+      {/* TABLE */}
+      <Card>
+        <CardContent className="p-0">
           <div className="border rounded-md overflow-x-auto">
             <Table>
               <TableHeader className="bg-muted/40">
@@ -572,33 +594,34 @@ export default function ExchangeManager({
                   <TableHead className="w-[80px] text-center">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
-                {loading ? (
-                  <TableBody>
+
+              {loading ? (
+                <TableBody>
                   <TableRow>
                     <TableCell colSpan={8} className="py-10 text-center">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
-                  </TableBody>
-                ) : pageSlice.length === 0 ? (
-                  <TableBody>
+                </TableBody>
+              ) : pageSlice.length === 0 ? (
+                <TableBody>
                   <TableRow>
                     <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                       لا توجد بيانات مطابقة.
                     </TableCell>
                   </TableRow>
-                  </TableBody>
-                ) : (
-                  pageSlice.map((entry) => (
-                    <LedgerRow
-                      key={entry.id}
-                      entry={entry}
-                      exchanges={exchanges}
-                      onConfirm={onConfirm}
-                      onActionSuccess={onActionSuccess}
-                    />
-                  ))
-                )}
+                </TableBody>
+              ) : (
+                pageSlice.map((entry) => (
+                  <LedgerRow
+                    key={entry.id}
+                    entry={entry}
+                    exchanges={exchanges}
+                    onConfirm={onConfirm}
+                    onActionSuccess={onActionSuccess}
+                  />
+                ))
+              )}
             </Table>
           </div>
 
@@ -608,9 +631,7 @@ export default function ExchangeManager({
               الصفحة {page} من {totalPages} — {pageSlice.length} / {filtered.length} سجل
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1}>
-                الأولى
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1}>الأولى</Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -642,3 +663,4 @@ export default function ExchangeManager({
     </div>
   );
 }
+```
