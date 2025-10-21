@@ -33,7 +33,7 @@ const processVoucherData = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     // Deep check for nested dates, especially in originalData
     if (safeData.originalData && typeof safeData.originalData === 'object') {
         for (const key in safeData.originalData) {
-             if (safeData.originalData[key] && (safeData.originalData[key].hasOwnProperty('_seconds') || typeof safeData.originalData[key].toDate === 'function')) {
+             if (safeData.originalData[key] && (safeData.originalData[key].hasOwnProperty('_seconds') || safeData.originalData[key].toDate === 'function')) {
                 safeData.originalData[key] = new Date(safeData.originalData[key]._seconds * 1000 || safeData.originalData[key].toDate()).toISOString();
             }
         }
