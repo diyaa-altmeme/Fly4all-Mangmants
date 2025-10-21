@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -76,8 +77,21 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
         
         const boxesMap = new Map(boxes.map(b => [b.id, b.name]));
         const usersMap = new Map(users.map((u: any) => [u.uid, u.name]));
+        
+        // Filter for specific voucher types
+        const relevantVoucherTypes = [
+            'journal_from_standard_receipt',
+            'journal_from_distributed_receipt',
+            'journal_from_payment',
+            'journal_from_expense',
+            'journal_voucher'
+        ];
 
-        const journalVouchersSnapshot = await db.collection('journal-vouchers').orderBy('createdAt', 'desc').limit(500).get();
+        const journalVouchersSnapshot = await db.collection('journal-vouchers')
+            .where('voucherType', 'in', relevantVoucherTypes)
+            .orderBy('createdAt', 'desc')
+            .limit(500)
+            .get();
         
         const allVouchers: Voucher[] = [];
         
@@ -88,10 +102,6 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
                 case 'journal_from_payment': return 'سند دفع';
                 case 'journal_from_expense': return 'سند مصاريف';
                 case 'journal_voucher': return 'قيد محاسبي';
-                case 'journal_from_remittance': return 'حوالة مستلمة';
-                case 'booking': return 'حجز طيران';
-                case 'visa': return 'طلب فيزا';
-                case 'subscription': return 'اشتراك';
                 default: return type;
             }
         };
