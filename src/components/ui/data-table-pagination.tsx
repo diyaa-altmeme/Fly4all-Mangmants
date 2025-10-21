@@ -1,4 +1,3 @@
-
 "use client"
 
 import {
@@ -22,7 +21,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 interface DataTablePaginationProps<TData> {
   table: Table<TData>
-  className?: string
+  className?: string;
   totalRows?: number;
 }
 
@@ -50,8 +49,9 @@ export function DataTablePagination<TData>({
   
   const isServerPaginated = totalRows !== undefined;
 
-  const { pageIndex, pageSize } = table.getState().pagination;
-  const pageCount = table.getPageCount();
+  const pageIndex = table.getState().pagination.pageIndex;
+  const pageSize = table.getState().pagination.pageSize;
+  const pageCount = isServerPaginated ? Math.ceil(totalRows / pageSize) : table.getPageCount();
 
   const canPreviousPage = isServerPaginated ? pageIndex > 0 : table.getCanPreviousPage();
   const canNextPage = isServerPaginated ? pageIndex < pageCount - 1 : table.getCanNextPage();
@@ -110,8 +110,8 @@ export function DataTablePagination<TData>({
           <Button
             variant="outline"
             className="h-8 w-8 p-0"
-            onClick={() => setPageIndex(pageIndex - 1)}
-            disabled={!canPreviousPage}
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
           >
             <span className="sr-only">Go to previous page</span>
             <ChevronRightIcon className="h-4 w-4" />
@@ -119,8 +119,8 @@ export function DataTablePagination<TData>({
           <Button
             variant="outline"
             className="h-8 w-8 p-0"
-            onClick={() => setPageIndex(pageIndex + 1)}
-            disabled={!canNextPage}
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
           >
             <span className="sr-only">Go to next page</span>
             <ChevronLeftIcon className="h-4 w-4" />
@@ -128,8 +128,8 @@ export function DataTablePagination<TData>({
           <Button
             variant="outline"
             className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => setPageIndex(pageCount - 1)}
-            disabled={!canNextPage}
+            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+            disabled={!table.getCanNextPage()}
           >
             <span className="sr-only">Go to last page</span>
             <ChevronsLeftIcon className="h-4 w-4" />
@@ -139,3 +139,4 @@ export function DataTablePagination<TData>({
     </div>
   )
 }
+    
