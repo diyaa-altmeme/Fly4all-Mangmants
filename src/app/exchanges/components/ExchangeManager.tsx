@@ -340,13 +340,16 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { id: 'entryType', header: 'النوع', size: 100,
           cell: ({ row }) => {
               const entry = row.original;
+              const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
+              const handleCopy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
+
               if (entry.entryType === 'transaction') {
-                  return <Badge variant={'destructive'} className="font-bold">دين</Badge>;
+                  return <Badge variant={'destructive'} className="font-bold cursor-pointer" onClick={handleCopy}>دين</Badge>;
               } else {
                   const amount = entry.totalAmount || 0;
                   return amount > 0 
-                      ? <Badge className="bg-blue-600 font-bold">تسديد</Badge> 
-                      : <Badge className="bg-green-600 font-bold">قبض</Badge>;
+                      ? <Badge className="bg-blue-600 font-bold cursor-pointer" onClick={handleCopy}>تسديد</Badge> 
+                      : <Badge className="bg-green-600 font-bold cursor-pointer" onClick={handleCopy}>قبض</Badge>;
               }
           }
         },
@@ -374,8 +377,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             size: 150
         },
         { accessorKey: 'userName', header: 'المستخدم', size: 120 },
-    ], []);
-
+    ], [exchanges, toast]);
+    
     const table = useReactTable({
       data: filteredLedger,
       columns,
