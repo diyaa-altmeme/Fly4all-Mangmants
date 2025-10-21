@@ -106,47 +106,17 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: {
             <tbody className={cn("border-t", entry.isConfirmed && "bg-green-500/10")}>
                 <TableRow data-state={row.getIsExpanded() ? "open" : "closed"}>
                     <TableCell className="p-1 text-center">
-                        {row.original.details && row.original.details.length > 0 && (
-                            <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <ChevronDown className={cn("h-4 w-4 transition-transform", row.getIsExpanded() && "rotate-180")} />
-                                </Button>
-                            </CollapsibleTrigger>
-                        )}
+                        <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", row.getIsExpanded() && "rotate-180")} />
+                            </Button>
+                        </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="p-1 text-center">
-                        <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                    <AlertDialogDescription>سيتم إلغاء تأكيد هذه الدفعة. هل تريد المتابعة؟</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                    <AlertDialogAction onClick={confirmUncheck}>نعم، قم بالإلغاء</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                         <Checkbox
-                            checked={entry.isConfirmed}
-                            onCheckedChange={(checked) => {
-                                if (entry.isConfirmed && !checked) {
-                                    setDialogOpen(true);
-                                } else {
-                                    handleConfirmChange(true);
-                                }
-                            }}
-                            disabled={isPending}
-                        />
-                    </TableCell>
-                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'invoiceNumber')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'invoiceNumber')?.getContext())}</TableCell>
-                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'date')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'date')?.getContext())}</TableCell>
-                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'entryType')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'entryType')?.getContext())}</TableCell>
-                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'description')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'description')?.getContext())}</TableCell>
-                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'debit')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'debit')?.getContext())}</TableCell>
-                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'credit')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'credit')?.getContext())}</TableCell>
-                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'balance')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'balance')?.getContext())}</TableCell>
-                    <TableCell>{flexRender(row.getVisibleCells().find(c => c.column.id === 'userName')?.column.columnDef.cell, row.getVisibleCells().find(c => c.column.id === 'userName')?.getContext())}</TableCell>
+                    {table.getVisibleCells().map(cell => (
+                         <TableCell key={cell.id} className="p-1" style={{ width: cell.column.getSize() }}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                    ))}
                     <TableCell className="text-center p-1">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -184,7 +154,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: {
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={11} className="p-0">
+                        <TableCell colSpan={12} className="p-0">
                              <div className="p-2 bg-muted">
                                 <Table>
                                     <TableHeader>
@@ -331,8 +301,40 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [unifiedLedger, debouncedSearchTerm, typeFilter, confirmationFilter]);
     
      const columns = useMemo<ColumnDef<UnifiedLedgerEntry>[]>(() => [
-        { id: 'collapsible', header: () => null, size: 40 },
-        { id: 'isConfirmed', header: 'تأكيد', size: 50 },
+        { id: 'rowNumber', header: '#', cell: ({ row, table }) => {
+            const { pageIndex, pageSize } = table.getState().pagination;
+            return pageIndex * pageSize + row.index + 1;
+        }, size: 40 },
+        { id: 'isConfirmed', header: 'تأكيد', cell: ({ row, table }) => {
+            const [isPending, setIsPending] = React.useState(false);
+            const [dialogOpen, setDialogOpen] = React.useState(false);
+            const handleConfirmChange = async (checked: boolean) => {
+                setIsPending(true);
+                const currentPage = table.getState().pagination.pageIndex;
+                table.options.meta?.updateData?.(row.index, 'isConfirmed', checked);
+                try {
+                    const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
+                    if (!result.success) throw new Error(result.error);
+                    toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+                } catch (error: any) {
+                    toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
+                    table.options.meta?.updateData?.(row.index, 'isConfirmed', !checked);
+                } finally {
+                    setIsPending(false);
+                    table.setPageIndex(currentPage);
+                }
+            };
+            const confirmUncheck = () => { setDialogOpen(false); handleConfirmChange(false); };
+            return (
+                <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم إلغاء تأكيد هذه الدفعة. هل تريد المتابعة؟</AlertDialogDescription></AlertDialogHeader>
+                        <AlertDialogFooter><AlertDialogCancel>إلغاء</AlertDialogCancel><AlertDialogAction onClick={confirmUncheck}>نعم، قم بالإلغاء</AlertDialogAction></AlertDialogFooter>
+                    </AlertDialogContent>
+                    <Checkbox checked={row.original.isConfirmed} onCheckedChange={(checked) => { if (row.original.isConfirmed && !checked) { setDialogOpen(true); } else { handleConfirmChange(true); } }} disabled={isPending} />
+                </AlertDialog>
+            );
+        }, size: 50 },
         { accessorKey: 'invoiceNumber', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>الفاتورة <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{row.original.invoiceNumber}</span>, size: 120 },
         { accessorKey: 'date', header: ({ column }) => <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>التاريخ <ArrowUpDown className="ms-2 h-4 w-4" /></Button>, cell: ({ row }) => <span className="font-bold">{format(parseISO(row.original.date), 'yyyy-MM-dd')}</span>, size: 120 },
         { id: 'entryType', header: 'النوع', size: 100,
@@ -372,7 +374,6 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             size: 150
         },
         { accessorKey: 'userName', header: 'المستخدم', size: 120 },
-        { id: 'actions', header: () => <div className="text-center font-bold">خيارات</div>, size: 80 },
     ], []);
 
     const table = useReactTable({
@@ -402,8 +403,8 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     useEffect(() => {
         fetchExchangeData();
     }, [fetchExchangeData]);
-
-    useEffect(() => {
+    
+     useEffect(() => {
       if (!loading && table) {
         table.setPageIndex(pagination.pageIndex);
       }
@@ -549,11 +550,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                             <TableHeader>
                                 {table.getHeaderGroups().map((headerGroup) => (
                                     <TableRow key={headerGroup.id}>
+                                        <TableHead className="p-1 w-[50px]"></TableHead>
                                     {headerGroup.headers.map((header) => (
                                         <TableHead key={header.id} className="p-2 font-bold whitespace-nowrap" style={{ width: header.getSize() }}>
                                             {flexRender(header.column.columnDef.header, header.getContext())}
                                         </TableHead>
                                     ))}
+                                    <TableHead className="p-1 text-center w-[80px]">خيارات</TableHead>
                                     </TableRow>
                                 ))}
                             </TableHeader>
@@ -561,7 +564,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                 {loading ? (
                                     <TableBody>
                                         <TableRow>
-                                            <TableCell colSpan={columns.length} className="h-24 text-center">
+                                            <TableCell colSpan={columns.length + 2} className="h-24 text-center">
                                                 <Loader2 className="h-8 w-8 animate-spin mx-auto" />
                                             </TableCell>
                                         </TableRow>
@@ -569,7 +572,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                 ) : table.getRowModel().rows.length === 0 ? (
                                     <TableBody>
                                         <TableRow>
-                                            <TableCell colSpan={columns.length} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
+                                            <TableCell colSpan={columns.length + 2} className="h-24 text-center">لا توجد بيانات لهذه الفترة.</TableCell>
                                         </TableRow>
                                     </TableBody>
                                 ) : (
