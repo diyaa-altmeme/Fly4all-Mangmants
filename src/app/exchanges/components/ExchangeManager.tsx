@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -44,12 +43,6 @@ import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowMode
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useRouter } from 'next/navigation';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 
 interface ExchangeManagerProps {
@@ -94,43 +87,39 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, setUnifiedLedger }: {
     const table = (row as any).table;
     
     const handleConfirmChange = async (checked: boolean) => {
-        setIsPending(true);
-        const currentPage = table.getState().pagination.pageIndex;
-      
-        try {
-          const result = await updateBatch(
-            row.original.id,
-            row.original.entryType as 'transaction' | 'payment',
-            { isConfirmed: checked }
-          );
-      
-          if (!result.success) throw new Error(result.error);
-      
-          // ✅ Direct state update, no refetch needed
-          setUnifiedLedger(currentLedger =>
-            currentLedger.map(item =>
-              item.id === row.original.id ? { ...item, isConfirmed: checked } : item
-            )
-          );
-      
-          toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-        } catch (error: any) {
-          toast({
-            title: 'خطأ',
-            description: 'فشل تحديث حالة التأكيد.',
-            variant: 'destructive',
-          });
-          // Revert UI on failure
-          setUnifiedLedger(currentLedger =>
-            currentLedger.map(item =>
-              item.id === row.original.id ? { ...item, isConfirmed: !checked } : item
-            )
-          );
-        } finally {
-          setIsPending(false);
-          table.setPageIndex(currentPage);
-        }
-      };
+      setIsPending(true);
+      const currentPage = table.getState().pagination.pageIndex;
+    
+      table.options.meta?.updateData(row.index, 'isConfirmed', checked);
+    
+      try {
+        const result = await updateBatch(
+          row.original.id,
+          row.original.entryType as 'transaction' | 'payment',
+          { isConfirmed: checked }
+        );
+    
+        if (!result.success) throw new Error(result.error);
+    
+        setUnifiedLedger(currentLedger =>
+          currentLedger.map(item =>
+            item.id === row.original.id ? { ...item, isConfirmed: checked } : item
+          )
+        );
+    
+        toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+      } catch (error: any) {
+        toast({
+          title: 'خطأ',
+          description: 'فشل تحديث حالة التأكيد.',
+          variant: 'destructive',
+        });
+        table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
+      } finally {
+        setIsPending(false);
+        table.setPageIndex(currentPage);
+      }
+    };
     
     const confirmUncheck = () => {
         setDialogOpen(false);
@@ -267,9 +256,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, setUnifiedLedger }: {
     )
 }
 
-const getColumns = (
-  setUnifiedLedger: React.Dispatch<React.SetStateAction<UnifiedLedgerEntry[]>>
-): ColumnDef<UnifiedLedgerEntry>[] => [
+const getColumns = (setUnifiedLedger: React.Dispatch<React.SetStateAction<UnifiedLedgerEntry[]>>): ColumnDef<UnifiedLedgerEntry>[] => [
     { id: 'rowNumber', header: '#', cell: ({ row, table }) => {
         const { pageIndex, pageSize } = table.getState().pagination;
         return pageIndex * pageSize + row.index + 1;
@@ -277,50 +264,48 @@ const getColumns = (
     { id: 'isConfirmed', header: 'تأكيد', cell: ({ row }) => {
         const [isPending, setIsPending] = React.useState(false);
         const [dialogOpen, setDialogOpen] = React.useState(false);
+        const { toast } = useToast();
         const table = (row as any).table;
-
+    
         const handleConfirmChange = async (checked: boolean) => {
-            setIsPending(true);
-            const currentPage = table.getState().pagination.pageIndex;
-          
-            try {
-              const result = await updateBatch(
-                row.original.id,
-                row.original.entryType as 'transaction' | 'payment',
-                { isConfirmed: checked }
-              );
-          
-              if (!result.success) throw new Error(result.error);
-          
-              setUnifiedLedger(currentLedger =>
-                currentLedger.map(item =>
-                  item.id === row.original.id ? { ...item, isConfirmed: checked } : item
-                )
-              );
-          
-              toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-            } catch (error: any) {
-              toast({
-                title: 'خطأ',
-                description: 'فشل تحديث حالة التأكيد.',
-                variant: 'destructive',
-              });
-              setUnifiedLedger(currentLedger =>
-                currentLedger.map(item =>
-                  item.id === row.original.id ? { ...item, isConfirmed: !checked } : item
-                )
-              );
-            } finally {
-              setIsPending(false);
-              table.setPageIndex(currentPage);
-            }
-          };
+          setIsPending(true);
+          const currentPage = table.getState().pagination.pageIndex;
+        
+          try {
+            const result = await updateBatch(
+              row.original.id,
+              row.original.entryType as 'transaction' | 'payment',
+              { isConfirmed: checked }
+            );
+        
+            if (!result.success) throw new Error(result.error);
+        
+            setUnifiedLedger(currentLedger =>
+              currentLedger.map(item =>
+                item.id === row.original.id ? { ...item, isConfirmed: checked } : item
+              )
+            );
+        
+            toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+          } catch (error: any) {
+            toast({
+              title: 'خطأ',
+              description: 'فشل تحديث حالة التأكيد.',
+              variant: 'destructive',
+            });
+            // Revert on failure is tricky without the direct meta update, but we refetch anyway.
+            // Let's rely on the parent component's refetch logic for now.
+          } finally {
+            setIsPending(false);
+            table.setPageIndex(currentPage);
+          }
+        };
 
         const confirmUncheck = () => {
             setDialogOpen(false);
             handleConfirmChange(false);
         };
-
+        
         return (
             <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <AlertDialogContent>
@@ -699,13 +684,4 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     );
 }
 
-```
-- src/app/exchanges/report/page.tsx
-- workspace/src/components/clients/components/clients-table.tsx
-- workspace/src/components/clients/components/client-card.tsx
-- workspace/src/components/clients/components/suppliers-content.tsx
-- workspace/src/app/clients/components/add-client-dialog.tsx
-- workspace/src/app/clients/page.tsx
-- workspace/src/app/clients/actions.ts
-- workspace/src/app/clients/components/clients-content.tsx
-- workspace/src/app/clients/components/suppliers-content.tsx
+    
