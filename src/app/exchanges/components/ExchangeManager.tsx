@@ -1,271 +1,498 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
-import type { Exchange, UnifiedLedgerEntry } from '@/lib/types';
-import { getUnifiedExchangeLedger, updateBatch } from '../actions';
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import type { Exchange, UnifiedLedgerEntry } from "@/lib/types";
+import {
+  getUnifiedExchangeLedger,
+  updateBatch,
+  deleteExchangePaymentBatch,
+  deleteExchangeTransactionBatch,
+} from "../actions";
+
 import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from "@/components/ui/table";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Loader2, ArrowUp, ArrowDown, MoreHorizontal, Edit, Trash2, ChevronDown, Calendar as CalendarIcon, Filter, Search, ArrowUpDown, RefreshCw, Download, Copy, History } from 'lucide-react';
-import { DateRange } from "react-day-picker";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { format, subDays, parseISO } from 'date-fns';
-import * as XLSX from 'xlsx';
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import * as XLSX from "xlsx";
+import { format, parseISO } from "date-fns";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableHeader,
+  TableHead,
+  TableRow,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useDebounce } from "@/hooks/use-debounce";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { DataTablePagination } from "@/components/ui/data-table-pagination";
-import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, RowSelectionState } from '@tanstack/react-table';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import AddTransactionsDialog from "./add-transactions-dialog";
-import AddPaymentsDialog from "./add-payments-dialog";
-import AddExchangeDialog from './add-exchange-dialog';
-import EditBatchDialog from "./EditBatchDialog";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectItem,
+  SelectContent,
+} from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogContent,
+} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-const formatCurrency = (amount?: number, currency: string = 'USD') => {
-  if (amount === undefined || amount === null) return '-';
-  return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount) + ` ${currency}`;
+import {
+  Loader2,
+  ChevronDown,
+  MoreHorizontal,
+  History,
+  Copy,
+  Edit,
+  Trash2,
+  RefreshCw,
+  Download,
+  Search,
+} from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+
+// ====== Helpers ======
+const formatCurrency = (amount?: number, currency = "USD") =>
+  amount == null
+    ? "-"
+    : new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(amount) + ` ${currency}`;
+
+const getTypeLabel = (e: UnifiedLedgerEntry) =>
+  e.entryType === "transaction"
+    ? "دين"
+    : (e.totalAmount || 0) > 0
+    ? "دفع"
+    : "قبض";
+
+const getDebit = (e: UnifiedLedgerEntry) => {
+  const a = e.totalAmount || 0;
+  if (e.entryType === "transaction") return Math.abs(a);
+  if (e.entryType === "payment" && a < 0) return Math.abs(a);
+  return 0;
+};
+const getCredit = (e: UnifiedLedgerEntry) => {
+  const a = e.totalAmount || 0;
+  if (e.entryType === "payment" && a > 0) return a;
+  return 0;
 };
 
-const LedgerRow = ({ row, onConfirmChange }: { row: any; onConfirmChange: (id: string, entryType: string, checked: boolean) => Promise<void>; }) => {
-  const entry = row.original;
+// ====== Component ======
+export default function ExchangeManager({
+  initialExchanges,
+  initialExchangeId,
+}: {
+  initialExchanges: Exchange[];
+  initialExchangeId: string;
+}) {
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [isPending, setIsPending] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const handleConfirm = async (checked: boolean) => {
-    setIsPending(true);
-    try {
-      await onConfirmChange(entry.id, entry.entryType, checked);
-      toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
-    } catch {
-      toast({ title: 'خطأ أثناء التحديث', variant: 'destructive' });
-    } finally {
-      setIsPending(false);
-    }
-  };
-
-  return (
-    <Collapsible asChild open={open} onOpenChange={setOpen}>
-      <>
-        <TableRow data-state={open ? "open" : "closed"} className={cn(entry.isConfirmed && "bg-green-100")}>
-          <TableCell className="p-1 text-center">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
-              </Button>
-            </CollapsibleTrigger>
-          </TableCell>
-
-          <TableCell className="text-center">
-            <Checkbox
-              checked={entry.isConfirmed}
-              disabled={isPending}
-              onCheckedChange={(checked) => {
-                if (entry.isConfirmed && !checked) {
-                  setDialogOpen(true);
-                } else {
-                  handleConfirm(true);
-                }
-              }}
-            />
-            <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>تأكيد الإلغاء</AlertDialogTitle>
-                  <AlertDialogDescription>هل تريد إلغاء تأكيد هذه الدفعة؟</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>رجوع</AlertDialogCancel>
-                  <AlertDialogAction onClick={confirmUncheck}>تأكيد</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </TableCell>
-
-          <TableCell className="font-bold text-center">{entry.invoiceNumber}</TableCell>
-          <TableCell className="text-center">{format(parseISO(entry.date), "yyyy-MM-dd")}</TableCell>
-          <TableCell className="text-center">
-            {entry.entryType === "transaction" ? (
-              <Badge variant="destructive">دين</Badge>
-            ) : (entry.totalAmount || 0) > 0 ? (
-              <Badge className="bg-blue-600">تسديد</Badge>
-            ) : (
-              <Badge className="bg-green-600">قبض</Badge>
-            )}
-          </TableCell>
-          <TableCell className="text-center">{entry.description}</TableCell>
-          <TableCell className="text-center font-bold text-red-600">
-            {entry.entryType === "transaction" ? formatCurrency(Math.abs(entry.totalAmount)) : "-"}
-          </TableCell>
-          <TableCell className="text-center font-bold text-green-600">
-            {entry.entryType === "payment" && entry.totalAmount > 0 ? formatCurrency(entry.totalAmount) : "-"}
-          </TableCell>
-          <TableCell className="text-center">{entry.userName}</TableCell>
-        </TableRow>
-
-        <CollapsibleContent asChild>
-          <TableRow>
-            <TableCell colSpan={9}>
-              <div className="bg-muted p-3 text-sm">
-                {entry.details?.length ? (
-                  <ul className="space-y-1">
-                    {entry.details.map((d: any, i: number) => (
-                      <li key={i}>
-                        {d.partyName || d.paidTo}: {formatCurrency(d.amountInUSD)} USD ({d.note})
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <span className="text-muted-foreground">لا توجد تفاصيل إضافية</span>
-                )}
-              </div>
-            </TableCell>
-          </TableRow>
-        </CollapsibleContent>
-      </>
-    </Collapsible>
+  const [exchanges] = useState<Exchange[]>(initialExchanges || []);
+  const [exchangeId, setExchangeId] = useState(
+    initialExchangeId || initialExchanges[0]?.id || ""
   );
-};
-
-export default function ExchangeManager({ initialExchanges, initialExchangeId }: { initialExchanges: Exchange[]; initialExchangeId: string; }) {
-  const { toast } = useToast();
-  const [exchangeId, setExchangeId] = useState(initialExchangeId || initialExchanges[0]?.id || "");
-  const [exchanges, setExchanges] = useState(initialExchanges);
-  const [unifiedLedger, setUnifiedLedger] = useState<UnifiedLedgerEntry[]>([]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
-  const [sorting, setSorting] = useState<SortingState>([{ id: "date", desc: true }]);
+  const [ledger, setLedger] = useState<UnifiedLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [confirmFilter, setConfirmFilter] = useState<
+    "all" | "confirmed" | "unconfirmed"
+  >("all");
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(15);
+  const [slideDir, setSlideDir] = useState<"left" | "right">("right");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [askUnconfirm, setAskUnconfirm] = useState<{
+    open: boolean;
+    id?: string;
+    type?: "transaction" | "payment";
+  }>({ open: false });
+  const [auditDialog, setAuditDialog] = useState<{
+    open: boolean;
+    item?: UnifiedLedgerEntry;
+  }>({ open: false });
 
-  const fetchExchangeData = useCallback(async () => {
-    if (!exchangeId) return;
+  const fetchLedger = useCallback(async () => {
+    if (!exchangeId) {
+      setLedger([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const ledgerData = await getUnifiedExchangeLedger(exchangeId);
-      setUnifiedLedger(ledgerData);
-    } catch (err: any) {
-      toast({ title: "خطأ في تحميل البيانات", description: err.message, variant: "destructive" });
+      const data = await getUnifiedExchangeLedger(exchangeId);
+      data.sort((a, b) => {
+        const da = a.date ? +parseISO(a.date) : 0;
+        const db = b.date ? +parseISO(b.date) : 0;
+        return db - da;
+      });
+      setLedger(data);
+    } catch (e: any) {
+      toast({
+        title: "خطأ في التحميل",
+        description: e?.message || "تعذر تحميل البيانات",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   }, [exchangeId, toast]);
 
   useEffect(() => {
-    fetchExchangeData();
-  }, [fetchExchangeData]);
+    fetchLedger();
+  }, [fetchLedger]);
 
-  const handleConfirmChange = async (id: string, entryType: string, checked: boolean) => {
+  const filtered = useMemo(() => {
+    let arr = ledger;
+    const q = search.toLowerCase().trim();
+    if (q)
+      arr = arr.filter(
+        (e) =>
+          e.invoiceNumber?.toLowerCase().includes(q) ||
+          e.description?.toLowerCase().includes(q) ||
+          e.userName?.toLowerCase().includes(q)
+      );
+    if (confirmFilter !== "all") {
+      const want = confirmFilter === "confirmed";
+      arr = arr.filter((e) => !!e.isConfirmed === want);
+    }
+    return arr;
+  }, [ledger, search, confirmFilter]);
+
+  const summary = useMemo(() => {
+    return filtered.reduce(
+      (acc, e) => {
+        acc.debit += getDebit(e);
+        acc.credit += getCredit(e);
+        return acc;
+      },
+      { debit: 0, credit: 0 }
+    );
+  }, [filtered]);
+  const net = summary.credit - summary.debit;
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePageIndex = Math.min(pageIndex, pageCount - 1);
+  const start = safePageIndex * pageSize;
+  const pageRows = filtered.slice(start, start + pageSize);
+
+  const doToggleConfirm = async (
+    id: string,
+    type: "transaction" | "payment",
+    checked: boolean
+  ) => {
+    const keepPage = pageIndex;
     try {
-      const result = await updateBatch(id, entryType as "transaction" | "payment", { isConfirmed: checked });
-      if (!result.success) throw new Error(result.error);
-      setUnifiedLedger((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, isConfirmed: checked } : item))
+      setLedger((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, isConfirmed: checked } : x))
       );
-    } catch (error: any) {
-      toast({ title: "خطأ أثناء التحديث", description: error.message, variant: "destructive" });
-      // Revert UI change on failure
-      setUnifiedLedger((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, isConfirmed: !checked } : item))
-      );
+      const res = await updateBatch(id, type, { isConfirmed: checked });
+      if (!res?.success) throw new Error(res?.error || "فشل التحديث");
+      toast({ title: checked ? "تم التأكيد" : "تم إلغاء التأكيد" });
+    } catch {
+      toast({ title: "حدث خطأ", variant: "destructive" });
+    } finally {
+      setPageIndex(keepPage);
     }
   };
 
-  const table = useReactTable({
-    data: unifiedLedger,
-    columns: [], // Columns are rendered directly in the JSX
-    state: { sorting, pagination },
-    onSortingChange: setSorting,
-    onPaginationChange: setPagination,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-  });
+  const Stat = ({
+    title,
+    value,
+    color,
+  }: {
+    title: string;
+    value: number;
+    color: string;
+  }) => (
+    <motion.div
+      whileHover={{ scale: 1.03 }}
+      className="rounded-xl border p-3 shadow-sm transition-all duration-200 bg-card text-card-foreground"
+    >
+      <div className="text-xs text-muted-foreground">{title}</div>
+      <div
+        className={cn(
+          "mt-1 font-extrabold text-lg font-mono tabular-nums whitespace-nowrap",
+          color
+        )}
+      >
+        {formatCurrency(value)}
+      </div>
+    </motion.div>
+  );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Header & Summary */}
       <Card>
         <CardHeader>
-          <CardTitle>إدارة المعاملات</CardTitle>
-          <CardDescription>تأكيد المعاملات بدون فقدان الصفحة مع عرض التفاصيل</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-between mb-3">
-            <Select value={exchangeId} onValueChange={setExchangeId}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="اختر بورصة..." />
-              </SelectTrigger>
-              <SelectContent>
-                {exchanges.map((ex) => (
-                  <SelectItem key={ex.id} value={ex.id}>
-                    {ex.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={fetchExchangeData} disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "تحديث"}
-            </Button>
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <CardTitle>إدارة المعاملات</CardTitle>
+              <CardDescription>عرض وتأكيد العمليات المالية</CardDescription>
+            </div>
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <div className="relative w-full md:w-[260px]">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="بحث شامل..."
+                  className="pr-9"
+                />
+              </div>
+              <Select
+                value={confirmFilter}
+                onValueChange={(v: any) => setConfirmFilter(v)}
+              >
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="حالة التأكيد" />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="all">كل الحالات</SelectItem>
+                  <SelectItem value="confirmed">المؤكدة</SelectItem>
+                  <SelectItem value="unconfirmed">غير المؤكدة</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+            <Stat title="إجمالي علينا (مدين)" value={summary.debit} color="text-destructive" />
+            <Stat title="إجمالي لنا (دائن)" value={summary.credit} color="text-green-500 dark:text-green-400" />
+            <Stat title="صافي الرصيد" value={net} color="text-primary" />
+          </div>
+        </CardHeader>
+      </Card>
 
-          <div className="border rounded-md overflow-x-auto">
+      {/* Table */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-hidden border rounded-xl">
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead></TableHead>
-                  <TableHead>تأكيد</TableHead>
-                  <TableHead>الفاتورة</TableHead>
-                  <TableHead>التاريخ</TableHead>
-                  <TableHead>النوع</TableHead>
-                  <TableHead>الوصف</TableHead>
-                  <TableHead>علينا</TableHead>
-                  <TableHead>لنا</TableHead>
-                  <TableHead>المستخدم</TableHead>
+                  <TableHead className="text-center w-[60px]">#</TableHead>
+                  <TableHead className="text-center w-[50px]"></TableHead>
+                  <TableHead className="text-center">الفاتورة</TableHead>
+                  <TableHead className="text-center">التاريخ</TableHead>
+                  <TableHead className="text-center">النوع</TableHead>
+                  <TableHead className="text-center">الوصف</TableHead>
+                  <TableHead className="text-center">علينا</TableHead>
+                  <TableHead className="text-center">لنا</TableHead>
+                  <TableHead className="text-center">المحصلة</TableHead>
+                  <TableHead className="text-center">المستخدم</TableHead>
+                  <TableHead className="text-center w-[70px]">تأكيد</TableHead>
                 </TableRow>
               </TableHeader>
-              {loading ? (
-                <TableBody>
+
+              <TableBody>
+                {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-10">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                    <TableCell colSpan={11} className="text-center py-10">
+                      <Loader2 className="animate-spin mx-auto h-6 w-6" />
                     </TableCell>
                   </TableRow>
-                </TableBody>
-              ) : unifiedLedger.length === 0 ? (
-                <TableBody>
+                ) : pageRows.length ? (
+                  pageRows.map((e, i) => {
+                    const open = !!expanded[e.id];
+                    const debit = getDebit(e);
+                    const credit = getCredit(e);
+                    return (
+                      <React.Fragment key={e.id}>
+                        <TableRow
+                          className={cn(
+                            "transition-colors",
+                            e.isConfirmed && "bg-accent/40"
+                          )}
+                        >
+                          <TableCell className="text-center font-semibold">
+                            {start + i + 1}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() =>
+                                setExpanded((prev) => ({
+                                  ...prev,
+                                  [e.id]: !prev[e.id],
+                                }))
+                              }
+                            >
+                              <ChevronDown
+                                className={cn(
+                                  "h-4 w-4 transition-transform",
+                                  open && "rotate-180"
+                                )}
+                              />
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-center font-bold">
+                            {e.invoiceNumber || "-"}
+                          </TableCell>
+                          <TableCell className="text-center whitespace-nowrap">
+                            {e.date ? format(parseISO(e.date), "yyyy-MM-dd") : "-"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={
+                                e.entryType === "transaction"
+                                  ? "destructive"
+                                  : "default"
+                              }
+                            >
+                              {getTypeLabel(e)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">{e.description || "-"}</TableCell>
+                          <TableCell className="text-center font-mono tabular-nums text-destructive">
+                            {debit > 0 ? formatCurrency(debit) : "-"}
+                          </TableCell>
+                          <TableCell className="text-center font-mono tabular-nums text-green-500 dark:text-green-400">
+                            {credit > 0 ? formatCurrency(credit) : "-"}
+                          </TableCell>
+                          <TableCell className="text-center font-mono tabular-nums">
+                            {formatCurrency((e.balance as any) ?? credit - debit)}
+                          </TableCell>
+                          <TableCell className="text-center">{e.userName || "-"}</TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={!!e.isConfirmed}
+                              onCheckedChange={(c) =>
+                                doToggleConfirm(
+                                  e.id,
+                                  e.entryType as "transaction" | "payment",
+                                  !!c
+                                )
+                              }
+                            />
+                          </TableCell>
+                        </TableRow>
+
+                        <AnimatePresence>
+                          {open && (
+                            <TableRow>
+                              <TableCell colSpan={11} className="p-0">
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: "auto", opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.25 }}
+                                  className="overflow-hidden bg-muted/30"
+                                >
+                                  <div className="p-3 text-sm">
+                                    {Array.isArray(e.details) && e.details.length ? (
+                                      e.details.map((d: any, idx: number) => (
+                                        <div
+                                          key={idx}
+                                          className="grid grid-cols-2 md:grid-cols-6 gap-2 border rounded-md p-2 mb-2 bg-background"
+                                        >
+                                          <div>الطرف: {d.partyName || "-"}</div>
+                                          <div>العملة: {d.originalCurrency}</div>
+                                          <div>المبلغ: {d.originalAmount}</div>
+                                          <div>سعر الصرف: {d.rate || "-"}</div>
+                                          <div>بالدولار: {formatCurrency(d.amountInUSD)}</div>
+                                          <div>ملاحظات: {d.note || "-"}</div>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="text-muted-foreground">لا توجد تفاصيل إضافية</div>
+                                    )}
+                                  </div>
+                                </motion.div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </AnimatePresence>
+                      </React.Fragment>
+                    );
+                  })
+                ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-10">
+                    <TableCell colSpan={11} className="text-center py-6 text-muted-foreground">
                       لا توجد بيانات.
                     </TableCell>
                   </TableRow>
-                </TableBody>
-              ) : (
-                table.getRowModel().rows.map((row) => (
-                  <LedgerRow key={row.original.id} row={row} onConfirmChange={handleConfirmChange} />
-                ))
-              )}
+                )}
+              </TableBody>
             </Table>
           </div>
 
-          <DataTablePagination
-            table={{
-              ...table,
-              getPageCount: () => Math.ceil(unifiedLedger.length / pagination.pageSize),
-            }}
-          />
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/40 rounded-b-xl">
+            <div className="text-xs text-muted-foreground">
+              الصفحة {safePageIndex + 1} من {pageCount} — {filtered.length} سجل
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(parseInt(v, 10));
+                  setPageIndex(0);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {[5, 15, 30, 50, 100].map((s) => (
+                    <SelectItem key={s} value={String(s)}>
+                      {s} صف/صفحة
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageIndex === 0}
+                onClick={() => setPageIndex(0)}
+              >
+                {"<< الأولى"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageIndex === 0}
+                onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+              >
+                {"< السابقة"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageIndex >= pageCount - 1}
+                onClick={() => setPageIndex((p) => Math.min(p + 1, pageCount - 1))}
+              >
+                {"التالية >"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageIndex >= pageCount - 1}
+                onClick={() => setPageIndex(pageCount - 
