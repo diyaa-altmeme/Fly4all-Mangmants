@@ -39,15 +39,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useDebounce } from '@/hooks/use-debounce';
-import {
-  getAllVouchers,
-  getClients,
-  getUsers,
-  getBoxes,
-  getSuppliers,
-  getSettings,
-  updateSettings,
-} from './actions';
+import { getAllVouchers } from './actions';
+import { getClients } from '@/app/relations/actions';
+import { getUsers } from '@/app/users/actions';
+import { getBoxes } from '@/app/boxes/actions';
+import { getSuppliers } from '@/app/suppliers/actions';
+import { getSettings, updateSettings } from '@/app/settings/actions';
 import VouchersListSettingsDialog from './components/vouchers-list-settings-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -108,13 +105,6 @@ const VouchersListContent = () => {
         usersData.value,
         settings
       );
-
-      if (!vouchersData?.length) {
-        toast({
-          title: 'تنبيه',
-          description: 'لم يتم العثور على أي سندات مالية.',
-        });
-      }
 
       setVouchers(vouchersData || []);
     } catch (error: any) {
