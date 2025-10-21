@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import type { Exchange, UnifiedLedgerEntry } from "@/lib/types";
 import {
   getUnifiedExchangeLedger,
@@ -12,23 +12,23 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
-import { format, parseISO, startOfDay, endOfDay, isBefore, isAfter, subDays } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 // UI
 import {
   Card,
-  CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
+  CardContent,
 } from "@/components/ui/card";
 import {
   Table,
-  TableHead,
   TableHeader,
+  TableHead,
   TableRow,
-  TableCell,
   TableBody,
+  TableCell,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,28 +80,26 @@ import {
   ChevronsRight,
   Calendar as CalendarIcon,
   PlusCircle,
-  XCircle,
-  Filter,
 } from "lucide-react";
 
 // Motion
 import { AnimatePresence, motion } from "framer-motion";
-import AddTransactionsDialog from "./add-transactions-dialog";
-import AddPaymentsDialog from "./add-payments-dialog";
-import AddExchangeDialog from "./add-exchange-dialog";
-import EditBatchDialog from "./EditBatchDialog";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Label } from "@/components/ui/label";
 
-/* ================= Helpers ================= */
+// Dialogs
+import AddTransactionDialog from "@/app/exchanges/components/add-transactions-dialog";
+import AddPaymentDialog from "@/app/exchanges/components/add-payments-dialog";
+import EditBatchDialog from "@/app/exchanges/components/EditBatchDialog";
 
-const formatCurrency = (v?: number, c = "USD") =>
-  v === undefined || v === null
-    ? "-"
-    : `${new Intl.NumberFormat("en-US", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(v)} ${c}`;
+// ===== Helpers =====
+const formatCurrency = (amount?: number, currency = "USD") => {
+  if (amount == null) return "-";
+  return (
+    new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount) + ` ${currency}`
+  );
+};
 
 const getTypeLabel = (e: UnifiedLedgerEntry) =>
   e.entryType === "transaction" ? "دين" : (e.totalAmount || 0) > 0 ? "دفع" : "قبض";
@@ -118,250 +116,8 @@ const getCredit = (e: UnifiedLedgerEntry) => {
   return 0;
 };
 
-type TypeFilter = "all" | "transaction" | "payment_credit" | "payment_debit";
+type TypeFilter = "all" | "transaction" | "payment" | "receipt";
 type ConfirmFilter = "all" | "confirmed" | "unconfirmed";
-
-const defaultRange: DateRange = { from: subDays(new Date(), 30), to: new Date() };
-
-type Filters = {
-    search: string;
-    type: TypeFilter;
-    confirmed: ConfirmFilter;
-    user: string;
-    dateRange: DateRange | undefined;
-};
-
-/* ================= Row Component (HTML-safe) ================= */
-
-function LedgerRow({
-  entry,
-  exchanges,
-  onConfirm,
-  onActionSuccess,
-}: {
-  entry: any;
-  exchanges: Exchange[];
-  onConfirm: (id: string, type: "transaction" | "payment", checked: boolean) => Promise<void> | void;
-  onActionSuccess: () => void;
-}) {
-  const { toast } = useToast();
-  const [show, setShow] = useState(false);
-  const [isPending, setIsPending] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState(false);
-  const [auditDialog, setAuditDialog] = useState(false);
-
-  const typeBadge =
-    entry.entryType === "transaction"
-      ? { label: "دين", className: "bg-red-600/90 text-white" }
-      : (entry.totalAmount || 0) > 0
-      ? { label: "دفع", className: "bg-blue-600 text-white" }
-      : { label: "قبض", className: "bg-green-600 text-white" };
-
-  const doConfirm = async (checked: boolean) => {
-    setIsPending(true);
-    await onConfirm(entry.id, entry.entryType, checked);
-    setIsPending(false);
-  };
-  
-  const onDelete = async () => {
-    const del =
-      entry.entryType === "transaction"
-        ? deleteExchangeTransactionBatch
-        : deleteExchangePaymentBatch;
-
-    const res = await del(entry.id);
-    if (!res?.success) {
-      toast({ title: "خطأ", description: res?.error || "تعذر الحذف", variant: "destructive" });
-      return;
-    }
-    toast({ title: "تم الحذف" });
-    onActionSuccess();
-  };
-
-  const copyRow = () => {
-    const exName = exchanges.find((x) => x.id === entry.exchangeId)?.name || "-";
-    const lines = [
-      `البورصة: ${exName}`,
-      `الفاتورة: ${entry.invoiceNumber ?? "-"}`,
-      `التاريخ: ${entry.date ? format(parseISO(entry.date), "yyyy-MM-dd") : "-"}`,
-      `النوع: ${typeBadge.label}`,
-      `الوصف: ${entry.description ?? "-"}`,
-      `المستخدم: ${entry.userName ?? "-"}`,
-    ];
-    if (Array.isArray(entry.details) && entry.details.length) {
-      lines.push("— التفاصيل —");
-      entry.details.forEach((d: any, i: number) =>
-        lines.push(
-          `${i + 1}) ${d.partyName || d.paidTo || "-"} | ${d.originalAmount} ${
-            d.originalCurrency
-          } @ ${d.rate ?? "-"} = ${d.amountInUSD} USD | ${d.note || "-"}`
-        )
-      );
-    }
-    navigator.clipboard.writeText(lines.join("\n"));
-    toast({ title: "تم نسخ المعلومات" });
-  };
-  
-
-  return (
-    <Collapsible asChild open={show} onOpenChange={setShow}>
-      <tbody data-state={show ? "open" : "closed"}>
-        <TableRow className={cn("align-middle", entry.isConfirmed && "bg-green-100/70")}>
-          <TableCell className="text-center">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => setShow((s) => !s)}
-              aria-label="عرض التفاصيل"
-            >
-              <ChevronDown className={cn("h-4 w-4 transition-transform", show && "rotate-180")} />
-            </Button>
-          </TableCell>
-
-          <TableCell className="text-center">
-            <Checkbox
-              checked={entry.isConfirmed}
-              disabled={isPending}
-              onCheckedChange={(checked) => {
-                if (entry.isConfirmed && !checked) setConfirmDialog(true);
-                else doConfirm(true);
-              }}
-            />
-            <AlertDialog open={confirmDialog} onOpenChange={setConfirmDialog}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>تأكيد الإلغاء</AlertDialogTitle>
-                  <AlertDialogDescription>هل تريد إلغاء تأكيد هذه الحركة؟</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>رجوع</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => doConfirm(false)}>تأكيد</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </TableCell>
-
-          <TableCell className="text-center font-semibold">{entry.invoiceNumber}</TableCell>
-          <TableCell className="text-center">
-            {entry.date ? format(parseISO(entry.date), "yyyy-MM-dd") : "-"}
-          </TableCell>
-          <TableCell className="text-center">
-            <Badge className={typeBadge.className}>{typeBadge.label}</Badge>
-          </TableCell>
-          <TableCell className="text-center">{entry.description || "-"}</TableCell>
-          <TableCell className="text-center">{entry.userName || "-"}</TableCell>
-
-          <TableCell className="text-center">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <EditBatchDialog batch={entry} exchanges={exchanges} onSuccess={onActionSuccess}>
-                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                    <Edit className="h-4 w-4 ms-1" />
-                    تعديل
-                  </DropdownMenuItem>
-                </EditBatchDialog>
-                 <DropdownMenuItem onClick={() => setAuditDialog(true)}>
-                    <History className="h-4 w-4 ms-1" />
-                    سجل التعديلات
-                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={copyRow}>
-                  <Copy className="h-4 w-4 ms-1" />
-                  نسخ المعلومات
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <Trash2 className="h-4 w-4 ms-1" />
-                      حذف
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                      <AlertDialogDescription>سيتم حذف هذه الحركة نهائيًا.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                      <AlertDialogAction onClick={onDelete}>نعم، احذف</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </DropdownMenuContent>
-            </DropdownMenu>
-             <Dialog open={auditDialog} onOpenChange={setAuditDialog}>
-                 <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>سجل التعديلات — الفاتورة: {entry.invoiceNumber || "-"}</DialogTitle>
-                      </DialogHeader>
-                      {/* ... Audit Log Table ... */}
-                  </DialogContent>
-             </Dialog>
-          </TableCell>
-        </TableRow>
-
-        {show && (
-          <TableRow>
-            <TableCell colSpan={8} className="p-0">
-               <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-              <div className="bg-muted/50 p-3 text-sm border-t">
-                {Array.isArray(entry.details) && entry.details.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-muted-foreground">
-                          <th className="px-2 py-1 text-start">الطرف</th>
-                          <th className="px-2 py-1 text-start">المبلغ الأصلي</th>
-                          <th className="px-2 py-1 text-start">العملة</th>
-                          <th className="px-2 py-1 text-start">سعر الصرف</th>
-                          <th className="px-2 py-1 text-start">المعادَل بالدولار</th>
-                          <th className="px-2 py-1 text-start">ملاحظات</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {entry.details.map((d: any, i: number) => (
-                          <tr key={i} className="border-t">
-                            <td className="px-2 py-1">{d.partyName || d.paidTo || "-"}</td>
-                            <td className="px-2 py-1">{formatCurrency(d.originalAmount, d.originalCurrency)}</td>
-                            <td className="px-2 py-1">{d.originalCurrency || "-"}</td>
-                            <td className="px-2 py-1">{d.rate ?? "-"}</td>
-                            <td className="px-2 py-1">{formatCurrency(d.amountInUSD, "USD")}</td>
-                            <td className="px-2 py-1">{d.note || "-"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <span className="text-muted-foreground">لا توجد تفاصيل إضافية</span>
-                )}
-              </div>
-              </motion.div>
-            </TableCell>
-          </TableRow>
-        )}
-      </tbody>
-    </Collapsible>
-  );
-}
-
-
-/* ================= Main Component ================= */
 
 export default function ExchangeManager({
   initialExchanges,
@@ -372,97 +128,133 @@ export default function ExchangeManager({
 }) {
   const { toast } = useToast();
 
-  const [exchangeId, setExchangeId] = useState(initialExchangeId || "");
-  const [exchanges] = useState(initialExchanges);
-  const [data, setData] = useState<UnifiedLedgerEntry[]>([]);
+  // Data
+  const [exchanges] = useState<Exchange[]>(initialExchanges || []);
+  const [exchangeId, setExchangeId] = useState(
+    initialExchangeId || initialExchanges[0]?.id || ""
+  );
+  const [ledger, setLedger] = useState<UnifiedLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const [filters, setFilters] = useState<Filters>({
-    search: "",
-    type: "all",
-    confirmed: "all",
-    user: "all",
-    dateRange: defaultRange,
-  });
 
-  const [page, setPage] = useState(1);
-  const pageSize = 15;
+  // Filters
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [confirmFilter, setConfirmFilter] = useState<ConfirmFilter>("all");
+  const [userFilter, setUserFilter] = useState<string>("");
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+
+  // Pagination
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState<number>(15);
   const [slideDir, setSlideDir] = useState<"left" | "right">("right");
 
+  // Expanded rows
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const load = useCallback(async () => {
-    if (!exchangeId) return;
+  // Dialog state (confirm uncheck)
+  const [askUnconfirm, setAskUnconfirm] = useState<{
+    open: boolean;
+    id?: string;
+    type?: "transaction" | "payment";
+  }>({ open: false });
+
+  // Audit dialog
+  const [auditDialog, setAuditDialog] = useState<{ open: boolean; item?: UnifiedLedgerEntry }>(
+    { open: false }
+  );
+
+  // Fetch
+  const fetchLedger = useCallback(async () => {
+    if (!exchangeId) {
+      setLedger([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const rows = await getUnifiedExchangeLedger(exchangeId);
-      setData(rows || []);
+      const data = await getUnifiedExchangeLedger(
+        exchangeId,
+        dateRange.from,
+        dateRange.to
+      );
+      data.sort((a, b) => {
+        const da = a.date ? +parseISO(a.date) : a.createdAt ? +parseISO(a.createdAt) : 0;
+        const db = b.date ? +parseISO(b.date) : b.createdAt ? +parseISO(b.createdAt) : 0;
+        return db - da;
+      });
+      setLedger(data);
     } catch (e: any) {
-      toast({ title: "خطأ في التحميل", description: e?.message, variant: "destructive" });
+      toast({
+        title: "خطأ في تحميل البيانات",
+        description: e?.message || "تعذر تحميل البيانات",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
-  }, [exchangeId, toast]);
+  }, [exchangeId, toast, dateRange.from, dateRange.to]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    fetchLedger();
+  }, [fetchLedger]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [filters]);
-
-  const usersList = useMemo(() => {
-    const s = new Set<string>();
-    data.forEach((d) => d.userName && s.add(d.userName));
-    return Array.from(s);
-  }, [data]);
-
-  /* ---------- Filtering ---------- */
+  // Filtered
   const filtered = useMemo(() => {
-    let arr = data;
+    let arr = ledger;
 
-    // Type filter
-    if (filters.type !== "all") {
-        if (filters.type === "transaction") arr = arr.filter((e) => e.entryType === "transaction");
-        else if (filters.type === "payment") arr = arr.filter((e) => e.entryType === "payment" && (e.totalAmount || 0) > 0);
-        else if (filters.type === "receipt") arr = arr.filter((e) => e.entryType === "payment" && (e.totalAmount || 0) < 0);
+    if (typeFilter !== "all") {
+      if (typeFilter === "transaction") {
+        arr = arr.filter((e) => e.entryType === "transaction");
+      } else if (typeFilter === "payment") {
+        arr = arr.filter((e) => e.entryType === "payment" && (e.totalAmount || 0) > 0);
+      } else if (typeFilter === "receipt") {
+        arr = arr.filter((e) => e.entryType === "payment" && (e.totalAmount || 0) < 0);
+      }
     }
 
-    // Confirmed filter
-    if (filters.confirmed !== "all") {
-        const want = filters.confirmed === "yes";
-        arr = arr.filter((e) => !!e.isConfirmed === want);
+    if (confirmFilter !== "all") {
+      const want = confirmFilter === "confirmed";
+      arr = arr.filter((e) => !!e.isConfirmed === want);
     }
 
-    // User filter
-    if (filters.user && filters.user !== "all") {
-        arr = arr.filter((e) => e.userName === filters.user);
+    if (userFilter.trim()) {
+      const uq = userFilter.toLowerCase();
+      arr = arr.filter((e) => (e.userName || "").toLowerCase().includes(uq));
     }
 
-    // Date range filter
-    if (filters.dateRange?.from || filters.dateRange?.to) {
-        const fromTs = filters.dateRange.from ? startOfDay(filters.dateRange.from).getTime() : -Infinity;
-        const toTs = filters.dateRange.to ? endOfDay(filters.dateRange.to).getTime() : Infinity;
-        arr = arr.filter(e => {
-            const ts = e.date ? parseISO(e.date).getTime() : e.createdAt ? parseISO(e.createdAt).getTime() : 0;
-            return ts >= fromTs && ts <= toTs;
-        });
-    }
-
-    // Search filter
-    if (filters.search.trim()) {
-        const q = filters.search.toLowerCase();
-        arr = arr.filter(e => 
-            e.invoiceNumber?.toLowerCase().includes(q) ||
-            e.description?.toLowerCase().includes(q) ||
-            e.userName?.toLowerCase().includes(q)
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      arr = arr.filter((e) => {
+        const inDetails =
+          Array.isArray(e.details) &&
+          e.details.some(
+            (d: any) =>
+              d.partyName?.toLowerCase().includes(q) ||
+              d.paidTo?.toLowerCase().includes(q) ||
+              d.note?.toLowerCase().includes(q)
+          );
+        return (
+          e.invoiceNumber?.toLowerCase().includes(q) ||
+          e.description?.toLowerCase().includes(q) ||
+          e.userName?.toLowerCase().includes(q) ||
+          inDetails
         );
+      });
+    }
+
+    if (dateRange.from || dateRange.to) {
+      const fromTs = dateRange.from ? +new Date(dateRange.from.setHours(0, 0, 0, 0)) : -Infinity;
+      const toTs = dateRange.to ? +new Date(dateRange.to.setHours(23, 59, 59, 999)) : Infinity;
+      arr = arr.filter((e) => {
+        const ts = e.date ? +parseISO(e.date) : e.createdAt ? +parseISO(e.createdAt) : 0;
+        return ts >= fromTs && ts <= toTs;
+      });
     }
 
     return arr;
-  }, [data, filters]);
+  }, [ledger, search, confirmFilter, typeFilter, userFilter, dateRange]);
 
-  /* ---------- Totals (summary bar) ---------- */
+  // Summary
   const summary = useMemo(() => {
     return filtered.reduce(
       (acc, e) => {
@@ -475,145 +267,718 @@ export default function ExchangeManager({
   }, [filtered]);
   const netUSD = summary.creditUSD - summary.debitUSD;
 
-  /* ---------- Pagination ---------- */
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const pageSlice = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, page]);
+  // Pagination
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  useEffect(() => {
+    setPageIndex((prev) => Math.min(prev, pageCount - 1));
+  }, [pageCount]);
 
-  /* ---------- Mutations ---------- */
-  const onConfirm = async (id: string, type: "transaction" | "payment", checked: boolean) => {
+  const start = pageIndex * pageSize;
+  const pageRows = filtered.slice(start, start + pageSize);
+
+  // Confirm toggle (keep page)
+  const doToggleConfirm = async (
+    id: string,
+    type: "transaction" | "payment",
+    checked: boolean
+  ) => {
+    const keepPage = pageIndex;
     try {
-      const result = await updateBatch(id, type, { isConfirmed: checked });
-      if (!result.success) throw new Error(result.error);
-      setData((prev) =>
-        prev.map((e) =>
-          e.id === id ? { ...e, isConfirmed: checked } : e
-        )
-      );
-    } catch (err: any) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+      setLedger((prev) => prev.map((x) => (x.id === id ? { ...x, isConfirmed: checked } : x)));
+      const res = await updateBatch(id, type, { isConfirmed: checked });
+      if (!res?.success) throw new Error(res?.error || "فشل التحديث");
+      toast({ title: checked ? "تم التأكيد" : "تم إلغاء التأكيد" });
+    } catch (e: any) {
+      setLedger((prev) => prev.map((x) => (x.id === id ? { ...x, isConfirmed: !checked } : x)));
+      toast({
+        title: "خطأ",
+        description: e?.message || "فشل تحديث حالة التأكيد",
+        variant: "destructive",
+      });
+    } finally {
+      setPageIndex(keepPage); // ارجاع نفس الصفحة
     }
   };
 
-  const onActionSuccess = () => load();
+  const onClickConfirm = (e: UnifiedLedgerEntry, next: boolean) => {
+    if (e.isConfirmed && !next) {
+      setAskUnconfirm({ open: true, id: e.id, type: e.entryType as any });
+    } else {
+      doToggleConfirm(e.id, e.entryType as "transaction" | "payment", true);
+    }
+  };
 
-  /* ================= UI ================= */
+  // Copy
+  const copyType = (e: UnifiedLedgerEntry) => {
+    const exName = exchanges.find((x) => x.id === exchangeId)?.name || "-";
+    const txt =
+      `البورصة: ${exName}\n` +
+      `النوع: ${getTypeLabel(e)}\n` +
+      `التاريخ: ${e.date ? format(parseISO(e.date), "yyyy-MM-dd") : "-"}\n` +
+      `الفاتورة: ${e.invoiceNumber || "-"}\n` +
+      `الوصف: ${e.description || "-"}`;
+    navigator.clipboard.writeText(txt);
+    toast({ title: "تم نسخ المعلومات" });
+  };
+
+  const copyAll = (e: UnifiedLedgerEntry) => {
+    const exName = exchanges.find((x) => x.id === exchangeId)?.name || "-";
+    const lines = [
+      `البورصة: ${exName}`,
+      `الفاتورة: ${e.invoiceNumber || "-"}`,
+      `التاريخ: ${e.date ? format(parseISO(e.date), "yyyy-MM-dd") : "-"}`,
+      `النوع: ${getTypeLabel(e)}`,
+      `الوصف: ${e.description || "-"}`,
+      `علينا: ${formatCurrency(getDebit(e))}`,
+      `لنا: ${formatCurrency(getCredit(e))}`,
+      `المحصلة: ${formatCurrency((e.balance as any) ?? getCredit(e) - getDebit(e))}`,
+      `المستخدم: ${e.userName || "-"}`,
+    ];
+    if (Array.isArray(e.details) && e.details.length) {
+      lines.push("— التفاصيل —");
+      e.details.forEach((d: any, i) =>
+        lines.push(
+          `${i + 1}) ${d.partyName || d.paidTo || "-"} | ${d.originalAmount} ${
+            d.originalCurrency
+          } @ ${d.rate ?? "-"} = ${d.amountInUSD} USD | ${d.note || "-"}`
+        )
+      );
+    }
+    navigator.clipboard.writeText(lines.join("\n"));
+    toast({ title: "تم نسخ التفاصيل" });
+  };
+
+  // Delete
+  const onDelete = async (e: UnifiedLedgerEntry) => {
+    try {
+      const del =
+        e.entryType === "transaction"
+          ? deleteExchangeTransactionBatch
+          : deleteExchangePaymentBatch;
+      const res = await del(e.id);
+      if (!res?.success) throw new Error(res?.error || "فشل الحذف");
+      setLedger((prev) => prev.filter((x) => x.id !== e.id));
+      toast({ title: "تم الحذف بنجاح" });
+    } catch (err: any) {
+      toast({
+        title: "خطأ",
+        description: err?.message || "تعذر الحذف",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Export
+  const onExport = () => {
+    if (!filtered.length) {
+      toast({ title: "لا توجد بيانات للتصدير", variant: "destructive" });
+      return;
+    }
+    const exName = exchanges.find((x) => x.id === exchangeId)?.name || "";
+    const rows = filtered.map((e, idx) => ({
+      "#": idx + 1,
+      "البورصة": exName,
+      "الرقم": e.invoiceNumber || "-",
+      "التاريخ": e.date ? format(parseISO(e.date), "yyyy-MM-dd") : "-",
+      "النوع": getTypeLabel(e),
+      "الوصف": e.description || "-",
+      "علينا": getDebit(e),
+      "لنا": getCredit(e),
+      "المحصلة": (e.balance as any) ?? getCredit(e) - getDebit(e),
+      "المستخدم": e.userName || "-",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "كشف");
+    XLSX.writeFile(wb, `Statement-${exName || exchangeId}-${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast({ title: "تم التصدير" });
+  };
+
+  // Motion variants (لتحريك تغيير الصفحة والصف المنسدل)
+  const slideVariants = {
+    hiddenLeft: { x: -24, opacity: 0 },
+    hiddenRight: { x: 24, opacity: 0 },
+    visible: { x: 0, opacity: 1 },
+  };
+
+  const Stat = ({ title, value, hint, tone = "neutral" }: { title: string; value: number; hint?: string; tone?: "neutral" | "good" | "bad" }) => {
+    const toneClasses =
+      tone === "good"
+        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+        : tone === "bad"
+        ? "bg-red-500/10 border-red-500/30 text-red-700 dark:text-red-300"
+        : "bg-card text-card-foreground";
+    return (
+      <div className={cn("rounded-xl border p-3 text-center", toneClasses)}>
+        <div className="text-xs text-muted-foreground">{title}</div>
+        <div className="mt-1 font-bold text-lg font-mono tabular-nums whitespace-nowrap">
+          {formatCurrency(value)}
+        </div>
+        {hint ? <div className="text-[11px] text-muted-foreground mt-1">{hint}</div> : null}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
+      {/* HEADER + SUMMARY */}
       <Card>
-        <CardHeader>
-          <CardTitle>إدارة المعاملات</CardTitle>
-          <CardDescription>فلاتر متقدمة، ملخص مالي، وتفاصيل قابلة للطي.</CardDescription>
-        </CardHeader>
+        <CardHeader className="gap-3">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+            <div>
+              <CardTitle>إدارة المعاملات</CardTitle>
+              <CardDescription>تأكيد المعاملات، عرض التفاصيل، بدون الرجوع للصفحة الأولى</CardDescription>
+            </div>
 
-        <CardContent className="space-y-4">
-          {/* ===== Summary Bar ===== */}
-          <div className="grid gap-3 sm:grid-cols-3 rounded-lg border bg-muted/30 p-3">
-             <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
-              <span className="text-sm text-muted-foreground">علينا (USD)</span>
-              <span className="font-bold text-red-600">{formatCurrency(summary.totalDebitUSD, "USD")}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
-              <span className="text-sm text-muted-foreground">لنا (USD)</span>
-              <span className="font-semibold text-green-600">{formatCurrency(summary.creditUSD, "USD")}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-md bg-white p-3 shadow-sm">
-              <span className="text-sm text-muted-foreground">المحصلة</span>
-              <span className={cn("font-semibold", netUSD >= 0 ? "text-green-700" : "text-red-700")}>
-                {formatCurrency(netUSD, "USD")}
-              </span>
-            </div>
-          </div>
-          
-          {/* ===== Filters & Actions Row ===== */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="بحث..."
-                className="w-full sm:w-[200px] pr-9 h-9"
-                value={filters.search}
-                onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-              />
-            </div>
-            <Select value={filters.type} onValueChange={(v: any) => setFilters((f) => ({ ...f, type: v }))}>
-              <SelectTrigger className="w-full sm:w-[150px] h-9"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">كل الأنواع</SelectItem><SelectItem value="transaction">دين</SelectItem><SelectItem value="payment">دفع</SelectItem><SelectItem value="receipt">قبض</SelectItem></SelectContent>
-            </Select>
-            <Select value={filters.confirmed} onValueChange={(v: any) => setFilters((f) => ({ ...f, confirmed: v }))}>
-              <SelectTrigger className="w-full sm:w-[160px] h-9"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">كل الحالات</SelectItem><SelectItem value="yes">مؤكد</SelectItem><SelectItem value="no">غير مؤكد</SelectItem></SelectContent>
-            </Select>
-            <Select value={filters.user} onValueChange={(v: any) => setFilters((f) => ({ ...f, user: v }))}>
-              <SelectTrigger className="w-full sm:w-[150px] h-9"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="all">كل المستخدمين</SelectItem>{usersList.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-            </Select>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-[240px] justify-start h-9">
-                  <CalendarIcon className="h-4 w-4 ml-2" />
-                  {filters.dateRange?.from ? format(filters.dateRange.from, "dd/MM/yy") : "من"} - {filters.dateRange?.to ? format(filters.dateRange.to, "dd/MM/yy") : "إلى"}
+            {/* شريط علوي: أزرار الإضافة + الفلاتر + اختيار البورصة */}
+            <div className="flex w-full md:w-auto flex-wrap items-center gap-2">
+              {/* اختصارات الإضافة */}
+              <AddTransactionDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={fetchLedger}>
+                <Button className="h-9">
+                  <PlusCircle className="h-4 w-4 ms-1" />
+                  معاملة
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-auto p-0"><Calendar mode="range" selected={filters.dateRange} onSelect={(r) => setFilters((f) => ({ ...f, dateRange: r }))} numberOfMonths={2} /></PopoverContent>
-            </Popover>
+              </AddTransactionDialog>
+              <AddPaymentDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={fetchLedger}>
+                <Button variant="secondary" className="h-9">
+                  <PlusCircle className="h-4 w-4 ms-1" />
+                  تسديد
+                </Button>
+              </AddPaymentDialog>
 
-            <div className="ms-auto flex items-center gap-2">
-              <AddTransactionsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={load}><Button><PlusCircle className="me-2 h-4 w-4" /> معاملة</Button></AddTransactionsDialog>
-              <AddPaymentsDialog exchangeId={exchangeId} exchanges={exchanges} onSuccess={load}><Button variant="secondary"><PlusCircle className="me-2 h-4 w-4" /> تسديد</Button></AddPaymentsDialog>
+              {/* البحث */}
+              <div className="relative w-full md:w-[220px]">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPageIndex(0);
+                  }}
+                  placeholder="بحث شامل..."
+                  className="pr-9 h-9"
+                />
+              </div>
+
+              {/* نوع الحركة */}
+              <Select value={typeFilter} onValueChange={(v: any) => setTypeFilter(v)}>
+                <SelectTrigger className="h-9 w-[140px]">
+                  <SelectValue placeholder="النوع" />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="all">كل الأنواع</SelectItem>
+                  <SelectItem value="transaction">دين</SelectItem>
+                  <SelectItem value="payment">دفع</SelectItem>
+                  <SelectItem value="receipt">قبض</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* حالة التأكيد */}
+              <Select value={confirmFilter} onValueChange={(v: any) => setConfirmFilter(v)}>
+                <SelectTrigger className="h-9 w-[150px]">
+                  <SelectValue placeholder="حالة التأكيد" />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  <SelectItem value="all">كل الحالات</SelectItem>
+                  <SelectItem value="confirmed">المؤكدة</SelectItem>
+                  <SelectItem value="unconfirmed">غير المؤكدة</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* المستخدم */}
+              <Input
+                value={userFilter}
+                onChange={(e) => {
+                  setUserFilter(e.target.value);
+                  setPageIndex(0);
+                }}
+                placeholder="المستخدم"
+                className="h-9 w-[140px]"
+              />
+
+              {/* التاريخ */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="h-9 w-[170px] justify-start">
+                    <CalendarIcon className="h-4 w-4 ml-2" />
+                    {dateRange.from
+                      ? dateRange.to
+                        ? `${format(dateRange.from, "LLL dd")} - ${format(dateRange.to, "LLL dd")}`
+                        : format(dateRange.from, "LLL dd, y")
+                      : "نطاق التاريخ"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-auto p-0">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange as any}
+                    onSelect={(r: any) => {
+                      setDateRange({ from: r?.from, to: r?.to });
+                      setPageIndex(0);
+                    }}
+                    numberOfMonths={2}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {/* اختيار البورصة */}
+              <Select
+                value={exchangeId}
+                onValueChange={(v) => {
+                  setExchangeId(v);
+                  setPageIndex(0);
+                }}
+              >
+                <SelectTrigger className="h-9 w-[200px]">
+                  <SelectValue placeholder="اختر بورصة..." />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {exchanges.map((ex) => (
+                    <SelectItem key={ex.id} value={ex.id}>
+                      {ex.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button variant="outline" onClick={fetchLedger} disabled={loading} className="h-9">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              </Button>
+              <Button variant="outline" onClick={onExport} className="h-9">
+                <Download className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-          
-          {/* ===== Table ===== */}
-          <div className="border rounded-md overflow-x-auto">
+
+          {/* ملخص أعلى الصفحة */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+            <Stat title="إجمالي علينا (مدين)" value={summary.debitUSD} tone="bad" />
+            <Stat title="إجمالي لنا (دائن)" value={summary.creditUSD} tone="good" />
+            <Stat
+              title="صافي الرصيد"
+              value={netUSD}
+              tone={netUSD >= 0 ? "good" : "bad"}
+              hint={netUSD > 0 ? "لنا أكثر" : netUSD < 0 ? "علينا أكثر" : "متوازن"}
+            />
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* TABLE */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="relative w-full overflow-auto rounded-xl border">
             <Table>
-              <TableHeader className="bg-muted/40">
+              <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[44px] text-center"></TableHead>
-                  <TableHead className="w-[84px] text-center">تأكيد</TableHead>
-                  <TableHead className="min-w-[120px] text-center">الفاتورة</TableHead>
-                  <TableHead className="min-w-[120px] text-center">التاريخ</TableHead>
-                  <TableHead className="min-w-[100px] text-center">النوع</TableHead>
-                  <TableHead className="min-w-[240px] text-center">الوصف</TableHead>
-                  <TableHead className="min-w-[140px] text-center">المستخدم</TableHead>
-                  <TableHead className="w-[80px] text-center">إجراءات</TableHead>
+                  <TableHead className="text-center w-[56px] p-2">#</TableHead>
+                  <TableHead className="text-center w-[84px] p-2">تأكيد</TableHead>
+                  <TableHead className="text-center w-[56px] p-2"></TableHead>
+                  <TableHead className="text-center p-2">الفاتورة</TableHead>
+                  <TableHead className="text-center p-2">التاريخ</TableHead>
+                  <TableHead className="text-center p-2">النوع</TableHead>
+                  <TableHead className="text-center p-2">الوصف</TableHead>
+                  <TableHead className="text-center p-2">علينا</TableHead>
+                  <TableHead className="text-center p-2">لنا</TableHead>
+                  <TableHead className="text-center p-2">المحصلة</TableHead>
+                  <TableHead className="text-center p-2">المستخدم</TableHead>
+                  <TableHead className="text-center w-[64px] p-2">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
-              {loading ? (
-                <TableBody><TableRow><TableCell colSpan={8} className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow></TableBody>
-              ) : pageSlice.length === 0 ? (
-                <TableBody><TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">لا توجد بيانات مطابقة.</TableCell></TableRow></TableBody>
-              ) : (
-                pageSlice.map((entry) => (
-                  <LedgerRow
-                    key={entry.id}
-                    entry={entry}
-                    exchanges={exchanges}
-                    onConfirm={onConfirm}
-                    onActionSuccess={onActionSuccess}
-                  />
-                ))
-              )}
+
+              <TableBody className="divide-y divide-border">
+                <AnimatePresence mode="wait">
+                  {loading ? (
+                    <TableRow key="loading">
+                      <TableCell colSpan={12} className="py-10 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                      </TableCell>
+                    </TableRow>
+                  ) : pageRows.length === 0 ? (
+                    <TableRow key="empty">
+                      <TableCell colSpan={12} className="py-10 text-center text-muted-foreground">
+                        لا توجد بيانات.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    <motion.tr
+                      key={`${pageIndex}-${pageSize}-${exchangeId}-${typeFilter}-${confirmFilter}-${userFilter}`}
+                      variants={slideVariants}
+                      initial={slideDir === "right" ? "hiddenRight" : "hiddenLeft"}
+                      animate="visible"
+                      exit={slideDir === "left" ? "hiddenLeft" : "hiddenRight"}
+                      transition={{ duration: 0.22 }}
+                    >
+                      <TableCell colSpan={12} className="p-0">
+                        <Table className="border-t">
+                          <TableBody className="divide-y divide-border">
+                            {pageRows.map((e, i) => {
+                              const open = !!expanded[e.id];
+                              const rowNumber = start + i + 1;
+                              const debit = getDebit(e);
+                              const credit = getCredit(e);
+
+                              return (
+                                <React.Fragment key={e.id}>
+                                  <TableRow className={cn(e.isConfirmed && "bg-accent/40")}>
+                                    {/* رقم */}
+                                    <TableCell className="text-center font-semibold p-2">{rowNumber}</TableCell>
+
+                                    {/* تأكيد */}
+                                    <TableCell className="text-center p-2">
+                                      <Checkbox
+                                        checked={!!e.isConfirmed}
+                                        onCheckedChange={(c) => onClickConfirm(e, !!c)}
+                                      />
+                                    </TableCell>
+
+                                    {/* سهم التفاصيل */}
+                                    <TableCell className="text-center p-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        onClick={() =>
+                                          setExpanded((prev) => ({ ...prev, [e.id]: !prev[e.id] }))
+                                        }
+                                      >
+                                        <ChevronDown
+                                          className={cn(
+                                            "h-4 w-4 transition-transform",
+                                            open && "rotate-180"
+                                          )}
+                                        />
+                                      </Button>
+                                    </TableCell>
+
+                                    {/* باقي الأعمدة */}
+                                    <TableCell className="text-center font-bold p-2">
+                                      {e.invoiceNumber || "-"}
+                                    </TableCell>
+                                    <TableCell className="text-center whitespace-nowrap p-2">
+                                      {e.date ? format(parseISO(e.date), "yyyy-MM-dd") : "-"}
+                                    </TableCell>
+                                    <TableCell className="text-center p-2">
+                                      <Badge
+                                        className="cursor-pointer select-none"
+                                        variant={e.entryType === "transaction" ? "destructive" : "secondary"}
+                                        onClick={() => copyType(e)}
+                                      >
+                                        {getTypeLabel(e)}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center p-2">{e.description || "-"}</TableCell>
+                                    <TableCell className="text-center font-bold text-destructive whitespace-nowrap font-mono tabular-nums p-2">
+                                      {debit > 0 ? formatCurrency(debit) : "-"}
+                                    </TableCell>
+                                    <TableCell className="text-center font-bold whitespace-nowrap font-mono tabular-nums p-2">
+                                      {credit > 0 ? formatCurrency(credit) : "-"}
+                                    </TableCell>
+                                    <TableCell className="text-center font-bold whitespace-nowrap font-mono tabular-nums p-2">
+                                      {formatCurrency((e.balance as any) ?? credit - debit)}
+                                    </TableCell>
+                                    <TableCell className="text-center whitespace-nowrap p-2">
+                                      {e.userName || "-"}
+                                    </TableCell>
+
+                                    {/* إجراءات */}
+                                    <TableCell className="text-center p-2">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem onClick={() => setAuditDialog({ open: true, item: e })}>
+                                            <History className="h-4 w-4 ms-1" />
+                                            سجل التعديلات
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={() => copyAll(e)}>
+                                            <Copy className="h-4 w-4 ms-1" />
+                                            نسخ المعلومات
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          {/* ✅ منع إغلاق القائمة قبل فتح الـ Dialog لمنع الوميض */}
+                                          <EditBatchDialog batch={e} exchanges={exchanges} onSuccess={fetchLedger}>
+                                            <DropdownMenuItem onSelect={(ev) => ev.preventDefault()}>
+                                              <Edit className="h-4 w-4 ms-1" />
+                                              تعديل
+                                            </DropdownMenuItem>
+                                          </EditBatchDialog>
+                                          <DropdownMenuItem
+                                            className="text-destructive focus:text-destructive"
+                                            onClick={() => onDelete(e)}
+                                          >
+                                            <Trash2 className="h-4 w-4 ms-1" />
+                                            حذف
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </TableCell>
+                                  </TableRow>
+
+                                  {/* تفاصيل الصف */}
+                                  <AnimatePresence>
+                                    {open && (
+                                      <TableRow>
+                                        <TableCell colSpan={12} className="p-0">
+                                          <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: "auto", opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="overflow-hidden"
+                                          >
+                                            <div className="bg-muted/50 p-3">
+                                              {Array.isArray(e.details) && e.details.length > 0 ? (
+                                                <div className="grid gap-2">
+                                                  {e.details.map((d: any, idx: number) => (
+                                                    <div
+                                                      key={idx}
+                                                      className="grid grid-cols-2 md:grid-cols-6 gap-2 rounded-md border p-2 bg-background text-sm"
+                                                    >
+                                                      <div className="font-semibold">
+                                                        الطرف:{" "}
+                                                        <span className="font-normal">
+                                                          {d.partyName || d.paidTo || "-"}
+                                                        </span>
+                                                      </div>
+                                                      <div className="font-semibold">
+                                                        بواسطة:{" "}
+                                                        <span className="font-normal">
+                                                          {d.intermediary || e.userName || "-"}
+                                                        </span>
+                                                      </div>
+                                                      <div className="font-semibold">
+                                                        النوع:{" "}
+                                                        <span className="font-normal">
+                                                          {e.entryType === "transaction"
+                                                            ? "دين"
+                                                            : d.type === "payment"
+                                                            ? "دفع"
+                                                            : "قبض"}
+                                                        </span>
+                                                      </div>
+                                                      <div className="font-semibold whitespace-nowrap">
+                                                        المبلغ الأصلي:{" "}
+                                                        <span className="font-normal whitespace-nowrap">
+                                                          {d.originalAmount?.toLocaleString()} {d.originalCurrency}
+                                                        </span>
+                                                      </div>
+                                                      <div className="font-semibold whitespace-nowrap">
+                                                        سعر الصرف:{" "}
+                                                        <span className="font-normal whitespace-nowrap">
+                                                          {d.originalCurrency !== "USD" ? d.rate : "-"}
+                                                        </span>
+                                                      </div>
+                                                      <div className="font-semibold whitespace-nowrap">
+                                                        المعادل بالدولار:{" "}
+                                                        <span className="font-bold whitespace-nowrap font-mono tabular-nums">
+                                                          {formatCurrency(d.amountInUSD)}
+                                                        </span>
+                                                      </div>
+                                                      {d.note ? (
+                                                        <div className="md:col-span-6">
+                                                          <span className="font-semibold">ملاحظات: </span>
+                                                          <span>{d.note}</span>
+                                                        </div>
+                                                      ) : null}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              ) : (
+                                                <div className="text-sm text-muted-foreground">لا توجد تفاصيل إضافية</div>
+                                              )}
+                                            </div>
+                                          </motion.div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                  </AnimatePresence>
+                                </React.Fragment>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </TableCell>
+                    </motion.tr>
+                  )}
+                </AnimatePresence>
+              </TableBody>
             </Table>
           </div>
 
-          {/* ===== Pagination ===== */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="text-sm text-muted-foreground">
-              الصفحة {page} من {totalPages} — {pageSlice.length} / {filtered.length} سجل
+          {/* Pagination */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-4 py-3">
+            <div className="text-xs text-muted-foreground">
+              الصفحة {pageIndex + 1} من {pageCount} — {filtered.length} سجل
             </div>
+
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setPage(1)} disabled={page === 1}>الأولى</Button>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>السابق</Button>
-              <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>التالي</Button>
-              <Button variant="outline" size="sm" onClick={() => setPage(totalPages)} disabled={page === totalPages}>الأخيرة</Button>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(parseInt(v, 10));
+                  setPageIndex(0);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {[5, 15, 30, 50, 100].map((s) => (
+                    <SelectItem key={s} value={String(s)}>
+                      {s} / صفحة
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageIndex === 0}
+                onClick={() => {
+                  setSlideDir("left");
+                  setPageIndex(0);
+                }}
+                title="الأولى"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageIndex === 0}
+                onClick={() => {
+                  setSlideDir("left");
+                  setPageIndex((p) => Math.max(0, p - 1));
+                }}
+                title="السابق"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageIndex >= pageCount - 1}
+                onClick={() => {
+                  setSlideDir("right");
+                  setPageIndex((p) => Math.min(pageCount - 1, p + 1));
+                }}
+                title="التالي"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pageIndex >= pageCount - 1}
+                onClick={() => {
+                  setSlideDir("right");
+                  setPageIndex(pageCount - 1);
+                }}
+                title="الأخيرة"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* تنبيه إلغاء التأكيد */}
+      <AlertDialog
+        open={askUnconfirm.open}
+        onOpenChange={(o) => setAskUnconfirm((s) => ({ ...s, open: o }))}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الإلغاء</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل تريد إلغاء تأكيد هذه العملية المالية؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>رجوع</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (askUnconfirm.id && askUnconfirm.type) {
+                  doToggleConfirm(askUnconfirm.id, askUnconfirm.type, false);
+                }
+                setAskUnconfirm({ open: false });
+              }}
+            >
+              نعم، إلغاء التأكيد
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* سجل التعديلات المحسن */}
+      <Dialog open={auditDialog.open} onOpenChange={(o) => setAuditDialog((s) => ({ ...s, open: o }))}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>سجل التعديلات — الفاتورة: {auditDialog.item?.invoiceNumber || "-"}</DialogTitle>
+          </DialogHeader>
+          <div className="border rounded-md overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-center">التاريخ</TableHead>
+                  <TableHead className="text-center">الموظف</TableHead>
+                  <TableHead className="text-center">نوع التعديل</TableHead>
+                  <TableHead className="text-center">القديم</TableHead>
+                  <TableHead className="text-center">الجديد</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.isArray((auditDialog.item as any)?.auditLog) &&
+                (auditDialog.item as any).auditLog.length ? (
+                  (auditDialog.item as any).auditLog.map((log: any, idx: number) => {
+                    const type = log.action?.includes("delete")
+                      ? "حذف"
+                      : log.action?.includes("update")
+                      ? "تعديل"
+                      : log.action?.includes("create")
+                      ? "إضافة"
+                      : "غير معروف";
+                    const color =
+                      type === "حذف"
+                        ? "bg-rose-100 text-rose-800"
+                        : type === "تعديل"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-emerald-100 text-emerald-800";
+                    return (
+                      <TableRow key={idx}>
+                        <TableCell className="text-center">
+                          {log.timestamp ? format(parseISO(log.timestamp), "yyyy-MM-dd HH:mm") : "-"}
+                        </TableCell>
+                        <TableCell className="text-center">{log.userName || "-"}</TableCell>
+                        <TableCell className={`text-center font-semibold ${color}`}>{type}</TableCell>
+                        <TableCell className="text-xs whitespace-pre-wrap text-muted-foreground">
+                          {log.oldData ? JSON.stringify(log.oldData, null, 2) : "—"}
+                        </TableCell>
+                        <TableCell className="text-xs whitespace-pre-wrap">
+                          {log.newData ? JSON.stringify(log.newData, null, 2) : "—"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      لا يوجد سجل تعديلات
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
