@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -103,7 +102,6 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
             
             const description = data.notes || '';
             const totalDebit = data.debitEntries?.reduce((sum: number, entry: any) => sum + (entry.amount || 0), 0) || 0;
-            const totalCredit = data.creditEntries?.reduce((sum: number, entry: any) => sum + (entry.amount || 0), 0) || 0;
 
             
             // Try to find a meaningful main party for the transaction
@@ -146,7 +144,7 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
             if (dateB !== dateA) {
                 return dateB - dateA;
             }
-            return b.id.localeCompare(a.id); // Secondary sort by ID if dates are identical
+            return b.id.localeCompare(a.id);
         });
 
     } catch (error) {
@@ -201,7 +199,7 @@ export async function deleteVoucher(id: string): Promise<{ success: boolean; err
 
         return { success: true };
     } catch (error: any) {
-        console.error(`Error deleting voucher ${id}:`, String(error));
+        console.error(`Error deleting voucher ${id}:`, error);
         return { success: false, error: "فشل حذف السند." };
     }
 }

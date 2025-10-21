@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -10,8 +9,8 @@ import type {
   User,
   AppSettings,
   VoucherListSettings,
+  Exchange,
 } from '@/lib/types';
-
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,7 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useDebounce } from '@/hooks/use-debounce';
-import { getAllVouchers } from './actions';
+import { getAllVouchers, deleteVoucher } from './actions';
 import { getClients } from '@/app/relations/actions';
 import { getUsers } from '@/app/users/actions';
 import { getBoxes } from '@/app/boxes/actions';
@@ -47,6 +46,8 @@ import { getSuppliers } from '@/app/suppliers/actions';
 import { getSettings, updateSettings } from '@/app/settings/actions';
 import VouchersListSettingsDialog from './components/vouchers-list-settings-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getExchanges } from '@/app/exchanges/actions';
+
 
 const VouchersListContent = () => {
   const { toast } = useToast();
@@ -59,7 +60,6 @@ const VouchersListContent = () => {
   const [filterType, setFilterType] = React.useState('all');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  // ✅ تحميل شامل للبيانات مع التحقق من الأخطاء
   const fetchData = React.useCallback(async () => {
     setLoading(true);
     try {
@@ -69,15 +69,16 @@ const VouchersListContent = () => {
         boxesData,
         suppliersData,
         settingsData,
+        exchangesRes,
       ] = await Promise.allSettled([
         getClients({ all: true }),
         getUsers(),
         getBoxes(),
         getSuppliers({ all: true }),
         getSettings(),
+        getExchanges(),
       ]);
 
-      // ✅ التحقق من جميع النتائج
       if (clientsRes.status !== 'fulfilled' || !clientsRes.value?.clients)
         throw new Error('فشل تحميل العملاء');
       if (usersData.status !== 'fulfilled')
@@ -88,8 +89,11 @@ const VouchersListContent = () => {
         throw new Error('فشل تحميل الموردين');
       if (settingsData.status !== 'fulfilled' || !settingsData.value)
         throw new Error('فشل تحميل الإعدادات');
+      if(exchangesRes.status !== 'fulfilled' || exchangesRes.value.error || !exchangesRes.value.accounts)
+        throw new Error(exchangesRes.value?.error || 'فشل تحميل البورصات');
 
-      const fetchedClients = clientsRes.value.clients.filter(
+      const allRelations = clientsRes.value.clients;
+      const fetchedClients = allRelations.filter(
         (r: any) => r.relationType === 'client' || r.relationType === 'both'
       );
 
@@ -97,7 +101,6 @@ const VouchersListContent = () => {
       setSettings(settings);
       setVoucherListSettings(settings.voucherSettings?.listSettings);
 
-      // ✅ جلب السندات الرئيسية
       const vouchersData = await getAllVouchers(
         fetchedClients,
         suppliersData.value,
@@ -141,7 +144,6 @@ const VouchersListContent = () => {
     }
   };
 
-  // ✅ فلترة البيانات مع بحث سريع
   const filteredVouchers = React.useMemo(() => {
     return vouchers.filter((v) => {
       const typeMatch = filterType === 'all' || v.voucherType === filterType;
@@ -157,7 +159,6 @@ const VouchersListContent = () => {
     });
   }, [vouchers, debouncedSearchTerm, filterType]);
 
-  // ✅ واجهة التحميل
   if (loading || !settings || !voucherListSettings) {
     return (
       <Card>
@@ -200,6 +201,8 @@ const VouchersListContent = () => {
               <SelectItem value="journal_from_payment">سند دفع</SelectItem>
               <SelectItem value="journal_from_expense">سند مصاريف</SelectItem>
               <SelectItem value="journal_voucher">قيد محاسبي</SelectItem>
+              <SelectItem value="booking">حجز طيران</SelectItem>
+              <SelectItem value="visa">طلب فيزا</SelectItem>
             </SelectContent>
           </Select>
         </div>
