@@ -1,0 +1,25 @@
+{
+  "message": {
+    "topic": "news",
+    "notification": {
+      "title": "Breaking News",
+      "body": "New news story available."
+    },
+    "data": {
+      "story_id": "story_12345"
+    },
+    "android": {
+      "notification": {
+        "click_action": "TOP_STORY_ACTIVITY",
+        "body": "Check out the Top Story"
+      }
+    },
+    "apns": {
+      "payload": {
+        "aps": {
+          "category" : "NEW_MESSAGE_CATEGORY"
+        }
+      }
+    }
+  }
+}
