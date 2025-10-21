@@ -1,73 +1,70 @@
-
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import type { Exchange, UnifiedLedgerEntry } from '@/lib/types';
-import { getUnifiedExchangeLedger, getExchanges, deleteExchangeTransactionBatch, deleteExchangePaymentBatch, updateBatch } from '../actions';
+import { getUnifiedExchangeLedger, updateBatch } from '../actions';
 import { useToast } from "@/hooks/use-toast";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Button,
-} from "@/components/ui/button";
-import {
-  Checkbox
-} from "@/components/ui/checkbox";
-import {
-  Loader2,
-  ChevronDown,
-} from "lucide-react";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { Badge } from "@/components/ui/badge";
-import { format, parseISO } from "date-fns";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PlusCircle, Loader2, ArrowUp, ArrowDown, MoreHorizontal, Edit, Trash2, ChevronDown, Calendar as CalendarIcon, Filter, Search, ArrowUpDown, RefreshCw, Download, Copy, History } from 'lucide-react';
+import { DateRange } from "react-day-picker";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format, subDays, parseISO } from 'date-fns';
+import * as XLSX from 'xlsx';
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { useDebounce } from "@/hooks/use-debounce";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DataTablePagination } from "@/components/ui/data-table-pagination";
+import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, flexRender, type ColumnDef, type SortingState, getFilteredRowModel, RowSelectionState } from '@tanstack/react-table';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import AddTransactionsDialog from "./add-transactions-dialog";
+import AddPaymentsDialog from "./add-payments-dialog";
+import AddExchangeDialog from './add-exchange-dialog';
+import EditBatchDialog from "./EditBatchDialog";
 
-const formatCurrency = (amount?: number, currency = "USD") => {
-  if (amount == null) return "-";
-  return `${new Intl.NumberFormat("en-US", {
+const formatCurrency = (amount?: number, currency: string = 'USD') => {
+  if (amount === undefined || amount === null) return '-';
+  return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(amount)} ${currency}`;
+  }).format(amount) + ` ${currency}`;
 };
 
-// ✅ مكون الصف المنسدل
-function LedgerRow({ entry, onConfirm }: { entry: any; onConfirm: (id: string, entryType: string, checked: boolean) => void }) {
+const LedgerRow = ({ row, onConfirmChange }: { row: any; onConfirmChange: (id: string, entryType: string, checked: boolean) => Promise<void>; }) => {
+  const entry = row.original;
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
-  const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const handleCheck = async (checked: boolean) => {
+  const handleConfirm = async (checked: boolean) => {
     setIsPending(true);
-    await onConfirm(entry.id, entry.entryType, checked);
-    toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
-    setIsPending(false);
+    try {
+      await onConfirmChange(entry.id, entry.entryType, checked);
+      toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الدفعة` });
+    } catch {
+      toast({ title: 'خطأ أثناء التحديث', variant: 'destructive' });
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
     <Collapsible asChild open={open} onOpenChange={setOpen}>
-      <TableBody data-state={open ? "open" : "closed"}>
-        <TableRow className={entry.isConfirmed ? "bg-green-100" : ""}>
-          <TableCell className="text-center">
+      <>
+        <TableRow data-state={open ? "open" : "closed"} className={cn(entry.isConfirmed && "bg-green-100")}>
+          <TableCell className="p-1 text-center">
             <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <ChevronDown
-                  className={`h-4 w-4 transition-transform ${
-                    open ? "rotate-180" : ""
-                  }`}
-                />
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
               </Button>
             </CollapsibleTrigger>
           </TableCell>
@@ -76,35 +73,45 @@ function LedgerRow({ entry, onConfirm }: { entry: any; onConfirm: (id: string, e
             <Checkbox
               checked={entry.isConfirmed}
               disabled={isPending}
-              onCheckedChange={(checked) => handleCheck(Boolean(checked))}
+              onCheckedChange={(checked) => {
+                if (entry.isConfirmed && !checked) {
+                  setDialogOpen(true);
+                } else {
+                  handleConfirm(true);
+                }
+              }}
             />
+            <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>تأكيد الإلغاء</AlertDialogTitle>
+                  <AlertDialogDescription>هل تريد إلغاء تأكيد هذه الدفعة؟</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>رجوع</AlertDialogCancel>
+                  <AlertDialogAction onClick={confirmUncheck}>تأكيد</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </TableCell>
 
-          <TableCell className="text-center font-bold">
-            {entry.invoiceNumber}
-          </TableCell>
-          <TableCell className="text-center">
-            {format(parseISO(entry.date), "yyyy-MM-dd")}
-          </TableCell>
+          <TableCell className="font-bold text-center">{entry.invoiceNumber}</TableCell>
+          <TableCell className="text-center">{format(parseISO(entry.date), "yyyy-MM-dd")}</TableCell>
           <TableCell className="text-center">
             {entry.entryType === "transaction" ? (
               <Badge variant="destructive">دين</Badge>
             ) : (entry.totalAmount || 0) > 0 ? (
-              <Badge className="bg-blue-500 text-white">تسديد</Badge>
+              <Badge className="bg-blue-600">تسديد</Badge>
             ) : (
-              <Badge className="bg-green-500 text-white">قبض</Badge>
+              <Badge className="bg-green-600">قبض</Badge>
             )}
           </TableCell>
           <TableCell className="text-center">{entry.description}</TableCell>
           <TableCell className="text-center font-bold text-red-600">
-            {entry.entryType === "transaction"
-              ? formatCurrency(Math.abs(entry.totalAmount))
-              : "-"}
+            {entry.entryType === "transaction" ? formatCurrency(Math.abs(entry.totalAmount)) : "-"}
           </TableCell>
           <TableCell className="text-center font-bold text-green-600">
-            {entry.entryType === "payment" && entry.totalAmount > 0
-              ? formatCurrency(entry.totalAmount)
-              : "-"}
+            {entry.entryType === "payment" && entry.totalAmount > 0 ? formatCurrency(entry.totalAmount) : "-"}
           </TableCell>
           <TableCell className="text-center">{entry.userName}</TableCell>
         </TableRow>
@@ -117,38 +124,37 @@ function LedgerRow({ entry, onConfirm }: { entry: any; onConfirm: (id: string, e
                   <ul className="space-y-1">
                     {entry.details.map((d: any, i: number) => (
                       <li key={i}>
-                        {d.partyName || d.paidTo}: {formatCurrency(d.amountInUSD)}{" "}
-                        USD ({d.note})
+                        {d.partyName || d.paidTo}: {formatCurrency(d.amountInUSD)} USD ({d.note})
                       </li>
                     ))}
                   </ul>
                 ) : (
-                  <span className="text-muted-foreground">
-                    لا توجد تفاصيل إضافية
-                  </span>
+                  <span className="text-muted-foreground">لا توجد تفاصيل إضافية</span>
                 )}
               </div>
             </TableCell>
           </TableRow>
         </CollapsibleContent>
-      </TableBody>
+      </>
     </Collapsible>
   );
-}
+};
 
-// ✅ المكون الرئيسي
-export default function ExchangeManager({ initialExchanges, initialExchangeId }: { initialExchanges: any[]; initialExchangeId: string; }) {
+export default function ExchangeManager({ initialExchanges, initialExchangeId }: { initialExchanges: Exchange[]; initialExchangeId: string; }) {
   const { toast } = useToast();
-  const [exchangeId, setExchangeId] = useState(initialExchangeId || "");
-  const [unifiedLedger, setUnifiedLedger] = useState<any[]>([]);
+  const [exchangeId, setExchangeId] = useState(initialExchangeId || initialExchanges[0]?.id || "");
+  const [exchanges, setExchanges] = useState(initialExchanges);
+  const [unifiedLedger, setUnifiedLedger] = useState<UnifiedLedgerEntry[]>([]);
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 15 });
+  const [sorting, setSorting] = useState<SortingState>([{ id: "date", desc: true }]);
   const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchExchangeData = useCallback(async () => {
     if (!exchangeId) return;
     setLoading(true);
     try {
-      const data = await getUnifiedExchangeLedger(exchangeId);
-      setUnifiedLedger(data);
+      const ledgerData = await getUnifiedExchangeLedger(exchangeId);
+      setUnifiedLedger(ledgerData);
     } catch (err: any) {
       toast({ title: "خطأ في تحميل البيانات", description: err.message, variant: "destructive" });
     } finally {
@@ -157,34 +163,62 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
   }, [exchangeId, toast]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchExchangeData();
+  }, [fetchExchangeData]);
 
-  // ✅ تأكيد بدون انتقال صفحة
-  const handleConfirm = async (id: string, entryType: string, checked: boolean) => {
+  const handleConfirmChange = async (id: string, entryType: string, checked: boolean) => {
     try {
       const result = await updateBatch(id, entryType as "transaction" | "payment", { isConfirmed: checked });
       if (!result.success) throw new Error(result.error);
       setUnifiedLedger((prev) =>
-        prev.map((e) =>
-          e.id === id ? { ...e, isConfirmed: checked } : e
-        )
+        prev.map((item) => (item.id === id ? { ...item, isConfirmed: checked } : item))
       );
-    } catch (err: any) {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "خطأ أثناء التحديث", description: error.message, variant: "destructive" });
+      // Revert UI change on failure
+      setUnifiedLedger((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, isConfirmed: !checked } : item))
+      );
     }
   };
+
+  const table = useReactTable({
+    data: unifiedLedger,
+    columns: [], // Columns are rendered directly in the JSX
+    state: { sorting, pagination },
+    onSortingChange: setSorting,
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  });
 
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>كشف العمليات</CardTitle>
-          <CardDescription>
-            النظام يدعم التأكيد بدون إعادة تحميل الصفحة
-          </CardDescription>
+          <CardTitle>إدارة المعاملات</CardTitle>
+          <CardDescription>تأكيد المعاملات بدون فقدان الصفحة مع عرض التفاصيل</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="flex justify-between mb-3">
+            <Select value={exchangeId} onValueChange={setExchangeId}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="اختر بورصة..." />
+              </SelectTrigger>
+              <SelectContent>
+                {exchanges.map((ex) => (
+                  <SelectItem key={ex.id} value={ex.id}>
+                    {ex.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" onClick={fetchExchangeData} disabled={loading}>
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "تحديث"}
+            </Button>
+          </div>
+
           <div className="border rounded-md overflow-x-auto">
             <Table>
               <TableHeader>
@@ -200,11 +234,10 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                   <TableHead>المستخدم</TableHead>
                 </TableRow>
               </TableHeader>
-
               {loading ? (
                 <TableBody>
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-10">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
@@ -212,22 +245,25 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
               ) : unifiedLedger.length === 0 ? (
                 <TableBody>
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={9} className="text-center py-10">
                       لا توجد بيانات.
                     </TableCell>
                   </TableRow>
                 </TableBody>
               ) : (
-                unifiedLedger.map((entry) => (
-                  <LedgerRow
-                    key={entry.id}
-                    entry={entry}
-                    onConfirm={handleConfirm}
-                  />
+                table.getRowModel().rows.map((row) => (
+                  <LedgerRow key={row.original.id} row={row} onConfirmChange={handleConfirmChange} />
                 ))
               )}
             </Table>
           </div>
+
+          <DataTablePagination
+            table={{
+              ...table,
+              getPageCount: () => Math.ceil(unifiedLedger.length / pagination.pageSize),
+            }}
+          />
         </CardContent>
       </Card>
     </div>
