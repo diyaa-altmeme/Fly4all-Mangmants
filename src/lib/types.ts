@@ -1270,6 +1270,7 @@ export type UnifiedLedgerEntry = {
     balance?: number;
     isConfirmed?: boolean;
     details: (ExchangeTransaction | ExchangePayment)[];
+    auditLog?: { action: string; userId: string; userName: string; timestamp: string; changes?: any }[];
 };
 
 export type Airport = {

@@ -1,16 +1,15 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import type { Exchange, UnifiedLedgerEntry, ExchangeTransaction, ExchangePayment } from '@/lib/types';
+import type { Exchange, UnifiedLedgerEntry, ExchangeTransaction, ExchangePayment, AuditLog } from '@/lib/types';
 import { getUnifiedExchangeLedger, getExchanges, deleteExchangeTransactionBatch, deleteExchangePaymentBatch, updateBatch } from '../actions';
 import { useToast } from "@/hooks/use-toast";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Loader2, ArrowUp, ArrowDown, MoreHorizontal, Edit, Trash2, ChevronDown, Calendar as CalendarIcon, Filter, GitCompareArrows, Search, UserPlus, ArrowUpDown, RefreshCw, Download, CheckCheck, Copy } from 'lucide-react';
+import { PlusCircle, Loader2, ArrowUp, ArrowDown, MoreHorizontal, Edit, Trash2, ChevronDown, Calendar as CalendarIcon, Filter, GitCompareArrows, Search, UserPlus, ArrowUpDown, RefreshCw, Download, CheckCheck, Copy, History } from 'lucide-react';
 import { DateRange } from "react-day-picker";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -34,6 +33,7 @@ import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowMode
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useRouter } from 'next/navigation';
+import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ExchangeManagerProps {
     initialExchanges: Exchange[];
@@ -72,33 +72,37 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
     const entry = row.original;
     const { toast } = useToast();
     const [isPending, setIsPending] = React.useState(false);
-    const [dialogOpen, setDialogOpen] = React.useState(false);
+    const [auditLogOpen, setAuditLogOpen] = useState(false);
 
     const handleConfirmChange = async (checked: boolean) => {
-        setIsPending(true);
-        // Correct usage of updateData from meta
-        // const { updateData } = (row.table.options.meta as any);
-        // updateData(row.index, 'isConfirmed', checked);
+      setIsPending(true);
+      const table = (row as any).table;
+      const currentPage = table.getState().pagination.pageIndex;
+      table.options.meta?.updateData(row.index, 'isConfirmed', checked);
 
-        try {
-            const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
-            if (!result.success) throw new Error(result.error);
-            toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-            onActionSuccess('update', {...row.original, isConfirmed: checked});
-        } catch (error: any) {
-            toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-            // Revert on failure
-            onActionSuccess('update', row.original);
-        } finally {
-            setIsPending(false);
-        }
+      try {
+        const result = await updateBatch(
+          row.original.id,
+          row.original.entryType as 'transaction' | 'payment',
+          { isConfirmed: checked }
+        );
+
+        if (!result.success) throw new Error(result.error);
+        toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+        onActionSuccess('update', {...row.original, isConfirmed: checked});
+      } catch (error: any) {
+        toast({
+          title: 'خطأ',
+          description: 'فشل تحديث حالة التأكيد.',
+          variant: 'destructive',
+        });
+        table.options.meta?.updateData(row.index, 'isConfirmed', !checked);
+      } finally {
+        setIsPending(false);
+        table.setPageIndex(currentPage);
+      }
     };
-
-    const confirmUncheck = () => {
-        setDialogOpen(false);
-        handleConfirmChange(false);
-    };
-
+    
     const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
     const handleCopy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
 
@@ -114,7 +118,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
                         </CollapsibleTrigger>
                     </TableCell>
                     {row.getVisibleCells().map(cell => (
-                         <TableCell key={cell.id} className="p-1" style={{ width: cell.column.getSize() }}>
+                         <TableCell key={cell.id} className="p-1" style={{ width: cell.column.getSize() }} onClick={cell.column.id === 'entryType' ? handleCopy : undefined}>
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </TableCell>
                     ))}
@@ -124,7 +128,10 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
                                 <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent>
-                                <DropdownMenuItem onClick={handleCopy}><Copy className="me-2 h-4 w-4"/>نسخ التفاصيل</DropdownMenuItem>
+                                 <DropdownMenuItem onClick={() => setAuditLogOpen(true)}>
+                                    <History className="me-2 h-4 w-4" />
+                                    سجل التعديلات
+                                </DropdownMenuItem>
                                 <EditBatchDialog batch={row.original} exchanges={exchanges} onSuccess={(updatedBatch) => onActionSuccess('update', updatedBatch)}>
                                     <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4" /> تعديل</DropdownMenuItem>
                                 </EditBatchDialog>
@@ -151,6 +158,31 @@ const LedgerRow = ({ row, exchanges, onActionSuccess }: {
                                 </AlertDialog>
                             </DropdownMenuContent>
                         </DropdownMenu>
+                         <Dialog open={auditLogOpen} onOpenChange={setAuditLogOpen}>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>سجل التعديلات للفاتورة: {entry.invoiceNumber}</DialogTitle>
+                                </DialogHeader>
+                                 <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>التاريخ</TableHead>
+                                            <TableHead>الموظف</TableHead>
+                                            <TableHead>الإجراء</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {(entry.auditLog || []).map((log, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>{format(parseISO(log.timestamp), 'yyyy-MM-dd hh:mm a')}</TableCell>
+                                                <TableCell>{log.userName}</TableCell>
+                                                <TableCell><Badge>{log.action}</Badge></TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </DialogContent>
+                        </Dialog>
                     </TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
@@ -315,23 +347,39 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { id: 'isConfirmed', header: 'تأكيد', cell: ({ row, table }) => {
             const [isPending, setIsPending] = React.useState(false);
             const [dialogOpen, setDialogOpen] = React.useState(false);
-            const handleConfirmChange = async (checked: boolean) => {
-                setIsPending(true);
-                const currentPage = table.getState().pagination.pageIndex;
-                table.options.meta?.updateData?.(row.index, 'isConfirmed', checked);
-                try {
-                    const result = await updateBatch(row.original.id, row.original.entryType as 'transaction' | 'payment', { isConfirmed: checked });
-                    if (!result.success) throw new Error(result.error);
-                    toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
-                } catch (error: any) {
-                    toast({ title: "خطأ", description: "فشل تحديث حالة التأكيد.", variant: "destructive" });
-                    table.options.meta?.updateData?.(row.index, 'isConfirmed', !checked);
-                } finally {
-                    setIsPending(false);
-                    table.setPageIndex(currentPage);
-                }
+            const confirmUncheck = () => {
+                setDialogOpen(false);
+                handleConfirmChange(false);
             };
-            const confirmUncheck = () => { setDialogOpen(false); handleConfirmChange(false); };
+
+            const handleConfirmChange = async (checked: boolean) => {
+              setIsPending(true);
+              const currentPage = table.getState().pagination.pageIndex;
+              table.options.meta?.updateData?.(row.index, 'isConfirmed', checked);
+
+              try {
+                const result = await updateBatch(
+                  row.original.id,
+                  row.original.entryType as 'transaction' | 'payment',
+                  { isConfirmed: checked }
+                );
+
+                if (!result.success) throw new Error(result.error);
+                toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
+                onActionSuccess('update', {...row.original, isConfirmed: checked});
+              } catch (error: any) {
+                toast({
+                  title: 'خطأ',
+                  description: 'فشل تحديث حالة التأكيد.',
+                  variant: 'destructive',
+                });
+                table.options.meta?.updateData?.(row.index, 'isConfirmed', !checked);
+              } finally {
+                setIsPending(false);
+                table.setPageIndex(currentPage);
+              }
+            };
+
             return (
                 <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <AlertDialogContent>
@@ -347,16 +395,13 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
         { id: 'entryType', header: 'النوع', size: 100,
           cell: ({ row }) => {
               const entry = row.original;
-              const textToCopy = `${exchanges.find(ex => ex.id === entry.exchangeId)?.name || ''}\nتاريخ العملية: ${entry.date}\nرقم الفاتورة: ${entry.invoiceNumber || 'N/A'}\nالوصف: ${entry.description}`.trim();
-              const handleCopy = (e: React.MouseEvent) => { e.stopPropagation(); navigator.clipboard.writeText(textToCopy); toast({ title: "تم نسخ التفاصيل بنجاح" }); };
-
               if (entry.entryType === 'transaction') {
-                  return <Badge variant={'destructive'} className="font-bold cursor-pointer" onClick={handleCopy}>دين</Badge>;
+                  return <Badge variant={'destructive'} className="font-bold cursor-pointer">دين</Badge>;
               } else {
                   const amount = entry.totalAmount || 0;
                   return amount > 0 
-                      ? <Badge className="bg-blue-600 font-bold cursor-pointer" onClick={handleCopy}>تسديد</Badge> 
-                      : <Badge className="bg-green-600 font-bold cursor-pointer" onClick={handleCopy}>قبض</Badge>;
+                      ? <Badge className="bg-blue-600 font-bold cursor-pointer">تسديد</Badge> 
+                      : <Badge className="bg-green-600 font-bold cursor-pointer">قبض</Badge>;
               }
           }
         },
@@ -384,7 +429,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
             size: 150
         },
         { accessorKey: 'userName', header: 'المستخدم', size: 120 },
-    ], [exchanges, toast]);
+    ], [exchanges, toast, onActionSuccess]);
     
     const table = useReactTable({
       data: filteredLedger,
@@ -566,7 +611,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             {flexRender(header.column.columnDef.header, header.getContext())}
                                         </TableHead>
                                     ))}
-                                    <TableHead className="p-1 text-center w-[80px]">خيارات</TableHead>
+                                    <TableHead className="p-1 text-center w-[120px]">خيارات</TableHead>
                                     </TableRow>
                                 ))}
                             </TableHeader>

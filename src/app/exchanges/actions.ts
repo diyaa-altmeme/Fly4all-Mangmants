@@ -93,7 +93,7 @@ const checkThresholdAndNotify = async (exchangeId: string, currentUser: any) => 
             title: `تنبيه رصيد البورصة: ${exchange.name}`,
             body: `تجاوز رصيد البورصة الحد المحدد. الرصيد الحالي: ${currentBalance.toFixed(2)} USD`,
             type: 'warning',
-            link: `/exchanges?exchangeId=${exchangeId}`,
+            link: `/exchanges/report?exchangeId=${exchangeId}`,
         });
     }
 }
@@ -177,7 +177,13 @@ export async function saveTransactions(
         totalAmount: totalAmountInUSD,
         isConfirmed: originalBatchData.isConfirmed || false,
         date: transactions[0]?.date || new Date().toISOString().slice(0, 10),
+        auditLog: originalBatchData.auditLog || []
     };
+    
+    const action = isEditing ? 'UPDATE' : 'CREATE';
+    const auditEntry = { action, userId: user.uid, userName: user.name, timestamp: new Date().toISOString() };
+    batchData.auditLog.push(auditEntry);
+
 
     writeBatch.set(batchRef, { ...batchData, updatedAt: FieldValue.serverTimestamp(), createdAt: isEditing ? batchData.createdAt : FieldValue.serverTimestamp() }, { merge: true });
 
@@ -188,13 +194,13 @@ export async function saveTransactions(
         title: 'تم تسجيل دفعة معاملات',
         body: `تم تسجيل ${transactions.length} معاملات جديدة للبورصة بفاتورة ${invoiceNumber}`,
         type: 'voucher',
-        link: `/exchanges?exchangeId=${exchangeId}`
+        link: `/exchanges/report?exchangeId=${exchangeId}`
     });
     
     // Check threshold after commit
     await checkThresholdAndNotify(exchangeId, user);
     
-    revalidatePath('/exchanges');
+    revalidatePath('/exchanges/report');
     
     const newBatch: UnifiedLedgerEntry = {
         id: batchRef.id,
@@ -299,7 +305,12 @@ export async function savePayments(
         totalAmount: totalAmountInUSD,
         isConfirmed: originalBatchData.isConfirmed || false,
         date: payments[0]?.date || new Date().toISOString().slice(0, 10),
+        auditLog: originalBatchData.auditLog || []
     };
+    
+    const action = isEditing ? 'UPDATE' : 'CREATE';
+    const auditEntry = { action, userId: user.uid, userName: user.name, timestamp: new Date().toISOString() };
+    batchData.auditLog.push(auditEntry);
 
     writeBatch.set(batchRef, { ...batchData, updatedAt: FieldValue.serverTimestamp(), createdAt: isEditing ? batchData.createdAt : FieldValue.serverTimestamp() }, { merge: true });
 
@@ -310,13 +321,13 @@ export async function savePayments(
         title: 'تم تسجيل دفعة تسديدات',
         body: `تم تسجيل ${payments.length} تسديدات جديدة للبورصة بفاتورة ${invoiceNumber}`,
         type: 'voucher',
-        link: `/exchanges?exchangeId=${exchangeId}`
+        link: `/exchanges/report?exchangeId=${exchangeId}`
     });
     
     // Check threshold after commit
     await checkThresholdAndNotify(exchangeId, user);
     
-    revalidatePath('/exchanges');
+    revalidatePath('/exchanges/report');
 
     const newBatch: UnifiedLedgerEntry = {
         id: batchRef.id,
@@ -402,13 +413,30 @@ export const getUnifiedExchangeLedger = cache(async (exchangeId: string, from?: 
 export async function updateBatch(batchId: string, batchType: 'transaction' | 'payment', data: { date?: string; description?: string, isConfirmed?: boolean }) {
     const db = await getDb();
     if (!db) return { success: false, error: 'Database not available' };
-    
+    const user = await getCurrentUserFromSession();
+    if (!user) return { success: false, error: "User not authenticated" };
+
     const collectionName = batchType === 'transaction' ? 'exchange_transaction_batches' : 'exchange_payment_batches';
     const batchRef = db.collection(collectionName).doc(batchId);
 
     try {
-        await batchRef.update(data);
-        revalidatePath('/exchanges');
+        const auditLogEntry = {
+            action: `UPDATE_${Object.keys(data).join('_').toUpperCase()}`,
+            userId: user.uid,
+            userName: user.name,
+            timestamp: new Date().toISOString(),
+            changes: data,
+        };
+
+        const updateData = {
+            ...data,
+            updatedAt: FieldValue.serverTimestamp(),
+            auditLog: FieldValue.arrayUnion(auditLogEntry)
+        };
+
+        await batchRef.update(updateData);
+
+        revalidatePath('/exchanges/report');
         return { success: true };
     } catch(e: any) {
         return { success: false, error: e.message };
@@ -433,7 +461,7 @@ export async function deleteExchangeTransactionBatch(batchId: string): Promise<{
         writeBatch.delete(batchRef);
 
         await writeBatch.commit();
-        revalidatePath('/exchanges');
+        revalidatePath('/exchanges/report');
         return { success: true, deletedId: batchId };
     } catch (e: any) {
         console.error("Error deleting transaction batch:", e);
@@ -459,7 +487,7 @@ export async function deleteExchangePaymentBatch(batchId: string): Promise<{ suc
         writeBatch.delete(batchRef);
 
         await writeBatch.commit();
-        revalidatePath('/exchanges');
+        revalidatePath('/exchanges/report');
         return { success: true, deletedId: batchId };
     } catch (e: any) {
         console.error("Error deleting payment batch:", e);
@@ -473,7 +501,7 @@ export interface ExchangeDashboardData extends Exchange {
   lastTransactions: UnifiedLedgerEntry[];
 }
 
-export const getExchangesDashboardData = async (): Promise<ExchangeDashboardData[]> => {
+export const getExchangesDashboardData = cache(async (): Promise<ExchangeDashboardData[]> => {
     const db = await getDb();
     if (!db) return [];
     
@@ -493,4 +521,4 @@ export const getExchangesDashboardData = async (): Promise<ExchangeDashboardData
     });
 
     return Promise.all(dashboardDataPromises);
-}
+});
