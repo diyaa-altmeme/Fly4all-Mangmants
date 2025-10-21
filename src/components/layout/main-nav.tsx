@@ -112,7 +112,7 @@ const customReportsItems: any[] = [
     { href: "/subscriptions", label: "الاشتراكات", icon: Repeat, permission: 'subscriptions:read' },
     { href: "/accounts/remittances", label: "الحوالات", icon: ArrowRightLeft, permission: 'remittances:read' },
     { href: "/segments", label: "السكمنت", icon: Layers3, permission: 'segments:read' },
-    { href: "/exchanges/report", label: "إدارة البورصات", icon: ChevronsRightLeft, permission: 'admin' },
+    { href: "/exchanges", label: "إدارة البورصات", icon: ChevronsRightLeft, permission: 'admin' },
     { href: "/profit-sharing", label: "توزيع الحصص", icon: Share2, permission: 'admin' },
     { href: "/reports/flight-analysis", label: "تحليل بيانات الطيران", icon: Plane, permission: 'reports:flight_analysis' },
 ];
@@ -427,5 +427,3 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
-
-    
