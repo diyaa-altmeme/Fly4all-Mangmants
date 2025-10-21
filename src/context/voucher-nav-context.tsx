@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import type { Client, Supplier, Box, User, AppSettings, Exchange } from '@/lib/types';
