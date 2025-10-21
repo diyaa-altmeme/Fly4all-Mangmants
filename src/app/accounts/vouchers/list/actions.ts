@@ -111,19 +111,20 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
             const mainCreditPartyId = data.creditEntries?.[0]?.accountId;
             
             let mainPartyId = 'multiple';
+            const originalData = data.originalData || {};
 
-            if (data.originalData?.from) mainPartyId = data.originalData.from;
-            else if (data.originalData?.payeeId) mainPartyId = data.originalData.payeeId;
-            else if (data.originalData?.toSupplierId) mainPartyId = data.originalData.toSupplierId;
-            else if (data.originalData?.accountId) mainPartyId = data.originalData.accountId;
+            if (originalData.from) mainPartyId = originalData.from;
+            else if (originalData.payeeId) mainPartyId = originalData.payeeId;
+            else if (originalData.toSupplierId) mainPartyId = originalData.toSupplierId;
+            else if (originalData.accountId) mainPartyId = originalData.accountId;
             else if (data.voucherType?.includes('receipt')) mainPartyId = mainCreditPartyId;
             else if (data.voucherType?.includes('payment') || data.voucherType?.includes('expense')) mainPartyId = mainDebitPartyId;
 
             const partyInfo = clients.find(c => c.id === mainPartyId) || suppliers.find(s => s.id === mainPartyId);
-            const companyName = partyInfo?.name || data.originalData?.companyName || data.originalData?.from || data.originalData?.payee || accountsMap.get(mainPartyId) || 'حركات متعددة';
-            const phone = partyInfo?.phone || data.originalData?.phoneNumber;
+            const companyName = partyInfo?.name || originalData.companyName || originalData.from || originalData.payee || accountsMap.get(mainPartyId) || 'حركات متعددة';
+            const phone = partyInfo?.phone || originalData.phoneNumber;
             
-            const boxId = data.originalData?.boxId || data.originalData?.toBox || data.creditEntries?.find((e: any) => boxesMap.has(e.accountId))?.accountId || data.debitEntries?.find((e: any) => boxesMap.has(e.accountId))?.accountId || '';
+            const boxId = originalData.boxId || originalData.toBox || data.creditEntries?.find((e: any) => boxesMap.has(e.accountId))?.accountId || data.debitEntries?.find((e: any) => boxesMap.has(e.accountId))?.accountId || '';
 
             allVouchers.push({ 
                 ...data, 
@@ -292,5 +293,3 @@ export async function deleteAllVouchers(): Promise<{ success: boolean; error?: s
         return { success: false, error: "فشل حذف جميع السندات." };
     }
 }
-
-    
