@@ -47,94 +47,64 @@ import { getSettings, updateSettings } from '@/app/settings/actions';
 import VouchersListSettingsDialog from './components/vouchers-list-settings-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getExchanges } from '@/app/exchanges/actions';
+import { useVoucherNav } from '@/context/voucher-nav-context';
 
 
 const VouchersListContent = () => {
   const { toast } = useToast();
   const [vouchers, setVouchers] = React.useState<Voucher[]>([]);
-  const [settings, setSettings] = React.useState<AppSettings | null>(null);
+  const {data: navData, loaded: isDataLoaded, fetchData} = useVoucherNav();
+  const [loading, setLoading] = React.useState(true);
+  
   const [voucherListSettings, setVoucherListSettings] =
     React.useState<VoucherListSettings | undefined>();
-  const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [filterType, setFilterType] = React.useState('all');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const fetchData = React.useCallback(async () => {
+  const fetchVouchers = React.useCallback(async () => {
+    if (!isDataLoaded || !navData) return;
     setLoading(true);
     try {
-      const [
-        clientsRes,
-        usersData,
-        boxesData,
-        suppliersData,
-        settingsData,
-        exchangesRes,
-      ] = await Promise.allSettled([
-        getClients({ all: true }),
-        getUsers(),
-        getBoxes(),
-        getSuppliers({ all: true }),
-        getSettings(),
-        getExchanges(),
-      ]);
+        const vouchersData = await getAllVouchers(
+            navData.clients,
+            navData.suppliers,
+            navData.boxes,
+            navData.users,
+            navData.settings
+        );
+         setVouchers(vouchersData || []);
 
-      if (clientsRes.status !== 'fulfilled' || !clientsRes.value?.clients)
-        throw new Error('فشل تحميل العملاء');
-      if (usersData.status !== 'fulfilled')
-        throw new Error('فشل تحميل المستخدمين');
-      if (boxesData.status !== 'fulfilled')
-        throw new Error('فشل تحميل الصناديق');
-      if (suppliersData.status !== 'fulfilled')
-        throw new Error('فشل تحميل الموردين');
-      if (settingsData.status !== 'fulfilled' || !settingsData.value)
-        throw new Error('فشل تحميل الإعدادات');
-      if(exchangesRes.status !== 'fulfilled' || exchangesRes.value.error || !exchangesRes.value.accounts)
-        throw new Error(exchangesRes.value?.error || 'فشل تحميل البورصات');
-
-      const allRelations = clientsRes.value.clients;
-      const fetchedClients = allRelations.filter(
-        (r: any) => r.relationType === 'client' || r.relationType === 'both'
-      );
-
-      const settings = settingsData.value;
-      setSettings(settings);
-      setVoucherListSettings(settings.voucherSettings?.listSettings);
-
-      const vouchersData = await getAllVouchers(
-        fetchedClients,
-        suppliersData.value,
-        boxesData.value,
-        usersData.value,
-        settings
-      );
-
-      setVouchers(vouchersData || []);
     } catch (error: any) {
-      console.error('خطأ في تحميل السندات:', error);
-      toast({
-        title: 'خطأ',
-        description: error.message || 'فشل في تحميل البيانات.',
-        variant: 'destructive',
-      });
+         toast({
+            title: 'خطأ',
+            description: error.message || 'فشل في تحميل البيانات.',
+            variant: 'destructive',
+        });
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  }, [toast]);
+  }, [isDataLoaded, navData, toast]);
 
   React.useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchVouchers();
+  }, [fetchVouchers]);
+  
+  React.useEffect(() => {
+      if(navData?.settings?.voucherSettings?.listSettings) {
+          setVoucherListSettings(navData.settings.voucherSettings.listSettings);
+      }
+  }, [navData]);
 
   const handleSettingsChanged = async (newSettings: VoucherListSettings) => {
-    if (!settings) return;
+    if (!navData?.settings) return;
     const result = await updateSettings({
-      voucherSettings: { ...settings.voucherSettings, listSettings: newSettings },
+      voucherSettings: { ...navData.settings.voucherSettings, listSettings: newSettings },
     });
     if (result.success) {
       setVoucherListSettings(newSettings);
       toast({ title: 'تم تحديث إعدادات العرض' });
-      fetchData();
+      fetchData(); // Refetch all context data
     } else {
       toast({
         title: 'خطأ',
@@ -159,7 +129,7 @@ const VouchersListContent = () => {
     });
   }, [vouchers, debouncedSearchTerm, filterType]);
 
-  if (loading || !settings || !voucherListSettings) {
+  if (loading || !isDataLoaded || !voucherListSettings) {
     return (
       <Card>
         <CardHeader className="flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -209,7 +179,7 @@ const VouchersListContent = () => {
 
         <div className="flex items-center gap-2">
           <Button
-            onClick={() => fetchData()}
+            onClick={() => fetchVouchers()}
             variant="outline"
             size="icon"
             className="h-8 w-8"
@@ -232,7 +202,7 @@ const VouchersListContent = () => {
         {filteredVouchers.length > 0 ? (
           <VouchersTable
             vouchers={filteredVouchers}
-            onDataChanged={fetchData}
+            onDataChanged={fetchVouchers}
             settings={voucherListSettings}
           />
         ) : (
