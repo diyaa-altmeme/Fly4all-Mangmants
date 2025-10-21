@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
@@ -76,17 +75,17 @@ const StatCard = ({ title, usd, iqd, className, arrow }: { title: string; usd: n
     </div>
 );
 
-const LedgerRow = ({ row, exchanges, onActionSuccess, table }: { 
+const LedgerRow = ({ row, exchanges, onActionSuccess, table, setUnifiedLedger }: { 
     row: Row<UnifiedLedgerEntry>, 
     exchanges: Exchange[], 
     onActionSuccess: (action: 'update' | 'delete' | 'add', data: any) => void,
-    table: ReactTable<UnifiedLedgerEntry>
+    table: ReactTable<UnifiedLedgerEntry>,
+    setUnifiedLedger: React.Dispatch<React.SetStateAction<UnifiedLedgerEntry[]>>
 }) => {
     const entry = row.original;
     const { toast } = useToast();
     const [isPending, setIsPending] = React.useState(false);
     const [auditLogOpen, setAuditLogOpen] = useState(false);
-    const { setUnifiedLedger } = (table.options.meta as any);
     
     const handleConfirmChange = async (checked: boolean) => {
       setIsPending(true);
@@ -101,10 +100,10 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: {
     
         if (!result.success) throw new Error(result.error);
         
-        setUnifiedLedger((currentLedger: UnifiedLedgerEntry[]) =>
-          currentLedger.map(item =>
-            item.id === row.original.id ? { ...item, isConfirmed: checked } : item
-          )
+        setUnifiedLedger(currentLedger =>
+            currentLedger.map(item =>
+                item.id === row.original.id ? { ...item, isConfirmed: checked } : item
+            )
         );
     
         toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
@@ -114,7 +113,7 @@ const LedgerRow = ({ row, exchanges, onActionSuccess, table }: {
           description: 'فشل تحديث حالة التأكيد.',
           variant: 'destructive',
         });
-         setUnifiedLedger((currentLedger: UnifiedLedgerEntry[]) =>
+        setUnifiedLedger(currentLedger =>
             currentLedger.map(item =>
                 item.id === row.original.id ? { ...item, isConfirmed: !checked } : item
             )
@@ -269,7 +268,7 @@ const getColumns = (setUnifiedLedger: React.Dispatch<React.SetStateAction<Unifie
         const [dialogOpen, setDialogOpen] = React.useState(false);
         const { toast } = useToast();
         const table = (row as any).table;
-    
+        
          const handleConfirmChange = async (checked: boolean) => {
           setIsPending(true);
           const currentPage = table.getState().pagination.pageIndex;
@@ -283,10 +282,10 @@ const getColumns = (setUnifiedLedger: React.Dispatch<React.SetStateAction<Unifie
         
             if (!result.success) throw new Error(result.error);
             
-            setUnifiedLedger((currentLedger: UnifiedLedgerEntry[]) =>
-              currentLedger.map(item =>
-                item.id === row.original.id ? { ...item, isConfirmed: checked } : item
-              )
+            setUnifiedLedger(currentLedger =>
+                currentLedger.map(item =>
+                    item.id === row.original.id ? { ...item, isConfirmed: checked } : item
+                )
             );
         
             toast({ title: `تم ${checked ? "تأكيد" : "إلغاء تأكيد"} الدفعة` });
@@ -296,7 +295,7 @@ const getColumns = (setUnifiedLedger: React.Dispatch<React.SetStateAction<Unifie
               description: 'فشل تحديث حالة التأكيد.',
               variant: 'destructive',
             });
-             setUnifiedLedger((currentLedger: UnifiedLedgerEntry[]) =>
+             setUnifiedLedger(currentLedger =>
                 currentLedger.map(item =>
                     item.id === row.original.id ? { ...item, isConfirmed: !checked } : item
                 )
@@ -314,7 +313,7 @@ const getColumns = (setUnifiedLedger: React.Dispatch<React.SetStateAction<Unifie
         
         return (
             <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <AlertDialogContent>
+                 <AlertDialogContent>
                     <AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>سيتم إلغاء تأكيد هذه الدفعة. هل تريد المتابعة؟</AlertDialogDescription></AlertDialogHeader>
                     <AlertDialogFooter><AlertDialogCancel>إلغاء</AlertDialogCancel><AlertDialogAction onClick={confirmUncheck}>نعم، قم بالإلغاء</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
@@ -399,15 +398,15 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
     }, [exchangeId, toast, date]);
     
     const handleActionSuccess = useCallback((action: 'update' | 'delete' | 'add', data: any) => {
-      if (action === 'add' || action === 'delete') {
+        if (action === 'add' || action === 'delete') {
           fetchExchangeData();
-      } else if (action === 'update') {
+        } else if (action === 'update') {
           setUnifiedLedger(currentLedger =>
-              currentLedger.map(item =>
-                  item.id === data.id ? { ...item, ...data } : item
-              )
+            currentLedger.map(item =>
+              item.id === data.id ? { ...item, ...data } : item
+            )
           );
-      }
+        }
     }, [fetchExchangeData]);
 
     const refreshAllData = useCallback(async () => {
@@ -677,6 +676,7 @@ export default function ExchangeManager({ initialExchanges, initialExchangeId }:
                                             exchanges={exchanges} 
                                             onActionSuccess={handleActionSuccess}
                                             table={table}
+                                            setUnifiedLedger={setUnifiedLedger}
                                         />
                                     ))
                                 )}
