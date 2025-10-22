@@ -19,7 +19,6 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import EditManualProfitDialog from "./edit-manual-profit-dialog";
 
 const StatCard = ({ title, value }: { title: string, value: string }) => (
     <div className="bg-muted/50 border p-4 rounded-lg text-center">
@@ -122,9 +121,9 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
-                                    <EditManualProfitDialog period={period} partners={partners} onSuccess={onDataChange} >
+                                    <AddManualProfitDialog period={period} partners={partners} onSuccess={onDataChange} isEditing>
                                       <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4"/> تعديل الفترة</DropdownMenuItem>
-                                    </EditManualProfitDialog>
+                                    </AddManualProfitDialog>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
                                             <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
