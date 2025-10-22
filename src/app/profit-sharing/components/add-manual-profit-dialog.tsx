@@ -33,6 +33,7 @@ import { Label } from "@/components/ui/label";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useAuth } from "@/lib/auth-context";
 import { NumericInput } from '@/components/ui/numeric-input';
+import { Separator } from "@/components/ui/separator";
 
 const partnerSchema = z.object({
   partnerId: z.string().min(1, "اختر شريكاً."),
@@ -73,6 +74,13 @@ const AmountInput = ({ currency, ...props }: { currency: Currency } & React.Comp
     </div>
 );
 
+const SummaryStat = ({ label, value, currency, className }: { label: string; value: number; currency: Currency; className?: string }) => (
+    <div className={cn("p-2 rounded-md text-center", className)}>
+        <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+        <p className="font-mono font-bold text-lg">{value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</p>
+    </div>
+);
+
 
 export default function AddManualProfitDialog({ partners: partnersFromProps, onSuccess, isEditing = false, period, children }: AddManualProfitDialogProps) {
   const [open, setOpen] = useState(false);
@@ -88,7 +96,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     resolver: zodResolver(formSchema),
   });
 
-  const { control, handleSubmit, watch, setValue, formState: { isSubmitting, errors }, trigger, reset: resetForm } = form;
+  const { control, handleSubmit, watch, setValue, formState: { isSubmitting, errors }, trigger, reset: resetForm, getValues } = form;
   const { fields, append, remove, update } = useFieldArray({
     control,
     name: "partners",
@@ -121,7 +129,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
           partners: (period.partners || []).filter(p => p.partnerId !== 'alrawdatain_share').map(p => ({ partnerId: p.partnerId, partnerName: p.partnerName, percentage: p.percentage, amount: p.amount })),
         });
       } else {
-        resetForm({ profit: 0, currency: 'USD', partners: [], alrawdatainSharePercentage: 50 });
+        resetForm({ fromDate: new Date(), toDate: new Date(), profit: 0, currency: 'USD', partners: [], alrawdatainSharePercentage: 50 });
       }
       setCurrentPartnerId('');
       setCurrentPercentage('');
@@ -135,7 +143,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
   }, [currentUser, navData?.boxes]);
 
 
-  const { totalPartnerPercentage, amountForPartners, alrawdatainShareAmount } = useMemo(() => {
+  const { totalPartnerPercentage, amountForPartners, alrawdatainShareAmount, distributedToPartners, remainderForPartners } = useMemo(() => {
     const totalProfit = Number(watchedProfit) || 0;
     const alrawdatainPerc = Number(alrawdatainPercentage) || 0;
 
@@ -143,8 +151,15 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     const availableForPartners = totalProfit - alrawdatainAmount;
     
     const partnerPerc = (watchedPartners || []).reduce((acc, p) => acc + (Number(p.percentage) || 0), 0);
+    const distributedAmount = (watchedPartners || []).reduce((acc, p) => acc + ((availableForPartners * (p.percentage || 0)) / 100), 0);
 
-    return { totalPartnerPercentage: partnerPerc, amountForPartners: availableForPartners, alrawdatainShareAmount: alrawdatainAmount };
+    return { 
+        totalPartnerPercentage: partnerPerc, 
+        amountForPartners: availableForPartners, 
+        alrawdatainShareAmount: alrawdatainAmount,
+        distributedToPartners: distributedAmount,
+        remainderForPartners: availableForPartners - distributedAmount,
+    };
   }, [watchedProfit, alrawdatainPercentage, watchedPartners]);
 
 
@@ -207,7 +222,8 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
         toast({ title: "النسبة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
         return;
     }
-    const currentTotalPartnerPercentage = (fields || []).filter((_, i) => i !== editingPartnerIndex).reduce((sum, p) => sum + p.percentage, 0);
+    const currentPartners = getValues('partners') || [];
+    const currentTotalPartnerPercentage = currentPartners.filter((_, i) => i !== editingPartnerIndex).reduce((sum, p) => sum + p.percentage, 0);
 
     if (currentTotalPartnerPercentage + newPercentage > 100) {
          toast({ title: "لا يمكن تجاوز 100%", description: `إجمالي النسب الحالية: ${currentTotalPartnerPercentage.toFixed(2)}%`, variant: 'destructive' });
@@ -257,7 +273,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                 <div className="p-4 border rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem> )}/>
                     <FormField control={control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem> )}/>
-                    <FormField control={control} name="profit" render={({ field }) => ( <FormItem><FormLabel>صافي الربح للفترة</FormLabel><FormControl><AmountInput currency={watchedCurrency} {...field} /></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={control} name="profit" render={({ field }) => ( <FormItem><FormLabel>صافي الربح للفترة</FormLabel><FormControl><AmountInput currency={watchedCurrency} {...field} onValueChange={(v) => field.onChange(v || 0)}/></FormControl><FormMessage /></FormItem> )}/>
                     <FormField control={control} name="currency" render={({ field }) => ( 
                         <FormItem><FormLabel>العملة</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
@@ -277,7 +293,15 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                 </div>
 
                 <div className="p-4 border rounded-lg">
-                    <h3 className="font-semibold text-lg mb-2">إضافة شريك وتحديد حصته</h3>
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-4">
+                        <SummaryStat label="صافي الربح" value={watchedProfit || 0} currency={watchedCurrency} />
+                        <SummaryStat label="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedCurrency} />
+                        <SummaryStat label="المتاح للشركاء" value={amountForPartners} currency={watchedCurrency} />
+                        <SummaryStat label="الموزع للشركاء" value={distributedToPartners} currency={watchedCurrency} />
+                        <SummaryStat label="المتبقي للتوزيع" value={remainderForPartners} currency={watchedCurrency} className={cn(Math.abs(remainderForPartners) > 0.01 && 'bg-destructive/10 text-destructive')} />
+                    </div>
+                     <Separator />
+                    <h3 className="font-semibold text-lg my-2">إضافة شريك وتحديد حصته</h3>
                     <div className="flex items-end gap-2 mb-2 p-2 rounded-lg bg-muted/50">
                         <div className="flex-grow space-y-1.5">
                             <Label>الشريك</Label>
@@ -359,5 +383,3 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     </Dialog>
   );
 }
-
-    
