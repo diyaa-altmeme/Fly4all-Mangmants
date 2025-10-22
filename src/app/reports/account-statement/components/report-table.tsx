@@ -58,7 +58,7 @@ const DetailedDescription = ({ description }: { description: StructuredDescripti
     );
 };
 
-const TransactionRow = ({ transaction, onActionComplete }: { transaction: ReportTransaction, onActionComplete: () => void }) => {
+const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransaction, onRefresh: () => void }) => {
     const { toast } = useToast();
     const [isEditOpen, setIsEditOpen] = React.useState(false);
 
@@ -66,7 +66,7 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
         const result = await deleteVoucher(transaction.id);
         if (result.success) {
             toast({ title: 'تم حذف السند بنجاح' });
-            onActionComplete();
+            onRefresh();
         } else {
             toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
         }
@@ -126,7 +126,7 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
                     isOpen={isEditOpen}
                     onClose={() => {
                         setIsEditOpen(false);
-                        onActionComplete();
+                        onRefresh();
                     }}
                 />
             )}
@@ -165,7 +165,7 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-6 text-gray-500">
+                  <TableCell colSpan={11} className="h-48 text-center text-gray-500">
                     لا توجد بيانات متاحة للعرض
                   </TableCell>
                 </TableRow>
@@ -174,5 +174,3 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
         </Table>
     );
 }
-
-    

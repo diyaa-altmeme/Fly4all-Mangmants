@@ -3,19 +3,22 @@
 
 import { getDb } from "@/lib/firebase-admin";
 import type { JournalVoucher } from "@/lib/types";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 
 export async function getAccountStatement(filters: any) {
   const db = await getDb();
+  if (!db) {
+    console.error("Database not available");
+    return [];
+  }
   const { accountId, dateFrom, dateTo, voucherType } = filters;
-  const vouchersRef = collection(db, "journal-vouchers");
+  const vouchersRef = db.collection("journal-vouchers");
 
   // ترتيب واستعلام التاريخ
-  let q = query(vouchersRef, orderBy("date", "asc"));
-  if (dateFrom) q = query(q, where("date", ">=", dateFrom));
-  if (dateTo) q = query(q, where("date", "<=", dateTo));
+  let query: FirebaseFirestore.Query = vouchersRef.orderBy("date", "asc");
+  if (dateFrom) query = query.where("date", ">=", dateFrom);
+  if (dateTo) query = query.where("date", "<=", dateTo);
 
-  const snapshot = await getDocs(q);
+  const snapshot = await query.get();
   const rows: any[] = [];
 
   snapshot.forEach((doc) => {
@@ -38,18 +41,15 @@ export async function getAccountStatement(filters: any) {
           entry.description ||
           v.notes ||
           v.originalData?.details ||
-          v.originalData?.description ||
           "",
         debit: Number(entry.amount) || 0,
         credit: 0,
         currency: v.currency || "USD",
         officer: v.officer || "",
         voucherType: v.voucherType || "",
-        sourceType: v.sourceType || v.voucherType, // Fallback to voucherType if sourceType is missing
-        sourceId: v.sourceId || doc.id, // Fallback to doc.id
-        sourceRoute: v.sourceRoute || null,
-        notes: v.notes,
-        originalData: v.originalData,
+        sourceType: v.sourceType || "",
+        sourceId: v.sourceId || "",
+        sourceRoute: v.sourceRoute || "",
       });
     });
 
@@ -63,30 +63,27 @@ export async function getAccountStatement(filters: any) {
           entry.description ||
           v.notes ||
           v.originalData?.details ||
-          v.originalData?.description ||
           "",
         debit: 0,
         credit: Number(entry.amount) || 0,
         currency: v.currency || "USD",
         officer: v.officer || "",
         voucherType: v.voucherType || "",
-        sourceType: v.sourceType || v.voucherType, // Fallback
-        sourceId: v.sourceId || doc.id, // Fallback
-        sourceRoute: v.sourceRoute || null,
-        notes: v.notes,
-        originalData: v.originalData,
+        sourceType: v.sourceType || "",
+        sourceId: v.sourceId || "",
+        sourceRoute: v.sourceRoute || "",
       });
     });
   });
 
-  // فلترة نوع العملية (اختياري)
-  const filteredRows = voucherType && voucherType !== 'all'
+  // فلترة حسب نوع العملية (اختياري)
+  const filteredRows = voucherType && voucherType.length > 0
     ? rows.filter(
-        (r) => r.voucherType === voucherType || r.sourceType === voucherType
+        (r) => voucherType.includes(r.voucherType) || voucherType.includes(r.sourceType)
       )
     : rows;
 
-  // حساب الرصيد التراكمي
+  // ترتيب زمني + احتساب الرصيد التراكمي
   let balance = 0;
   const result = filteredRows
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -97,5 +94,3 @@ export async function getAccountStatement(filters: any) {
 
   return result;
 }
-
-    
