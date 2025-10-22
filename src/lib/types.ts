@@ -903,6 +903,9 @@ export type JournalVoucher = {
     isDeleted?: boolean;
     deletedAt?: string;
     originalData?: any; // To store original form data if needed for display
+    sourceType?: string;   // نوع المصدر الأصلي
+    sourceId?: string;     // معرف السجل الأصلي
+    sourceRoute?: string;  // رابط فتح النموذج الأصلي
 };
 
 export type ReceiptVoucher = JournalVoucher; // Now a JournalVoucher
