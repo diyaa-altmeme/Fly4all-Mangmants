@@ -47,6 +47,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     const entryDate = period.entries[0]?.createdAt ? format(parseISO(period.entries[0].createdAt), 'yyyy-MM-dd hh:mm a') : 'N/A';
     
     const invoiceNumber = period.entries[0]?.invoiceNumber || 'N/A';
+    const periodNotes = period.entries[0]?.notes || '-';
 
     const handleDeletePeriod = async (fromDate: string, toDate: string) => {
         const { count } = await deleteSegmentPeriod(fromDate, toDate);
@@ -59,7 +60,6 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     };
     
     const handleConfirmChange = async (checked: boolean) => {
-        // This is a placeholder. You'd need a server action to update the confirmation status for all entries in this period.
         toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الفترة` });
     }
 
@@ -74,17 +74,16 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="text-center p-1"><Checkbox checked={period.isConfirmed} onCheckedChange={handleConfirmChange} /></TableCell>
                     <TableCell className="font-mono text-xs text-center p-2">{invoiceNumber}</TableCell>
                     <TableCell className="p-2 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
+                     <TableCell className="p-2 text-xs text-center">{periodNotes}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalTickets.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalOther.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-green-600 p-2">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
-                    <TableCell className="font-mono text-center text-xs p-2">{entryDate}</TableCell>
                     <TableCell className="p-1 text-center">
                         <div className="flex items-center justify-center">
                             <DropdownMenu>
@@ -172,7 +171,7 @@ export default function SegmentsPage() {
                     totalTickets: 0,
                     totalOther: 0,
                     isConfirmed: entry.isConfirmed,
-                    type: 'transaction', // Default, will be refined
+                    type: 'transaction',
                 };
             }
             acc[periodKey].entries.push(entry);
@@ -181,12 +180,11 @@ export default function SegmentsPage() {
             acc[periodKey].totalPartnerShare += entry.partnerShare;
             acc[periodKey].totalTickets += entry.ticketProfits;
             acc[periodKey].totalOther += entry.otherProfits;
-            // A period is confirmed if ALL its entries are confirmed
+
             if(acc[periodKey].isConfirmed !== false) {
                  acc[periodKey].isConfirmed = entry.isConfirmed === true;
             }
 
-            // Simplistic type determination
             if(entry.total < 0) acc[periodKey].type = 'payment';
 
             return acc;
@@ -288,22 +286,6 @@ export default function SegmentsPage() {
                                     <SelectTrigger className="w-full sm:w-[250px]"><SelectValue placeholder="اختر فترة..."/></SelectTrigger>
                                     <SelectContent><SelectItem value="all">كل الفترات</SelectItem>{periodOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}</SelectContent>
                                 </Select>
-                                 <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-                                    <SelectTrigger className="w-full sm:w-[150px]"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">كل الحالات</SelectItem>
-                                        <SelectItem value="confirmed">المؤكدة</SelectItem>
-                                        <SelectItem value="unconfirmed">غير المؤكدة</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-                                    <SelectTrigger className="w-full sm:w-[150px]"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">كل الحركات</SelectItem>
-                                        <SelectItem value="transaction">دين</SelectItem>
-                                        <SelectItem value="payment">تسديد</SelectItem>
-                                    </SelectContent>
-                                </Select>
                             </div>
                         </div>
                     </div>
@@ -325,18 +307,17 @@ export default function SegmentsPage() {
                              <TableHeader>
                                 <TableRow>
                                     <TableHead className="w-[50px] p-1"></TableHead>
-                                    <TableHead className="text-center font-bold p-2 w-[80px]">الحالة</TableHead>
                                     <TableHead className="font-bold text-center p-2">رقم الفاتورة</TableHead>
                                     <TableHead className="font-bold text-center p-2">الشركات</TableHead>
                                     <TableHead className="font-bold text-center p-2">من</TableHead>
                                     <TableHead className="font-bold text-center p-2">إلى</TableHead>
+                                    <TableHead className="font-bold text-center p-2">الملاحظات</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح التذاكر</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح أخرى</TableHead>
                                     <TableHead className="text-center font-bold p-2">حصة الروضتين</TableHead>
                                     <TableHead className="text-center font-bold p-2">حصة الشريك</TableHead>
-                                    <TableHead className="font-bold text-center p-2">موظف الإدخال</TableHead>
-                                    <TableHead className="font-bold text-center p-2">تاريخ الإدخال</TableHead>
-                                    <TableHead className="text-center font-bold p-2">الإجراءات</TableHead>
+                                    <TableHead className="font-bold text-center p-2">الموظف</TableHead>
+                                    <TableHead className="text-center p-2">الإجراءات</TableHead>
                                 </TableRow>
                             </TableHeader>
                             {sortedAndFilteredPeriods.length === 0 ? (
