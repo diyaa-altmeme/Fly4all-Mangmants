@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator, History, CheckCheck, Pencil } from 'lucide-react';
+import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, User as UserIcon, Wallet, Hash, CheckCircle, ArrowLeft, Pencil, AlertCircle } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod, updateSegmentEntry } from '@/app/segments/actions';
 import AddSegmentPeriodDialog from './add-segment-period-dialog';
@@ -66,7 +66,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     return (
         <Collapsible asChild key={`${period.fromDate}_${period.toDate}`} open={isOpen} onOpenChange={setIsOpen}>
              <tbody className={cn("border-t", period.isConfirmed && "bg-green-500/10")}>
-                <TableRow className="cursor-pointer font-bold" onClick={() => setIsOpen(!isOpen)}>
+                <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
                     <TableCell className="p-1 text-center">
                        <CollapsibleTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -139,6 +139,7 @@ export default function SegmentsPage() {
         if(navDataLoaded) {
             fetchSegmentData();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [navDataLoaded, fetchData]);
     
     const fetchSegmentData = useCallback(async () => {
@@ -199,7 +200,7 @@ export default function SegmentsPage() {
             periods = periods.filter(p => 
                 p.entries.some(e => 
                     e.companyName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
-                    e.partnerName.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+                    (e.partnerName || '').toLowerCase().includes(debouncedSearchTerm.toLowerCase())
                 )
             );
         }
@@ -260,7 +261,9 @@ export default function SegmentsPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
+                                     <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
+                                </AddSegmentPeriodDialog>
                                 <Button onClick={fetchSegmentData} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
