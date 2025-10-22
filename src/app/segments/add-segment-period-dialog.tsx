@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
@@ -175,7 +176,7 @@ const ServiceLine = React.forwardRef(function ServiceLine({
   const currency = parentForm.watch('currency');
 
   const result = useMemo(() => computeService(count, type, val), [count, type, val]);
-  const currencySymbol = navData?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
+  const currencySymbol = navData?.settings?.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
 
   return (
     <Card className={cn("shadow-sm overflow-hidden", color)} ref={ref}>
@@ -503,14 +504,20 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         resolver: zodResolver(periodSchema),
     });
     
-    const { control, getValues, reset: resetPeriodForm, trigger } = periodForm;
-    const { fields, append, remove } = useFieldArray({ control, name: "entries" as const });
+    const { control, getValues, reset: resetPeriodForm, trigger, handleSubmit: handlePeriodSubmit } = periodForm;
+    const { fields, append, remove, replace } = useFieldArray({ control, name: "entries" as const });
     
     const { data: navData } = useVoucherNav();
     const currencyList =
       (navData?.settings?.currencySettings?.currencies || [{ code: "USD", name: "USD" }, { code: "IQD", name: "IQD" }, { code: "SAR", name: "SAR" }])
         .map((c: any) => ({ value: c.code, label: c.name }));
     
+    const partnerOptions = useMemo(() => {
+        const allRelations = [...clients, ...suppliers];
+        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+        return uniqueRelations.map(r => ({ value: r.id, label: r.name }));
+    }, [clients, suppliers]);
+
     useEffect(() => {
         if (open) {
             const fromDate = existingPeriod ? parseISO(existingPeriod.fromDate) : undefined;
@@ -528,10 +535,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const handleSavePeriod = async () => {
         const periodData = getValues();
+        const isValid = await trigger();
+        if (!isValid) return;
+
         if (fields.length === 0) {
             toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
             return;
         }
+
         setIsSaving(true);
         
         const finalEntries = fields.map((entry: any) => ({
@@ -624,7 +635,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             ) : fields.map((f: any, i: number) => (
                                                 <TableRow key={f.id}>
                                                     <TableCell className="font-medium">{f.clientName || f.clientId}</TableCell>
-                                                    <TableCell>{f.computed?.partnerBreakdown?.map((p:any) => p.relationName).join(', ')}</TableCell>
+                                                    <TableCell>{f.partners?.map((p:any) => p.relationName).join(', ')}</TableCell>
                                                     <TableCell className="font-mono">{f.computed?.net?.toFixed(2)} {currencySymbol}</TableCell>
                                                     <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {currencySymbol}</TableCell>
                                                     <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {currencySymbol}</TableCell>
@@ -665,3 +676,5 @@ const StatCard = ({ title, value, currency, className }: { title: string; value:
         </p>
     </div>
 );
+
+    
