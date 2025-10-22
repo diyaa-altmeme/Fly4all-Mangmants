@@ -28,7 +28,6 @@ import { produce } from 'immer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 import { useVoucherNav } from '@/context/voucher-nav-context';
-import EditSegmentPeriodDialog from '@/components/segments/edit-segment-period-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 
 
@@ -76,7 +75,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                         </CollapsibleTrigger>
                     </TableCell>
                     <TableCell className="text-center p-1"><Checkbox checked={period.isConfirmed} onCheckedChange={handleConfirmChange} /></TableCell>
-                    <TableCell className="font-mono text-center text-xs p-2">{invoiceNumber}</TableCell>
+                    <TableCell className="font-mono text-xs text-center p-2">{invoiceNumber}</TableCell>
                     <TableCell className="p-2 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
@@ -93,7 +92,9 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                                     <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
-                                    <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
+                                    <AddSegmentPeriodDialog isEditing existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
+                                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Pencil className="me-2 h-4 w-4" /> تعديل الفترة</DropdownMenuItem>
+                                    </AddSegmentPeriodDialog>
                                     <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -220,7 +221,7 @@ export default function SegmentsPage() {
     }, [groupedByPeriod, debouncedSearchTerm, periodFilter, statusFilter, typeFilter]);
 
     const { grandTotalProfit, grandTotalAlrawdatainShare, grandTotalPartnerShare } = useMemo(() => {
-        return sortedAndFilteredPeriods.reduce((acc, period) => {
+        return sortedAndFilteredPeriods.reduce((acc: any, period: any) => {
             acc.grandTotalProfit += period.totalProfit;
             acc.grandTotalAlrawdatainShare += period.totalAlrawdatainShare;
             acc.grandTotalPartnerShare += period.totalPartnerShare;
