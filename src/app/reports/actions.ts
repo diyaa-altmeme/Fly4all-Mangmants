@@ -3,18 +3,19 @@
 
 import { getDb } from "@/lib/firebase-admin";
 import type { JournalVoucher } from "@/lib/types";
+import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 
 export async function getAccountStatement(filters: any) {
-  const db = getDb();
+  const db = await getDb();
   const { accountId, dateFrom, dateTo, voucherType } = filters;
-  const vouchersRef = db.collection("journal-vouchers");
+  const vouchersRef = collection(db, "journal-vouchers");
 
-  // جلب كل السندات ضمن الفترة الزمنية فقط
-  let query: FirebaseFirestore.Query = vouchersRef.orderBy("date", "asc");
-  if (dateFrom) query = query.where("date", ">=", dateFrom);
-  if (dateTo) query = query.where("date", "<=", dateTo);
+  // ترتيب واستعلام التاريخ
+  let q = query(vouchersRef, orderBy("date", "asc"));
+  if (dateFrom) q = query(q, where("date", ">=", dateFrom));
+  if (dateTo) q = query(q, where("date", "<=", dateTo));
 
-  const snapshot = await query.get();
+  const snapshot = await getDocs(q);
   const rows: any[] = [];
 
   snapshot.forEach((doc) => {
@@ -30,13 +31,14 @@ export async function getAccountStatement(filters: any) {
     debitEntries.forEach((entry, index) => {
       if (entry.accountId !== accountId) return;
       rows.push({
-        id: `${doc.id}_debit_${index}`, // Unique ID for each sub-entry
+        id: `${doc.id}_debit_${index}`,
         date: v.date,
         invoiceNumber: v.invoiceNumber,
         description:
           entry.description ||
           v.notes ||
           v.originalData?.details ||
+          v.originalData?.description ||
           "",
         debit: Number(entry.amount) || 0,
         credit: 0,
@@ -54,13 +56,14 @@ export async function getAccountStatement(filters: any) {
     creditEntries.forEach((entry, index) => {
       if (entry.accountId !== accountId) return;
       rows.push({
-        id: `${doc.id}_credit_${index}`, // Unique ID for each sub-entry
+        id: `${doc.id}_credit_${index}`,
         date: v.date,
         invoiceNumber: v.invoiceNumber,
         description:
           entry.description ||
           v.notes ||
           v.originalData?.details ||
+          v.originalData?.description ||
           "",
         debit: 0,
         credit: Number(entry.amount) || 0,
@@ -76,14 +79,14 @@ export async function getAccountStatement(filters: any) {
     });
   });
 
-  // فلترة حسب نوع العملية إذا المستخدم اختار فلتر محدد
-  const filteredRows = voucherType
+  // فلترة نوع العملية (اختياري)
+  const filteredRows = voucherType && voucherType !== 'all'
     ? rows.filter(
         (r) => r.voucherType === voucherType || r.sourceType === voucherType
       )
     : rows;
 
-  // ترتيب زمني + احتساب الرصيد التراكمي
+  // حساب الرصيد التراكمي
   let balance = 0;
   const result = filteredRows
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -94,3 +97,5 @@ export async function getAccountStatement(filters: any) {
 
   return result;
 }
+
+    
