@@ -232,12 +232,11 @@ ServiceLine.displayName = "ServiceLine";
 // ---------- AddCompanyToSegmentForm ----------
 
 const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
-  { onAdd, onUpdate, editingEntry, onCancelEdit, partnerOptions }: { 
-    onAdd: (data: any) => void;
-    onUpdate: (data: any) => void;
+  { onAddEntry, onUpdateEntry, editingEntry, onCancelEdit }: { 
+    onAddEntry: (data: any) => void;
+    onUpdateEntry: (data: any) => void;
     editingEntry: CompanyEntryFormValues | null;
     onCancelEdit: () => void;
-    partnerOptions: any[] 
   },
   ref
 ) {
@@ -245,11 +244,23 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   const { toast } = useToast();
   
   const allCompanyOptions = useMemo(() => {
-    return [
-      ...(navData?.clients || []).map(c => ({ value: c.id, label: `عميل: ${c.name}`, settings: c.segmentSettings })),
-      ...(navData?.suppliers || []).map(s => ({ value: s.id, label: `مورد: ${s.name}`, settings: s.segmentSettings })),
-    ]
-  }, [navData?.clients, navData?.suppliers]);
+    const allRelations = [...(navData?.clients || []), ...(navData?.suppliers || [])];
+    const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+    return uniqueRelations.map(c => ({ value: c.id, label: `${c.relationType === 'supplier' ? 'مورد: ' : 'عميل: '}${c.name}`, settings: c.segmentSettings }));
+}, [navData?.clients, navData?.suppliers]);
+
+const partnerOptions = useMemo(() => {
+    const allRelations = [...(navData?.clients || []), ...(navData?.suppliers || [])];
+    const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+    return uniqueRelations.map(r => {
+        let labelPrefix = '';
+        if (r.relationType === 'client') labelPrefix = 'عميل: ';
+        else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
+        else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
+        return { value: r.id, label: `${labelPrefix}${r.name}` };
+    });
+}, [navData?.clients, navData?.suppliers]);
+
     
   const form = useForm<CompanyEntryFormValues>({
     resolver: zodResolver(companyEntrySchema),
@@ -315,9 +326,9 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     }
     
     if (editingEntry) {
-      onUpdate({ ...data, computed });
+      onUpdateEntry({ ...data, computed });
     } else {
-      onAdd({ ...data, computed });
+      onAddEntry({ ...data, computed });
     }
   };
 
@@ -415,9 +426,22 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
             <CollapsibleContent className="pt-3 space-y-3">
               <div className="p-4 border rounded-lg bg-background/50">
                 <h3 className="font-semibold text-base mb-2">توزيع الأرباح</h3>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
                   <div className="font-bold text-blue-600 font-mono p-2 bg-blue-50 dark:bg-blue-950/50 rounded-md">صافي الربح<span className="block">{totals.net.toFixed(2)}</span></div>
-                  <div className="font-bold text-green-600 font-mono p-2 bg-green-50 dark:bg-green-950/50 rounded-md">حصة الروضتين<span className="block">{totals.rodatainShare.toFixed(2)}</span></div>
+                  <div className="space-y-1">
+                      <Label className="text-xs">حصة الروضتين (%)</Label>
+                      <div className="relative">
+                          <Controller
+                            name="alrawdatainSharePercentage"
+                            control={form.control}
+                            render={({ field }) => (
+                                <NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} className="h-9 pe-7"/>
+                            )}
+                          />
+                          <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      </div>
+                  </div>
+                  <div className="font-bold text-green-600 font-mono p-2 bg-green-50 dark:bg-green-950/50 rounded-md">قيمة حصة الروضتين<span className="block">{totals.rodatainShare.toFixed(2)}</span></div>
                   <div className="font-bold text-purple-600 font-mono p-2 bg-purple-50 dark:bg-purple-950/50 rounded-md">المتاح للشركاء<span className="block">{totals.partnerPool.toFixed(2)}</span></div>
                   <div className={cn("font-bold font-mono p-2 rounded-md", Math.abs(totals.remainder) > 0.01 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>المتبقي للتوزيع<span className="block">{totals.remainder.toFixed(2)}</span></div>
                 </div>
@@ -506,6 +530,18 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
     const { control, getValues, reset: resetPeriodForm, trigger, handleSubmit: handlePeriodSubmit, watch: watchPeriodForm } = periodForm;
     const { fields, append, remove, update } = useFieldArray({ control, name: "entries" as const });
+    
+    const partnerOptions = useMemo(() => {
+        const allRelations = [...(clients || []), ...(suppliers || [])];
+        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+        return uniqueRelations.map(r => {
+            let labelPrefix = '';
+            if (r.relationType === 'client') labelPrefix = 'عميل: ';
+            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
+            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
+            return { value: r.id, label: `${labelPrefix}${r.name}` };
+        });
+    }, [clients, suppliers]);
 
     useEffect(() => {
         if (open) {
@@ -601,18 +637,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             setIsSaving(false);
         }
     };
-    
-    const partnerOptions = useMemo(() => {
-        const allRelations = [...(clients || []), ...(suppliers || [])];
-        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-        return uniqueRelations.map(r => {
-            let labelPrefix = '';
-            if (r.relationType === 'client') labelPrefix = 'عميل: ';
-            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
-            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
-            return { value: r.id, label: `${labelPrefix}${r.name}` };
-        });
-    }, [clients, suppliers]);
 
     const { grandTotalProfit, grandTotalAlrawdatainShare, grandTotalPartnerShare } = React.useMemo(() => {
         return fields.reduce((acc: any, entry: any) => {
@@ -687,8 +711,8 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                             </form>
                         </div>
                         <AddCompanyToSegmentForm 
-                          onAdd={addEntry}
-                          onUpdate={(data) => {
+                          onAddEntry={addEntry}
+                          onUpdateEntry={(data) => {
                               if (editingCompany && 'index' in editingCompany) {
                                   update(editingCompany.index, data);
                                   setEditingCompany(null);
