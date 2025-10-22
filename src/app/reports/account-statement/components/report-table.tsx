@@ -81,7 +81,7 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
             <td className="p-2 text-right text-xs">
                 <DetailedDescription description={transaction.description} />
             </td>
-            <td className="p-2 text-right text-xs">
+            <td className="p-2 text-xs text-right">
                 {transaction.notes}
             </td>
             <td className="p-2 font-mono font-bold text-red-600 text-center">{transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}</td>
@@ -97,7 +97,6 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
                         voucherId={transaction.id}
                         sourceType={transaction.sourceType} 
                         sourceId={transaction.sourceId} 
-                        sourceRoute={transaction.sourceRoute}
                         onVoucherUpdated={onActionComplete}
                      />
                      <AlertDialog>
