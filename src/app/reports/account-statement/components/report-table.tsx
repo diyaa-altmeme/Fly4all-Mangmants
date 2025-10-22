@@ -160,13 +160,13 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
                   <TransactionRow
                     key={tx.id}
                     transaction={tx}
-                    onActionComplete={onRefresh}
+                    onRefresh={onRefresh}
                   />
                 ))
               ) : (
                 <TableRow>
                   <TableCell colSpan={11} className="h-48 text-center text-gray-500">
-                    لا توجد بيانات متاحة للعرض
+                    لا توجد بيانات متاحة لعرضها
                   </TableCell>
                 </TableRow>
               )}

@@ -97,12 +97,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     setError(null);
 
     try {
-      const data = await getAccountStatement({
-        accountId: filters.accountId,
-        dateFrom: filters.dateRange?.from,
-        dateTo: filters.dateRange?.to,
-        voucherType: Array.from(filters.typeFilter).length === allFilters.length ? undefined : Array.from(filters.typeFilter)[0],
-      });
+      const data = await getAccountStatement(filters);
       
       const transactionsData = Array.isArray(data) ? data : [];
       setTransactions(transactionsData);
@@ -143,6 +138,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
               balanceMode: 'asset',
           });
       }
+
 
     } catch (error: any) {
       setError("حدث خطأ أثناء تحميل البيانات");
@@ -279,5 +275,3 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     </div>
   );
 }
-
-    
