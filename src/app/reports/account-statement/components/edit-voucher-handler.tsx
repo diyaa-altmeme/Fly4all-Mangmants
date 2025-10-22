@@ -30,7 +30,7 @@ const EditVoucherHandler = ({ voucherId, sourceType, sourceId, onVoucherUpdated 
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState<any>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { data: navData } = useVoucherNav();
 
 
@@ -43,7 +43,8 @@ const EditVoucherHandler = ({ voucherId, sourceType, sourceId, onVoucherUpdated 
     try {
         switch (sourceType) {
             case 'booking':
-                const { bookings } = await getBookings({ all: true }); // A bit inefficient, but works for now
+                // Inefficient, but a workaround until a getBookingById is made
+                const { bookings } = await getBookings({ limit: 1000 });
                 fetchedData = bookings.find(b => b.id === sourceId);
                 break;
             case 'visa':
@@ -65,7 +66,7 @@ const EditVoucherHandler = ({ voucherId, sourceType, sourceId, onVoucherUpdated 
                 return;
         }
         setData(fetchedData);
-        setDialogOpen(true);
+        setIsDialogOpen(true);
 
     } catch (error) {
         console.error("Failed to fetch data for editing:", error);
@@ -75,10 +76,10 @@ const EditVoucherHandler = ({ voucherId, sourceType, sourceId, onVoucherUpdated 
   };
 
   const renderDialog = () => {
-    if (!dialogOpen || !data) return null;
+    if (!isDialogOpen || !data) return null;
 
     const handleSuccess = () => {
-        setDialogOpen(false);
+        setIsDialogOpen(false);
         onVoucherUpdated();
     }
 
@@ -103,17 +104,13 @@ const EditVoucherHandler = ({ voucherId, sourceType, sourceId, onVoucherUpdated 
             );
         case 'segment':
              return (
-                <EditSegmentPeriodDialog existingPeriod={data} clients={navData?.clients || []} suppliers={navData?.suppliers || []} onSuccess={handleSuccess}>
-                     <span/>
-                </EditSegmentPeriodDialog>
-            );
+                <EditSegmentPeriodDialog existingPeriod={data} clients={navData?.clients || []} suppliers={navData?.suppliers || []} onSuccess={handleSuccess} />
+             );
          case 'profit-sharing':
              const manualProfitPeriod = navData?.monthlyProfits?.find(p => p.id === sourceId);
              if (!manualProfitPeriod) return null;
              return (
-                <EditManualProfitDialog period={manualProfitPeriod} partners={[...(navData?.clients || []), ...(navData?.suppliers || [])]} onSuccess={handleSuccess}>
-                    <span/>
-                </EditManualProfitDialog>
+                <EditManualProfitDialog period={manualProfitPeriod} partners={[...(navData?.clients || []), ...(navData?.suppliers || [])]} onSuccess={handleSuccess} />
             );
         default:
             return null;
