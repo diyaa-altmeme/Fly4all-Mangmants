@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -15,7 +14,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { type ProfitShare, saveManualProfitDistribution, updateManualProfitDistribution } from "../actions";
 import { Loader2, Save, Percent, Edit, PlusCircle, Trash2, CalendarIcon, Wallet, Landmark, Users, ArrowLeft, Hash, User as UserIcon } from "lucide-react";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -34,10 +33,10 @@ import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useAuth } from "@/lib/auth-context";
 
 const partnerSchema = z.object({
-  partnerId: z.string().min(1, "اسم الشريك مطلوب."),
+  partnerId: z.string().min(1, "اختر شريكاً."),
   partnerName: z.string(),
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
-  amount: z.coerce.number(), // Added for data consistency
+  amount: z.coerce.number(), // This field is for calculation display, not direct input
 });
 
 const formSchema = z.object({
@@ -46,6 +45,7 @@ const formSchema = z.object({
   sourceAccountId: z.string().min(1, { message: "مصدر الأرباح مطلوب."}),
   profit: z.coerce.number().positive("الربح يجب أن يكون أكبر من صفر"),
   currency: z.enum(['USD', 'IQD']),
+  alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(50),
   partners: z.array(partnerSchema).optional(),
 });
 
@@ -77,7 +77,8 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const { data: navData } = useVoucherNav();
-
+  
+  const [editingPartnerIndex, setEditingPartnerIndex] = useState<number | null>(null);
   const [currentPartnerId, setCurrentPartnerId] = useState('');
   const [currentPercentage, setCurrentPercentage] = useState<number | string>('');
 
@@ -85,8 +86,8 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     resolver: zodResolver(formSchema),
   });
 
-  const { control, handleSubmit, watch, setValue, formState: { isSubmitting }, trigger, reset: resetForm } = form;
-  const { fields, append, remove } = useFieldArray({
+  const { control, handleSubmit, watch, setValue, formState: { isSubmitting, errors }, trigger, reset: resetForm } = form;
+  const { fields, append, remove, update } = useFieldArray({
     control,
     name: "partners",
   });
@@ -102,23 +103,27 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
   const watchedPartners = watch('partners');
   const watchedProfit = watch('profit');
   const watchedCurrency = watch('currency');
+  const alrawdatainPercentage = watch('alrawdatainSharePercentage');
 
   useEffect(() => {
     if (open) {
       if (isEditing && period) {
+        const alrawdatainData = period.partners?.find(p => p.partnerId === 'alrawdatain_share');
         resetForm({
           fromDate: period.fromDate ? parseISO(period.fromDate) : new Date(),
           toDate: period.toDate ? parseISO(period.toDate) : new Date(),
           profit: period.totalProfit,
           currency: period.currency || 'USD',
           sourceAccountId: period.sourceAccountId || '',
+          alrawdatainSharePercentage: alrawdatainData?.percentage || 50,
           partners: (period.partners || []).filter(p => p.partnerId !== 'alrawdatain_share').map(p => ({ partnerId: p.partnerId, partnerName: p.partnerName, percentage: p.percentage, amount: p.amount })),
         });
       } else {
-        resetForm({ profit: 0, currency: 'USD', partners: [] });
+        resetForm({ profit: 0, currency: 'USD', partners: [], alrawdatainSharePercentage: 50 });
       }
       setCurrentPartnerId('');
       setCurrentPercentage('');
+      setEditingPartnerIndex(null);
     }
   }, [open, isEditing, period, resetForm]);
   
@@ -128,35 +133,40 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
   }, [currentUser, navData?.boxes]);
 
 
-  const totalPartnerPercentage = useMemo(() => 
-      (watchedPartners || []).reduce((acc, p) => acc + (Number(p.percentage) || 0), 0), 
-  [watchedPartners]);
+  const { totalPartnerPercentage, amountForPartners, alrawdatainShareAmount } = useMemo(() => {
+    const totalProfit = Number(watchedProfit) || 0;
+    const alrawdatainPerc = Number(alrawdatainPercentage) || 0;
 
-  const remainingPercentage = 100 - totalPartnerPercentage;
+    const alrawdatainAmount = (totalProfit * alrawdatainPerc) / 100;
+    const availableForPartners = totalProfit - alrawdatainAmount;
+    
+    const partnerPerc = (watchedPartners || []).reduce((acc, p) => acc + (Number(p.percentage) || 0), 0);
+
+    return { totalPartnerPercentage: partnerPerc, amountForPartners: availableForPartners, alrawdatainShareAmount: alrawdatainAmount };
+  }, [watchedProfit, alrawdatainPercentage, watchedPartners]);
+
 
   const distribution = useMemo(() => {
     const calculatedPartners: PartnerShare[] = (watchedPartners || []).map(p => {
          return {
             ...p,
-            amount: ((Number(watchedProfit) || 0) * (p.percentage || 0)) / 100
+            amount: (amountForPartners * (p.percentage || 0)) / 100
          }
     });
     
-    if (remainingPercentage > 0) {
-        calculatedPartners.push({
-            partnerId: 'alrawdatain_share',
-            partnerName: 'حصة الروضتين',
-            percentage: remainingPercentage,
-            amount: ((Number(watchedProfit) || 0) * remainingPercentage) / 100,
-        });
-    }
-
+    calculatedPartners.push({
+        partnerId: 'alrawdatain_share',
+        partnerName: 'حصة الروضتين',
+        percentage: alrawdatainPercentage,
+        amount: alrawdatainShareAmount,
+    });
+    
     return calculatedPartners;
-  }, [watchedPartners, watchedProfit, remainingPercentage, partnersFromProps]);
+  }, [watchedPartners, amountForPartners, alrawdatainPercentage, alrawdatainShareAmount, partnersFromProps]);
   
   const handleSave = async (data: FormValues) => {
     if (totalPartnerPercentage > 100) {
-        toast({ title: "خطأ", description: "مجموع نسب الشركاء لا يمكن أن يتجاوز 100%", variant: "destructive" });
+        toast({ title: "خطأ", description: "مجموع نسب الشركاء الفرعيين يتجاوز 100%", variant: "destructive" });
         return;
     }
 
@@ -185,32 +195,49 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     }
   };
 
-  const onAddPartner = () => {
-      if(!currentPartnerId || !currentPercentage) {
-          toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
-          return;
-      }
-      const newPercentage = Number(currentPercentage);
-      if (isNaN(newPercentage) || newPercentage <= 0) {
-          toast({ title: "النسبة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
-          return;
-      }
-      if (totalPartnerPercentage + newPercentage > 100) {
-           toast({ title: "لا يمكن تجاوز 100%", description: `النسبة المتبقية المتاحة هي: ${remainingPercentage.toFixed(2)}%`, variant: 'destructive' });
-           return;
-      }
+  const handleAddOrUpdatePartner = () => {
+    if(!currentPartnerId || !currentPercentage) {
+        toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
+        return;
+    }
+    const newPercentage = Number(currentPercentage);
+    if (isNaN(newPercentage) || newPercentage <= 0) {
+        toast({ title: "النسبة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
+        return;
+    }
+    const currentTotalPartnerPercentage = (fields || []).filter((_, i) => i !== editingPartnerIndex).reduce((sum, p) => sum + p.percentage, 0);
 
-      const selectedPartner = allAccountsOptions.find(p => p.value === currentPartnerId);
-      if(!selectedPartner) {
-           toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
-           return;
-      }
-      const amount = ((Number(watchedProfit) || 0) * newPercentage) / 100;
-      const newPartner = { partnerId: selectedPartner.value, partnerName: selectedPartner.label, percentage: newPercentage, amount };
-      append(newPartner);
-      setCurrentPartnerId('');
-      setCurrentPercentage('');
+    if (currentTotalPartnerPercentage + newPercentage > 100) {
+         toast({ title: "لا يمكن تجاوز 100%", description: `إجمالي النسب الحالية: ${currentTotalPartnerPercentage.toFixed(2)}%`, variant: 'destructive' });
+         return;
+    }
+
+    const selectedPartner = allAccountsOptions.find(p => p.value === currentPartnerId);
+    if(!selectedPartner) {
+         toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
+         return;
+    }
+    const amount = (amountForPartners * newPercentage) / 100;
+    const partnerData = { partnerId: selectedPartner.value, partnerName: selectedPartner.label, percentage: newPercentage, amount };
+
+    if (editingPartnerIndex !== null) {
+      update(editingPartnerIndex, partnerData);
+      setEditingPartnerIndex(null);
+    } else {
+      append(partnerData);
+    }
+    
+    setCurrentPartnerId('');
+    setCurrentPercentage('');
   };
+  
+  const handleEditPartner = (index: number) => {
+    const partnerToEdit = fields[index];
+    setEditingPartnerIndex(index);
+    setCurrentPartnerId(partnerToEdit.partnerId);
+    setCurrentPercentage(partnerToEdit.percentage);
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -255,18 +282,18 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                             <Autocomplete options={allAccountsOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريكًا..."/>
                         </div>
                         <div className="w-40 space-y-1.5">
-                            <Label>النسبة</Label>
+                            <Label>النسبة من حصة الشركاء (%)</Label>
                             <div className="relative">
                                 <Input type="text" inputMode="decimal" value={currentPercentage} onChange={(e) => setCurrentPercentage(e.target.value)} placeholder="0.00" className="pe-7"/>
                                 <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             </div>
                         </div>
-                        <Button type="button" size="icon" className="shrink-0" onClick={onAddPartner} disabled={totalPartnerPercentage >= 100}>
-                            <PlusCircle className="h-5 w-5"/>
+                        <Button type="button" size="icon" className="shrink-0" onClick={handleAddOrUpdatePartner} disabled={totalPartnerPercentage >= 100}>
+                            {editingPartnerIndex !== null ? <Save className="h-5 w-5" /> : <PlusCircle className="h-5 w-5"/>}
                         </Button>
                     </div>
                     {totalPartnerPercentage > 100 && (
-                    <p className="text-sm text-center text-destructive font-semibold">مجموع النسب يتجاوز 100%.</p>
+                        <p className="text-sm text-center text-destructive font-semibold">مجموع نسب الشركاء يتجاوز 100%.</p>
                     )}
                 </div>
 
@@ -278,27 +305,34 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                                 <TableHead><Users className="inline-block me-2 h-4 w-4"/>الشريك</TableHead>
                                 <TableHead className="text-center"><Percent className="inline-block me-2 h-4 w-4"/>النسبة</TableHead>
                                 <TableHead className="text-right"><Wallet className="inline-block me-2 h-4 w-4"/>المبلغ</TableHead>
-                                <TableHead className="w-12 text-center">حذف</TableHead>
+                                <TableHead className="w-24 text-center">الإجراءات</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {distribution.map((d, index) => (
-                                <TableRow key={`${d.partnerId}-${index}`} className={d.partnerId === 'alrawdatain_share' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
-                                    <TableCell className="font-semibold flex items-center gap-2">
-                                        {d.partnerId === 'alrawdatain_share' && <Landmark className="h-4 w-4 text-green-600"/>}
-                                        {d.partnerName}
-                                    </TableCell>
+                             <TableRow className="bg-green-50 dark:bg-green-900/20">
+                                <TableCell className="font-semibold flex items-center gap-2"><Landmark className="h-4 w-4 text-green-600"/>حصة الروضتين</TableCell>
+                                <TableCell className="text-center">
+                                    <div className="relative w-24 mx-auto">
+                                        <Controller control={control} name="alrawdatainSharePercentage" render={({field}) => <NumericInput {...field} onValueChange={v => field.onChange(v || 0)} className="pe-7 text-center h-8" />} />
+                                        <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-right font-mono font-bold">{alrawdatainShareAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {watchedCurrency}</TableCell>
+                                <TableCell></TableCell>
+                            </TableRow>
+                            {fields.map((d, index) => {
+                                const amount = (amountForPartners * (d.percentage || 0)) / 100;
+                                return (
+                                <TableRow key={d.id}>
+                                    <TableCell className="font-semibold">{d.partnerName}</TableCell>
                                     <TableCell className="text-center font-mono">{Number(d.percentage).toFixed(2)}%</TableCell>
-                                    <TableCell className="text-right font-mono font-bold">{d.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {watchedCurrency}</TableCell>
+                                    <TableCell className="text-right font-mono font-bold">{amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {watchedCurrency}</TableCell>
                                     <TableCell className="text-center">
-                                    {d.partnerId !== 'alrawdatain_share' && (
-                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(fields.findIndex(f => f.partnerId === d.partnerId))}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    )}
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => handleEditPartner(index)}><Edit className="h-4 w-4"/></Button>
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )})}
                         </TableBody>
                     </Table>
                 </div>
@@ -307,9 +341,9 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
         <DialogFooter className="pt-4 border-t">
             <div className="flex justify-between w-full">
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4"/> <span>{currentUser?.name || '...'}</span></div>
-                <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>{boxName}</span></div>
-                <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
+                    <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4"/> <span>{currentUser?.name || '...'}</span></div>
+                    <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>{boxName}</span></div>
+                    <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button onClick={handleSubmit(handleSave)} disabled={isSubmitting}>
