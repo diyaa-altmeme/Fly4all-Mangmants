@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
@@ -63,20 +62,9 @@ interface AddManualProfitDialogProps {
   children: React.ReactNode;
 }
 
-const AmountInput = ({ currency, ...props }: { currency: Currency } & React.ComponentProps<typeof Input>) => (
-    <div className="relative">
-        <Input type="text" inputMode="decimal" className="ps-12 font-mono" placeholder="0.00" {...props} />
-        <div className="absolute inset-y-0 left-0 flex items-center">
-            <div className="p-2 bg-muted border-e rounded-s-md h-full flex items-center">
-                <span className="text-xs font-semibold text-muted-foreground">{currency}</span>
-            </div>
-        </div>
-    </div>
-);
-
-const SummaryStat = ({ label, value, currency, className }: { label: string; value: number; currency: Currency; className?: string }) => (
-    <div className={cn("p-2 rounded-md text-center", className)}>
-        <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+const SummaryStat = ({ title, value, currency, className }: { title: string; value: number; currency: Currency; className?: string }) => (
+    <div className={cn("p-2 rounded-lg text-center border", className)}>
+        <p className="text-xs font-semibold text-muted-foreground">{title}</p>
         <p className="font-mono font-bold text-lg">{value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</p>
     </div>
 );
@@ -183,8 +171,8 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
   }, [watchedPartners, amountForPartners, alrawdatainPercentage, alrawdatainShareAmount]);
   
   const handleSave = async (data: FormValues) => {
-    if (totalPartnerPercentage > 100) {
-        toast({ title: "خطأ", description: "مجموع نسب الشركاء الفرعيين يتجاوز 100%", variant: "destructive" });
+    if (Math.abs(totalPartnerPercentage - 100) > 0.01) {
+        toast({ title: "خطأ في التوزيع", description: "مجموع نسب الشركاء يجب أن يكون 100% تمامًا من المبلغ المتاح لهم.", variant: "destructive" });
         return;
     }
 
@@ -225,13 +213,12 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     }
     
     const currentPartners = getValues('partners') || [];
-    const currentTotalPartnerPercentage = currentPartners.reduce((sum, p) => sum + p.percentage, 0);
+    
+    const editingPartnerOldPercentage = editingPartnerIndex !== null ? currentPartners[editingPartnerIndex]?.percentage || 0 : 0;
+    const currentTotalPartnerPercentage = currentPartners.reduce((sum, p) => sum + p.percentage, 0) - editingPartnerOldPercentage;
+    const adjustedTotal = currentTotalPartnerPercentage + newPercentage;
 
-    const adjustedTotal = editingPartnerIndex !== null 
-        ? currentTotalPartnerPercentage
-        : currentTotalPartnerPercentage + newPercentage;
-
-    if (adjustedTotal > 100) {
+    if (adjustedTotal > 100.01) { // Use tolerance
          toast({ title: "لا يمكن تجاوز 100%", description: `إجمالي النسب الحالية: ${currentTotalPartnerPercentage.toFixed(2)}%`, variant: 'destructive' });
          return;
     }
@@ -245,7 +232,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     const partnerData = {
         id: editingPartnerIndex !== null ? fields[editingPartnerIndex].id : `new-${Date.now()}`,
         partnerId: selectedPartner.id,
-        partnerName: selectedPartner.name,
+        partnerName: selectedPartner.label,
         percentage: newPercentage,
         amount: (amountForPartners * newPercentage) / 100
     };
@@ -266,6 +253,8 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     setEditingPartnerIndex(index);
     setCurrentPartnerId(partnerToEdit.partnerId);
     setCurrentPercentage(partnerToEdit.percentage);
+    // Temporarily remove from list to avoid confusion while editing
+    remove(index);
   };
   
   const partnerSharePreview = useMemo(() => {
@@ -289,11 +278,11 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                 <div className="p-4 border rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem> )}/>
                     <FormField control={control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem> )}/>
-                    <FormField control={control} name="profit" render={({ field }) => ( <FormItem><FormLabel>صافي الربح للفترة</FormLabel><FormControl><AmountInput currency={watchedCurrency} {...field} onValueChange={(v) => field.onChange(v || 0)}/></FormControl><FormMessage /></FormItem> )}/>
+                    <FormField control={control} name="profit" render={({ field }) => ( <FormItem><FormLabel>صافي الربح للفترة</FormLabel><FormControl><NumericInput currency={watchedCurrency} {...field} onValueChange={(v) => field.onChange(v || 0)}/></FormControl><FormMessage /></FormItem> )}/>
                     <FormField control={control} name="currency" render={({ field }) => ( 
                         <FormItem><FormLabel>العملة</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>
                               {(navData?.settings.currencySettings?.currencies || []).map(c => (
                                 <SelectItem key={c.code} value={c.code}>{c.name} ({c.symbol})</SelectItem>
@@ -308,13 +297,13 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                     </div>
                 </div>
 
-                <div className="p-4 border rounded-lg">
+                 <div className="p-4 border rounded-lg">
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-4">
-                        <SummaryStat label="صافي الربح" value={watchedProfit || 0} currency={watchedCurrency} />
-                        <SummaryStat label="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedCurrency} />
-                        <SummaryStat label="المتاح للشركاء" value={amountForPartners} currency={watchedCurrency} />
-                        <SummaryStat label="الموزع للشركاء" value={distributedToPartners} currency={watchedCurrency} />
-                        <SummaryStat label="المتبقي للتوزيع" value={remainderForPartners} currency={watchedCurrency} className={cn(Math.abs(remainderForPartners) > 0.01 && 'bg-destructive/10 text-destructive')} />
+                        <SummaryStat title="صافي الربح" value={watchedProfit || 0} currency={watchedCurrency} />
+                        <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedCurrency} className="bg-green-50 dark:bg-green-950/30 border-green-500/30 text-green-700 dark:text-green-300"/>
+                        <SummaryStat title="المتاح للشركاء" value={amountForPartners} currency={watchedCurrency} className="bg-purple-50 dark:bg-purple-950/30 border-purple-500/30 text-purple-700 dark:text-purple-300"/>
+                        <SummaryStat title="الموزع للشركاء" value={distributedToPartners} currency={watchedCurrency} />
+                        <SummaryStat title="المتبقي للتوزيع" value={remainderForPartners} currency={watchedCurrency} className={cn(Math.abs(remainderForPartners) > 0.01 && 'bg-destructive/10 text-destructive')} />
                     </div>
                      <Separator />
                     <h3 className="font-semibold text-lg my-2">إضافة شريك وتحديد حصته</h3>
@@ -339,9 +328,6 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                           </Button>
                         </div>
                     </div>
-                    {totalPartnerPercentage > 100 && (
-                        <p className="text-sm text-center text-destructive font-semibold">مجموع نسب الشركاء يتجاوز 100%.</p>
-                    )}
                 </div>
 
                 <div className="p-4 border rounded-lg">
@@ -393,7 +379,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                     <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button onClick={handleSubmit(handleSave)} disabled={isSubmitting}>
+                    <Button onClick={handleSubmit(handleSave)} disabled={isSubmitting || Math.abs(totalPartnerPercentage - 100) > 0.01}>
                         {isSubmitting && <Loader2 className="me-2 h-4 w-4 animate-spin"/>}
                         {isEditing ? 'حفظ التعديلات' : 'حفظ بيانات الفترة'}
                     </Button>
@@ -404,5 +390,3 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     </Dialog>
   );
 }
-
-    
