@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import type { ReportInfo, AccountType, ReportTransaction, Currency, DebtsReportData, Client, Supplier, AppSettings, Box, StructuredDescription, BookingEntry, VisaBookingEntry, Subscription, JournalVoucher, JournalEntry, DebtsReportEntry, InvoiceReportItem, ClientTransactionSummary, TreeNode, Exchange } from '@/lib/types';
@@ -25,11 +24,6 @@ const formatCurrencyDisplay = (amount: number, currency: string) => {
     return `${amount < 0 ? `(${formattedAmount})` : formattedAmount} ${currency}`;
 };
 
-const getVoucherTypeLabel = (voucher: JournalVoucher, accountId: string): string => {
-    const type = voucher.sourceType || voucher.voucherType;
-    return mapVoucherLabel(type);
-};
-
 const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accountId: string, accountsMap: Map<string, string>): Promise<string | StructuredDescription> => {
     const originalData = voucher.originalData;
     const sourceType = voucher.sourceType || voucher.voucherType;
@@ -43,7 +37,6 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
 
     const isDebitAccount = voucher.debitEntries.some(e => e.accountId === accountId);
     
-    // Default description if no specific logic matches
     let description = voucher.notes || (originalData && originalData.details) || 'لا يوجد وصف';
 
     switch (sourceType) {
@@ -100,7 +93,7 @@ async function getTransactionsForAccount(accountId: string, accountsMap: Map<str
         if (!relevantDebit && !relevantCredit) continue;
 
         const description = await buildDetailedDescriptionForAccount(voucher, accountId, accountsMap);
-        const voucherTypeLabel = getVoucherTypeLabel(voucher, accountId);
+        const voucherTypeLabel = mapVoucherLabel(sourceType);
 
         const dateIso = voucher.date?.toDate ? voucher.date.toDate().toISOString() : new Date(voucher.date).toISOString();
 
@@ -148,7 +141,6 @@ const getExchangeTransactionsForAccount = async (exchangeId: string): Promise<Re
     }).reverse(); // The ledger is naturally reverse chronological
 };
 
-
 export const getAccountStatement = cache(async (params: { accountId: string, currency: Currency | 'both', dateRange: DateRange, typeFilter: string[] }): Promise<ReportInfo> => {
     
     const db = await getDb();
@@ -176,7 +168,6 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
     
     const settings = await getSettings();
     if (!accountInfo) {
-        // Fallback for static accounts
         const staticAccount = Object.values(settings.voucherSettings?.expenseAccounts || {}).find(a => a.id === params.accountId)
           || Object.values(settings.subscriptionSettings || {}).find(a => a.id === params.accountId)
           || [{id: 'revenue_tickets', name: 'إيرادات التذاكر', type: 'revenue'}, {id: 'expense_tickets', name: 'تكلفة التذاكر', type: 'expense'}].find(a => a.id === params.accountId);
@@ -190,8 +181,6 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
     if (accountInfo.type === 'exchange') {
         const exchangeTransactions = await getExchangeTransactionsForAccount(params.accountId);
         
-        // This calculation is simplified for exchanges. For a true running balance,
-        // it needs the full history, not just the paginated ledger.
         const lastEntry = exchangeTransactions[exchangeTransactions.length - 1];
         const closingBalance = lastEntry?.balance || 0;
         const totalMovement = exchangeTransactions.reduce((acc, tx) => acc + tx.credit - tx.debit, 0);
@@ -356,7 +345,6 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         const balanceUSD = entry.balanceUSD || 0;
         const balanceIQD = entry.balanceIQD || 0;
         
-        // Let's define debit as 'they owe us' and credit as 'we owe them'
         if ((entry.accountType === 'client' || entry.accountType === 'both')) {
            if (balanceUSD > 0) acc.totalCreditUSD += balanceUSD; else acc.totalDebitUSD -= balanceUSD;
            if (balanceIQD > 0) acc.totalCreditIQD += balanceIQD; else acc.totalDebitIQD -= balanceIQD;
@@ -766,8 +754,8 @@ export async function getInvoicesReport(filters: {
             credit: creditAmount,
             debit: debitAmount,
             balance: 0,
-            details: voucher.notes || `حركة من نوع: ${getVoucherTypeLabel(voucher, '')}`,
-            type: getVoucherTypeLabel(voucher, ''),
+            details: voucher.notes || `حركة من نوع: ${mapVoucherLabel(voucher.voucherType)}`,
+            type: mapVoucherLabel(voucher.voucherType),
         });
     });
 
@@ -904,3 +892,6 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
     return rootNodes;
 });
+
+
+    
