@@ -79,7 +79,7 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
             <td className="p-2">{transaction.invoiceNumber}</td>
             <td className="p-2"><Badge variant="outline">{label}</Badge></td>
             <td className="p-2 text-right text-xs">
-                <DetailedDescription description={transaction.description} />
+                {transaction.description ? <DetailedDescription description={transaction.description} /> : (transaction.notes || '')}
             </td>
             <td className="p-2 text-xs text-right">
                 {transaction.notes}

@@ -9,11 +9,12 @@ import type { Remittance } from '@/lib/types';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreVertical, ShieldCheck, CheckCircle, CircleDotDashed } from 'lucide-react';
+import { MoreVertical, ShieldCheck, CheckCircle, CircleDotDashed, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AuditRemittanceDialog from './audit-remittance-dialog';
 import ConfirmReceiptDialog from './confirm-receipt-dialog';
 import { useVoucherNav } from '@/context/voucher-nav-context';
+import AddRemittanceDialog from './add-remittance-dialog';
 
 const statusConfig: Record<Remittance['status'], { label: string; icon: React.ElementType; className: string }> = {
     pending_audit: { label: "بانتظار التدقيق", icon: CircleDotDashed, className: "bg-yellow-100 text-yellow-800" },
@@ -64,7 +65,7 @@ export default function RemittancesTable({ remittances, onSuccess }: Remittances
             return (
               <TableRow key={r.id}>
                 <TableCell>
-                  <div className="font-medium">{format(new Date(r.createdAt), 'yyyy-MM-dd')}</div>
+                  <div className="font-medium">{r.createdAt ? format(new Date(r.createdAt), 'yyyy-MM-dd') : '-'}</div>
                   <div className="text-xs text-muted-foreground">بواسطة: {r.createdBy}</div>
                 </TableCell>
                 <TableCell>{r.companyName}</TableCell>
@@ -88,12 +89,22 @@ export default function RemittancesTable({ remittances, onSuccess }: Remittances
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
                             {r.status === 'pending_audit' && (
-                                <AuditRemittanceDialog remittance={r} onSuccess={onSuccess} />
+                                <DropdownMenuItem asChild>
+                                  <AuditRemittanceDialog remittance={r} onSuccess={onSuccess} />
+                                </DropdownMenuItem>
                             )}
                              {r.status === 'pending_reception' && (
-                                <ConfirmReceiptDialog remittance={r} onSuccess={onSuccess} />
+                                <DropdownMenuItem asChild>
+                                  <ConfirmReceiptDialog remittance={r} onSuccess={onSuccess} />
+                                </DropdownMenuItem>
                             )}
-                            {r.status !== 'received' && <DropdownMenuItem>تعديل</DropdownMenuItem>}
+                            {r.status !== 'received' && (
+                                <AddRemittanceDialog isEditing initialData={r} onSaveSuccess={onSuccess}>
+                                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
+                                        <Edit className="me-2 h-4 w-4" /> تعديل
+                                    </DropdownMenuItem>
+                                </AddRemittanceDialog>
+                            )}
                             <DropdownMenuItem className="text-destructive focus:text-destructive">حذف</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
