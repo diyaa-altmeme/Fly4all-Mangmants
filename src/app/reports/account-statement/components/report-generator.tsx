@@ -16,7 +16,7 @@ import * as XLSX from "xlsx";
 import ReportTable from "@/app/reports/account-statement/components/report-table";
 import ReportFilters from "@/app/reports/account-statement/components/report-filters";
 import ReportSummary from "@/app/reports/account-statement/components/report-summary";
-import type { Box, Client, Supplier, ReportInfo, Currency, Exchange } from "@/lib/types";
+import type { Box, Client, Supplier, ReportInfo, Currency, Exchange, ReportTransaction } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -34,6 +34,7 @@ interface ReportGeneratorProps {
 
 export default function ReportGenerator({ boxes, clients, suppliers, exchanges, defaultAccountId }: ReportGeneratorProps) {
   const [report, setReport] = useState<ReportInfo | null>(null);
+  const [transactions, setTransactions] = useState<ReportTransaction[]>([]);
   const [filters, setFilters] = useState({
     accountId: defaultAccountId || "",
     dateRange: { from: subDays(new Date(), 30), to: new Date() } as DateRange | undefined,
@@ -42,6 +43,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     typeFilter: new Set<string>(),
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { hasPermission } = useAuth();
 
@@ -65,15 +67,15 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
         { id: 'booking', label: 'حجز طيران', icon: Plane, group: 'basic' },
         { id: 'visa', label: 'طلب فيزا', icon: CreditCard, group: 'basic' },
         { id: 'subscription', label: 'اشتراك', icon: Repeat, group: 'basic' },
-        { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
-        { id: 'journal_from_standard_receipt', label: 'سند قبض', icon: FileDown, group: 'basic' },
-        { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
-        { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
-        { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
+        { id: 'payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
+        { id: 'standard_receipt', label: 'سند قبض', icon: FileDown, group: 'basic' },
+        { id: 'expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
+        { id: 'distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
+        { id: 'remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
         { id: 'exchange_transaction', label: 'معاملة بورصة', icon: ChevronsRightLeft, group: 'other' },
         { id: 'exchange_payment', label: 'تسديد بورصة', icon: ChevronsRightLeft, group: 'other' },
         { id: 'segment', label: 'سكمنت', icon: Layers3, group: 'other' },
-        { id: 'profit_distribution', label: 'توزيع الحصص', icon: Share2, group: 'other' },
+        { id: 'profit-sharing', label: 'توزيع الحصص', icon: Share2, group: 'other' },
         { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser, group: 'other' },
         { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw, group: 'other' },
         { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw, group: 'other' },
@@ -91,21 +93,69 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     }
     setIsLoading(true);
     setReport(null);
+    setTransactions([]);
+    setError(null);
 
     try {
-      const reportData = await getAccountStatement({
+      const data = await getAccountStatement({
         accountId: filters.accountId,
-        currency: filters.currency,
-        dateRange: filters.dateRange || { from: undefined, to: undefined },
-        typeFilter: Array.from(filters.typeFilter),
+        dateFrom: filters.dateRange?.from,
+        dateTo: filters.dateRange?.to,
+        voucherType: Array.from(filters.typeFilter).length === allFilters.length ? undefined : Array.from(filters.typeFilter),
       });
-      setReport(reportData);
+      
+      const transactionsData = Array.isArray(data) ? data : [];
+      
+      let balanceUSD = 0;
+      let balanceIQD = 0;
+      let totalDebitUSD = 0;
+      let totalCreditUSD = 0;
+      let totalDebitIQD = 0;
+      let totalCreditIQD = 0;
+
+      const processedTransactions = transactionsData.map(tx => {
+        if (tx.currency === 'USD') {
+            balanceUSD += tx.debit - tx.credit;
+            totalDebitUSD += tx.debit;
+            totalCreditUSD += tx.credit;
+        } else {
+            balanceIQD += tx.debit - tx.credit;
+            totalDebitIQD += tx.debit;
+            totalCreditIQD += tx.credit;
+        }
+        // This is a simplified balance. A true multi-currency report would need more complex logic.
+        return { ...tx, balance: tx.currency === 'USD' ? balanceUSD : balanceIQD };
+      })
+
+      setTransactions(processedTransactions);
+
+      if (transactionsData.length > 0) {
+          setReport({
+              transactions: processedTransactions,
+              openingBalanceUSD: 0, 
+              openingBalanceIQD: 0, 
+              totalDebitUSD,
+              totalCreditUSD,
+              finalBalanceUSD: balanceUSD,
+              totalDebitIQD,
+              totalCreditIQD,
+              finalBalanceIQD: balanceIQD,
+              title: '',
+              currency: filters.currency,
+              accountType: '',
+              balanceMode: 'asset',
+          });
+      }
+
+
     } catch (error: any) {
+      setError("حدث خطأ أثناء تحميل البيانات");
+      setTransactions([]);
       toast({ title: "فشل", description: error.message, variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
-  }, [filters, toast]);
+  }, [filters, toast, allFilters]);
 
   useEffect(() => {
     if (defaultAccountId) {
@@ -115,11 +165,11 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
 
 
   const handleExport = () => {
-    if (!report || report.transactions.length === 0) {
+    if (!transactions || transactions.length === 0) {
       toast({ title: "لا توجد بيانات للتصدير", variant: "destructive" });
       return;
     }
-    const data = report.transactions.map(tx => ({
+    const data = transactions.map(tx => ({
       'التاريخ': tx.date ? format(parseISO(tx.date), "yyyy-MM-dd") : "",
       'النوع': tx.type,
       'البيان': typeof tx.description === 'string' ? tx.description : tx.description?.title,
@@ -137,6 +187,14 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
   };
 
   const handlePrint = () => window.print();
+  
+  const finalTransactions = useMemo(() => {
+    if (!filters.searchTerm) return transactions;
+    return transactions.filter(tx => 
+        (tx.description && (typeof tx.description === 'string' ? tx.description : tx.description.title)?.toLowerCase().includes(filters.searchTerm.toLowerCase())) ||
+        tx.invoiceNumber?.toLowerCase().includes(filters.searchTerm.toLowerCase())
+    );
+  }, [transactions, filters.searchTerm]);
 
   return (
      <div className="flex flex-col lg:flex-row h-full lg:h-[calc(100vh-160px)] gap-4">
@@ -196,8 +254,8 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
       <div className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
         <header className="flex items-center justify-between p-3 border-b">
           <div className="flex gap-2">
-            <Button onClick={handleExport} variant="outline" disabled={!report}><Download className="me-2 h-4 w-4"/>Excel</Button>
-            <Button onClick={handlePrint} variant="outline" disabled={!report}><Printer className="me-2 h-4 w-4"/>طباعة</Button>
+            <Button onClick={handleExport} variant="outline" disabled={transactions.length === 0}><Download className="me-2 h-4 w-4"/>Excel</Button>
+            <Button onClick={handlePrint} variant="outline" disabled={transactions.length === 0}><Printer className="me-2 h-4 w-4"/>طباعة</Button>
           </div>
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -212,14 +270,10 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
         <div className="flex-grow overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : report ? (
-            <ReportTable transactions={report.transactions} />
+          ) : error ? (
+            <div className="p-8 text-center text-red-500">{error}</div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500 text-center">
-              <FileText size={48} className="text-gray-300" />
-              <p className="text-lg font-medium mt-4">لا يوجد تقرير لعرضه</p>
-              <p className="text-sm mt-1">اختر الحساب والفترة ثم اضغط "عرض الكشف".</p>
-            </div>
+            <ReportTable transactions={finalTransactions} onRefresh={handleGenerateReport} />
           )}
         </div>
         <footer className="p-3 border-t bg-card">

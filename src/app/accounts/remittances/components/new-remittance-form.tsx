@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Remittance, Currency, RemittanceSettings, Client, User as CurrentUser, Box } from '@/lib/types';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Autocomplete } from '@/components/ui/autocomplete';
-import { addRemittance } from '@/app/accounts/remittances/actions';
+import { addRemittance, updateRemittance } from '@/app/accounts/remittances/actions';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { cn } from '@/lib/utils';
@@ -40,21 +40,26 @@ type FormValues = z.infer<typeof formSchema>;
 
 interface NewRemittanceFormProps {
   settings: RemittanceSettings;
-  onRemittanceAdded: (remittance: Remittance) => void;
+  onSaveSuccess: (remittance: Remittance) => void;
+  isEditing?: boolean;
+  initialData?: Remittance;
 }
 
 const AmountInput = ({ currency, className, ...props }: { currency: Currency, className?: string } & React.ComponentProps<typeof NumericInput>) => (
      <NumericInput currency={currency} className={cn("text-right", className)} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...props} />
 );
 
-export default function NewRemittanceForm({ settings, onRemittanceAdded }: NewRemittanceFormProps) {
+export default function NewRemittanceForm({ settings, onSaveSuccess, isEditing = false, initialData }: NewRemittanceFormProps) {
   const { toast } = useToast();
   const { data: navData, loaded: isDataLoaded } = useVoucherNav();
   const { user: currentUser } = useAuth();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: isEditing && initialData ? {
+        ...initialData,
+        distributions: initialData.distribution || {},
+    } : {
       totalAmountUsd: 0,
       totalAmountIqd: 0,
       distributions: {},
@@ -72,13 +77,18 @@ export default function NewRemittanceForm({ settings, onRemittanceAdded }: NewRe
 
 
   useEffect(() => {
-    if (currentUser && 'role' in currentUser && currentUser.boxId) {
+    if (isEditing && initialData) {
+        form.reset({
+            ...initialData,
+            distributions: initialData.distribution || {},
+        });
+    } else if (currentUser && 'role' in currentUser && currentUser.boxId) {
       form.setValue('boxId', currentUser.boxId);
     }
-  }, [currentUser, form]);
+  }, [currentUser, form, isEditing, initialData]);
 
   const onSubmit = async (data: FormValues) => {
-    const payload: Omit<Remittance, 'id' | 'createdAt' | 'createdBy' | 'status' | 'isAudited' | 'updatedAt'> = {
+    const payload = {
         companyName: data.companyName,
         officeName: data.officeName,
         method: data.method,
@@ -90,13 +100,23 @@ export default function NewRemittanceForm({ settings, onRemittanceAdded }: NewRe
         notes: data.notes || '',
     };
     
-    const result = await addRemittance(payload as any);
-    if(result.success && result.newRemittance) {
-        toast({title: "تمت إضافة الحوالة بنجاح"});
-        onRemittanceAdded(result.newRemittance);
-        form.reset();
+    if (isEditing && initialData) {
+        const result = await updateRemittance(initialData.id, payload);
+        if (result.success) {
+            toast({ title: "تم تحديث الحوالة بنجاح" });
+            onSaveSuccess({ ...initialData, ...payload });
+        } else {
+            toast({ title: "خطأ", description: result.error, variant: 'destructive' });
+        }
     } else {
-        toast({title: "خطأ", description: result.error, variant: 'destructive'});
+        const result = await addRemittance(payload as any);
+        if (result.success && result.newRemittance) {
+            toast({ title: "تمت إضافة الحوالة بنجاح" });
+            onSaveSuccess(result.newRemittance);
+            form.reset();
+        } else {
+            toast({ title: "خطأ", description: result.error, variant: 'destructive' });
+        }
     }
   };
 
@@ -188,12 +208,11 @@ export default function NewRemittanceForm({ settings, onRemittanceAdded }: NewRe
             </div>
             <Button type="submit" disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-            <Save className="me-2 h-4 w-4" /> حفظ الحوالة
+            <Save className="me-2 h-4 w-4" /> 
+            {isEditing ? 'حفظ التعديلات' : 'حفظ الحوالة'}
             </Button>
         </DialogFooter>
         </form>
     </Form>
   );
 }
-
-    
