@@ -18,7 +18,7 @@ import { Loader2, Save, Percent, Edit, PlusCircle, Trash2, CalendarIcon, Wallet,
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from "@/components/ui/input";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -137,7 +137,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
   }, [open, isEditing, period, resetForm]);
   
    const boxName = useMemo(() => {
-    if (!currentUser || !('boxId' in currentUser)) return 'غير محدد';
+    if (!currentUser || !('role' in currentUser)) return 'غير محدد';
     return navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد';
   }, [currentUser, navData?.boxes]);
 
@@ -178,7 +178,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     });
     
     return calculatedPartners;
-  }, [watchedPartners, amountForPartners, alrawdatainPercentage, alrawdatainShareAmount, partnersFromProps]);
+  }, [watchedPartners, amountForPartners, alrawdatainPercentage, alrawdatainShareAmount]);
   
   const handleSave = async (data: FormValues) => {
     if (totalPartnerPercentage > 100) {
@@ -222,7 +222,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
         return;
     }
     const currentPartners = getValues('partners') || [];
-    const currentTotalPartnerPercentage = currentPartners.filter((_, i) => i !== editingPartnerIndex).reduce((sum, p) => sum + p.percentage, 0);
+    const currentTotalPartnerPercentage = currentPartners.reduce((sum, p) => sum + p.percentage, 0);
 
     if (currentTotalPartnerPercentage + newPercentage > 100) {
          toast({ title: "لا يمكن تجاوز 100%", description: `إجمالي النسب الحالية: ${currentTotalPartnerPercentage.toFixed(2)}%`, variant: 'destructive' });
@@ -238,7 +238,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     const partnerData = { partnerId: selectedPartner.value, partnerName: selectedPartner.label, percentage: newPercentage, amount };
 
     if (editingPartnerIndex !== null) {
-      update(editingPartnerIndex, partnerData);
+      append(partnerData); // Add it back to the list
       setEditingPartnerIndex(null);
     } else {
       append(partnerData);
@@ -253,6 +253,7 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     setEditingPartnerIndex(index);
     setCurrentPartnerId(partnerToEdit.partnerId);
     setCurrentPercentage(partnerToEdit.percentage);
+    remove(index);
   };
 
 
@@ -309,14 +310,22 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                         <div className="w-40 space-y-1.5">
                             <Label>النسبة من حصة الشركاء (%)</Label>
                             <div className="relative">
-                                <Input type="text" inputMode="decimal" value={currentPercentage} onChange={(e) => setCurrentPercentage(e.target.value)} placeholder="0.00" className="pe-7"/>
+                                <NumericInput value={currentPercentage} onValueChange={setCurrentPercentage} className="h-9 pe-7" />
                                 <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             </div>
                         </div>
-                        <Button type="button" size="icon" className="shrink-0" onClick={handleAddOrUpdatePartner} disabled={totalPartnerPercentage >= 100}>
-                            {editingPartnerIndex !== null ? <Save className="h-5 w-5" /> : <PlusCircle className="h-5 w-5"/>}
-                        </Button>
+                        <div className="flex items-end gap-2">
+                      <div className="flex-grow">
+                        <Label className="text-xs">الحصة المستلمة</Label>
+                        <div className="h-9 flex items-center justify-center font-bold text-blue-600 font-mono p-2 bg-blue-50 rounded-md">
+                          {partnerSharePreview.toFixed(2)}
+                        </div>
+                      </div>
+                      <Button type="button" size="icon" className="shrink-0 h-9 w-9" onClick={handleAddOrUpdatePartner} disabled={totals.partnerPool <= 0 || !currentPartnerId || !currentPercentage}>
+                        {editingPartnerIndex !== null ? <Save className="h-5 w-5" /> : <PlusCircle className="h-5 w-5"/>}
+                      </Button>
                     </div>
+                  </div>
                     {totalPartnerPercentage > 100 && (
                         <p className="text-sm text-center text-destructive font-semibold">مجموع نسب الشركاء يتجاوز 100%.</p>
                     )}
