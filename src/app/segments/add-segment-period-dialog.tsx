@@ -328,32 +328,32 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   }, [currentPartnerPercentage, totals.partnerPool]);
 
   const onAddPartner = () => {
-    if(!currentPartnerId || !currentPartnerPercentage) {
-      toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
-      return;
-    }
-    const newPercentage = Number(currentPartnerPercentage);
-    if (isNaN(newPercentage) || newPercentage <= 0) {
-      toast({ title: "النسبة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
-      return;
-    }
-    const currentTotalPartnerPercentage = (form.getValues('partners') || []).reduce((sum, p) => sum + p.percentage, 0);
+      if(!currentPartnerId || !currentPartnerPercentage) {
+          toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
+          return;
+      }
+      const newPercentage = Number(currentPartnerPercentage);
+      if (isNaN(newPercentage) || newPercentage <= 0) {
+          toast({ title: "النسبة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
+          return;
+      }
+      const currentTotalPartnerPercentage = (form.getValues('partners') || []).reduce((sum, p) => sum + p.percentage, 0);
 
-    if (currentTotalPartnerPercentage + newPercentage > 100) {
-      toast({ title: "لا يمكن تجاوز 100%", description: `النسبة المتبقية المتاحة هي: ${100 - currentTotalPartnerPercentage}%`, variant: 'destructive' });
-      return;
-    }
+      if (currentTotalPartnerPercentage + newPercentage > 100) {
+           toast({ title: "لا يمكن تجاوز 100%", description: `النسبة المتبقية المتاحة هي: ${100 - currentTotalPartnerPercentage}%`, variant: 'destructive' });
+           return;
+      }
 
-    const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
-    if(!selectedPartner) {
-      toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
-      return;
-    }
-    
-    const newPartner: PartnerFormValues = { id: uuidv4(), partnerId: selectedPartner.value, partnerName: selectedPartner.label, percentage: newPercentage };
-    appendPartner(newPartner);
-    setCurrentPartnerId('');
-    setCurrentPartnerPercentage('');
+      const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
+      if(!selectedPartner) {
+           toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
+           return;
+      }
+      
+      const newPartner: PartnerFormValues = { id: uuidv4(), partnerId: selectedPartner.value, partnerName: selectedPartner.label, percentage: newPercentage };
+      appendPartner(newPartner);
+      setCurrentPartnerId('');
+      setCurrentPartnerPercentage('');
   };
 
   return (
@@ -497,6 +497,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const { user: currentUser } = useAuth();
     const [open, setOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    
     const [editingCompany, setEditingCompany] = useState<CompanyEntryFormValues | null>(null);
 
     const companyFormRef = React.useRef<{ resetForm: () => void }>(null);
@@ -610,7 +611,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     }, [fields]);
 
     const currency = getValues('currency');
-    const currencySymbol = navData?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
+    const currencySymbol = useVoucherNav().data?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -624,7 +625,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
                 <FormProvider {...periodForm}>
                     <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                        <div className="p-4 border rounded-lg bg-background/50 sticky top-0 z-10">
+                         <div className="p-4 border rounded-lg bg-background/50 sticky top-0 z-10">
                             <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
                             <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                                 <Controller
@@ -676,7 +677,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <SelectTrigger><SelectValue placeholder="اختر العملة" /></SelectTrigger>
                                             <SelectContent>
-                                                {(navData?.settings?.currencySettings?.currencies || []).map((c: any) => (
+                                                {(useVoucherNav().data?.settings?.currencySettings?.currencies || []).map((c: any) => (
                                                     <SelectItem key={c.code} value={c.code}>{c.name} ({c.symbol})</SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -686,20 +687,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 />
                             </form>
                         </div>
-                        <AddCompanyToSegmentForm 
-                          onAddEntry={addEntry} 
-                          ref={companyFormRef} 
-                          onUpdateEntry={(data) => {
-                              if (editingCompany && 'index' in editingCompany) {
-                                  update(editingCompany.index, data);
-                                  setEditingCompany(null);
-                              }
-                          }}
-                          editingEntry={editingCompany}
-                          onCancelEdit={() => setEditingCompany(null)}
-                          partnerOptions={partnerOptions}
-                        />
-                        <Card className="border rounded-lg">
+                        
+                        <AddCompanyToSegmentForm onAddEntry={addEntry} onUpdateEntry={(data) => update(editingCompany!.index, data)} editingEntry={editingCompany} onCancelEdit={() => setEditingCompany(null)} partnerOptions={partnerOptions} />
+                        
+                          <Card className="border rounded-lg">
                             <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
                             <CardContent className="pt-0">
                                 <div className="border rounded-lg overflow-hidden">
@@ -743,4 +734,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-```
+
+const StatCard = ({ title, value, currency, className }: { title: string; value: number; currency: string; className?: string; }) => (
+    <div className={cn("text-center p-3 rounded-lg bg-background border", className)}>
+        <p className="text-sm text-muted-foreground font-bold">{title}</p>
+        <p className="font-bold font-mono text-xl">
+            {value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} {currency}
+        </p>
+    </div>
+);
+
+    
