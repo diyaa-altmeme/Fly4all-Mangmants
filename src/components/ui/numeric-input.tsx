@@ -61,21 +61,25 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       }
     };
     
+    const inputProps = {
+        ...props,
+        ref,
+        type: "text" as const,
+        inputMode: "decimal" as const,
+        placeholder: "0.00",
+        value: displayValue,
+        onChange: handleChange
+    };
+    
     if (currency) {
       return (
         <div className={cn("relative flex items-center w-full", className)}>
           <Input
-            ref={ref}
-            type="text"
-            inputMode="decimal"
-            placeholder="0.00"
+            {...inputProps}
             className={cn(
               "z-10 text-right w-full",
               direction === 'rtl' ? "rounded-l-none rounded-r-lg border-l-0" : "rounded-r-none rounded-l-lg border-r-0"
             )}
-            value={displayValue}
-            onChange={handleChange}
-            {...props}
           />
            <div className={cn(
             "p-2 bg-muted border h-full flex items-center",
@@ -90,14 +94,8 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
     
     return (
       <Input
-        ref={ref}
-        type="text"
-        inputMode="decimal"
-        placeholder="0.00"
+        {...inputProps}
         className={cn("text-right", className)}
-        value={displayValue}
-        onChange={handleChange}
-        {...props}
       />
     );
   }
