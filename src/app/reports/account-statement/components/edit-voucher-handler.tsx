@@ -1,12 +1,11 @@
-
 "use client";
 
 import React from 'react';
-import NewStandardReceiptDialog from '@/app/accounts/vouchers/components/new-standard-receipt-dialog';
-import NewPaymentVoucherDialog from '@/app/accounts/vouchers/components/new-payment-voucher-dialog';
-import NewExpenseVoucherDialog from '@/components/vouchers/components/new-expense-voucher-dialog';
+import NewStandardReceiptForm from '@/app/accounts/vouchers/components/new-standard-receipt-form';
+import NewPaymentVoucherForm from '@/app/accounts/vouchers/components/new-payment-voucher-form';
+import NewExpenseVoucherForm from '@/app/accounts/vouchers/components/new-expense-voucher-form';
 import NewDistributedReceiptDialog from '@/components/vouchers/components/new-distributed-receipt-dialog';
-import NewJournalVoucherDialog from '@/components/vouchers/components/new-journal-voucher-dialog';
+import NewJournalVoucherForm from '@/app/accounts/vouchers/components/new-journal-voucher-form';
 import BookingDialog from '@/app/bookings/components/add-booking-dialog';
 import EditVisaDialog from '@/app/visas/components/edit-visa-dialog';
 import { getVoucherById } from '@/app/accounts/vouchers/list/actions';
@@ -19,126 +18,36 @@ import { useVoucherNav } from '@/context/voucher-nav-context';
 import { getMonthlyProfits } from '@/app/profit-sharing/actions';
 import AddSubscriptionDialog from '@/app/subscriptions/components/add-subscription-dialog';
 import { parseISO } from 'date-fns';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Pencil } from 'lucide-react';
 
 interface EditVoucherHandlerProps {
   voucherId: string;
+  sourceType?: string;
+  sourceId?: string;
+  sourceRoute?: string;
   onVoucherUpdated: () => void;
-  children: React.ReactNode;
 }
 
-const EditVoucherHandler = ({ voucherId, onVoucherUpdated, children }: EditVoucherHandlerProps) => {
-  const [data, setData] = React.useState<any>(null);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const { data: navData } = useVoucherNav();
+const EditVoucherHandler = ({ voucherId, sourceType, sourceId, sourceRoute, onVoucherUpdated }: EditVoucherHandlerProps) => {
+  const router = useRouter();
 
-  const handleOpen = async () => {
-    if (data) return; // Data already loaded
-    setLoading(true);
-    setError(null);
-    try {
-      const voucher = await getVoucherById(voucherId);
-      if (!voucher) {
-        throw new Error("Voucher not found");
-      }
-      setData(voucher);
-    } catch (e: any) {
-      setError(e.message || "Failed to load data for editing.");
-    } finally {
-      setLoading(false);
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (sourceRoute) {
+        router.push(sourceRoute);
+    } else {
+        // Fallback for older data or manual entries
+        router.push(`/accounts/vouchers/${voucherId}/edit`);
     }
   };
 
-  if (!data) {
-    return <div onClick={handleOpen}>{children}</div>;
-  }
-
-  const voucherType = data.voucherType;
-
-  if (voucherType === 'segment') {
-    return (
-        <EditSegmentPeriodDialog 
-            existingPeriod={{
-                fromDate: data.originalData.fromDate,
-                toDate: data.originalData.toDate,
-                entries: [data.originalData]
-            }} 
-            clients={navData?.clients || []} 
-            suppliers={navData?.suppliers || []} 
-            onSuccess={onVoucherUpdated}
-        />
-    )
-  }
-  
-  if (data.originalData?.manualProfitId) {
-      // Logic to fetch the full manual profit period to pass to the dialog
-      // This is a simplified approach. A dedicated fetch function would be better.
-      // For now, we assume we have enough data or that the component can handle it.
-      return (
-           <EditManualProfitDialog
-            period={{...data.originalData, id: data.originalData.manualProfitId, totalProfit: data.originalData.profit }}
-            partners={[...(navData?.clients || []), ...(navData?.suppliers || [])]}
-            onSuccess={onVoucherUpdated}
-        />
-      )
-  }
-
-  switch (voucherType) {
-    case 'subscription':
-      return (
-          <AddSubscriptionDialog
-            isEditing
-            initialData={{...data.originalData, purchaseDate: parseISO(data.originalData.purchaseDate), startDate: parseISO(data.originalData.startDate)}}
-            onSubscriptionUpdated={onVoucherUpdated}
-          >
-            {children}
-          </AddSubscriptionDialog>
-      );
-    case 'journal_from_standard_receipt':
-      return (
-        <NewStandardReceiptDialog onVoucherAdded={onVoucherUpdated} isEditing initialData={data.originalData}>
-            {children}
-        </NewStandardReceiptDialog>
-      );
-    case 'journal_from_payment':
-      return (
-        <NewPaymentVoucherDialog onVoucherAdded={onVoucherUpdated} isEditing initialData={data.originalData}>
-            {children}
-        </NewPaymentVoucherDialog>
-      );
-    case 'journal_from_expense':
-         return (
-             <NewExpenseVoucherDialog onVoucherAdded={onVoucherUpdated} isEditing initialData={data.originalData}>
-                {children}
-            </NewExpenseVoucherDialog>
-         )
-    case 'journal_from_distributed_receipt':
-         return (
-             <NewDistributedReceiptDialog onVoucherAdded={onVoucherUpdated} isEditing initialData={data.originalData}>
-                {children}
-            </NewDistributedReceiptDialog>
-         )
-    case 'journal_voucher':
-         return (
-             <NewJournalVoucherDialog onVoucherAdded={onVoucherUpdated} isEditing initialData={data}>
-                {children}
-            </NewJournalVoucherDialog>
-         )
-    case 'booking':
-        return (
-            <BookingDialog isEditing booking={data.originalData} onBookingUpdated={onVoucherUpdated}>
-                {children}
-            </BookingDialog>
-        )
-    case 'visa':
-         return (
-             <EditVisaDialog booking={data.originalData} onBookingUpdated={onVoucherUpdated}>
-                {children}
-             </EditVisaDialog>
-         )
-    default:
-      return <div onClick={() => alert(`Editing for type "${voucherType}" is not yet implemented.`)}>{children}</div>;
-  }
+  return (
+    <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={handleClick}>
+      <Pencil className="h-4 w-4" />
+    </Button>
+  );
 };
 
 export default EditVoucherHandler;
