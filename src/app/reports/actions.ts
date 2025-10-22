@@ -5,11 +5,11 @@ import { getDb } from "@/lib/firebase-admin";
 import type { JournalVoucher } from "@/lib/types";
 
 export async function getAccountStatement(filters: any) {
-  const db = await getDb();
+  const db = getDb();
   const { accountId, dateFrom, dateTo, voucherType } = filters;
   const vouchersRef = db.collection("journal-vouchers");
 
-  // ترتيب واستعلام التاريخ
+  // جلب كل السندات ضمن الفترة الزمنية فقط
   let query: FirebaseFirestore.Query = vouchersRef.orderBy("date", "asc");
   if (dateFrom) query = query.where("date", ">=", dateFrom);
   if (dateTo) query = query.where("date", "<=", dateTo);
@@ -43,9 +43,11 @@ export async function getAccountStatement(filters: any) {
         currency: v.currency || "USD",
         officer: v.officer || "",
         voucherType: v.voucherType || "",
-        sourceType: v.sourceType || "",
-        sourceId: v.sourceId || "",
-        sourceRoute: v.sourceRoute || "",
+        sourceType: v.sourceType || v.voucherType, // Fallback to voucherType if sourceType is missing
+        sourceId: v.sourceId || doc.id, // Fallback to doc.id
+        sourceRoute: v.sourceRoute || null,
+        notes: v.notes,
+        originalData: v.originalData,
       });
     });
 
@@ -65,14 +67,16 @@ export async function getAccountStatement(filters: any) {
         currency: v.currency || "USD",
         officer: v.officer || "",
         voucherType: v.voucherType || "",
-        sourceType: v.sourceType || "",
-        sourceId: v.sourceId || "",
-        sourceRoute: v.sourceRoute || "",
+        sourceType: v.sourceType || v.voucherType, // Fallback
+        sourceId: v.sourceId || doc.id, // Fallback
+        sourceRoute: v.sourceRoute || null,
+        notes: v.notes,
+        originalData: v.originalData,
       });
     });
   });
 
-  // فلترة نوع العملية (اختياري)
+  // فلترة حسب نوع العملية إذا المستخدم اختار فلتر محدد
   const filteredRows = voucherType
     ? rows.filter(
         (r) => r.voucherType === voucherType || r.sourceType === voucherType
