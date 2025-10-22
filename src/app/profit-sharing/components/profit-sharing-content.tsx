@@ -122,7 +122,9 @@ const PeriodRow = ({ period, partners, onDataChange, index }: PeriodRowProps) =>
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
-                                    <EditManualProfitDialog period={period} partners={partners} onSuccess={onDataChange} />
+                                    <EditManualProfitDialog period={period} partners={partners} onSuccess={onDataChange} >
+                                      <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4"/> تعديل الفترة</DropdownMenuItem>
+                                    </EditManualProfitDialog>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
                                             <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
@@ -233,7 +235,9 @@ export default function ProfitSharingContent({ initialMonthlyProfits, partners, 
                             <SelectItem value="manual">يدوي</SelectItem>
                         </SelectContent>
                     </Select>
-                     <AddManualProfitDialog partners={partners} onSuccess={onDataChange} />
+                     <AddManualProfitDialog partners={partners} onSuccess={onDataChange}>
+                        <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة توزيع يدوي</Button>
+                     </AddManualProfitDialog>
                 </div>
             </CardHeader>
             <CardContent>
