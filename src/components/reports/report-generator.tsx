@@ -75,7 +75,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
         { id: 'exchange_transaction', label: 'معاملة بورصة', icon: ChevronsRightLeft, group: 'other' },
         { id: 'exchange_payment', label: 'تسديد بورصة', icon: ChevronsRightLeft, group: 'other' },
         { id: 'segment', label: 'سكمنت', icon: Layers3, group: 'other' },
-        { id: 'profit_sharing', label: 'توزيع الحصص', icon: Share2, group: 'other' },
+        { id: 'profit-sharing', label: 'توزيع الحصص', icon: Share2, group: 'other' },
         { id: 'journal_voucher', label: 'قيد محاسبي', icon: BookUser, group: 'other' },
         { id: 'refund', label: 'استرجاع تذكرة', icon: RefreshCw, group: 'other' },
         { id: 'exchange', label: 'تغيير تذكرة', icon: RefreshCw, group: 'other' },
@@ -103,10 +103,11 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
         dateRange: filters.dateRange || { from: undefined, to: undefined },
         typeFilter: Array.from(filters.typeFilter),
       });
-      setTransactions(Array.isArray(reportData) ? reportData : []);
-      // The summary part (report) can be calculated on the client side now
-      // This is a temporary fix. It's better to get the full report object from the server.
-      if (Array.isArray(reportData)) {
+      
+      const transactionsData = Array.isArray(reportData) ? reportData : [];
+      setTransactions(transactionsData);
+
+      if (transactionsData.length > 0) {
           let balanceUSD = 0;
           let balanceIQD = 0;
           let totalDebitUSD = 0;
@@ -114,7 +115,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
           let totalDebitIQD = 0;
           let totalCreditIQD = 0;
 
-          reportData.forEach(tx => {
+          transactionsData.forEach(tx => {
               if (tx.currency === 'USD') {
                   totalDebitUSD += tx.debit;
                   totalCreditUSD += tx.credit;
@@ -122,10 +123,12 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
                    totalDebitIQD += tx.debit;
                   totalCreditIQD += tx.credit;
               }
+              balanceUSD = tx.balance; // Assuming the last balance is the final one for USD
+              balanceIQD = tx.balance; // This logic needs improvement for dual currency
           });
           
           setReport({
-              transactions: reportData,
+              transactions: transactionsData,
               openingBalanceUSD: 0,
               openingBalanceIQD: 0,
               totalDebitUSD,
