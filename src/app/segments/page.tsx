@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator, History, CheckCheck } from 'lucide-react';
+import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, Calculator, History, CheckCheck, Pencil } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod, updateSegmentEntry } from '@/app/segments/actions';
 import AddSegmentPeriodDialog from './add-segment-period-dialog';
@@ -113,8 +113,8 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                 </CollapsibleContent>
             </tbody>
         </Collapsible>
-    );
-};
+    )
+}
 
 
 export default function SegmentsPage() {
