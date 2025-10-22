@@ -7,7 +7,7 @@ import { ReportTransaction, StructuredDescription } from "@/lib/types";
 import { format, isValid, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { deleteVoucher } from "@/app/accounts/vouchers/list/actions";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +22,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { buttonVariants } from "@/components/ui/button";
 import EditVoucherHandler from "./edit-voucher-handler";
 import { mapVoucherLabel } from "@/lib/accounting/labels";
 
@@ -72,7 +71,7 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
         }
     };
 
-    const label = mapVoucherLabel(transaction.sourceType || transaction.type);
+    const label = mapVoucherLabel(transaction.sourceType || transaction.voucherType);
 
     return (
         <tr className="text-sm text-center font-medium">
@@ -80,9 +79,7 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
             <td className="p-2">{transaction.invoiceNumber}</td>
             <td className="p-2"><Badge variant="outline">{label}</Badge></td>
             <td className="p-2 text-right text-xs">
-                {typeof transaction.description === 'string' ? transaction.description : (
-                    <DetailedDescription description={transaction.description} />
-                )}
+                <DetailedDescription description={transaction.description} />
             </td>
             <td className="p-2 text-right text-xs">
                 {transaction.notes}
@@ -125,12 +122,8 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
 };
 
 
-export default function ReportTable({ transactions, reportType }: { transactions: ReportTransaction[], reportType?: 'summary' | 'detailed' }) {
+export default function ReportTable({ transactions, onRefresh }: { transactions: ReportTransaction[], onRefresh: () => void }) {
     
-    const handleRefresh = () => {
-        // This function will be passed down to trigger a re-fetch in the parent component
-    }
-
     return (
         <Table>
             <TableHeader>
@@ -148,13 +141,23 @@ export default function ReportTable({ transactions, reportType }: { transactions
                     <TableHead className="p-2 font-bold text-center">الإجراءات</TableHead>
                 </TableRow>
             </TableHeader>
-             <TableBody>
-                {transactions.map(tx => (
-                    <TransactionRow key={tx.id} transaction={tx} onActionComplete={handleRefresh} />
-                ))}
-             </TableBody>
+            <TableBody>
+              {Array.isArray(transactions) && transactions.length > 0 ? (
+                transactions.map((tx) => (
+                  <TransactionRow
+                    key={tx.id}
+                    transaction={tx}
+                    onActionComplete={onRefresh}
+                  />
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={11} className="text-center py-6 text-gray-500">
+                    لا توجد بيانات متاحة لعرضها
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
         </Table>
     );
 }
-
-    
