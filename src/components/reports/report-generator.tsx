@@ -97,14 +97,14 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     setError(null);
 
     try {
-      const reportData = await getAccountStatement({
+      const data = await getAccountStatement({
         accountId: filters.accountId,
-        currency: filters.currency,
-        dateRange: filters.dateRange || { from: undefined, to: undefined },
-        typeFilter: Array.from(filters.typeFilter),
+        dateFrom: filters.dateRange?.from,
+        dateTo: filters.dateRange?.to,
+        voucherType: Array.from(filters.typeFilter).length === allFilters.length ? undefined : Array.from(filters.typeFilter)[0],
       });
       
-      const transactionsData = Array.isArray(reportData) ? reportData : [];
+      const transactionsData = Array.isArray(data) ? data : [];
       setTransactions(transactionsData);
 
       if (transactionsData.length > 0) {
@@ -123,7 +123,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
                    totalDebitIQD += tx.debit;
                   totalCreditIQD += tx.credit;
               }
-              balanceUSD = tx.balance; // Assuming the last balance is the final one for USD
+              balanceUSD = tx.balance; // This is a simplified balance for now
               balanceIQD = tx.balance; // This logic needs improvement for dual currency
           });
           
@@ -144,7 +144,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
           });
       }
 
-
     } catch (error: any) {
       setError("حدث خطأ أثناء تحميل البيانات");
       setTransactions([]);
@@ -152,7 +151,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     } finally {
       setIsLoading(false);
     }
-  }, [filters, toast]);
+  }, [filters, toast, allFilters]);
 
   useEffect(() => {
     if (defaultAccountId) {
@@ -184,6 +183,14 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
   };
 
   const handlePrint = () => window.print();
+  
+  const finalTransactions = useMemo(() => {
+    if (!filters.searchTerm) return transactions;
+    return transactions.filter(tx => 
+        (tx.description && (typeof tx.description === 'string' ? tx.description : tx.description.title)?.toLowerCase().includes(filters.searchTerm.toLowerCase())) ||
+        tx.invoiceNumber?.toLowerCase().includes(filters.searchTerm.toLowerCase())
+    );
+  }, [transactions, filters.searchTerm]);
 
   return (
      <div className="flex flex-col lg:flex-row h-full lg:h-[calc(100vh-160px)] gap-4">
@@ -262,7 +269,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
           ) : error ? (
             <div className="p-8 text-center text-red-500">{error}</div>
           ) : (
-            <ReportTable transactions={transactions} onRefresh={handleGenerateReport} />
+            <ReportTable transactions={finalTransactions} onRefresh={handleGenerateReport} />
           )}
         </div>
         <footer className="p-3 border-t bg-card">
@@ -272,3 +279,5 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     </div>
   );
 }
+
+    

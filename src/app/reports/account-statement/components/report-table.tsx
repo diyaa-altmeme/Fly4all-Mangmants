@@ -85,7 +85,7 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
                 <td className="p-2">{transaction.invoiceNumber}</td>
                 <td className="p-2"><Badge variant="outline">{label}</Badge></td>
                 <td className="p-2 text-right text-xs">
-                    {transaction.description ? <DetailedDescription description={transaction.description} /> : (transaction.notes || '')}
+                    <DetailedDescription description={transaction.description} />
                 </td>
                 <td className="p-2 text-xs text-right">
                     {transaction.notes}
@@ -120,14 +120,16 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
                     </div>
                 </td>
             </tr>
-            <EditVoucherHandler
-                voucher={transaction}
-                isOpen={isEditOpen}
-                onClose={() => {
-                    setIsEditOpen(false);
-                    onActionComplete();
-                }}
-            />
+            {isEditOpen && (
+                <EditVoucherHandler
+                    voucher={transaction}
+                    isOpen={isEditOpen}
+                    onClose={() => {
+                        setIsEditOpen(false);
+                        onActionComplete();
+                    }}
+                />
+            )}
         </>
     );
 };
@@ -164,7 +166,7 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
               ) : (
                 <TableRow>
                   <TableCell colSpan={11} className="text-center py-6 text-gray-500">
-                    لا توجد بيانات متاحة لعرضها
+                    لا توجد بيانات متاحة للعرض
                   </TableCell>
                 </TableRow>
               )}
@@ -172,3 +174,5 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
         </Table>
     );
 }
+
+    
