@@ -392,6 +392,12 @@ export type SegmentEntry = {
   createdAt: string;
   isDeleted?: boolean;
   deletedAt?: string;
+  isConfirmed?: boolean;
+  partnerShares?: {
+      partnerId: string;
+      partnerName: string;
+      share: number;
+  }[];
 };
 
 export type RemittanceDistributionColumn = {
@@ -635,6 +641,17 @@ export type ThemeCustomizationSettings = ThemeConfig & {
   };
 }
 
+export interface FinanceAccountsSettings {
+  arAccountId: string;
+  apAccountId: string;
+  defaultRevenueAccountId: string;
+  defaultExpenseAccountId: string;
+  defaultCashBoxAccountId: string;
+  defaultBankAccountId?: string;
+  enforceRevenueSeparation: boolean;
+  revenueMap: Record<string, string>;
+  expenseMap: Record<string, string>;
+}
 
 export type AppSettings = {
     currencySettings?: CurrencySettings;
@@ -649,6 +666,7 @@ export type AppSettings = {
     importFieldsSettings?: ImportFieldSettings;
     importLogicSettings?: ImportLogicSettings;
     relationSections?: RelationSection[];
+    financeAccounts?: FinanceAccountsSettings;
 };
 
 export type ExchangeRateLog = {
@@ -1307,4 +1325,16 @@ export interface AuthResponse {
   success: boolean;
   user?: User;
   error?: string;
+}
+
+export interface PostJournalInput {
+  date: Date;
+  amount: number;
+  description: string;
+  debitAccountId?: string;
+  creditAccountId?: string;
+  category?: 'tickets' | 'visa' | 'hotel' | 'groups' | 'subscriptions' | 'segments' | 'other';
+  sourceType: string;
+  sourceId: string;
+  sourceRoute?: string;
 }
