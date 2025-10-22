@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
@@ -31,6 +32,7 @@ import type { Currency, Client, MonthlyProfit } from "@/lib/types";
 import { Label } from "@/components/ui/label";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useAuth } from "@/lib/auth-context";
+import { NumericInput } from '@/components/ui/numeric-input';
 
 const partnerSchema = z.object({
   partnerId: z.string().min(1, "اختر شريكاً."),
@@ -357,3 +359,5 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     </Dialog>
   );
 }
+
+    
