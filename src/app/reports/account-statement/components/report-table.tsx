@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -7,18 +6,32 @@ import { ReportTransaction, StructuredDescription } from "@/lib/types";
 import { format, isValid, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
 import { Button } from "@/components/ui/button";
-import { ChevronDown, Info, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import Link from 'next/link';
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { deleteVoucher } from "@/app/accounts/vouchers/list/actions";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { buttonVariants } from "@/components/ui/button";
+import EditVoucherHandler from "./edit-voucher-handler";
+import { mapVoucherLabel } from "@/lib/accounting/labels";
 
 const formatCurrency = (amount: number) => {
   if (Math.abs(amount) < 0.01) return `0.00`;
-  return new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+  const formattedAmount = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(amount));
+  if (amount < 0) {
+      return `(${formattedAmount})`;
+  }
+  return formattedAmount;
 };
 
 const DetailedDescription = ({ description }: { description: StructuredDescription | string }) => {
@@ -45,19 +58,32 @@ const DetailedDescription = ({ description }: { description: StructuredDescripti
     );
 };
 
+const TransactionRow = ({ transaction, onActionComplete }: { transaction: ReportTransaction, onActionComplete: () => void }) => {
+    const { toast } = useToast();
 
-const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => {
+    const handleDelete = async () => {
+        const result = await deleteVoucher(transaction.id);
+        if (result.success) {
+            toast({ title: 'تم حذف السند بنجاح' });
+            onActionComplete();
+        } else {
+            toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
+        }
+    };
+
+    const label = mapVoucherLabel(transaction.sourceType || transaction.type);
+
     return (
         <tr className="text-sm text-center font-medium">
             <td className="p-2 font-mono">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd') : '-'}</td>
             <td className="p-2">{transaction.invoiceNumber}</td>
-            <td className="p-2"><Badge variant="outline">{transaction.type}</Badge></td>
+            <td className="p-2"><Badge variant="outline">{label}</Badge></td>
             <td className="p-2 text-right text-xs">
                 {typeof transaction.description === 'string' ? transaction.description : (
                     <DetailedDescription description={transaction.description} />
                 )}
             </td>
-             <td className="p-2 text-right text-xs">
+            <td className="p-2 text-right text-xs">
                 {transaction.notes}
             </td>
             <td className="p-2 font-mono font-bold text-red-600 text-center">{transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}</td>
@@ -67,14 +93,28 @@ const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => 
             </td>
             <td className={cn("p-2 font-mono font-bold text-center", transaction.balance < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balance)}</td>
             <td className="p-2 text-xs text-center">{transaction.officer}</td>
-             <td className="p-2 text-center">
+            <td className="p-2 text-center">
                 <div className="flex items-center gap-1 justify-center">
-                    <Button asChild size="icon" variant="ghost" className="h-7 w-7 text-blue-600">
-                        <Link href={`/accounts/vouchers/${transaction.id}/edit`}>
+                     <EditVoucherHandler voucherId={transaction.id} onVoucherUpdated={onActionComplete}>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600">
                             <Pencil className="h-4 w-4" />
-                        </Link>
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        </Button>
+                    </EditVoucherHandler>
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                <AlertDialogDescription>سيتم حذف هذا السند بشكل دائم.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({ variant: 'destructive' }))}>نعم، احذف</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </td>
         </tr>
@@ -84,6 +124,10 @@ const TransactionRow = ({ transaction }: { transaction: ReportTransaction }) => 
 
 export default function ReportTable({ transactions, reportType }: { transactions: ReportTransaction[], reportType?: 'summary' | 'detailed' }) {
     
+    const handleRefresh = () => {
+        // This function will be passed down to trigger a re-fetch in the parent component
+    }
+
     return (
         <Table>
             <TableHeader>
@@ -103,7 +147,7 @@ export default function ReportTable({ transactions, reportType }: { transactions
             </TableHeader>
              <TableBody>
                 {transactions.map(tx => (
-                    <TransactionRow key={tx.id} transaction={tx} />
+                    <TransactionRow key={tx.id} transaction={tx} onActionComplete={handleRefresh} />
                 ))}
              </TableBody>
         </Table>

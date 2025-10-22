@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -65,11 +64,11 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
         { id: 'booking', label: 'حجز طيران', icon: Plane, group: 'basic' },
         { id: 'visa', label: 'طلب فيزا', icon: CreditCard, group: 'basic' },
         { id: 'subscription', label: 'اشتراك', icon: Repeat, group: 'basic' },
-        { id: 'journal_from_payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
-        { id: 'journal_from_standard_receipt', label: 'سند قبض', icon: FileDown, group: 'basic' },
-        { id: 'journal_from_expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
-        { id: 'journal_from_distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
-        { id: 'journal_from_remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
+        { id: 'payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
+        { id: 'standard_receipt', label: 'سند قبض', icon: FileDown, group: 'basic' },
+        { id: 'expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
+        { id: 'distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
+        { id: 'remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
         { id: 'exchange_transaction', label: 'معاملة بورصة', icon: ChevronsRightLeft, group: 'other' },
         { id: 'exchange_payment', label: 'تسديد بورصة', icon: ChevronsRightLeft, group: 'other' },
         { id: 'segment', label: 'سكمنت', icon: Layers3, group: 'other' },

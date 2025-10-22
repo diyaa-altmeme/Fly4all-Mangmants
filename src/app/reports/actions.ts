@@ -18,6 +18,7 @@ import { getBookings } from '../bookings/actions';
 import { getVisaBookings } from '../visas/actions';
 import { getAllVouchers } from '../accounts/vouchers/list/actions';
 import { getExchanges, getUnifiedExchangeLedger, type UnifiedLedgerEntry } from '../exchanges/actions';
+import { mapVoucherLabel } from '@/lib/accounting/labels';
 
 const formatCurrencyDisplay = (amount: number, currency: string) => {
     const formattedAmount = new Intl.NumberFormat('en-US').format(Math.abs(amount));
@@ -25,46 +26,13 @@ const formatCurrencyDisplay = (amount: number, currency: string) => {
 };
 
 const getVoucherTypeLabel = (voucher: JournalVoucher, accountId: string): string => {
-    const type = voucher.voucherType;
-    
-    if (voucher.originalData?.manualProfitId) {
-        const isDebit = voucher.debitEntries.some(e => e.accountId === accountId);
-        
-        if (accountId === voucher.originalData.sourceAccountId) {
-            return isDebit ? 'تسوية رصيد أرباح' : 'إيداع أرباح فترة';
-        }
-        
-        if (isDebit && voucher.originalData.partnerId === accountId) {
-            return 'استلام حصة أرباح';
-        }
-
-        if (voucher.debitEntries.some(e => e.accountId === accountId)) return 'إيداع أرباح فترة';
-        if (voucher.creditEntries.some(e => e.accountId === accountId)) return 'دفع حصة شريك';
-    }
-
-
-    switch(type) {
-        case 'journal_from_standard_receipt': return 'سند قبض عادي';
-        case 'journal_from_distributed_receipt': return 'سند قبض مخصص';
-        case 'journal_from_payment': return 'سند دفع';
-        case 'journal_from_expense': return 'سند مصاريف';
-        case 'journal_voucher': return 'قيد محاسبي';
-        case 'journal_from_remittance': return 'حوالة مستلمة';
-        case 'booking': return 'فاتورة حجز طيران';
-        case 'visa': return 'فاتورة طلب فيزا';
-        case 'refund': return 'إشعار دائن (استرجاع)';
-        case 'exchange': return 'فاتورة تغيير تذكرة';
-        case 'void': return 'إلغاء (فويد)';
-        case 'exchange_transaction': return 'معاملة بورصة';
-        case 'exchange_payment': return 'تسديد بورصة';
-        case 'segment': return 'قيد سكمنت';
-        case 'subscription': return 'فاتورة اشتراك';
-        default: return type;
-    }
+    const type = voucher.sourceType || voucher.voucherType;
+    return mapVoucherLabel(type);
 };
 
 const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accountId: string, accountsMap: Map<string, string>): Promise<string | StructuredDescription> => {
     const originalData = voucher.originalData;
+    const sourceType = voucher.sourceType || voucher.voucherType;
     
     const getOtherParties = (entries: JournalEntry[]) => 
         [...new Set(
@@ -74,94 +42,40 @@ const buildDetailedDescriptionForAccount = async (voucher: JournalVoucher, accou
         )].join(', ');
 
     const isDebitAccount = voucher.debitEntries.some(e => e.accountId === accountId);
-    const isCreditAccount = voucher.creditEntries.some(e => e.accountId === accountId);
-    const boxAccount = Array.from(accountsMap.entries()).find(([id, name]) => id === accountId && name.startsWith('صندوق:'));
-
-    if (boxAccount) {
-        switch (voucher.voucherType) {
-            case 'journal_from_standard_receipt':
-                return `استلام دفعة من: ${accountsMap.get(originalData?.from) || originalData?.from || 'طرف غير محدد'}`;
-            case 'journal_from_payment':
-                return `دفع مبلغ إلى: ${accountsMap.get(originalData?.toSupplierId) || originalData?.toSupplierId || 'طرف غير محدد'}`;
-            case 'journal_from_expense':
-                return `دفع مصروف: ${originalData?.expenseType || 'غير محدد'}`;
-            case 'journal_from_remittance':
-                return `إيداع حوالة من ${originalData?.companyName || 'مكتب غير محدد'}`;
-            case 'journal_from_distributed_receipt':
-                return `إيداع إجمالي سند قبض مخصص من ${accountsMap.get(originalData?.accountId)}`;
-            default:
-                if (isDebitAccount) return `قيد مدين من: ${getOtherParties(voucher.creditEntries) || 'غير محدد'}`;
-                if (isCreditAccount) return `قيد دائن إلى: ${getOtherParties(voucher.debitEntries) || 'غير محدد'}`;
-        }
-    }
     
-    if (!originalData) { 
-        if (isDebitAccount) return `قيد مدين من: ${getOtherParties(voucher.creditEntries) || 'غير محدد'}`;
-        if (isCreditAccount) return `قيد دائن إلى: ${getOtherParties(voucher.debitEntries) || 'غير محدد'}`;
-        return voucher.notes || 'لا يوجد وصف';
-    }
+    // Default description if no specific logic matches
+    let description = voucher.notes || (originalData && originalData.details) || 'لا يوجد وصف';
 
-    const passengerDetails = (originalData.passengers || []).map((p: any) => `${p.name} (تذكرة: ${p.ticketNumber || 'N/A'})`).join(', ');
-
-    switch (voucher.voucherType) {
+    switch (sourceType) {
         case 'booking':
-        case 'visa':
-            const isBooking = voucher.voucherType === 'booking';
-            const pnrText = originalData.pnr ? `برقم PNR: ${originalData.pnr}` : `برقم فاتورة: ${voucher.invoiceNumber}`;
-            const details = isBooking 
-                ? (originalData.passengers || []).map((p: any) => `${p.name} (تذكرة: ${p.ticketNumber || 'N/A'})`).join(', ')
-                : (originalData.passengers || []).map((p: any) => `${p.name} (جواز: ${p.passportNumber || 'N/A'}, طلب: ${p.applicationNumber || 'N/A'})`).join(', ');
-
-            if (accountId === originalData.clientId) {
-                return `قيد فاتورة ${isBooking ? 'حجز طيران' : 'فيزا'} ${pnrText}. للمسافرين: ${details}.`;
-            } else if (accountId === originalData.supplierId) {
-                return `إثبات تكلفة ${isBooking ? 'حجز طيران' : 'فيزا'} ${pnrText}.`;
-            }
-            return `حركة متعلقة بـ ${isBooking ? 'حجز' : 'فيزا'} ${originalData.pnr || voucher.invoiceNumber}.`;
-        
-        case 'subscription':
-             if (accountId === originalData.clientId) return `فاتورة اشتراك خدمة: "${originalData.serviceName}"`;
-             if (accountId === originalData.supplierId) return `إثبات تكلفة اشتراك خدمة: "${originalData.serviceName}"`;
-             return `حركة متعلقة باشتراك: ${originalData.serviceName}`;
-
-        case 'segment':
-            const periodText = `عن الفترة (${originalData.fromDate} – ${originalData.toDate})`;
-            if (accountId === originalData.clientId) return `تسوية رصيد أرباح السكمنت ${periodText}.`;
-            if (accountId === originalData.partnerId) return `استلام حصة أرباح السكمنت من شركة ${originalData.companyName} ${periodText}.`;
-            if (accountId === 'revenue_segments') return `إثبات إيراد حصة الشركة من سكمنت ${originalData.companyName} ${periodText}.`;
-            return `حركة متعلقة بسكمنت ${originalData.companyName} ${periodText}.`;
-
-        case 'journal_from_standard_receipt':
-            return `تسديد دفعة.`;
-            
-        case 'journal_from_payment':
-            return `استلام دفعة.`;
-        
-        case 'journal_from_distributed_receipt':
-            const appSettings = await getSettings();
-            const distributedVoucherSettings = appSettings.voucherSettings?.distributed;
-            const distributions = Object.entries(originalData.distributions || {})
-                .filter(([, distData]: [string, any]) => distData?.enabled && distData?.amount > 0);
-
-            if (accountId === originalData.accountId) {
-                 const selfReceipt = originalData.companyAmount > 0 ? `منها تسوية لحسابكم بمبلغ ${formatCurrencyDisplay(originalData.companyAmount, voucher.currency)}` : '';
-                 const distText = distributions.length > 0 ? `وتوزيعات أخرى.` : '';
-                 return `قيد تسوية من سند قبض مخصص. إجمالي المبلغ: ${formatCurrencyDisplay(originalData.totalAmount, voucher.currency)}. ${selfReceipt} ${distText}`;
-            }
-            
-            const distributionChannel = distributedVoucherSettings?.distributionChannels?.find(c => c.accountId === accountId);
-            if(distributionChannel) {
-                const distAmount = originalData.distributions[distributionChannel.id]?.amount || 0;
-                return `استلام مبلغ توزيع من سند قبض مخصص بمبلغ ${formatCurrencyDisplay(distAmount, voucher.currency)}.`;
-            }
+            description = `تذكرة طيران PNR: ${originalData?.pnr}`;
             break;
-
+        case 'visa':
+            description = `طلب فيزا لـ ${originalData?.passengers?.[0]?.name || 'مسافر'}`;
+            break;
+        case 'subscription':
+            description = `اشتراك خدمة: "${originalData?.serviceName}"`;
+            break;
+        case 'segment':
+            description = `أرباح سكمنت للفترة ${originalData?.fromDate} إلى ${originalData?.toDate}`;
+            break;
+        case 'standard_receipt':
+            description = `قبض دفعة من: ${accountsMap.get(originalData?.from) || originalData?.from}`;
+            break;
+        case 'payment':
+            description = `دفع مبلغ إلى: ${accountsMap.get(originalData?.toSupplierId) || originalData?.toSupplierId}`;
+            break;
+        case 'expense':
+            description = `مصروف: ${originalData?.expenseType || 'متنوع'}`;
+            break;
+        case 'journal_voucher':
+             description = `قيد محاسبي: ${voucher.notes || (isDebitAccount ? `من ${getOtherParties(voucher.creditEntries)}` : `إلى ${getOtherParties(voucher.debitEntries)}`)}`;
+             break;
         default:
-             if (isDebitAccount) return `قيد مدين من: ${getOtherParties(voucher.creditEntries) || 'غير محدد'}`;
-             if (isCreditAccount) return `قيد دائن إلى: ${getOtherParties(voucher.debitEntries) || 'غير محدد'}`;
+            description = voucher.notes || originalData?.details || 'عملية مالية';
     }
-    
-    return voucher.notes || 'لا يوجد وصف';
+
+    return description;
 };
 
 
@@ -175,7 +89,8 @@ async function getTransactionsForAccount(accountId: string, accountsMap: Map<str
     const vouchers = journalSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as JournalVoucher));
 
     for (const voucher of vouchers) {
-        if (typeFilter.length > 0 && !typeFilter.includes(voucher.voucherType)) {
+        const sourceType = voucher.sourceType || voucher.voucherType;
+        if (typeFilter.length > 0 && !typeFilter.includes(sourceType)) {
             continue;
         }
         
@@ -189,36 +104,22 @@ async function getTransactionsForAccount(accountId: string, accountsMap: Map<str
 
         const dateIso = voucher.date?.toDate ? voucher.date.toDate().toISOString() : new Date(voucher.date).toISOString();
 
-        if (relevantDebit) {
-             transactions.push({
-                id: voucher.id,
-                invoiceNumber: voucher.invoiceNumber || 'N/A',
-                date: dateIso,
-                description: description,
-                notes: voucher.notes || '',
-                type: voucherTypeLabel,
-                debit: relevantDebit.amount,
-                credit: 0, 
-                balance: 0,
-                currency: voucher.currency,
-                officer: voucher.officer,
-            });
-        }
-        if (relevantCredit) {
-             transactions.push({
-                id: voucher.id,
-                invoiceNumber: voucher.invoiceNumber || 'N/A',
-                date: dateIso,
-                description: description,
-                notes: voucher.notes || '',
-                type: voucherTypeLabel,
-                debit: 0, 
-                credit: relevantCredit.amount,
-                balance: 0,
-                currency: voucher.currency,
-                officer: voucher.officer,
-            });
-        }
+        transactions.push({
+            id: voucher.id,
+            invoiceNumber: voucher.invoiceNumber || 'N/A',
+            date: dateIso,
+            description: description,
+            notes: voucher.notes || '',
+            type: voucherTypeLabel,
+            debit: relevantDebit?.amount || 0,
+            credit: relevantCredit?.amount || 0, 
+            balance: 0,
+            currency: voucher.currency,
+            officer: voucher.officer,
+            sourceType: voucher.sourceType,
+            sourceId: voucher.sourceId,
+            sourceRoute: voucher.sourceRoute,
+        });
     }
     
     return transactions;
@@ -240,6 +141,9 @@ const getExchangeTransactionsForAccount = async (exchangeId: string): Promise<Re
             currency: 'USD', // Exchanges are always USD for now
             officer: entry.userName,
             details: entry.details,
+            sourceType: 'exchange',
+            sourceId: entry.id,
+            sourceRoute: `/exchanges/report?exchangeId=${exchangeId}`
         };
     }).reverse(); // The ledger is naturally reverse chronological
 };
@@ -272,19 +176,12 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
     
     const settings = await getSettings();
     if (!accountInfo) {
-        if (params.accountId.startsWith('expense_')) {
-            const expenseId = params.accountId.replace('expense_', '');
-            const expenseAccount = settings.voucherSettings?.expenseAccounts?.find(a => a.id === expenseId);
-            if (expenseAccount) {
-                 accountInfo = { id: params.accountId, name: expenseAccount.name, type: 'expense' };
-            }
-        } else if (params.accountId.startsWith('revenue_')) {
-             let name = 'حساب إيرادات';
-             if (params.accountId === 'revenue_segments') name = 'إيرادات السكمنت';
-             if (params.accountId === 'revenue_profit_distribution') name = 'إيرادات توزيع الأرباح';
-             if (params.accountId === 'revenue_tickets') name = 'إيرادات التذاكر';
-             if (params.accountId === 'revenue_visa') name = 'إيرادات الفيزا';
-             accountInfo = { id: params.accountId, name, type: 'revenue' };
+        // Fallback for static accounts
+        const staticAccount = Object.values(settings.voucherSettings?.expenseAccounts || {}).find(a => a.id === params.accountId)
+          || Object.values(settings.subscriptionSettings || {}).find(a => a.id === params.accountId)
+          || [{id: 'revenue_tickets', name: 'إيرادات التذاكر', type: 'revenue'}, {id: 'expense_tickets', name: 'تكلفة التذاكر', type: 'expense'}].find(a => a.id === params.accountId);
+        if (staticAccount) {
+            accountInfo = { id: staticAccount.id, name: staticAccount.name, type: staticAccount.type as AccountType };
         } else {
             throw new Error(`لم يتم العثور على حساب بالمعرف: ${params.accountId}.`);
         }
@@ -293,7 +190,12 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
     if (accountInfo.type === 'exchange') {
         const exchangeTransactions = await getExchangeTransactionsForAccount(params.accountId);
         
-        const openingBalance = exchangeTransactions[0]?.balance - (exchangeTransactions[0]?.credit - exchangeTransactions[0]?.debit) || 0;
+        // This calculation is simplified for exchanges. For a true running balance,
+        // it needs the full history, not just the paginated ledger.
+        const lastEntry = exchangeTransactions[exchangeTransactions.length - 1];
+        const closingBalance = lastEntry?.balance || 0;
+        const totalMovement = exchangeTransactions.reduce((acc, tx) => acc + tx.credit - tx.debit, 0);
+        const openingBalance = closingBalance - totalMovement;
 
         return {
             title: `كشف حساب لـ: ${accountInfo.name}`,
@@ -303,7 +205,7 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
             transactions: exchangeTransactions,
             totalDebitUSD: exchangeTransactions.reduce((sum, tx) => sum + tx.debit, 0),
             totalCreditUSD: exchangeTransactions.reduce((sum, tx) => sum + tx.credit, 0),
-            finalBalanceUSD: exchangeTransactions[exchangeTransactions.length - 1]?.balance || 0,
+            finalBalanceUSD: closingBalance,
             totalDebitIQD: 0,
             totalCreditIQD: 0,
             finalBalanceIQD: 0,
@@ -356,10 +258,6 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
             return inInterval && currencyMatch;
         });
 
-    let finalFilteredTransactions = filteredByDate;
-        
-    const sortedTransactions = finalFilteredTransactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
     const openingBalanceTransactions = allTransactions.filter(tx => parseISO(tx.date) < interval.start);
     
     const openingBalanceUSD = openingBalanceTransactions
@@ -373,20 +271,22 @@ export const getAccountStatement = cache(async (params: { accountId: string, cur
     let runningBalanceUSD = openingBalanceUSD;
     let runningBalanceIQD = openingBalanceIQD;
 
-    const finalTransactionsWithBalance = sortedTransactions.map(tx => {
-        if (tx.currency === 'USD') {
-            runningBalanceUSD += tx.credit - tx.debit;
-            return { ...tx, balance: runningBalanceUSD };
-        } else {
-            runningBalanceIQD += tx.credit - tx.debit;
-            return { ...tx, balance: runningBalanceIQD };
-        }
-    });
+    const finalTransactionsWithBalance = filteredByDate
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .map(tx => {
+            if (tx.currency === 'USD') {
+                runningBalanceUSD += tx.credit - tx.debit;
+                return { ...tx, balance: runningBalanceUSD };
+            } else {
+                runningBalanceIQD += tx.credit - tx.debit;
+                return { ...tx, balance: runningBalanceIQD };
+            }
+        });
 
-    const totalDebitUSD = sortedTransactions.filter(tx => tx.currency === 'USD').reduce((acc, tx) => acc + tx.debit, 0);
-    const totalCreditUSD = sortedTransactions.filter(tx => tx.currency === 'USD').reduce((acc, tx) => acc + tx.credit, 0);
-    const totalDebitIQD = sortedTransactions.filter(tx => tx.currency === 'IQD').reduce((acc, tx) => acc + tx.debit, 0);
-    const totalCreditIQD = sortedTransactions.filter(tx => tx.currency === 'IQD').reduce((acc, tx) => acc + tx.credit, 0);
+    const totalDebitUSD = filteredByDate.filter(tx => tx.currency === 'USD').reduce((acc, tx) => acc + tx.debit, 0);
+    const totalCreditUSD = filteredByDate.filter(tx => tx.currency === 'USD').reduce((acc, tx) => acc + tx.credit, 0);
+    const totalDebitIQD = filteredByDate.filter(tx => tx.currency === 'IQD').reduce((acc, tx) => acc + tx.debit, 0);
+    const totalCreditIQD = filteredByDate.filter(tx => tx.currency === 'IQD').reduce((acc, tx) => acc + tx.credit, 0);
 
     return {
         title: `كشف حساب لـ: ${accountInfo.name}`,
@@ -1004,4 +904,3 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
 
     return rootNodes;
 });
-
