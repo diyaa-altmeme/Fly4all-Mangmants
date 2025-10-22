@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -95,11 +96,13 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
             <td className="p-2 text-xs text-center">{transaction.officer}</td>
             <td className="p-2 text-center">
                 <div className="flex items-center gap-1 justify-center">
-                     <EditVoucherHandler voucherId={transaction.id} onVoucherUpdated={onActionComplete}>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600">
-                            <Pencil className="h-4 w-4" />
-                        </Button>
-                    </EditVoucherHandler>
+                     <EditVoucherHandler 
+                        voucherId={transaction.id}
+                        sourceType={transaction.sourceType} 
+                        sourceId={transaction.sourceId} 
+                        sourceRoute={transaction.sourceRoute}
+                        onVoucherUpdated={onActionComplete}
+                     />
                      <AlertDialog>
                         <AlertDialogTrigger asChild>
                             <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4" /></Button>
@@ -153,3 +156,5 @@ export default function ReportTable({ transactions, reportType }: { transactions
         </Table>
     );
 }
+
+    
