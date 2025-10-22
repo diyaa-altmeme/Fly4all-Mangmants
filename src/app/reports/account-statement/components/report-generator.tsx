@@ -101,39 +101,36 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
         accountId: filters.accountId,
         dateFrom: filters.dateRange?.from,
         dateTo: filters.dateRange?.to,
-        voucherType: Array.from(filters.typeFilter).length === allFilters.length ? undefined : Array.from(filters.typeFilter),
+        voucherType: Array.from(filters.typeFilter),
       });
       
       const transactionsData = Array.isArray(data) ? data : [];
-      
-      let balanceUSD = 0;
-      let balanceIQD = 0;
-      let totalDebitUSD = 0;
-      let totalCreditUSD = 0;
-      let totalDebitIQD = 0;
-      let totalCreditIQD = 0;
-
-      const processedTransactions = transactionsData.map(tx => {
-        if (tx.currency === 'USD') {
-            balanceUSD += tx.debit - tx.credit;
-            totalDebitUSD += tx.debit;
-            totalCreditUSD += tx.credit;
-        } else {
-            balanceIQD += tx.debit - tx.credit;
-            totalDebitIQD += tx.debit;
-            totalCreditIQD += tx.credit;
-        }
-        // This is a simplified balance. A true multi-currency report would need more complex logic.
-        return { ...tx, balance: tx.currency === 'USD' ? balanceUSD : balanceIQD };
-      })
-
-      setTransactions(processedTransactions);
+      setTransactions(transactionsData);
 
       if (transactionsData.length > 0) {
+          let balanceUSD = 0;
+          let balanceIQD = 0;
+          let totalDebitUSD = 0;
+          let totalCreditUSD = 0;
+          let totalDebitIQD = 0;
+          let totalCreditIQD = 0;
+
+          transactionsData.forEach(tx => {
+              if (tx.currency === 'USD') {
+                  totalDebitUSD += tx.debit;
+                  totalCreditUSD += tx.credit;
+              } else {
+                   totalDebitIQD += tx.debit;
+                  totalCreditIQD += tx.credit;
+              }
+              balanceUSD = tx.balance; // This is a simplified balance for now
+              balanceIQD = tx.balance; // This logic needs improvement for dual currency
+          });
+          
           setReport({
-              transactions: processedTransactions,
-              openingBalanceUSD: 0, 
-              openingBalanceIQD: 0, 
+              transactions: transactionsData,
+              openingBalanceUSD: 0,
+              openingBalanceIQD: 0,
               totalDebitUSD,
               totalCreditUSD,
               finalBalanceUSD: balanceUSD,
