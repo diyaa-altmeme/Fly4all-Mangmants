@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
@@ -488,68 +487,44 @@ interface AddSegmentPeriodDialogProps {
   clients: Client[];
   suppliers: Supplier[];
   onSuccess: () => Promise<void>;
+  isEditing?: boolean;
+  existingPeriod?: any;
 }
 
-export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
+export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess, isEditing, existingPeriod }: AddSegmentPeriodDialogProps) {
     const { toast } = useToast();
-    const { data: navData } = useVoucherNav();
     const { user: currentUser } = useAuth();
     const [open, setOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [step, setStep] = useState(1);
-    const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
-    const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
+    
     const companyFormRef = React.useRef<{ resetForm: () => void }>(null);
     
-    const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
+    const periodForm = useForm<PeriodFormValues>({ 
+        resolver: zodResolver(periodSchema),
+    });
     
     const { control, getValues, reset: resetPeriodForm, trigger } = periodForm;
     const { fields, append, remove } = useFieldArray({ control, name: "entries" as const });
     
+    const { data: navData } = useVoucherNav();
     const currencyList =
       (navData?.settings?.currencySettings?.currencies || [{ code: "USD", name: "USD" }, { code: "IQD", name: "IQD" }, { code: "SAR", name: "SAR" }])
         .map((c: any) => ({ value: c.code, label: c.name }));
     
-    const partnerOptions = useMemo(() => {
-        const allRelations = [...(navData?.clients || []), ...(navData?.suppliers || [])];
-        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-        return uniqueRelations.map(r => {
-            let labelPrefix = '';
-            if (r.relationType === 'client') labelPrefix = 'عميل: ';
-            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
-            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
-            return { value: r.id, label: `${labelPrefix}${r.name}` };
-        });
-    }, [navData]);
-
     useEffect(() => {
         if (open) {
-            resetPeriodForm({ fromDate: undefined, toDate: undefined, currency: 'USD', entries: [] });
+            const fromDate = existingPeriod ? parseISO(existingPeriod.fromDate) : undefined;
+            const toDate = existingPeriod ? parseISO(existingPeriod.toDate) : undefined;
+            const currency = existingPeriod?.entries?.[0]?.currency || 'USD';
+            const entries = existingPeriod?.entries?.map((e: any) => ({...e, computed: computeTotals(e)})) || [];
+
+            resetPeriodForm({ fromDate, toDate, currency, entries });
             companyFormRef.current?.resetForm();
-            setStep(1);
         }
-    }, [open, resetPeriodForm, companyFormRef]);
+    }, [open, existingPeriod, resetPeriodForm, companyFormRef]);
     
-    const boxName = useMemo(() => {
-      if (!currentUser || !('boxId' in currentUser)) return 'غير محدد';
-      return navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد';
-    }, [currentUser, navData?.boxes]);
-
-    const addEntry = (entry: any) => {
-        append(entry);
-        toast({ title: "تمت إضافة الشركة إلى الفترة." });
-    };
-    
-    const removeEntry = (index: number) => {
-        remove(index);
-    }
-
-    const goToNextStep = async () => {
-        const isValid = await trigger();
-        if (isValid) {
-            setStep(2);
-        }
-    };
+    const addEntry = (entry: any) => append(entry);
+    const removeEntry = (index: number) => remove(index);
 
     const handleSavePeriod = async () => {
         const periodData = getValues();
@@ -565,7 +540,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
             currency: periodData.currency,
             alrawdatainShare: entry.computed.rodatainShare,
-            partnerShare: entry.computed.partnersTotal, // This is the total for all partners
+            partnerShare: entry.computed.partnersTotal, 
             total: entry.computed.net,
             ticketProfits: entry.computed.perService.totalTickets,
             otherProfits: entry.computed.perService.totalVisas + entry.computed.perService.totalHotels + entry.computed.perService.totalGroups,
@@ -606,101 +581,76 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             <DialogContent className="sm:max-w-6xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>إضافة سجل سكمنت جديد</DialogTitle>
-                    <DialogDescription>
-                         {step === 1 
-                            ? "الخطوة 1 من 2: حدد الفترة المحاسبية للسجل."
-                            : "الخطوة 2 من 2: أضف بيانات الشركات لهذه الفترة."}
-                    </DialogDescription>
                 </DialogHeader>
 
                 <FormProvider {...periodForm}>
                     <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                        {step === 1 && (
-                            <div className="p-4 border rounded-lg bg-background/50">
-                                <Form {...periodForm}>
-                                    <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-                                        <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
-                                            <FormItem><FormLabel>من تاريخ</FormLabel><Popover open={isFromCalendarOpen} onOpenChange={setIsFromCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => { if(d) field.onChange(d); setIsFromCalendarOpen(false); }} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
-                                        )}/>
-                                        <FormField control={periodForm.control} name="toDate" render={({ field }) => (
-                                            <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover open={isToCalendarOpen} onOpenChange={setIsToCalendarOpen}><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={(d) => { if(d) field.onChange(d); setIsToCalendarOpen(false); }} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
-                                        )}/>
-                                         <FormField control={periodForm.control} name="currency" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>العملة</FormLabel>
-                                                <Select value={field.value} onValueChange={field.onChange}>
-                                                    <FormControl><SelectTrigger><SelectValue placeholder="اختر العملة..." /></SelectTrigger></FormControl>
-                                                    <SelectContent>
-                                                        {currencyList.map((c) => (
-                                                            <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </FormItem>
-                                        )} />
-                                    </form>
-                                </Form>
-                            </div>
-                        )}
-                        
-                        {step === 2 && (
-                            <>
-                                <AddCompanyToSegmentForm onAddEntry={addEntry} ref={companyFormRef} partnerOptions={partnerOptions}/>
-                                <Card className="border rounded-lg">
-                                    <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
-                                    <CardContent className="pt-0">
-                                        <div className="border rounded-lg overflow-hidden">
-                                            <Table>
-                                                <TableHeader><TableRow><TableHead>الشركة</TableHead><TableHead>الشريك</TableHead><TableHead>الإجمالي</TableHead><TableHead>حصة الروضتين</TableHead><TableHead>حصة الشريك</TableHead><TableHead className="w-[60px] text-center">حذف</TableHead></TableRow></TableHeader>
-                                                <TableBody>
-                                                    {fields.length === 0 ? (
-                                                        <TableRow><TableCell colSpan={6} className="text-center h-20">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
-                                                    ) : fields.map((f: any, i: number) => (
-                                                        <TableRow key={f.id}>
-                                                            <TableCell className="font-medium">{f.clientName || f.clientId}</TableCell>
-                                                            <TableCell>{f.computed?.partnerBreakdown?.map((p:any) => p.relationName).join(', ')}</TableCell>
-                                                            <TableCell className="font-mono">{f.computed?.net?.toFixed(2)} {currencySymbol}</TableCell>
-                                                            <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {currencySymbol}</TableCell>
-                                                            <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {currencySymbol}</TableCell>
-                                                            <TableCell className='text-center'>
-                                                              <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(i)}><Trash2 className='h-4 w-4'/></Button>
-                                                            </TableCell>
-                                                          </TableRow>
-                                                        ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    </CardContent>
-                                    <CardFooter className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency={currencySymbol} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
-                                        <StatCard title="إجمالي حصة الروضتين" value={grandTotalAlrawdatainShare} currency={currencySymbol} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
-                                        <StatCard title="إجمالي حصص الشركاء" value={grandTotalPartnerShare} currency={currencySymbol} className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
-                                    </CardFooter>
-                                </Card>
-                            </>
-                        )}
+                        <div className="p-4 border rounded-lg bg-background/50">
+                            <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
+                            <Form {...periodForm}>
+                                <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                                    <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
+                                        <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                                    )}/>
+                                    <FormField control={periodForm.control} name="toDate" render={({ field }) => (
+                                        <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                                    )}/>
+                                     <FormField control={periodForm.control} name="currency" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>العملة</FormLabel>
+                                            <Select value={field.value} onValueChange={field.onChange}>
+                                                <FormControl><SelectTrigger><SelectValue placeholder="اختر العملة..." /></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    {currencyList.map((c) => (
+                                                        <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </FormItem>
+                                    )} />
+                                </form>
+                            </Form>
+                        </div>
+                         <AddCompanyToSegmentForm onAddEntry={addEntry} ref={companyFormRef} partnerOptions={partnerOptions}/>
+                          <Card className="border rounded-lg">
+                            <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
+                            <CardContent className="pt-0">
+                                <div className="border rounded-lg overflow-hidden">
+                                    <Table>
+                                        <TableHeader><TableRow><TableHead>الشركة</TableHead><TableHead>الشريك</TableHead><TableHead>الإجمالي</TableHead><TableHead>حصة الروضتين</TableHead><TableHead>حصة الشريك</TableHead><TableHead className="w-[60px] text-center">حذف</TableHead></TableRow></TableHeader>
+                                        <TableBody>
+                                            {fields.length === 0 ? (
+                                                <TableRow><TableCell colSpan={6} className="text-center h-20">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
+                                            ) : fields.map((f: any, i: number) => (
+                                                <TableRow key={f.id}>
+                                                    <TableCell className="font-medium">{f.clientName || f.clientId}</TableCell>
+                                                    <TableCell>{f.computed?.partnerBreakdown?.map((p:any) => p.relationName).join(', ')}</TableCell>
+                                                    <TableCell className="font-mono">{f.computed?.net?.toFixed(2)} {currencySymbol}</TableCell>
+                                                    <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {currencySymbol}</TableCell>
+                                                    <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {currencySymbol}</TableCell>
+                                                    <TableCell className='text-center'>
+                                                      <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(i)}><Trash2 className='h-4 w-4'/></Button>
+                                                    </TableCell>
+                                                  </TableRow>
+                                                ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                             <CardFooter className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency={currencySymbol} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                                <StatCard title="إجمالي حصة الروضتين" value={grandTotalAlrawdatainShare} currency={currencySymbol} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
+                                <StatCard title="إجمالي حصص الشركاء" value={grandTotalPartnerShare} currency={currencySymbol} className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
+                            </CardFooter>
+                        </Card>
                     </div>
                 </FormProvider>
 
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    {step === 1 && (
-                        <div className="flex justify-between w-full">
-                            <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
-                            <Button type="button" onClick={goToNextStep}>التالي<ArrowLeft className="ms-2 h-4 w-4" /></Button>
-                        </div>
-                    )}
-                    {step === 2 && (
-                        <div className="flex justify-between w-full">
-                            <Button variant="outline" onClick={() => setStep(1)}>
-                                <ArrowRight className="me-2 h-4 w-4" />
-                                رجوع
-                            </Button>
-                            <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
-                                {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                                حفظ بيانات الفترة ({fields.length} سجلات)
-                            </Button>
-                        </div>
-                    )}
+                    <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="w-full sm:w-auto">
+                        {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                        حفظ بيانات الفترة ({fields.length} سجلات)
+                    </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
@@ -715,5 +665,3 @@ const StatCard = ({ title, value, currency, className }: { title: string; value:
         </p>
     </div>
 );
-
-    
