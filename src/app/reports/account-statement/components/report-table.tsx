@@ -60,6 +60,7 @@ const DetailedDescription = ({ description }: { description: StructuredDescripti
 
 const TransactionRow = ({ transaction, onActionComplete }: { transaction: ReportTransaction, onActionComplete: () => void }) => {
     const { toast } = useToast();
+    const [isEditOpen, setIsEditOpen] = React.useState(false);
 
     const handleDelete = async () => {
         const result = await deleteVoucher(transaction.id);
@@ -70,53 +71,64 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
             toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
         }
     };
+    
+    const handleEdit = () => {
+        setIsEditOpen(true);
+    };
 
     const label = mapVoucherLabel(transaction.sourceType || transaction.voucherType);
 
     return (
-        <tr className="text-sm text-center font-medium">
-            <td className="p-2 font-mono">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd') : '-'}</td>
-            <td className="p-2">{transaction.invoiceNumber}</td>
-            <td className="p-2"><Badge variant="outline">{label}</Badge></td>
-            <td className="p-2 text-right text-xs">
-                {transaction.description ? <DetailedDescription description={transaction.description} /> : (transaction.notes || '')}
-            </td>
-            <td className="p-2 text-xs text-right">
-                {transaction.notes}
-            </td>
-            <td className="p-2 font-mono font-bold text-red-600 text-center">{transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}</td>
-            <td className="p-2 font-mono font-bold text-green-600 text-center">{transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}</td>
-            <td className="p-2 font-mono text-center">
-                <Badge variant={transaction.currency === 'USD' ? 'default' : 'secondary'} className={cn(transaction.currency === 'USD' && 'bg-accent text-accent-foreground')}>{transaction.currency}</Badge>
-            </td>
-            <td className={cn("p-2 font-mono font-bold text-center", transaction.balance < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balance)}</td>
-            <td className="p-2 text-xs text-center">{transaction.officer}</td>
-            <td className="p-2 text-center">
-                <div className="flex items-center gap-1 justify-center">
-                     <EditVoucherHandler 
-                        voucherId={transaction.id}
-                        sourceType={transaction.sourceType} 
-                        sourceId={transaction.sourceId} 
-                        onVoucherUpdated={onActionComplete}
-                     />
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                <AlertDialogDescription>سيتم حذف هذا السند بشكل دائم.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({ variant: 'destructive' }))}>نعم، احذف</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </div>
-            </td>
-        </tr>
+        <>
+            <tr className="text-sm text-center font-medium">
+                <td className="p-2 font-mono">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd') : '-'}</td>
+                <td className="p-2">{transaction.invoiceNumber}</td>
+                <td className="p-2"><Badge variant="outline">{label}</Badge></td>
+                <td className="p-2 text-right text-xs">
+                    {transaction.description ? <DetailedDescription description={transaction.description} /> : (transaction.notes || '')}
+                </td>
+                <td className="p-2 text-xs text-right">
+                    {transaction.notes}
+                </td>
+                <td className="p-2 font-mono font-bold text-red-600 text-center">{transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}</td>
+                <td className="p-2 font-mono font-bold text-green-600 text-center">{transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}</td>
+                <td className="p-2 font-mono text-center">
+                    <Badge variant={transaction.currency === 'USD' ? 'default' : 'secondary'} className={cn(transaction.currency === 'USD' && 'bg-accent text-accent-foreground')}>{transaction.currency}</Badge>
+                </td>
+                <td className={cn("p-2 font-mono font-bold text-center", transaction.balance < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balance)}</td>
+                <td className="p-2 text-xs text-center">{transaction.officer}</td>
+                <td className="p-2 text-center">
+                    <div className="flex items-center gap-1 justify-center">
+                         <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={handleEdit}>
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                         <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                                    <AlertDialogDescription>سيتم حذف هذا السند بشكل دائم.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleDelete} className={cn(buttonVariants({ variant: 'destructive' }))}>نعم، احذف</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                </td>
+            </tr>
+            <EditVoucherHandler
+                voucher={transaction}
+                isOpen={isEditOpen}
+                onClose={() => {
+                    setIsEditOpen(false);
+                    onActionComplete();
+                }}
+            />
+        </>
     );
 };
 
