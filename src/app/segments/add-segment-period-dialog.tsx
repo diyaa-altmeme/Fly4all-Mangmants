@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
@@ -231,36 +230,18 @@ ServiceLine.displayName = "ServiceLine";
 
 // ---------- AddCompanyToSegmentForm ----------
 
-const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
-  { onAddEntry, onUpdateEntry, editingEntry, onCancelEdit }: { 
+const AddCompanyToSegmentForm = React.forwardRef(function AddCompanyToSegmentForm(
+  { onAddEntry, onUpdateEntry, editingEntry, onCancelEdit, allCompanyOptions, partnerOptions }: { 
     onAddEntry: (data: any) => void;
     onUpdateEntry: (data: any) => void;
     editingEntry: CompanyEntryFormValues | null;
     onCancelEdit: () => void;
+    allCompanyOptions: {value: string; label: string; settings?: SegmentSettings}[];
+    partnerOptions: {value: string; label: string}[];
   },
   ref
 ) {
-  const { data: navData } = useVoucherNav();
   const { toast } = useToast();
-  
-  const allCompanyOptions = useMemo(() => {
-    const allRelations = [...(navData?.clients || []), ...(navData?.suppliers || [])];
-    const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-    return uniqueRelations.map(c => ({ value: c.id, label: `${c.relationType === 'supplier' ? 'مورد: ' : 'عميل: '}${c.name}`, settings: c.segmentSettings }));
-}, [navData?.clients, navData?.suppliers]);
-
-const partnerOptions = useMemo(() => {
-    const allRelations = [...(navData?.clients || []), ...(navData?.suppliers || [])];
-    const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-    return uniqueRelations.map(r => {
-        let labelPrefix = '';
-        if (r.relationType === 'client') labelPrefix = 'عميل: ';
-        else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
-        else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
-        return { value: r.id, label: `${labelPrefix}${r.name}` };
-    });
-}, [navData?.clients, navData?.suppliers]);
-
     
   const form = useForm<CompanyEntryFormValues>({
     resolver: zodResolver(companyEntrySchema),
@@ -503,7 +484,7 @@ const partnerOptions = useMemo(() => {
         </CardFooter>
       </Card>
     </FormProvider>
-  )
+  );
 });
 AddCompanyToSegmentForm.displayName = "AddCompanyToSegmentForm";
 
@@ -532,7 +513,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const { fields, append, remove, update } = useFieldArray({ control, name: "entries" as const });
     
     const partnerOptions = useMemo(() => {
-        const allRelations = [...(clients || []), ...(suppliers || [])];
+        const allRelations = [...clients, ...suppliers];
         const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
         return uniqueRelations.map(r => {
             let labelPrefix = '';
@@ -542,6 +523,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             return { value: r.id, label: `${labelPrefix}${r.name}` };
         });
     }, [clients, suppliers]);
+
+    const allCompanyOptions = useMemo(() => {
+        return clients.map(c => ({ value: c.id, label: `${c.name} (${c.code || 'N/A'})`, settings: c.segmentSettings }));
+    }, [clients]);
 
     useEffect(() => {
         if (open) {
@@ -606,7 +591,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
         setIsSaving(true);
         try {
-            const finalEntries = entriesToSave.map((entry) => ({
+            const finalEntries = entriesToSave.map((entry: any) => ({
                 ...entry,
                 companyName: entry.clientName,
                 total: entry.computed.net,
@@ -662,7 +647,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
                 <FormProvider {...periodForm}>
                     <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                        <div className="p-4 border rounded-lg bg-background/50 sticky top-0 z-10">
+                        <div className="p-4 border rounded-lg bg-background/50">
                             <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
                             <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                                 <Controller
@@ -721,6 +706,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                           ref={companyFormRef}
                           editingEntry={editingCompany}
                           onCancelEdit={() => setEditingCompany(null)}
+                          allCompanyOptions={allCompanyOptions}
                           partnerOptions={partnerOptions}
                         />
                          <Card className="border rounded-lg">
