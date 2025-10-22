@@ -232,9 +232,9 @@ ServiceLine.displayName = "ServiceLine";
 // ---------- AddCompanyToSegmentForm ----------
 
 const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
-  { onAddEntry, onUpdateEntry, editingEntry, onCancelEdit, partnerOptions }: { 
-    onAddEntry: (data: any) => void;
-    onUpdateEntry: (data: any) => void;
+  { onAdd, onUpdate, editingEntry, onCancelEdit, partnerOptions }: { 
+    onAdd: (data: any) => void;
+    onUpdate: (data: any) => void;
     editingEntry: CompanyEntryFormValues | null;
     onCancelEdit: () => void;
     partnerOptions: any[] 
@@ -245,8 +245,11 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   const { toast } = useToast();
   
   const allCompanyOptions = useMemo(() => {
-    return (navData?.clients || []).filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
-  }, [navData?.clients]);
+    return [
+      ...(navData?.clients || []).map(c => ({ value: c.id, label: `عميل: ${c.name}`, settings: c.segmentSettings })),
+      ...(navData?.suppliers || []).map(s => ({ value: s.id, label: `مورد: ${s.name}`, settings: s.segmentSettings })),
+    ]
+  }, [navData?.clients, navData?.suppliers]);
     
   const form = useForm<CompanyEntryFormValues>({
     resolver: zodResolver(companyEntrySchema),
@@ -312,9 +315,9 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
     }
     
     if (editingEntry) {
-      onUpdateEntry({ ...data, computed });
+      onUpdate({ ...data, computed });
     } else {
-      onAddEntry({ ...data, computed });
+      onAdd({ ...data, computed });
     }
   };
 
@@ -506,8 +509,8 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     useEffect(() => {
         if (open) {
-            const fromDate = existingPeriod?.fromDate ? parseISO(existingPeriod.fromDate) : undefined;
-            const toDate = existingPeriod?.toDate ? parseISO(existingPeriod.toDate) : undefined;
+            const fromDate = existingPeriod?.fromDate ? parseISO(existingPeriod.fromDate) : new Date();
+            const toDate = existingPeriod?.toDate ? parseISO(existingPeriod.toDate) : new Date();
             const currency = existingPeriod?.entries?.[0]?.currency || 'USD';
             const entries = (existingPeriod?.entries || []).map((e: any) => ({
                 ...e,
@@ -553,7 +556,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             return;
         }
 
-        const entriesToSave = periodData.entries;
+        const entriesToSave = getValues('entries');
 
         if (entriesToSave.length === 0) {
              if (existingPeriod) { // If editing and all entries are removed, delete the period
@@ -602,7 +605,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const partnerOptions = useMemo(() => {
         const allRelations = [...(clients || []), ...(suppliers || [])];
         const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-        return uniqueRelations.map(r => ({ value: r.id, label: `${r.relationType === 'supplier' ? 'مورد: ' : 'عميل: '}${r.name}` }));
+        return uniqueRelations.map(r => {
+            let labelPrefix = '';
+            if (r.relationType === 'client') labelPrefix = 'عميل: ';
+            else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
+            else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
+            return { value: r.id, label: `${labelPrefix}${r.name}` };
+        });
     }, [clients, suppliers]);
 
     const { grandTotalProfit, grandTotalAlrawdatainShare, grandTotalPartnerShare } = React.useMemo(() => {
@@ -638,7 +647,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     render={({ field }) => (
                                         <div className="space-y-1">
                                             <Label>من تاريخ</Label>
-                                            <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("justify-start text-left font-normal w-full", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "yyyy-MM-dd") : "اختر تاريخ البدء"}</Button></PopoverTrigger><PopoverContent align="start" className="p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>
+                                            <Popover>
+                                                <PopoverTrigger asChild><Button variant="outline" className={cn("justify-start text-left font-normal w-full", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "yyyy-MM-dd") : "اختر تاريخ البدء"}</Button></PopoverTrigger>
+                                                <PopoverContent align="start" className="p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                                            </Popover>
                                         </div>
                                     )}
                                 />
@@ -648,7 +660,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     render={({ field }) => (
                                         <div className="space-y-1">
                                             <Label>إلى تاريخ</Label>
-                                            <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("justify-start text-left font-normal w-full", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "yyyy-MM-dd") : "اختر تاريخ الانتهاء"}</Button></PopoverTrigger><PopoverContent align="start" className="p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>
+                                            <Popover>
+                                                <PopoverTrigger asChild><Button variant="outline" className={cn("justify-start text-left font-normal w-full", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "yyyy-MM-dd") : "اختر تاريخ الانتهاء"}</Button></PopoverTrigger>
+                                                <PopoverContent align="start" className="p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                                            </Popover>
                                         </div>
                                     )}
                                 />
@@ -671,20 +686,20 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 />
                             </form>
                         </div>
-                         <AddCompanyToSegmentForm 
-                          onAddEntry={addEntry} 
-                          ref={companyFormRef} 
-                          onUpdateEntry={(data) => {
+                        <AddCompanyToSegmentForm 
+                          onAdd={addEntry}
+                          onUpdate={(data) => {
                               if (editingCompany && 'index' in editingCompany) {
                                   update(editingCompany.index, data);
                                   setEditingCompany(null);
                               }
                           }}
+                          ref={companyFormRef}
                           editingEntry={editingCompany}
                           onCancelEdit={() => setEditingCompany(null)}
                           partnerOptions={partnerOptions}
                         />
-                        <Card className="border rounded-lg">
+                         <Card className="border rounded-lg">
                             <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
                             <CardContent className="pt-0">
                                 <div className="border rounded-lg overflow-hidden">
@@ -719,7 +734,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     </div>
                 </FormProvider>
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
-                     <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="w-full sm:w-auto">
+                    <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="w-full sm:w-auto">
                         {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                         حفظ بيانات الفترة ({fields.length} سجلات)
                     </Button>
