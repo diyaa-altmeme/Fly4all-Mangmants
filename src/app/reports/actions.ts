@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
@@ -17,12 +18,11 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     // ترتيب واستعلام التاريخ
     let query: FirebaseFirestore.Query = db.collection("journal-vouchers");
     
-    // This is less efficient but necessary for OR queries on different fields.
-    // Firestore requires an index for this. A better approach for large datasets would be a dedicated search service
-    // or restructuring data. For now, we fetch then filter.
     if (dateFrom) query = query.where("date", ">=", dateFrom.toISOString());
     if (dateTo) query = query.where("date", "<=", dateTo.toISOString());
     
+    // We cannot order by date and filter by accountId with 'in' or 'array-contains' at the same time
+    // without a composite index. So we fetch by date and filter in memory.
     query = query.orderBy("date", "asc");
 
     const snapshot = await query.get();
@@ -83,7 +83,7 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     });
 
     const filteredRows = voucherType && voucherType.length > 0
-        ? rows.filter(r => voucherType.includes(r.voucherType) || voucherType.includes(r.sourceType))
+        ? rows.filter(r => (r.voucherType && voucherType.includes(r.voucherType)) || (r.sourceType && voucherType.includes(r.sourceType)))
         : rows;
         
 
