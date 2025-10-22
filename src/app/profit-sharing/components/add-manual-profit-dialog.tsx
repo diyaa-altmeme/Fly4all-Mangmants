@@ -13,11 +13,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { type ProfitShare, saveManualProfitDistribution } from "../actions";
+import { type ProfitShare, saveManualProfitDistribution, updateManualProfitDistribution } from "../actions";
 import { Loader2, Save, Percent, Edit, PlusCircle, Trash2, CalendarIcon, Wallet, Landmark, Users, ArrowLeft, Hash, User as UserIcon } from "lucide-react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Autocomplete } from "@/components/ui/autocomplete";
@@ -28,11 +28,10 @@ import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { Currency, Client } from "@/lib/types";
+import type { Currency, Client, MonthlyProfit } from "@/lib/types";
 import { Label } from "@/components/ui/label";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useAuth } from "@/lib/auth-context";
-import { ArrowRight } from "lucide-react";
 
 const partnerSchema = z.object({
   partnerId: z.string().min(1, "اسم الشريك مطلوب."),
@@ -51,11 +50,14 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-export type PartnerShare = z.infer<typeof partnerSchema> & { amount: number };
+export type PartnerShare = z.infer<typeof partnerSchema>;
 
 interface AddManualProfitDialogProps {
   partners: { id: string; name: string; type: string }[];
   onSuccess: () => void;
+  isEditing?: boolean;
+  period?: MonthlyProfit;
+  children: React.ReactNode;
 }
 
 const AmountInput = ({ currency, ...props }: { currency: Currency } & React.ComponentProps<typeof Input>) => (
@@ -70,24 +72,17 @@ const AmountInput = ({ currency, ...props }: { currency: Currency } & React.Comp
 );
 
 
-export default function AddManualProfitDialog({ partners: partnersFromProps, onSuccess }: AddManualProfitDialogProps) {
+export default function AddManualProfitDialog({ partners: partnersFromProps, onSuccess, isEditing = false, period, children }: AddManualProfitDialogProps) {
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState(1);
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const { data: navData } = useVoucherNav();
-
 
   const [currentPartnerId, setCurrentPartnerId] = useState('');
   const [currentPercentage, setCurrentPercentage] = useState<number | string>('');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      profit: 0,
-      currency: 'USD',
-      partners: [],
-    },
   });
 
   const { control, handleSubmit, watch, setValue, formState: { isSubmitting }, trigger, reset: resetForm } = form;
@@ -110,12 +105,22 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
 
   useEffect(() => {
     if (open) {
-      resetForm({ profit: 0, currency: 'USD', partners: [] });
+      if (isEditing && period) {
+        resetForm({
+          fromDate: period.fromDate ? parseISO(period.fromDate) : new Date(),
+          toDate: period.toDate ? parseISO(period.toDate) : new Date(),
+          profit: period.totalProfit,
+          currency: period.currency || 'USD',
+          sourceAccountId: period.sourceAccountId || '',
+          partners: (period.partners || []).filter(p => p.partnerId !== 'alrawdatain_share').map(p => ({ partnerId: p.partnerId, partnerName: p.partnerName, percentage: p.percentage, amount: p.amount })),
+        });
+      } else {
+        resetForm({ profit: 0, currency: 'USD', partners: [] });
+      }
       setCurrentPartnerId('');
       setCurrentPercentage('');
-      setStep(1);
     }
-  }, [open, resetForm]);
+  }, [open, isEditing, period, resetForm]);
   
    const boxName = useMemo(() => {
     if (!currentUser || !('boxId' in currentUser)) return 'غير محدد';
@@ -139,22 +144,15 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
     
     if (remainingPercentage > 0) {
         calculatedPartners.push({
-            id: 'alrawdatain_share',
-            name: 'حصة الروضتين',
-            percentage: remainingPercentage,
-            amount: ((Number(watchedProfit) || 0) * remainingPercentage) / 100,
             partnerId: 'alrawdatain_share',
             partnerName: 'حصة الروضتين',
+            percentage: remainingPercentage,
+            amount: ((Number(watchedProfit) || 0) * remainingPercentage) / 100,
         });
     }
 
     return calculatedPartners;
   }, [watchedPartners, watchedProfit, remainingPercentage, partnersFromProps]);
-
-  const goToNextStep = async () => {
-    const isValid = await trigger(['fromDate', 'toDate', 'profit', 'currency', 'sourceAccountId']);
-    if (isValid) setStep(2);
-  };
   
   const handleSave = async (data: FormValues) => {
     if (totalPartnerPercentage > 100) {
@@ -169,16 +167,16 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
         profit: data.profit,
         currency: data.currency,
         partners: distribution.map(({ partnerId, partnerName, percentage, amount }) => ({ 
-            partnerId: partnerId, 
+            partnerId, 
             partnerName, 
             percentage, 
             amount 
         })),
     };
     
-    const result = await saveManualProfitDistribution(payload as any);
+    const result = isEditing && period ? await updateManualProfitDistribution(period.id, payload as any) : await saveManualProfitDistribution(payload as any);
     if (result.success) {
-        toast({ title: "تم حفظ توزيع الأرباح بنجاح" });
+        toast({ title: `تم ${isEditing ? 'تحديث' : 'حفظ'} توزيع الأرباح بنجاح` });
         resetForm();
         onSuccess();
         setOpen(false);
@@ -216,24 +214,18 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="secondary">
-          <Edit className="me-2 h-4 w-4"/>
-          إدخال أرباح فترة يدوية
-        </Button>
-      </DialogTrigger>
+      <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>إدخال توزيع أرباح يدوي</DialogTitle>
+          <DialogTitle>{isEditing ? 'تعديل فترة توزيع أرباح' : 'إضافة توزيع أرباح يدوي'}</DialogTitle>
           <DialogDescription>
-             {step === 1 ? "الخطوة 1: أدخل تفاصيل الفترة وصافي الربح ومصدره." : "الخطوة 2: وزع الحصص على الشركاء. النظام سيحسب المبالغ تلقائيًا."}
+             أدخل تفاصيل الفترة وصافي الربح ثم وزع الحصص على الشركاء.
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
             <form onSubmit={handleSubmit(handleSave)} className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-              {step === 1 && (
-                  <div className="p-4 border rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 border rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem> )}/>
                     <FormField control={control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "yyyy-MM-dd") : <span>اختر تاريخاً</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem> )}/>
                     <FormField control={control} name="profit" render={({ field }) => ( <FormItem><FormLabel>صافي الربح للفترة</FormLabel><FormControl><AmountInput currency={watchedCurrency} {...field} /></FormControl><FormMessage /></FormItem> )}/>
@@ -253,87 +245,79 @@ export default function AddManualProfitDialog({ partners: partnersFromProps, onS
                      <div className="md:col-span-2">
                        <FormField control={control} name="sourceAccountId" render={({ field }) => ( <FormItem><FormLabel>مصدر الأرباح</FormLabel><FormControl><Autocomplete options={allAccountsOptions} value={field.value} onValueChange={field.onChange} placeholder="اختر حساب المصدر..."/></FormControl><FormMessage /></FormItem> )}/>
                     </div>
-                  </div>
-              )}
-              {step === 2 && (
-                  <>
-                      <div className="p-4 border rounded-lg">
-                          <h3 className="font-semibold text-lg mb-2">إضافة شريك وتحديد حصته</h3>
-                          <div className="flex items-end gap-2 mb-2 p-2 rounded-lg bg-muted/50">
-                                <div className="flex-grow space-y-1.5">
-                                    <Label>الشريك</Label>
-                                    <Autocomplete options={allAccountsOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريكًا..."/>
-                                </div>
-                                <div className="w-40 space-y-1.5">
-                                    <Label>النسبة</Label>
-                                    <div className="relative">
-                                        <Input type="text" inputMode="decimal" value={currentPercentage} onChange={(e) => setCurrentPercentage(e.target.value)} placeholder="0.00" className="pe-7"/>
-                                        <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                </div>
-                                <Button type="button" size="icon" className="shrink-0" onClick={onAddPartner} disabled={totalPartnerPercentage >= 100}>
-                                    <PlusCircle className="h-5 w-5"/>
-                                </Button>
-                          </div>
-                          {totalPartnerPercentage > 100 && (
-                            <p className="text-sm text-center text-destructive font-semibold">مجموع النسب يتجاوز 100%.</p>
-                          )}
-                      </div>
+                </div>
 
-                      <div className="p-4 border rounded-lg">
-                          <h3 className="font-semibold text-lg mb-2">ملخص التوزيع</h3>
-                          <Table>
-                              <TableHeader>
-                                  <TableRow>
-                                      <TableHead><Users className="inline-block me-2 h-4 w-4"/>الشريك</TableHead>
-                                      <TableHead className="text-center"><Percent className="inline-block me-2 h-4 w-4"/>النسبة</TableHead>
-                                      <TableHead className="text-right"><Wallet className="inline-block me-2 h-4 w-4"/>المبلغ</TableHead>
-                                      <TableHead className="w-12 text-center">حذف</TableHead>
-                                  </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                  {distribution.map((d, index) => (
-                                      <TableRow key={`${d.partnerId}-${index}`} className={d.partnerId === 'alrawdatain_share' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
-                                          <TableCell className="font-semibold flex items-center gap-2">
-                                              {d.partnerId === 'alrawdatain_share' && <Landmark className="h-4 w-4 text-green-600"/>}
-                                              {d.partnerName}
-                                          </TableCell>
-                                          <TableCell className="text-center font-mono">{Number(d.percentage).toFixed(2)}%</TableCell>
-                                          <TableCell className="text-right font-mono font-bold">{d.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {watchedCurrency}</TableCell>
-                                           <TableCell className="text-center">
-                                            {d.partnerId !== 'alrawdatain_share' && (
-                                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(fields.findIndex(f => f.partnerId === d.partnerId))}>
-                                                  <Trash2 className="h-4 w-4" />
-                                              </Button>
-                                            )}
-                                          </TableCell>
-                                      </TableRow>
-                                  ))}
-                              </TableBody>
-                          </Table>
-                      </div>
-                  </>
-              )}
+                <div className="p-4 border rounded-lg">
+                    <h3 className="font-semibold text-lg mb-2">إضافة شريك وتحديد حصته</h3>
+                    <div className="flex items-end gap-2 mb-2 p-2 rounded-lg bg-muted/50">
+                        <div className="flex-grow space-y-1.5">
+                            <Label>الشريك</Label>
+                            <Autocomplete options={allAccountsOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريكًا..."/>
+                        </div>
+                        <div className="w-40 space-y-1.5">
+                            <Label>النسبة</Label>
+                            <div className="relative">
+                                <Input type="text" inputMode="decimal" value={currentPercentage} onChange={(e) => setCurrentPercentage(e.target.value)} placeholder="0.00" className="pe-7"/>
+                                <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            </div>
+                        </div>
+                        <Button type="button" size="icon" className="shrink-0" onClick={onAddPartner} disabled={totalPartnerPercentage >= 100}>
+                            <PlusCircle className="h-5 w-5"/>
+                        </Button>
+                    </div>
+                    {totalPartnerPercentage > 100 && (
+                    <p className="text-sm text-center text-destructive font-semibold">مجموع النسب يتجاوز 100%.</p>
+                    )}
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                    <h3 className="font-semibold text-lg mb-2">ملخص التوزيع</h3>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead><Users className="inline-block me-2 h-4 w-4"/>الشريك</TableHead>
+                                <TableHead className="text-center"><Percent className="inline-block me-2 h-4 w-4"/>النسبة</TableHead>
+                                <TableHead className="text-right"><Wallet className="inline-block me-2 h-4 w-4"/>المبلغ</TableHead>
+                                <TableHead className="w-12 text-center">حذف</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {distribution.map((d, index) => (
+                                <TableRow key={`${d.partnerId}-${index}`} className={d.partnerId === 'alrawdatain_share' ? 'bg-green-50 dark:bg-green-900/20' : ''}>
+                                    <TableCell className="font-semibold flex items-center gap-2">
+                                        {d.partnerId === 'alrawdatain_share' && <Landmark className="h-4 w-4 text-green-600"/>}
+                                        {d.partnerName}
+                                    </TableCell>
+                                    <TableCell className="text-center font-mono">{Number(d.percentage).toFixed(2)}%</TableCell>
+                                    <TableCell className="text-right font-mono font-bold">{d.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {watchedCurrency}</TableCell>
+                                    <TableCell className="text-center">
+                                    {d.partnerId !== 'alrawdatain_share' && (
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => remove(fields.findIndex(f => f.partnerId === d.partnerId))}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    )}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             </form>
         </Form>
         <DialogFooter className="pt-4 border-t">
-          {step === 1 && <div className="flex justify-end w-full"><Button onClick={goToNextStep}>التالي<ArrowLeft className="me-2 h-4 w-4" /></Button></div>}
-          {step === 2 && (
-              <div className="flex justify-between w-full">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4"/> <span>{currentUser?.name || '...'}</span></div>
-                    <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>{boxName}</span></div>
-                    <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                      <Button variant="outline" onClick={() => setStep(1)}><ArrowRight className="me-2 h-4 w-4"/> رجوع</Button>
-                      <Button onClick={handleSubmit(handleSave)} disabled={isSubmitting}>
-                          {isSubmitting && <Loader2 className="me-2 h-4 w-4 animate-spin"/>}
-                          حفظ بيانات الفترة
-                      </Button>
-                  </div>
-              </div>
-          )}
+            <div className="flex justify-between w-full">
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4"/> <span>{currentUser?.name || '...'}</span></div>
+                <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>{boxName}</span></div>
+                <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button onClick={handleSubmit(handleSave)} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="me-2 h-4 w-4 animate-spin"/>}
+                        {isEditing ? 'حفظ التعديلات' : 'حفظ بيانات الفترة'}
+                    </Button>
+                </div>
+            </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
