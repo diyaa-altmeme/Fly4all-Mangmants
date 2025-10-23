@@ -25,9 +25,12 @@ import {
 import EditVoucherHandler from "./edit-voucher-handler";
 import { mapVoucherLabel } from "@/lib/accounting/labels";
 
-const formatCurrency = (amount: number) => {
+const formatCurrency = (amount: number, currency: 'USD' | 'IQD') => {
   if (Math.abs(amount) < 0.01) return `0.00`;
-  const formattedAmount = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(amount));
+  const options = currency === 'IQD' 
+    ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } 
+    : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  const formattedAmount = new Intl.NumberFormat('en-US', options).format(Math.abs(amount));
   if (amount < 0) {
       return `(${formattedAmount})`;
   }
@@ -63,7 +66,8 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
     const [isEditOpen, setIsEditOpen] = React.useState(false);
 
     const handleDelete = async () => {
-        const result = await deleteVoucher(transaction.id);
+        // This needs to be adapted for the new voucher structure if ID is not the voucher ID
+        const result = await deleteVoucher(transaction.id.split('_')[0]);
         if (result.success) {
             toast({ title: 'تم حذف السند بنجاح' });
             onRefresh();
@@ -80,8 +84,8 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
 
     return (
         <>
-            <tr className="text-sm text-center font-medium">
-                <td className="p-2 font-mono">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd') : '-'}</td>
+            <tr className="text-sm text-center font-medium hover:bg-muted/50">
+                <td className="p-2 font-mono text-xs">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd HH:mm') : '-'}</td>
                 <td className="p-2">{transaction.invoiceNumber}</td>
                 <td className="p-2"><Badge variant="outline">{label}</Badge></td>
                 <td className="p-2 text-right text-xs">
@@ -90,12 +94,12 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                 <td className="p-2 text-xs text-right">
                     {transaction.notes}
                 </td>
-                <td className="p-2 font-mono font-bold text-red-600 text-center">{transaction.debit > 0 ? formatCurrency(transaction.debit) : '-'}</td>
-                <td className="p-2 font-mono font-bold text-green-600 text-center">{transaction.credit > 0 ? formatCurrency(transaction.credit) : '-'}</td>
-                <td className="p-2 font-mono text-center">
-                    <Badge variant={transaction.currency === 'USD' ? 'default' : 'secondary'} className={cn(transaction.currency === 'USD' && 'bg-accent text-accent-foreground')}>{transaction.currency}</Badge>
-                </td>
-                <td className={cn("p-2 font-mono font-bold text-center", transaction.balance < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balance)}</td>
+                <td className="p-2 font-mono font-bold text-red-600 text-center">{transaction.currency === 'USD' ? formatCurrency(transaction.debit, 'USD') : '-'}</td>
+                <td className="p-2 font-mono font-bold text-green-600 text-center">{transaction.currency === 'USD' ? formatCurrency(transaction.credit, 'USD') : '-'}</td>
+                <td className={cn("p-2 font-mono font-bold text-center", transaction.balanceUSD < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balanceUSD, 'USD')}</td>
+                <td className="p-2 font-mono font-bold text-red-600 text-center">{transaction.currency === 'IQD' ? formatCurrency(transaction.debit, 'IQD') : '-'}</td>
+                <td className="p-2 font-mono font-bold text-green-600 text-center">{transaction.currency === 'IQD' ? formatCurrency(transaction.credit, 'IQD') : '-'}</td>
+                <td className={cn("p-2 font-mono font-bold text-center", transaction.balanceIQD < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balanceIQD, 'IQD')}</td>
                 <td className="p-2 text-xs text-center">{transaction.officer}</td>
                 <td className="p-2 text-center">
                     <div className="flex items-center gap-1 justify-center">
@@ -134,22 +138,23 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
     );
 };
 
-
 export default function ReportTable({ transactions, onRefresh }: { transactions: ReportTransaction[], onRefresh: () => void }) {
     
     return (
-        <Table>
+        <Table className="w-full text-xs">
             <TableHeader>
-                <TableRow>
-                    <TableHead className="p-2 font-bold text-center">التاريخ</TableHead>
+                <TableRow className="bg-muted/80">
+                    <TableHead className="p-2 font-bold text-center w-32">التاريخ</TableHead>
                     <TableHead className="p-2 font-bold text-center">رقم الفاتورة</TableHead>
                     <TableHead className="p-2 font-bold text-center">النوع</TableHead>
-                    <TableHead className="p-2 text-right font-bold w-[30%]">البيان</TableHead>
+                    <TableHead className="p-2 text-right font-bold w-[25%]">البيان</TableHead>
                     <TableHead className="p-2 text-right font-bold w-[15%]">ملاحظات</TableHead>
-                    <TableHead className="p-2 text-center font-bold">مدين</TableHead>
-                    <TableHead className="p-2 text-center font-bold">دائن</TableHead>
-                    <TableHead className="p-2 text-center font-bold">العملة</TableHead>
-                    <TableHead className="p-2 text-center font-bold">الرصيد</TableHead>
+                    <TableHead className="p-2 text-center font-bold text-red-700 bg-red-100/50">مدين (USD)</TableHead>
+                    <TableHead className="p-2 text-center font-bold text-green-700 bg-green-100/50">دائن (USD)</TableHead>
+                    <TableHead className="p-2 text-center font-bold bg-blue-100/50">الرصيد (USD)</TableHead>
+                    <TableHead className="p-2 text-center font-bold text-red-700 bg-red-100/50">مدين (IQD)</TableHead>
+                    <TableHead className="p-2 text-center font-bold text-green-700 bg-green-100/50">دائن (IQD)</TableHead>
+                    <TableHead className="p-2 text-center font-bold bg-blue-100/50">الرصيد (IQD)</TableHead>
                     <TableHead className="p-2 font-bold text-center">الموظف</TableHead>
                     <TableHead className="p-2 font-bold text-center">الإجراءات</TableHead>
                 </TableRow>
@@ -165,7 +170,7 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={11} className="h-48 text-center text-gray-500">
+                  <TableCell colSpan={13} className="h-48 text-center text-gray-500">
                     لا توجد بيانات متاحة لعرضها
                   </TableCell>
                 </TableRow>

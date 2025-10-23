@@ -9,7 +9,7 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
 import { FieldValue } from 'firebase-admin/firestore';
-import { postJournal } from '@/lib/finance/posting';
+import { postJournalEntry } from '@/lib/finance/postJournal';
 
 
 export async function getSegments(includeDeleted = false): Promise<SegmentEntry[]> {
@@ -66,13 +66,14 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
 
             newEntries.push({ ...dataWithUser, id: segmentDocRef.id });
 
-            await postJournal({
-                category: "segments",
-                amount: entryData.total,
-                date: entryDate,
-                description: `إيراد سكمنت من ${entryData.companyName} للفترة من ${entryData.fromDate} إلى ${entryData.toDate}`,
+            await postJournalEntry({
                 sourceType: "segment",
                 sourceId: segmentDocRef.id,
+                description: `إيراد سكمنت من ${entryData.companyName} للفترة من ${entryData.fromDate} إلى ${entryData.toDate}`,
+                amount: entryData.total,
+                currency: entryData.currency,
+                date: entryDate,
+                userId: user.uid,
             });
 
             // Increment use count for the client
@@ -159,7 +160,7 @@ export async function deleteSegmentPeriod(fromDate: string, toDate: string, perm
         await batch.commit();
         
         revalidatePath('/segments');
-        revalidatePath('/segments/deleted-segments');
+        revalidatePath('segments/deleted-segments');
         revalidatePath('/reports/account-statement');
         return { success: true, count: snapshot.size };
     } catch (error: any) {
@@ -205,7 +206,7 @@ export async function restoreSegmentPeriod(fromDate: string, toDate: string): Pr
         await batch.commit();
         
         revalidatePath('/segments');
-        revalidatePath('/segments/deleted-segments');
+        revalidatePath('segments/deleted-segments');
         revalidatePath('/reports/account-statement');
         return { success: true, count: snapshot.size };
     } catch (error: any) {

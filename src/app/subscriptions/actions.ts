@@ -12,7 +12,7 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { cache } from 'react';
-import { postJournal } from '@/lib/finance/posting';
+import { postJournalEntry } from '@/lib/finance/postJournal';
 
 const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
@@ -176,13 +176,14 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             batch.set(installmentRef, instData);
         });
 
-        await postJournal({
-            category: 'subscriptions',
-            amount: totalSale,
-            date: new Date(finalSubscriptionData.purchaseDate),
-            description: `إيراد اشتراك خدمة ${finalSubscriptionData.serviceName}`,
+        await postJournalEntry({
             sourceType: 'subscription',
             sourceId: subscriptionRef.id,
+            description: `إيراد اشتراك خدمة ${finalSubscriptionData.serviceName}`,
+            amount: totalSale,
+            currency: finalSubscriptionData.currency,
+            date: new Date(finalSubscriptionData.purchaseDate),
+            userId: user.uid,
         });
         
         batch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });

@@ -5,7 +5,7 @@ import { getDb } from "@/lib/firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
 import type { JournalVoucher } from "@/lib/types";
 
-// 🔹 جلب كشف الحساب مع معالجة الحقول الجديدة
+// 🔹 جلب كشف الحساب مع معالجة الحقول الجديدة وحساب أرصدة منفصلة لكل عملة
 export async function getAccountStatement(filters: { accountId: string; dateFrom?: Date; dateTo?: Date; voucherType?: string[] }) {
   const db = await getDb();
   if (!db) {
@@ -21,8 +21,6 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     if (dateFrom) query = query.where("date", ">=", dateFrom.toISOString());
     if (dateTo) query = query.where("date", "<=", dateTo.toISOString());
     
-    // We cannot order by date and filter by accountId with 'in' or 'array-contains' at the same time
-    // without a composite index. So we fetch by date and filter in memory.
     query = query.orderBy("date", "asc");
 
     const snapshot = await query.get();
@@ -50,7 +48,8 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                 description: entry.description || v.notes || v.originalData?.details || v.originalData?.description || "",
                 debit: Number(entry.amount) || 0,
                 credit: 0,
-                balance: 0, 
+                balanceUSD: 0, 
+                balanceIQD: 0,
                 currency: v.currency || 'USD',
                 officer: v.officer || '',
                 voucherType: v.voucherType,
@@ -70,7 +69,8 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                 description: entry.description || v.notes || v.originalData?.details || v.originalData?.description || "",
                 debit: 0,
                 credit: Number(entry.amount) || 0,
-                balance: 0,
+                balanceUSD: 0,
+                balanceIQD: 0,
                 currency: v.currency || 'USD',
                 officer: v.officer || '',
                 voucherType: v.voucherType,
@@ -87,12 +87,17 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
         : rows;
         
 
-    let balance = 0;
+    let balanceUSD = 0;
+    let balanceIQD = 0;
     const result = filteredRows
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((r: any) => {
-            balance += (r.debit || 0) - (r.credit || 0);
-            return { ...r, balance };
+            if (r.currency === 'USD') {
+                balanceUSD += (r.debit || 0) - (r.credit || 0);
+            } else if (r.currency === 'IQD') {
+                balanceIQD += (r.debit || 0) - (r.credit || 0);
+            }
+            return { ...r, balanceUSD, balanceIQD };
         });
 
     return result;

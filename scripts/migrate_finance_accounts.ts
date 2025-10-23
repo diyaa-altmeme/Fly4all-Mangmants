@@ -1,92 +1,82 @@
-import { getDb } from "../src/lib/firebase-admin";
-import { getSettings, updateSettings } from "../src/app/settings/actions";
 
-export async function migrateFinanceAccounts() {
-  const db = getDb();
-  const settings = await getSettings();
-  const finance = settings?.financeAccounts || {};
+/**
+ * سكربت ترحيل العمليات القديمة إلى النظام المالي الجديد
+ * ----------------------------------------------
+ * الغرض: إنشاء قيود محاسبية صحيحة لكل عملية تمت سابقًا
+ *         بناءً على الإعدادات الموجودة في مركز التحكم المالي
+ */
 
-  const accounts: { [key: string]: string | undefined } = {
-    receivableAccountId: "1200",
-    payableAccountId: "2100",
-    revenueAccountId: "4000",
-    expenseAccountId: "5000",
-    cashAccountId: "1000",
-    bankAccountId: "1100",
-  };
+import { getDb } from "@/lib/firebase-admin";
+import { postJournalEntry } from "@/lib/finance/postJournal";
 
-  // إنشاء الحسابات المفقودة تلقائيًا
-  for (const [key, code] of Object.entries(accounts)) {
-    if (!code) continue;
-    const snapshot = await db.collection("accounts").where("code", "==", code).get();
-    if (snapshot.empty) {
-      const docRef = await db.collection("accounts").add({
-        code,
-        name: key.replace("AccountId", ""),
-        type: key.includes("revenue") ? "income" : key.includes("expense") ? "expense" : "asset",
-      });
-      accounts[key] = docRef.id;
-    } else {
-      accounts[key] = snapshot.docs[0].id;
+async function migrateFinanceAccounts() {
+  const db = await getDb();
+
+  console.log("🔄 بدء عملية الترحيل المالي...");
+
+  // 1️⃣ جلب إعدادات مركز التحكم المالي
+  const settingsDoc = await db.collection("settings").doc("app").get();
+  if (!settingsDoc.exists) throw new Error("❌ لم يتم العثور على وثيقة الإعدادات المالية!");
+
+  const settings = settingsDoc.data()?.financeAccountsSettings;
+  if (!settings) throw new Error("❌ إعدادات الحسابات المالية غير موجودة في الوثيقة!");
+
+  const preventDirectCash = settings.preventDirectCashProfit ?? false;
+
+  // 2️⃣ تعريف أنواع العمليات التي سيتم ترحيلها
+  const collectionsToMigrate = [
+    { name: "bookings", type: "booking" },
+    { name: "visas", type: "visa" },
+    { name: "subscriptions", type: "subscription" },
+    { name: "segments", type: "segment" },
+    { name: "expenses", type: "manualExpense" },
+  ];
+
+  let totalPosted = 0;
+
+  // 3️⃣ المرور على كل مجموعة بيانات وترحيلها
+  for (const col of collectionsToMigrate) {
+    const snapshot = await db.collection(col.name).get();
+    console.log(`🧾 معالجة ${snapshot.size} من ${col.name}`);
+
+    for (const doc of snapshot.docs) {
+      const data = doc.data();
+
+      // تحديد الحقول الضرورية
+      const amount =
+        data.totalAmount || data.amount || data.total || data.value || 0;
+      if (!amount || amount <= 0) continue;
+
+      const currency = data.currency || "USD";
+      const description = `ترحيل ${col.name} رقم ${doc.id}`;
+      const date = data.date ? new Date(data.date) : new Date();
+      const userId = data.createdBy || "migration-script";
+
+      try {
+        await postJournalEntry({
+          sourceType: col.type,
+          sourceId: doc.id,
+          description,
+          amount,
+          currency,
+          date,
+          userId,
+        });
+
+        totalPosted++;
+      } catch (err: any) {
+        console.error(`❌ فشل ترحيل ${col.name} (${doc.id}):`, err.message);
+      }
     }
   }
 
-  // تحديث الإعدادات الجديدة
-  await updateSettings({
-    ...settings,
-    financeAccounts: {
-      ...finance,
-      ...accounts,
-      revenueMap: {
-        tickets: accounts.revenueAccountId,
-        hotels: accounts.revenueAccountId,
-        visas: accounts.revenueAccountId,
-        subscriptions: accounts.revenueAccountId,
-      },
-      blockDirectCashRevenue: true,
-    } as any,
+  console.log(`✅ تمت عملية الترحيل بنجاح، تم إنشاء ${totalPosted} قيدًا محاسبيًا.`);
+}
+
+// تنفيذ السكربت
+migrateFinanceAccounts()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error("❌ خطأ أثناء تنفيذ سكربت الترحيل:", err);
+    process.exit(1);
   });
-
-  console.log("✅ تمت عملية التهيئة والترحيل بنجاح.");
-}
-
-async function migrateJournalVouchers() {
-  const db = getDb();
-  const vouchers = await db.collection("journal-vouchers").get();
-  const batch = db.batch();
-  let fixed = 0;
-
-  vouchers.forEach((doc) => {
-    const data = doc.data();
-    if (!data.sourceType || !data.sourceId) {
-      batch.update(doc.ref, {
-        sourceType: "legacy",
-        sourceId: doc.id,
-        sourceRoute: "/legacy",
-      });
-      fixed++;
-    }
-
-    // إصلاح القيود التي سجلت الإيراد في الصندوق مباشرة
-    if (data.creditAccountType === "cash") {
-      batch.update(doc.ref, {
-        migrationNote: "تم تعديل القيد ليطابق السياسة الجديدة - لا أرباح مباشرة للصندوق",
-      });
-      fixed++;
-    }
-  });
-
-  await batch.commit();
-  console.log(`تمت معالجة ${fixed} سجل بنجاح ✅`);
-}
-
-async function main() {
-    console.log("Starting financial accounts migration...");
-    await migrateFinanceAccounts();
-    console.log("Financial accounts migration completed.");
-    console.log("Starting journal voucher migration...");
-    await migrateJournalVouchers();
-    console.log("Journal voucher migration completed.");
-}
-
-main().catch(console.error);

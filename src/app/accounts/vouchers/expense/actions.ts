@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { getNextVoucherNumber } from "@/lib/sequences";
 import { FieldValue } from "firebase-admin/firestore";
 import { createAuditLog } from "@/app/system/activity-log/actions";
+import { postJournalEntry } from "@/lib/finance/postJournal";
 
 interface ExpenseVoucherData {
     date: string;
@@ -29,58 +30,36 @@ export async function createExpenseVoucher(data: ExpenseVoucherData) {
     if (!db) {
         return { success: false, error: "Database not available." };
     }
-    const batch = db.batch();
 
     try {
-        const journalVoucherRef = db.collection("journal-vouchers").doc();
-        const invoiceNumber = await getNextVoucherNumber('EX');
-
-        batch.set(journalVoucherRef, {
-            invoiceNumber,
-            date: data.date,
+        const voucherId = await postJournalEntry({
+            sourceType: "manualExpense",
+            sourceId: `expense-${Date.now()}`,
+            description: `مصروف ${data.expenseType}: ${data.notes || ''}`.trim(),
+            amount: data.amount,
             currency: data.currency,
-            exchangeRate: data.exchangeRate || null,
-            notes: data.notes || '',
-            createdBy: user.uid,
-            officer: user.name,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            voucherType: "journal_from_expense",
-            debitEntries: [{
-                accountId: `expense_${data.expenseType}`, // This should map to a real account in chart of accounts
-                amount: data.amount,
-                description: `مصروف ${data.expenseType}`
-            }],
-            creditEntries: [{
-                accountId: data.boxId,
-                amount: data.amount,
-                description: `دفع مصروف ${data.expenseType}`
-            }],
-            isAudited: false,
-            isConfirmed: false,
-            originalData: data,
+            date: new Date(data.date),
+            userId: user.uid,
+            // Override default accounts
+            debitAccountId: `expense_${data.expenseType}`, // Specific expense account
+            creditAccountId: data.boxId, // Fund/box it was paid from
         });
-
-        batch.update(db.collection('boxes').doc(data.boxId), { useCount: FieldValue.increment(1) });
-        
-        await batch.commit();
 
         await createAuditLog({
             userId: user.uid,
             userName: user.name,
             action: 'CREATE',
             targetType: 'VOUCHER',
-            description: `أنشأ سند مصاريف برقم ${invoiceNumber} بمبلغ ${data.amount} ${data.currency}.`,
+            description: `أنشأ سند مصاريف بمبلغ ${data.amount} ${data.currency}.`,
+            targetId: voucherId
         });
 
         revalidatePath("/accounts/vouchers/list");
         revalidatePath("/reports/account-statement");
 
-        return { success: true };
+        return { success: true, voucherId };
     } catch (error: any) {
         console.error("Error creating expense voucher: ", String(error));
         return { success: false, error: error.message };
     }
 }
-
-    
