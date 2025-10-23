@@ -1,10 +1,9 @@
 
-
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
 import { Timestamp, FieldPath } from "firebase-admin/firestore";
-import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription } from '@/lib/types';
+import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription, ReportInfo, Currency } from '@/lib/types';
 import { getClients } from '@/app/relations/actions';
 import { parseISO } from "date-fns";
 
@@ -19,11 +18,6 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
 
   try {
     let rows: any[] = [];
-    
-    // The journal-vouchers collection is now the single source of truth.
-    // We can't query for array-contains on two different fields. 
-    // We need to fetch all and filter in memory, or do two separate queries and merge.
-    // Let's do two queries for performance.
     
     let debitQuery: FirebaseFirestore.Query = db.collection("journal-vouchers")
       .where('debitEntries', 'array-contains', { accountId });
@@ -109,8 +103,16 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     return result;
   } catch (err: any) {
     console.error('❌ Error loading account statement:', err);
-    if (err.code === 9) { // FAILED_PRECONDITION, often indicates missing index
-         throw new Error(`فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore. يرجى مراجعة سجلات الخادم لإنشاء الفهرس المطلوب.`);
+    if (err.code === 9 || (err.message && err.message.includes('requires an index'))) { 
+      const urlMatch = err.message.match(/(https?:\/\/[^\s]+)/);
+      const indexUrl = urlMatch ? urlMatch[0] : null;
+      let userMessage = `فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore.`;
+      if (indexUrl) {
+        userMessage += `\n\nيمكنك إنشاؤه عبر الرابط التالي:\n${indexUrl}`;
+      } else {
+        userMessage += `\nيرجى مراجعة سجلات الخادم لإنشاء الفهرس المطلوب.`;
+      }
+      throw new Error(userMessage);
     }
     throw new Error(`فشل تحميل كشف الحساب: ${err.message}`);
   }
