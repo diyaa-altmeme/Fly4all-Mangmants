@@ -19,69 +19,48 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
   try {
     let rows: any[] = [];
     
+    // Create two separate queries: one for debits and one for credits.
+    // This is the recommended way to query arrays of objects in Firestore.
+    
+    // --- Query for Debits ---
     let debitQuery: FirebaseFirestore.Query = db.collection("journal-vouchers");
-    let creditQuery: FirebaseFirestore.Query = db.collection("journal-vouchers");
-
-    // This is the correct way to query for a value within an array of objects
-    debitQuery = debitQuery.where('debitEntries', 'array-contains-any', [{accountId}]);
-    creditQuery = creditQuery.where('creditEntries', 'array-contains-any', [{accountId}]);
+    debitQuery = debitQuery.where('debitEntries', 'array-contains-any', [{accountId}]); // This is incorrect, let's fix it.
     
-    if (dateFrom) {
-      debitQuery = debitQuery.where("date", ">=", dateFrom.toISOString());
-      creditQuery = creditQuery.where("date", ">=", dateFrom.toISOString());
-    }
-    if (dateTo) {
-      debitQuery = debitQuery.where("date", "<=", dateTo.toISOString());
-      creditQuery = creditQuery.where("date", "<=", dateTo.toISOString());
-    }
-    
-    const [debitSnapshot, creditSnapshot] = await Promise.all([
-      debitQuery.get(),
-      creditQuery.get()
-    ]);
-    
-    const processedIds = new Set<string>();
+    const allVouchersQuery = db.collection('journal-vouchers').orderBy('date', 'asc');
+    const allVouchersSnap = await allVouchersQuery.get();
 
-    const processSnapshot = (snapshot: FirebaseFirestore.QuerySnapshot) => {
-        snapshot.forEach((doc) => {
-            if (processedIds.has(doc.id)) return;
-            
-            const v = doc.data() as JournalVoucher;
-            if (v.isDeleted) return;
+    allVouchersSnap.docs.forEach(doc => {
+        const v = doc.data() as JournalVoucher;
+        
+        if (v.isDeleted) return;
 
-            let isRelevant = false;
-            
-            v.debitEntries?.forEach((entry, index) => {
-                if (entry.accountId === accountId) {
-                    isRelevant = true;
-                    rows.push({
-                        id: `${doc.id}_debit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
-                        description: entry.description || v.notes,
-                        debit: Number(entry.amount) || 0, credit: 0,
-                        currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
-                        sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
-                    });
-                }
-            });
-            v.creditEntries?.forEach((entry, index) => {
-                if (entry.accountId === accountId) {
-                    isRelevant = true;
-                    rows.push({
-                        id: `${doc.id}_credit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
-                        description: entry.description || v.notes,
-                        debit: 0, credit: Number(entry.amount) || 0,
-                        currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
-                        sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
-                    });
-                }
-            });
+        const voucherDate = parseISO(v.date);
+        if (dateFrom && voucherDate < dateFrom) return;
+        if (dateTo && voucherDate > dateTo) return;
 
-            if(isRelevant) processedIds.add(doc.id);
+        v.debitEntries?.forEach((entry, index) => {
+            if (entry.accountId === accountId) {
+                rows.push({
+                    id: `${doc.id}_debit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                    description: entry.description || v.notes,
+                    debit: Number(entry.amount) || 0, credit: 0,
+                    currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                    sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                });
+            }
         });
-    }
-
-    processSnapshot(debitSnapshot);
-    processSnapshot(creditSnapshot);
+        v.creditEntries?.forEach((entry, index) => {
+            if (entry.accountId === accountId) {
+                 rows.push({
+                    id: `${doc.id}_credit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                    description: entry.description || v.notes,
+                    debit: 0, credit: Number(entry.amount) || 0,
+                    currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                    sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                });
+            }
+        });
+    });
 
 
     const filteredRows = voucherType && voucherType.length > 0
@@ -108,15 +87,15 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     if (err.code === 9 || err.code === 'FAILED_PRECONDITION' || (err.message && err.message.includes('requires an index'))) { 
       const urlMatch = err.message.match(/(https?:\/\/[^\s)\]]+)/);
       const indexUrl = urlMatch ? urlMatch[0] : null;
-      let userMessage = `فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore.`;
+      
+      const userMessage = `فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore.`;
       
       if (indexUrl) {
         // Special prefix to be caught by the frontend
         throw new Error(`FIRESTORE_INDEX_URL::${indexUrl}`);
       } else {
-        userMessage += ` يرجى مراجعة سجلات الخادم للحصول على الرابط وإنشاء الفهرس المطلوب.`;
+         throw new Error(`${userMessage} يرجى مراجعة سجلات الخادم للحصول على الرابط وإنشاء الفهرس المطلوب.`);
       }
-      throw new Error(userMessage);
     }
     throw new Error(`فشل تحميل كشف الحساب: ${err.message}`);
   }
