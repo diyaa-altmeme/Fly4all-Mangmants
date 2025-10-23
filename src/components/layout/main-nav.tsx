@@ -111,7 +111,7 @@ const MainNavContent = () => {
   const { hasPermission } = useAuth();
 
   const handleDataChange = () => router.refresh();
-  const getVisibleItems = (items: any[]) => items.filter(item => hasPermission(item.permission as Permission));
+  const getVisibleItems = (items: any[]) => items.filter(item => item.isSeparator || item.isLabel || item.component || (item.subItems ? getVisibleItems(item.subItems).length > 0 : false) || hasPermission(item.permission as Permission));
 
   const menuConfig = useMemo(() => {
     const allMenus = [
@@ -319,3 +319,5 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
+
+    
