@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -32,7 +31,7 @@ export default function FinanceSettingsPage() {
     if (!settings) return;
     setSaving(true);
     try {
-      await updateSettings(settings);
+      await updateSettings({ financeAccounts: settings.financeAccounts });
       toast({ title: "تم الحفظ", description: "تم تحديث الإعدادات المالية بنجاح." });
     } catch (e: any) {
       toast({ title: "خطأ", description: e.message, variant: "destructive" });
@@ -49,15 +48,14 @@ export default function FinanceSettingsPage() {
   }
 
   const finance = settings?.financeAccounts || {
-    arAccountId: "",
-    apAccountId: "",
-    defaultRevenueAccountId: "",
-    defaultExpenseAccountId: "",
-    defaultCashBoxAccountId: "",
-    defaultBankAccountId: "",
-    enforceRevenueSeparation: false,
+    receivableAccountId: "",
+    payableAccountId: "",
+    revenueAccountId: "",
+    expenseAccountId: "",
+    cashAccountId: "",
+    bankAccountId: "",
+    blockDirectCashRevenue: false,
     revenueMap: {},
-    expenseMap: {},
   };
 
   const updateFinance = (key: string, value: any) => {
@@ -68,7 +66,6 @@ export default function FinanceSettingsPage() {
   };
 
   return (
-    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -82,11 +79,11 @@ export default function FinanceSettingsPage() {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <Label>حساب الذمم المدينة (العملاء)</Label>
-              <Input value={finance.arAccountId} onChange={(e) => updateFinance("arAccountId", e.target.value)} />
+              <Input value={finance.receivableAccountId} onChange={(e) => updateFinance("receivableAccountId", e.target.value)} />
             </div>
             <div>
               <Label>حساب الذمم الدائنة (الموردين)</Label>
-              <Input value={finance.apAccountId} onChange={(e) => updateFinance("apAccountId", e.target.value)} />
+              <Input value={finance.payableAccountId} onChange={(e) => updateFinance("payableAccountId", e.target.value)} />
             </div>
           </div>
 
@@ -95,11 +92,11 @@ export default function FinanceSettingsPage() {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <Label>حساب الإيرادات العام</Label>
-              <Input value={finance.defaultRevenueAccountId} onChange={(e) => updateFinance("defaultRevenueAccountId", e.target.value)} />
+              <Input value={finance.revenueAccountId} onChange={(e) => updateFinance("revenueAccountId", e.target.value)} />
             </div>
             <div>
               <Label>حساب المصروف العام</Label>
-              <Input value={finance.defaultExpenseAccountId} onChange={(e) => updateFinance("defaultExpenseAccountId", e.target.value)} />
+              <Input value={finance.expenseAccountId} onChange={(e) => updateFinance("expenseAccountId", e.target.value)} />
             </div>
           </div>
 
@@ -108,11 +105,11 @@ export default function FinanceSettingsPage() {
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <Label>الصندوق الافتراضي</Label>
-              <Input value={finance.defaultCashBoxAccountId} onChange={(e) => updateFinance("defaultCashBoxAccountId", e.target.value)} />
+              <Input value={finance.cashAccountId} onChange={(e) => updateFinance("cashAccountId", e.target.value)} />
             </div>
             <div>
               <Label>البنك الافتراضي</Label>
-              <Input value={finance.defaultBankAccountId} onChange={(e) => updateFinance("defaultBankAccountId", e.target.value)} />
+              <Input value={finance.bankAccountId} onChange={(e) => updateFinance("bankAccountId", e.target.value)} />
             </div>
           </div>
 
@@ -120,8 +117,8 @@ export default function FinanceSettingsPage() {
 
           <div className="flex items-center gap-3">
             <Switch
-              checked={finance.enforceRevenueSeparation}
-              onCheckedChange={(v) => updateFinance("enforceRevenueSeparation", v)}
+              checked={finance.blockDirectCashRevenue}
+              onCheckedChange={(v) => updateFinance("blockDirectCashRevenue", v)}
             />
             <Label>منع تسجيل الأرباح مباشرة في الصندوق</Label>
           </div>
@@ -145,24 +142,6 @@ export default function FinanceSettingsPage() {
               ))}
             </div>
           </div>
-
-          <div>
-            <Label>خريطة المصاريف حسب نوع العملية</Label>
-            <div className="grid md:grid-cols-2 gap-3 mt-2">
-              {["tickets", "visa", "hotel", "groups", "subscriptions", "segments"].map((k) => (
-                <div key={k}>
-                  <Label>{k}</Label>
-                  <Input
-                    placeholder="Expense Account ID"
-                    value={finance.expenseMap?.[k] || ""}
-                    onChange={(e) =>
-                      updateFinance("expenseMap", { ...finance.expenseMap, [k]: e.target.value })
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
         </CardContent>
         <CardFooter className="justify-end">
           <Button onClick={handleSave} disabled={saving}>
@@ -170,6 +149,5 @@ export default function FinanceSettingsPage() {
           </Button>
         </CardFooter>
       </Card>
-    </div>
   );
 }

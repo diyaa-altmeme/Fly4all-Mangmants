@@ -1,4 +1,3 @@
-
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
@@ -641,15 +640,14 @@ export type ThemeCustomizationSettings = ThemeConfig & {
 }
 
 export interface FinanceAccountsSettings {
-  arAccountId: string;
-  apAccountId: string;
-  defaultRevenueAccountId: string;
-  defaultExpenseAccountId: string;
-  defaultCashBoxAccountId: string;
-  defaultBankAccountId?: string;
-  enforceRevenueSeparation: boolean;
+  receivableAccountId: string;
+  payableAccountId: string;
+  revenueAccountId: string;
+  expenseAccountId: string;
+  cashAccountId: string;
+  bankAccountId: string;
+  blockDirectCashRevenue: boolean;
   revenueMap: Record<string, string>;
-  expenseMap: Record<string, string>;
 }
 
 export type AppSettings = {

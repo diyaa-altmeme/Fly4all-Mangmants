@@ -1,34 +1,58 @@
-
-'use server';
-
 import { getSettings } from "@/app/settings/actions";
-import type { PostJournalInput } from "@/lib/types";
+import { getDb } from "@/lib/firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 
-export async function postJournal(input: PostJournalInput) {
+export async function postJournal({
+  category,
+  amount,
+  date,
+  description,
+  sourceType,
+  sourceId,
+  debitAccountId,
+  creditAccountId,
+}: {
+  category: string;
+  amount: number;
+  date: Date;
+  description: string;
+  sourceType: string;
+  sourceId: string;
+  debitAccountId?: string;
+  creditAccountId?: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
   const settings = await getSettings();
-  const fa = settings.financeAccounts;
-  if (!fa) throw new Error("لم يتم إعداد مركز التحكم المالي بعد.");
+  const finance = settings?.financeAccounts;
 
-  const category = input.category || "other";
-  const revenueAcc = fa.revenueMap[category] || fa.defaultRevenueAccountId;
-  const expenseAcc = fa.expenseMap[category] || fa.defaultExpenseAccountId;
+  if (!finance) throw new Error("لم يتم إعداد مركز التحكم المالي بعد.");
 
-  if (fa.enforceRevenueSeparation && input.creditAccountId === fa.defaultCashBoxAccountId) {
-    throw new Error("غير مسموح تسجيل الإيراد مباشرة في الصندوق.");
+  // تحديد حساب الإيراد حسب نوع العملية
+  const revenueAccountId = finance.revenueMap?.[category] || finance.revenueAccountId;
+
+  if (!revenueAccountId) throw new Error(`لم يتم تحديد حساب إيرادات لنوع العملية: ${category}`);
+
+  if (finance.blockDirectCashRevenue && creditAccountId === finance.cashAccountId) {
+    throw new Error("غير مسموح بتسجيل الإيراد مباشرة في الصندوق.");
   }
+  
+  // إنشاء القيد المحاسبي
+  const finalDebitAccount = debitAccountId || finance.receivableAccountId;
+  const finalCreditAccount = creditAccountId || revenueAccountId;
 
-  return {
-    date: input.date,
+  const journal = {
+    date: Timestamp.fromDate(date),
     entries: [
-      {
-        debitAccountId: input.debitAccountId || fa.arAccountId,
-        creditAccountId: input.creditAccountId || revenueAcc,
-        amount: input.amount,
-        description: input.description,
-        sourceType: input.sourceType,
-        sourceId: input.sourceId,
-        sourceRoute: input.sourceRoute,
-      },
+      { accountId: finalDebitAccount, type: "debit", amount },
+      { accountId: finalCreditAccount, type: "credit", amount },
     ],
+    description,
+    sourceType,
+    sourceId,
+    createdAt: Timestamp.now(),
   };
+
+  await db.collection("journals").add(journal);
 }
