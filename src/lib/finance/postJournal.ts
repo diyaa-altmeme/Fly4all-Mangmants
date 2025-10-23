@@ -1,4 +1,5 @@
 
+
 import { getDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getSettings } from "@/app/settings/actions";
@@ -63,7 +64,7 @@ export async function postJournalEntry({
     creditEntries: [],
     isAudited: false,
     isConfirmed: true, // Auto-confirm system entries
-    originalData: { sourceType, sourceId, amount, cost },
+    originalData: { sourceType, sourceId, amount, cost: cost || 0 }, // Ensure cost is not undefined
   };
 
   const saleAmount = amount;
@@ -119,3 +120,4 @@ export async function postJournalEntry({
   console.log(`✅ Posted journal for ${sourceType} (${sourceId}) amount: ${amount}`);
   return voucherRef.id;
 }
+
