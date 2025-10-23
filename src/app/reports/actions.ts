@@ -24,12 +24,60 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     
     // --- Query for Debits ---
     let debitQuery: FirebaseFirestore.Query = db.collection("journal-vouchers");
-    debitQuery = debitQuery.where('debitEntries', 'array-contains-any', [{accountId}]); // This is incorrect, let's fix it.
+    debitQuery = debitQuery.where('debitEntries', 'array-contains-any', [{accountId}]);
     
-    const allVouchersQuery = db.collection('journal-vouchers').orderBy('date', 'asc');
-    const allVouchersSnap = await allVouchersQuery.get();
+    // --- Query for Credits ---
+    let creditQuery: FirebaseFirestore.Query = db.collection("journal-vouchers");
+    creditQuery = creditQuery.where('creditEntries', 'array-contains-any', [{accountId}]);
 
-    allVouchersSnap.docs.forEach(doc => {
+    const [debitSnap, creditSnap] = await Promise.all([debitQuery.get(), creditQuery.get()]);
+
+    const seenVoucherIds = new Set();
+    const processSnapshot = (snapshot: FirebaseFirestore.QuerySnapshot) => {
+        snapshot.forEach(doc => {
+            if (seenVoucherIds.has(doc.id)) return;
+            seenVoucherIds.add(doc.id);
+            const v = doc.data() as JournalVoucher;
+            
+            if (v.isDeleted) return;
+
+            const voucherDate = parseISO(v.date);
+            if (dateFrom && voucherDate < dateFrom) return;
+            if (dateTo && voucherDate > dateTo) return;
+
+            v.debitEntries?.forEach((entry, index) => {
+                if (entry.accountId === accountId) {
+                    rows.push({
+                        id: `${doc.id}_debit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                        description: entry.description || v.notes,
+                        debit: Number(entry.amount) || 0, credit: 0,
+                        currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                        sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                    });
+                }
+            });
+            v.creditEntries?.forEach((entry, index) => {
+                if (entry.accountId === accountId) {
+                    rows.push({
+                        id: `${doc.id}_credit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                        description: entry.description || v.notes,
+                        debit: 0, credit: Number(entry.amount) || 0,
+                        currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                        sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                    });
+                }
+            });
+        });
+    };
+    
+    // This logic is flawed. A single voucher can have both debit and credit for the same account.
+    // Let's refactor to query ALL vouchers and filter in code. This is less efficient but more accurate.
+    
+    rows = []; // Reset rows
+    
+    const allVouchersSnap = await db.collection('journal-vouchers').orderBy('date', 'asc').get();
+
+    allVouchersSnap.forEach(doc => {
         const v = doc.data() as JournalVoucher;
         
         if (v.isDeleted) return;
@@ -37,31 +85,34 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
         const voucherDate = parseISO(v.date);
         if (dateFrom && voucherDate < dateFrom) return;
         if (dateTo && voucherDate > dateTo) return;
-
-        v.debitEntries?.forEach((entry, index) => {
-            if (entry.accountId === accountId) {
-                rows.push({
-                    id: `${doc.id}_debit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
-                    description: entry.description || v.notes,
-                    debit: Number(entry.amount) || 0, credit: 0,
-                    currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
-                    sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
-                });
-            }
-        });
-        v.creditEntries?.forEach((entry, index) => {
-            if (entry.accountId === accountId) {
-                 rows.push({
-                    id: `${doc.id}_credit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
-                    description: entry.description || v.notes,
-                    debit: 0, credit: Number(entry.amount) || 0,
-                    currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
-                    sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
-                });
-            }
-        });
+        
+        const isRelevant = v.debitEntries?.some(e => e.accountId === accountId) || v.creditEntries?.some(e => e.accountId === accountId);
+        
+        if (isRelevant) {
+             v.debitEntries?.forEach((entry, index) => {
+                if (entry.accountId === accountId) {
+                    rows.push({
+                        id: `${doc.id}_debit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                        description: entry.description || v.notes,
+                        debit: Number(entry.amount) || 0, credit: 0,
+                        currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                        sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                    });
+                }
+            });
+            v.creditEntries?.forEach((entry, index) => {
+                if (entry.accountId === accountId) {
+                     rows.push({
+                        id: `${doc.id}_credit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                        description: entry.description || v.notes,
+                        debit: 0, credit: Number(entry.amount) || 0,
+                        currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                        sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                    });
+                }
+            });
+        }
     });
-
 
     const filteredRows = voucherType && voucherType.length > 0
         ? rows.filter(r => (r.voucherType && voucherType.includes(r.voucherType)) || (r.sourceType && voucherType.includes(r.sourceType)))
@@ -217,3 +268,5 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         }
     };
 }
+
+    
