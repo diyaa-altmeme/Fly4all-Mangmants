@@ -90,13 +90,12 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
 
         await postJournalEntry({
+            category: "visas",
+            amount: totalSale,
+            date: new Date(dataToSave.submissionDate),
+            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
             sourceType: 'visa',
             sourceId: bookingRef.id,
-            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
-            amount: totalSale,
-            currency: dataToSave.currency,
-            date: new Date(dataToSave.submissionDate),
-            userId: user.uid,
         });
 
         // Increment use count for client and supplier
@@ -159,13 +158,12 @@ export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntr
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
 
         await postJournalEntry({
+            category: "visas",
+            amount: totalSale,
+            date: new Date(dataToSave.submissionDate),
+            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
             sourceType: 'visa',
             sourceId: bookingRef.id,
-            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
-            amount: totalSale,
-            currency: dataToSave.currency,
-            date: new Date(dataToSave.submissionDate),
-            userId: user.uid,
         });
 
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });
@@ -333,8 +331,10 @@ export async function permanentDeleteVisaBooking(bookingId: string): Promise<{ s
             targetType: 'BOOKING',
             description: `حذف طلب الفيزا بشكل نهائي رقم: ${bookingId}`,
         });
-
+        
         revalidatePath('/visas/deleted-visas');
+        revalidatePath('/accounts/vouchers/list');
+
         return { success: true };
     } catch (error: any) {
         console.error("Error permanently deleting visa booking: ", String(error));
