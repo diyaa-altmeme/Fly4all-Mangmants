@@ -31,7 +31,7 @@ async function migrateFinanceAccounts() {
   });
 
   await batch.commit();
-  console.log(`تمت معالجة ${fixed} سجل بنجاح ✅`);
+  console.log(`تمت معالجة ${'${fixed}'} سجل بنجاح ✅`);
 }
 
 migrateFinanceAccounts()

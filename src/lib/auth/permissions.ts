@@ -1,3 +1,4 @@
+
 import type { User, Client } from '../types';
 
 // This is the source of truth for all permissions in the system.
@@ -71,13 +72,14 @@ export const PERMISSIONS = {
     // Settings
     'settings:read': 'عرض الإعدادات',
     'settings:update': 'تعديل الإعدادات',
+    'settings:finance:manage': 'إدارة مركز التحكم المالي',
 
     // System
     'system:audit_log:read': 'عرض سجل النشاطات',
     'system:error_log:read': 'عرض سجل الأخطاء',
     'system:data_audit:run': 'تشغيل فحص البيانات',
+    'public': 'صلاحية عامة',
 };
-
 
 export const PERMISSION_MODULES = [
     {
@@ -152,6 +154,7 @@ export const PERMISSION_MODULES = [
         permissions: [
             { id: 'settings:read', name: 'عرض' },
             { id: 'settings:update', name: 'تعديل' },
+            { id: 'settings:finance:manage', name: 'إدارة التحكم المالي' },
         ]
     },
      {
@@ -176,7 +179,8 @@ export const hasPermission = (user: (User & { permissions?: string[] }) | (Clien
     if ('role' in user && user.role === 'admin') return true;
     
     if (user.permissions && Array.isArray(user.permissions)) {
-        if (user.permissions.includes('reports:read:all') && permission.startsWith('reports:')) {
+        // Grant all report permissions if 'reports:read:all' is present
+        if (permission.startsWith('reports:') && user.permissions.includes('reports:read:all')) {
             return true;
         }
         return user.permissions.includes(permission);
