@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -11,6 +10,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getSettings } from '@/app/settings/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
+import { postJournal } from '@/lib/finance/posting';
 
 export async function getVisaBookings(includeDeleted = false): Promise<VisaBookingEntry[]> {
     const settings = await getSettings();
@@ -57,12 +57,17 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
 
+    const settings = await getSettings();
+    if (settings.financeAccounts?.blockDirectCashRevenue && bookingData.boxId) {
+      throw new Error("❌ غير مسموح بتسجيل الإيرادات مباشرة في الصندوق. استخدم حساب الإيراد أولًا.");
+    }
+
     const batch = db.batch();
+    const bookingRef = db.collection('visaBookings').doc();
 
     try {
         const newInvoiceNumber = await getNextVoucherNumber('VS');
-        const bookingRef = db.collection('visaBookings').doc();
-
+        
         const dataToSave: Omit<VisaBookingEntry, 'id'> = {
             ...bookingData,
             invoiceNumber: newInvoiceNumber,
@@ -82,37 +87,15 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
         };
         batch.set(bookingRef, dataToSave);
         
-        // Create Journal Entry
-        const journalVoucherRef = db.collection('journal-vouchers').doc();
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
-        const totalPurchase = dataToSave.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
 
-        const debitEntries: JournalEntry[] = [
-            { accountId: dataToSave.clientId, amount: totalSale, description: `شراء فيزا فاتورة ${newInvoiceNumber}` },
-            { accountId: 'expense_visa', amount: totalPurchase, description: `تكلفة فيزا فاتورة ${newInvoiceNumber}` }
-        ];
-        
-        const creditEntries: JournalEntry[] = [
-             { accountId: dataToSave.supplierId, amount: totalPurchase, description: `مستحقات فيزا فاتورة ${newInvoiceNumber}` },
-             { accountId: 'revenue_visa', amount: totalSale, description: `إيراد فيزا فاتورة ${newInvoiceNumber}` }
-        ];
-
-        batch.set(journalVoucherRef, {
-            invoiceNumber: newInvoiceNumber,
-            date: dataToSave.submissionDate,
-            currency: dataToSave.currency,
-            exchangeRate: null,
-            notes: dataToSave.notes || `تسجيل طلب فيزا ${newInvoiceNumber}`,
-            createdBy: user.uid,
-            officer: user.name,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            voucherType: "visa",
-            debitEntries,
-            creditEntries,
-            isAudited: false,
-            isConfirmed: true,
-            originalData: { ...dataToSave, visaBookingId: bookingRef.id }, 
+        await postJournal({
+            category: 'visas',
+            amount: totalSale,
+            date: new Date(dataToSave.submissionDate),
+            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
+            sourceType: 'visa',
+            sourceId: bookingRef.id,
         });
 
         // Increment use count for client and supplier
@@ -152,11 +135,11 @@ export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntr
     const db = await getDb();
     if (!db) return { success: false, count: 0, error: "Database not available." };
 
-    const batch = db.batch();
     const createdBookings: VisaBookingEntry[] = [];
     const invoiceNumbers: string[] = [];
 
     for (const bookingData of bookingsData) {
+        const batch = db.batch();
         const newInvoiceNumber = await getNextVoucherNumber('VS');
         const bookingRef = db.collection('visaBookings').doc();
         
@@ -172,32 +155,15 @@ export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntr
         };
         batch.set(bookingRef, dataToSave);
 
-        const journalVoucherRef = db.collection('journal-vouchers').doc();
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
-        const totalPurchase = dataToSave.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
-        
-        const debitEntries: JournalEntry[] = [
-            { accountId: dataToSave.clientId, amount: totalSale, description: `شراء فيزا فاتورة ${newInvoiceNumber}` },
-            { accountId: 'expense_visa', amount: totalPurchase, description: `تكلفة فيزا فاتورة ${newInvoiceNumber}` }
-        ];
-        const creditEntries: JournalEntry[] = [
-             { accountId: dataToSave.supplierId, amount: totalPurchase, description: `مستحقات فيزا فاتورة ${newInvoiceNumber}` },
-             { accountId: 'revenue_visa', amount: totalSale, description: `إيراد فيزا فاتورة ${newInvoiceNumber}` }
-        ];
 
-        batch.set(journalVoucherRef, {
-            invoiceNumber: newInvoiceNumber,
-            date: dataToSave.submissionDate,
-            currency: dataToSave.currency,
-            exchangeRate: null,
-            notes: dataToSave.notes || `تسجيل طلب فيزا ${newInvoiceNumber}`,
-            createdBy: user.uid,
-            officer: user.name,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            voucherType: "visa",
-            debitEntries, creditEntries, isAudited: false, isConfirmed: true,
-            originalData: { ...dataToSave, visaBookingId: bookingRef.id }, 
+        await postJournal({
+            category: 'visas',
+            amount: totalSale,
+            date: new Date(dataToSave.submissionDate),
+            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
+            sourceType: 'visa',
+            sourceId: bookingRef.id,
         });
 
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });
@@ -208,10 +174,10 @@ export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntr
         
         createdBookings.push({ id: bookingRef.id, ...dataToSave });
         invoiceNumbers.push(newInvoiceNumber);
+        await batch.commit();
     }
 
     try {
-        await batch.commit();
 
         if (createdBookings.length > 0) {
             await createAuditLog({

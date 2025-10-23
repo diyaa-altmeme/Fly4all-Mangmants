@@ -121,16 +121,14 @@ const reportsItems = [
     { href: "/reports/debts", label: "تقرير الأرصدة", icon: Wallet, permission: 'reports:debts' },
     { href: "/reports/account-statement", label: "كشف حساب", icon: FileText, permission: 'reports:account_statement' },
     { href: "/finance/overview", label: "المالية الموحدة", icon: FileBarChart, permission: 'admin'},
-    { href: "/profits", label: "الأرباح الشهرية", icon: BarChart3, permission: 'reports:profits' },
+    { href: "/reports/profit-loss", label: "تقرير الأرباح والخسائر", icon: BarChart3, permission: 'reports:profits' },
     { href: "/reconciliation", label: "التدقيق الذكي", icon: Wand2, permission: 'admin' },
     { href: "/reports/advanced", label: "تقارير متقدمة", icon: AreaChart, permission: 'reports:read:all' },
 ];
 
 const systemItems = [
-    { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'settings:read' },
     { href: "/settings/themes", label: "المظهر", icon: Paintbrush, permission: 'settings:update' },
     { href: "/users", label: "الموظفين والصلاحيات", icon: Users, permission: 'users:read' },
-    { href: "/boxes", label: "الصناديق", icon: Boxes, permission: 'admin' },
     { href: "/templates", label: "قوالب الرسائل", icon: FileImage, permission: 'admin' },
     { href: "/system/activity-log", label: "سجل النشاطات", icon: History, permission: 'system:audit_log:read' },
     { href: "/system/error-log", label: "سجل الأخطاء", icon: FileWarning, permission: 'system:error_log:read' },
@@ -138,6 +136,13 @@ const systemItems = [
     { href: "/system/deleted-log", label: "سجل المحذوفات", icon: Trash2, permission: 'admin' },
     { href: "/support", label: "الدعم والمساعدة", icon: HelpCircle, permission: 'public' },
     { href: "/coming-soon", label: "الميزات القادمة", icon: Lightbulb, permission: 'public' },
+];
+
+const financeSettingsItems = [
+    { href: "/settings/finance", title: "مركز التحكم المالي", icon: Settings },
+    { href: "/boxes", title: "الصناديق", icon: Boxes },
+    { href: "/settings/accounting", title: "الدليل المحاسبي", icon: GitBranch },
+    { href: "/settings/invoice-sequences", title: "تسلسل الفواتير", icon: FileCog },
 ];
 
 const additionalServicesItems = [
@@ -272,7 +277,7 @@ const MainNavContent = () => {
   const getVisibleItems = (items: any[]) => items.filter(item => hasPermission(item.permission as Permission));
 
   const menuConfig = useMemo(() => {
-    const desiredOrder = ['relations', 'operations', 'vouchers', 'custom-reports', 'reports', 'additional_services', 'system'];
+    const desiredOrder = ['relations', 'operations', 'vouchers', 'custom-reports', 'reports', 'finance-settings', 'additional_services', 'system'];
     const baseConfig = [
        { id: 'relations', label: 'العلاقات', icon: Contact, activeRoutes: ['/clients', '/suppliers', '/relations'], children: (
            <>
@@ -301,10 +306,17 @@ const MainNavContent = () => {
             ))}
           </>
       )},
+       { id: 'finance-settings', label: 'الإعدادات المالية', icon: DollarSign, activeRoutes: ['/settings/finance', '/settings/accounting', '/boxes'], children: (
+            <>
+            {financeSettingsItems.map(item => (
+                <DropdownMenuItem asChild key={item.path}><Link href={item.path} className="justify-between w-full"><span>{item.title}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+            ))}
+            </>
+       )},
       { id: 'additional_services', label: 'خدمات إضافية', icon: MessageSquare, activeRoutes: ['/chat', '/campaigns'], children: getVisibleItems(additionalServicesItems).map(item => (
           <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
       ))},
-      { id: 'system', label: 'النظام', icon: Network, activeRoutes: ['/settings', '/users', '/boxes', '/coming-soon', '/hr', '/system', '/templates', '/support'], children: (
+      { id: 'system', label: 'النظام', icon: Network, activeRoutes: ['/settings', '/users', '/coming-soon', '/hr', '/system', '/templates', '/support'], children: (
            <>
                 {getVisibleItems(systemItems).map(item => (
                  <DropdownMenuItem asChild key={item.label}>
@@ -327,6 +339,7 @@ const MainNavContent = () => {
                 case 'custom-reports': items = customReportsItems; break;
                 case 'system': items = systemItems; break;
                 case 'additional_services': items = additionalServicesItems; break;
+                case 'finance-settings': items = financeSettingsItems; return true; // always show if any child is available
                 default: return false;
             }
             
@@ -363,6 +376,7 @@ const MainNavContent = () => {
           menu.id === 'reports' ? reportsItems :
           menu.id === 'custom-reports' ? customReportsItems :
           menu.id === 'system' ? systemItems :
+          menu.id === 'finance-settings' ? financeSettingsItems.map(i => ({...i, href: i.path, label: i.title})) :
           menu.id === 'additional_services' ? additionalServicesItems :
           [];
 
