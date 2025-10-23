@@ -1,5 +1,4 @@
 
-
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
@@ -167,7 +166,7 @@ export type Permission =
   | 'users:read' | 'users:create' | 'users:update' | 'users:delete' | 'users:permissions'
   | 'hr:read' | 'hr:update'
   | 'reports:read:all' | 'reports:account_statement' | 'reports:debts' | 'reports:profits' | 'reports:flight_analysis'
-  | 'settings:read' | 'settings:update'
+  | 'settings:read' | 'settings:update' | 'settings:finance:manage'
   | 'system:audit_log:read' | 'system:error_log:read' | 'system:data_audit:run'
   | 'public'; // A permission everyone has
 

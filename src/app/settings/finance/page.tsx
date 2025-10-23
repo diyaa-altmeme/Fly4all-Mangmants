@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -68,12 +68,15 @@ export default function FinanceSettingsPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-6">
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Settings className="h-5 w-5" /> مركز التحكم المالي
           </CardTitle>
+           <CardDescription>
+            هنا يمكنك تحديد الحسابات المحاسبية الافتراضية والربط بين العمليات وحساباتها المخصصة في شجرة الحسابات.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid md:grid-cols-2 gap-4">
