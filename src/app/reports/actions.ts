@@ -22,6 +22,10 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     let debitQuery: FirebaseFirestore.Query = db.collection("journal-vouchers");
     let creditQuery: FirebaseFirestore.Query = db.collection("journal-vouchers");
 
+    // This is the correct way to query for a value within an array of objects
+    debitQuery = debitQuery.where('debitEntries', 'array-contains-any', [{accountId}]);
+    creditQuery = creditQuery.where('creditEntries', 'array-contains-any', [{accountId}]);
+    
     if (dateFrom) {
       debitQuery = debitQuery.where("date", ">=", dateFrom.toISOString());
       creditQuery = creditQuery.where("date", ">=", dateFrom.toISOString());
@@ -31,12 +35,9 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
       creditQuery = creditQuery.where("date", "<=", dateTo.toISOString());
     }
     
-    debitQuery = debitQuery.where('debitEntries', 'array-contains', { accountId });
-    creditQuery = creditQuery.where('creditEntries', 'array-contains', { accountId });
-    
     const [debitSnapshot, creditSnapshot] = await Promise.all([
-      debitQuery.orderBy('date', 'asc').get(),
-      creditQuery.orderBy('date', 'asc').get()
+      debitQuery.get(),
+      creditQuery.get()
     ]);
     
     const processedIds = new Set<string>();
@@ -104,7 +105,7 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     return result;
   } catch (err: any) {
     console.error('❌ Error loading account statement:', err.message);
-    if (err.code === 9 || (err.message && err.message.includes('requires an index'))) { 
+    if (err.code === 9 || err.code === 'FAILED_PRECONDITION' || (err.message && err.message.includes('requires an index'))) { 
       const urlMatch = err.message.match(/(https?:\/\/[^\s)\]]+)/);
       const indexUrl = urlMatch ? urlMatch[0] : null;
       let userMessage = `فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore.`;
@@ -171,7 +172,7 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
     const sortedVouchers = vouchersSnap.docs.sort((a, b) => {
         const dateA = a.data().date;
         const dateB = b.data().date;
-        return new Date(dateA).getTime() - new Date(dateB).getTime();
+        return new Date(dateA).getTime() - new Date(b.date).getTime();
     });
 
     sortedVouchers.forEach(doc => {
