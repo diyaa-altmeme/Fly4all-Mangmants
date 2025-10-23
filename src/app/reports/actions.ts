@@ -105,19 +105,15 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
 
     return result;
   } catch (err: any) {
-    console.error('❌ Error loading account statement:', err);
+    console.error('❌ Error loading account statement:', err.message);
     if (err.code === 9 || (err.message && err.message.includes('requires an index'))) { 
       const urlMatch = err.message.match(/(https?:\/\/[^\s)\]]+)/);
       const indexUrl = urlMatch ? urlMatch[0] : null;
-      let userMessage = `فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore.`;
+      let userMessage = `فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore.\n\n`;
       if (indexUrl) {
-        console.log("======================================================================");
-        console.log("|| Firestore Index Required! Please create the index using this URL: ||");
-        console.log("|| " + indexUrl + " ||");
-        console.log("======================================================================");
-        userMessage += `\n\nتم طباعة رابط إنشاء الفهرس في سجلات الخادم (server logs).`;
+        userMessage += `يرجى الضغط على الرابط التالي لإنشاء الفهرس المطلوب:\n${indexUrl}`;
       } else {
-        userMessage += `\nيرجى مراجعة سجلات الخادم لإنشاء الفهرس المطلوب.`;
+        userMessage += `يرجى مراجعة سجلات الخادم لإنشاء الفهرس المطلوب.`;
       }
       throw new Error(userMessage);
     }
