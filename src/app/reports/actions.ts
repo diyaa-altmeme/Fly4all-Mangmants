@@ -4,7 +4,7 @@
 
 import { getDb } from "@/lib/firebase-admin";
 import { Timestamp, FieldPath } from "firebase-admin/firestore";
-import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription } from "@/lib/types";
+import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription } from '@/lib/types';
 import { getClients } from '@/app/relations/actions';
 import { parseISO } from "date-fns";
 
@@ -25,9 +25,9 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     // We need to fetch all and filter in memory, or do two separate queries and merge.
     // Let's do two queries for performance.
     
-    let debitQuery = db.collection("journal-vouchers")
+    let debitQuery: FirebaseFirestore.Query = db.collection("journal-vouchers")
       .where('debitEntries', 'array-contains', { accountId });
-    let creditQuery = db.collection("journal-vouchers")
+    let creditQuery: FirebaseFirestore.Query = db.collection("journal-vouchers")
       .where('creditEntries', 'array-contains', { accountId });
 
     if (dateFrom) {
@@ -40,8 +40,8 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     }
     
     const [debitSnapshot, creditSnapshot] = await Promise.all([
-      debitQuery.get(),
-      creditQuery.get()
+      debitQuery.orderBy('date', 'asc').get(),
+      creditQuery.orderBy('date', 'asc').get()
     ]);
     
     const processedIds = new Set<string>();
@@ -109,6 +109,9 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     return result;
   } catch (err: any) {
     console.error('❌ Error loading account statement:', err);
+    if (err.code === 9) { // FAILED_PRECONDITION, often indicates missing index
+         throw new Error(`فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore. يرجى مراجعة سجلات الخادم لإنشاء الفهرس المطلوب.`);
+    }
     throw new Error(`فشل تحميل كشف الحساب: ${err.message}`);
   }
 }
@@ -207,11 +210,14 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         const balanceIQD = entry.balanceIQD || 0;
         
          if ((entry.accountType === 'client' || entry.accountType === 'both')) {
-            if (balanceUSD > 0) acc.totalCreditUSD += balanceUSD; else acc.totalDebitUSD -= balanceUSD;
-            if (balanceIQD > 0) acc.totalCreditIQD += balanceIQD; else acc.totalDebitIQD -= balanceIQD;
+            if (balanceUSD > 0) acc.totalDebitUSD += balanceUSD; else acc.totalCreditUSD -= balanceUSD;
         } else { // Supplier
-            if (balanceUSD < 0) acc.totalCreditUSD -= balanceUSD; else acc.totalDebitUSD += balanceUSD;
-            if (balanceIQD < 0) acc.totalCreditIQD -= balanceIQD; else acc.totalDebitIQD += balanceIQD;
+            if (balanceUSD < 0) acc.totalDebitUSD -= balanceUSD; else acc.totalCreditUSD += balanceUSD;
+        }
+         if ((entry.accountType === 'client' || entry.accountType === 'both')) {
+            if (balanceIQD > 0) acc.totalDebitIQD += balanceIQD; else acc.totalCreditIQD -= balanceIQD;
+        } else { // Supplier
+            if (balanceIQD < 0) acc.totalDebitIQD -= balanceIQD; else acc.totalCreditIQD += balanceIQD;
         }
         
         return acc;
