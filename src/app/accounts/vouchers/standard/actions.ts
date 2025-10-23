@@ -8,6 +8,7 @@ import { getNextVoucherNumber } from "@/lib/sequences";
 import { createNotification } from "@/app/notifications/actions";
 import { FieldValue } from "firebase-admin/firestore";
 import { createAuditLog } from "@/app/system/activity-log/actions";
+import { postJournalEntry } from "@/lib/finance/postJournal";
 
 interface StandardReceiptData {
     date: string;
@@ -28,64 +29,34 @@ export async function createStandardReceipt(data: StandardReceiptData) {
     if (!db) {
         return { success: false, error: "Database not available." };
     }
-    const batch = db.batch();
     
     try {
-        const journalVoucherRef = db.collection("journal-vouchers").doc();
-        const invoiceNumber = await getNextVoucherNumber('RC');
-        batch.set(journalVoucherRef, {
-            invoiceNumber,
-            date: data.date,
+        const voucherId = await postJournalEntry({
+            sourceType: "standard_receipt",
+            sourceId: `receipt-${Date.now()}`,
+            description: `سند قبض: ${data.details || 'دفعة'}`.trim(),
+            amount: data.amount,
             currency: data.currency,
-            notes: data.details || '',
-            createdBy: user.uid,
-            officer: user.name,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            voucherType: "journal_from_standard_receipt",
-            debitEntries: [{
-                accountId: data.toBox,
-                amount: data.amount,
-                description: 'إيداع في الصندوق'
-            }],
-            creditEntries: [{
-                accountId: data.from,
-                amount: data.amount,
-                description: 'سداد دفعة'
-            }],
-            isAudited: false,
-            isConfirmed: false,
-            originalData: data,
+            date: new Date(data.date),
+            userId: user.uid,
+            debitAccountId: data.toBox,
+            creditAccountId: data.from,
         });
-
-        // Increment use count for client and box
-        batch.update(db.collection('clients').doc(data.from), { useCount: FieldValue.increment(1) });
-        batch.update(db.collection('boxes').doc(data.toBox), { useCount: FieldValue.increment(1) });
-
-        await batch.commit();
 
         await createAuditLog({
             userId: user.uid,
             userName: user.name,
             action: 'CREATE',
             targetType: 'VOUCHER',
-            description: `أنشأ سند قبض عادي برقم ${invoiceNumber} بمبلغ ${data.amount} ${data.currency}.`,
+            description: `أنشأ سند قبض عادي بمبلغ ${data.amount} ${data.currency}.`,
+            targetId: voucherId
         });
 
-        // Notify the user who created the voucher
-        await createNotification({
-            userId: user.uid,
-            title: `تم إنشاء سند قبض`,
-            body: `تم إنشاء سند قبض جديد برقم ${invoiceNumber} بمبلغ ${data.amount} ${data.currency}.`,
-            type: 'voucher',
-            link: `/accounts/vouchers/list`
-        });
-        
         // Notify the client if the payment was from a client
         await createNotification({
             userId: data.from, // The 'from' field holds the client's ID
             title: `تم استلام دفعة منك`,
-            body: `تم استلام دفعة جديدة منك برقم فاتورة ${invoiceNumber} بمبلغ ${data.amount} ${data.currency}.`,
+            body: `تم استلام دفعة جديدة بمبلغ ${data.amount} ${data.currency}.`,
             type: 'payment',
             link: `/clients/${data.from}`
         });
@@ -93,7 +64,7 @@ export async function createStandardReceipt(data: StandardReceiptData) {
         revalidatePath("/accounts/vouchers/list");
         revalidatePath("/reports/account-statement");
 
-        return { success: true };
+        return { success: true, voucherId };
     } catch (error: any) {
         console.error("Error creating standard receipt: ", String(error));
         return { success: false, error: error.message };

@@ -51,7 +51,6 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
         const entryDate = new Date(); // Use a single timestamp for the entire batch
 
         for (const entryData of entries) {
-            const batch = db.batch();
             const segmentDocRef = db.collection('segments').doc();
             const segmentInvoiceNumber = await getNextVoucherNumber('SEG');
             
@@ -62,10 +61,11 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                 createdAt: entryDate.toISOString(),
                 isDeleted: false,
             };
-            batch.set(segmentDocRef, dataWithUser);
+            await segmentDocRef.set(dataWithUser);
 
             newEntries.push({ ...dataWithUser, id: segmentDocRef.id });
 
+            // Post journal entry for the segment profit
             await postJournalEntry({
                 sourceType: "segment",
                 sourceId: segmentDocRef.id,
@@ -74,22 +74,41 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                 currency: entryData.currency,
                 date: entryDate,
                 userId: user.uid,
+                creditAccountId: entryData.clientId, // The company that owes the money
             });
 
-            // Increment use count for the client
-            batch.update(db.collection('clients').doc(entryData.clientId), { 
-                'segmentSettings.ticketProfitType': entryData.ticketProfitType,
-                'segmentSettings.ticketProfitValue': entryData.ticketProfitValue,
-                'segmentSettings.visaProfitType': entryData.visaProfitType,
-                'segmentSettings.visaProfitValue': entryData.visaProfitValue,
-                'segmentSettings.hotelProfitType': entryData.hotelProfitType,
-                'segmentSettings.hotelProfitValue': entryData.hotelProfitValue,
-                'segmentSettings.groupProfitType': entryData.groupProfitType,
-                'segmentSettings.groupProfitValue': entryData.groupProfitValue,
-                'segmentSettings.alrawdatainSharePercentage': entryData.alrawdatainSharePercentage,
-                'useCount': FieldValue.increment(1)
-            });
-             await batch.commit();
+            // If there are partner shares, create payment vouchers
+            if (entryData.partnerShares && entryData.partnerShares.length > 0) {
+                for (const share of entryData.partnerShares) {
+                     await postJournalEntry({
+                        sourceType: 'profit-sharing',
+                        sourceId: segmentDocRef.id,
+                        description: `دفع حصة الشريك ${share.partnerName} من أرباح السكمنت`,
+                        amount: share.share,
+                        currency: entryData.currency,
+                        date: entryDate,
+                        userId: user.uid,
+                        debitAccountId: share.partnerId, // Partner's account is debited
+                        creditAccountId: user.boxId, // Paid from the user's box
+                    });
+                }
+            }
+
+            // Update client's use count and segment settings
+            await db.collection('clients').doc(entryData.clientId).set({ 
+                segmentSettings: {
+                    ticketProfitType: entryData.ticketProfitType,
+                    ticketProfitValue: entryData.ticketProfitValue,
+                    visaProfitType: entryData.visaProfitType,
+                    visaProfitValue: entryData.visaProfitValue,
+                    hotelProfitType: entryData.hotelProfitType,
+                    hotelProfitValue: entryData.hotelProfitValue,
+                    groupProfitType: entryData.groupProfitType,
+                    groupProfitValue: entryData.groupProfitValue,
+                    alrawdatainSharePercentage: entryData.alrawdatainSharePercentage,
+                },
+                useCount: FieldValue.increment(1)
+            }, { merge: true });
         }
 
         revalidatePath('/segments');
@@ -144,7 +163,6 @@ export async function deleteSegmentPeriod(fromDate: string, toDate: string, perm
             for (const invoiceNumber of Array.from(invoiceNumbers)) {
                 const voucherSnapshot = await db.collection('journal-vouchers')
                     .where('invoiceNumber', '==', invoiceNumber)
-                    .where('voucherType', '==', 'segment')
                     .get();
                 
                 voucherSnapshot.forEach(doc => {
@@ -194,7 +212,6 @@ export async function restoreSegmentPeriod(fromDate: string, toDate: string): Pr
              for (const invoiceNumber of Array.from(invoiceNumbers)) {
                  const voucherSnapshot = await db.collection('journal-vouchers')
                     .where('invoiceNumber', '==', invoiceNumber)
-                    .where('voucherType', '==', 'segment')
                     .get();
                 
                 voucherSnapshot.forEach(doc => {

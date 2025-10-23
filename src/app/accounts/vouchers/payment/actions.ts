@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { getNextVoucherNumber } from "@/lib/sequences";
 import { FieldValue } from "firebase-admin/firestore";
 import { createAuditLog } from "@/app/system/activity-log/actions";
+import { postJournalEntry } from "@/lib/finance/postJournal";
 
 
 interface PaymentVoucherData {
@@ -26,62 +27,34 @@ export async function createPaymentVoucher(data: PaymentVoucherData) {
         return { success: false, error: "User not authenticated." };
     }
 
-    const db = await getDb();
-    if (!db) {
-        return { success: false, error: "Database not available." };
-    }
-    const batch = db.batch();
-    
     try {
-        const journalVoucherRef = db.collection("journal-vouchers").doc();
-        const invoiceNumber = await getNextVoucherNumber('PV');
-        batch.set(journalVoucherRef, {
-            invoiceNumber,
-            date: data.date,
+        const voucherId = await postJournalEntry({
+            sourceType: "payment",
+            sourceId: `payment-${Date.now()}`,
+            description: `سند دفع: ${data.details || `لغرض ${data.purpose}`}`,
+            amount: data.amount,
             currency: data.currency,
-            exchangeRate: data.exchangeRate || null,
-            notes: data.details || ``,
-            createdBy: user.uid,
-            officer: user.name,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            voucherType: "journal_from_payment",
-            debitEntries: [{
-                accountId: data.toSupplierId,
-                amount: data.amount,
-                description: 'استلام دفعة'
-            }],
-            creditEntries: [{
-                accountId: data.boxId,
-                amount: data.amount,
-                description: 'دفع مبلغ'
-            }],
-            isAudited: false,
-            isConfirmed: false,
-             originalData: data,
+            date: new Date(data.date),
+            userId: user.uid,
+            debitAccountId: data.toSupplierId,
+            creditAccountId: data.boxId,
         });
-
-        batch.update(db.collection('clients').doc(data.toSupplierId), { useCount: FieldValue.increment(1) });
-        batch.update(db.collection('boxes').doc(data.boxId), { useCount: FieldValue.increment(1) });
-        
-        await batch.commit();
 
         await createAuditLog({
             userId: user.uid,
             userName: user.name,
             action: 'CREATE',
             targetType: 'VOUCHER',
-            description: `أنشأ سند دفع برقم ${invoiceNumber} بمبلغ ${data.amount} ${data.currency}.`,
+            description: `أنشأ سند دفع بمبلغ ${data.amount} ${data.currency}.`,
+            targetId: voucherId,
         });
 
         revalidatePath("/accounts/vouchers/list");
         revalidatePath("/reports/account-statement");
 
-        return { success: true };
+        return { success: true, voucherId };
     } catch (error: any) {
         console.error("Error creating payment voucher: ", String(error));
         return { success: false, error: error.message };
     }
 }
-
-    
