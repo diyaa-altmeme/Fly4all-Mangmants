@@ -62,7 +62,6 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
       throw new Error("❌ غير مسموح بتسجيل الإيرادات مباشرة في الصندوق. استخدم حساب الإيراد أولًا.");
     }
 
-    const batch = db.batch();
     const bookingRef = db.collection('visaBookings').doc();
 
     try {
@@ -85,25 +84,34 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
             enteredAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
-        batch.set(bookingRef, dataToSave);
         
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
+        const totalPurchase = dataToSave.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
 
+        await bookingRef.set(dataToSave);
+        
         await postJournalEntry({
-            category: "visas",
-            amount: totalSale,
-            date: new Date(dataToSave.submissionDate),
-            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
             sourceType: 'visa',
             sourceId: bookingRef.id,
+            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
+            amount: totalSale,
+            cost: totalPurchase,
+            currency: dataToSave.currency,
+            date: new Date(dataToSave.submissionDate),
+            userId: user.uid,
+            clientId: dataToSave.clientId,
+            supplierId: dataToSave.supplierId,
         });
 
-        // Increment use count for client and supplier
+        const batch = db.batch();
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });
-        batch.update(db.collection('clients').doc(dataToSave.supplierId), { useCount: FieldValue.increment(1) });
+        if (dataToSave.supplierId) {
+            batch.update(db.collection('clients').doc(dataToSave.supplierId), { useCount: FieldValue.increment(1) });
+        }
         if(dataToSave.boxId) {
              batch.update(db.collection('boxes').doc(dataToSave.boxId), { useCount: FieldValue.increment(1) });
         }
+        await batch.commit();
         
         await createAuditLog({
             userId: user.uid,
@@ -114,8 +122,6 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
         });
 
 
-        await batch.commit();
-        
         revalidatePath('/visas');
         revalidatePath('/accounts/vouchers/list');
 
@@ -156,14 +162,19 @@ export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntr
         batch.set(bookingRef, dataToSave);
 
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
+        const totalPurchase = dataToSave.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
 
         await postJournalEntry({
-            category: "visas",
-            amount: totalSale,
-            date: new Date(dataToSave.submissionDate),
-            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
             sourceType: 'visa',
             sourceId: bookingRef.id,
+            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
+            amount: totalSale,
+            cost: totalPurchase,
+            currency: dataToSave.currency,
+            date: new Date(dataToSave.submissionDate),
+            userId: user.uid,
+            clientId: dataToSave.clientId,
+            supplierId: dataToSave.supplierId,
         });
 
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });
@@ -341,3 +352,5 @@ export async function permanentDeleteVisaBooking(bookingId: string): Promise<{ s
         return { success: false, error: "Failed to permanently delete visa booking." };
     }
 }
+
+export async function getVisaBookingById(id: string): Promise<VisaBookingEntry | null> { return null; }

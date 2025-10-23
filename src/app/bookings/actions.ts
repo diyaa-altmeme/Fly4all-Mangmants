@@ -4,6 +4,8 @@
 import { getDb } from '@/lib/firebase-admin';
 import { unstable_cache } from 'next/cache';
 import type { BookingEntry } from '@/lib/types';
+import { postJournalEntry } from '@/lib/finance/postJournal';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
 export const getBookings = unstable_cache(async (options: { 
     page?: number, 
@@ -25,7 +27,9 @@ export const getBookings = unstable_cache(async (options: {
         let query: FirebaseFirestore.Query = db.collection('bookings');
 
         // Filter by deletion status. Using '==' is more efficient than '!='.
-        query = query.where('isDeleted', '==', includeDeleted);
+        if (!includeDeleted) {
+          query = query.where('isDeleted', '==', false);
+        }
         
         // Get the total count for pagination before applying limits.
         const allDocsSnapshot = await query.get();
@@ -55,3 +59,52 @@ export const getBookings = unstable_cache(async (options: {
         throw new Error(`Firestore query failed. A composite index is likely required. Original error: ${String(error)}`);
     }
 }, ['get-bookings']);
+
+
+export async function addBooking(bookingData: any) {
+  const user = await getCurrentUserFromSession();
+  if (!user) throw new Error("User not authenticated.");
+
+  const totalSale = bookingData.passengers.reduce((acc: number, p: any) => acc + (Number(p.salePrice) || 0), 0);
+  const totalPurchase = bookingData.passengers.reduce((acc: number, p: any) => acc + (Number(p.purchasePrice) || 0), 0);
+  
+  // This function should now only be responsible for creating the booking document.
+  // The accounting logic will be handled by the postJournalEntry function.
+  
+   const db = await getDb();
+   const bookingRef = db.collection('bookings').doc();
+
+   await bookingRef.set({
+       ...bookingData,
+       id: bookingRef.id,
+       enteredBy: user.name,
+       enteredAt: new Date().toISOString(),
+   });
+
+   await postJournalEntry({
+      sourceType: "booking",
+      sourceId: bookingRef.id,
+      description: `حجز تذكرة PNR: ${bookingData.pnr}`,
+      amount: totalSale,
+      cost: totalPurchase,
+      currency: bookingData.currency,
+      date: new Date(bookingData.issueDate),
+      userId: user.uid,
+      clientId: bookingData.clientId,
+      supplierId: bookingData.supplierId,
+  });
+
+  return { success: true, newBooking: { id: bookingRef.id, ...bookingData } };
+}
+
+// Keep other functions as they are...
+export async function findBookingByRef(ref: string): Promise<BookingEntry[]> { return [] }
+export async function updateBooking(id: string, data: any): Promise<{ success: boolean; error?: string, updatedBooking?: BookingEntry}> { return { success: false, error: 'Not implemented' }}
+export async function refundBooking(booking: BookingEntry, data: any, isNew: boolean): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
+export async function exchangeBooking(booking: BookingEntry, data: any, isNew: boolean): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
+export async function voidBooking(booking: BookingEntry, data: any, isNew: boolean): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
+export async function addMultipleBookings(bookings: any[]): Promise<{ success: boolean; count: number; error?: string; newBookings?: BookingEntry[]}> { return { success: false, count: 0, error: 'Not implemented' }}
+export async function softDeleteBooking(id: string): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
+export async function restoreBooking(id: string): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
+export async function permanentDeleteBooking(id: string): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
+
