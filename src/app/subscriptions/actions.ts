@@ -12,6 +12,7 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { cache } from 'react';
+import { postJournal } from '@/lib/finance/posting';
 
 const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
@@ -107,6 +108,10 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     if (!user) return { success: false, error: "User not authenticated" };
     
     const settings = await getSettings();
+    if (settings.financeAccounts?.blockDirectCashRevenue && subscriptionData.boxId) {
+      throw new Error("❌ غير مسموح بتسجيل الإيرادات مباشرة في الصندوق. استخدم حساب الإيراد أولًا.");
+    }
+    
     const subSettings = settings.subscriptionSettings;
 
     const batch = db.batch();
@@ -171,41 +176,15 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             batch.set(installmentRef, instData);
         });
 
-        // Create initial journal entry for the subscription sale
-        const journalVoucherRef = db.collection('journal-vouchers').doc();
-        
-        const debitEntries: JournalEntry[] = [
-            { accountId: finalSubscriptionData.clientId, amount: totalSale, description: `اشتراك خدمة: ${finalSubscriptionData.serviceName}` },
-        ];
-        if (totalPurchase > 0) {
-            debitEntries.push({ accountId: subSettings?.costAccountId || 'expense_subscriptions', amount: totalPurchase, description: `تكلفة اشتراك: ${finalSubscriptionData.serviceName}` });
-        }
-        
-        const creditEntries: JournalEntry[] = [
-            { accountId: subSettings?.revenueAccountId || 'revenue_subscriptions', amount: totalSale, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` }
-        ];
-        if (totalPurchase > 0) {
-            creditEntries.push({ accountId: finalSubscriptionData.supplierId, amount: totalPurchase, description: `مستحقات اشتراك: ${finalSubscriptionData.serviceName}` });
-        }
-
-        batch.set(journalVoucherRef, {
-            invoiceNumber: newInvoiceNumber,
-            date: new Date(finalSubscriptionData.purchaseDate).toISOString(),
-            currency: finalSubscriptionData.currency,
-            exchangeRate: null,
-            notes: finalSubscriptionData.notes || `تسجيل اشتراك خدمة ${finalSubscriptionData.serviceName}`,
-            createdBy: user.uid,
-            officer: user.name,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            voucherType: "subscription",
-            debitEntries,
-            creditEntries,
-            isAudited: false,
-            isConfirmed: true,
-            originalData: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }, 
+        await postJournal({
+            category: 'subscriptions',
+            amount: totalSale,
+            date: new Date(finalSubscriptionData.purchaseDate),
+            description: `إيراد اشتراك خدمة ${finalSubscriptionData.serviceName}`,
+            sourceType: 'subscription',
+            sourceId: subscriptionRef.id,
         });
-
+        
         batch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });
         if (finalSubscriptionData.supplierId) {
             batch.update(db.collection('clients').doc(finalSubscriptionData.supplierId), { useCount: FieldValue.increment(1) });

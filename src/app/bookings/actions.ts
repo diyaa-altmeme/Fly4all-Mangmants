@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -18,7 +19,7 @@ export const getBookings = cache(async (options: {
     page?: number;
     limit?: number;
     includeDeleted?: boolean;
-} = {}): Promise<{ bookings: JournalVoucher[], total: number }> => {
+} = {}): Promise<{ bookings: BookingEntry[], total: number }> => {
     const { page = 1, limit = 15, includeDeleted = false } = options;
     const settings = await getSettings();
     if (!settings.databaseStatus?.isDatabaseConnected) {
@@ -30,41 +31,29 @@ export const getBookings = cache(async (options: {
     if (!db) return { bookings: [], total: 0 };
 
     try {
-        const relevantVoucherTypes = ['booking', 'refund', 'exchange', 'void'];
+        let query: FirebaseFirestore.Query = db.collection('bookings');
         
-        let query: FirebaseFirestore.Query = db.collection('journal-vouchers')
-            .where('voucherType', 'in', relevantVoucherTypes);
+        if (includeDeleted) {
+            query = query.where('isDeleted', '==', true);
+        } else {
+            query = query.where('isDeleted', '!=', true);
+        }
         
-        const allDocsSnapshot = await query.get();
+        const allDocsSnapshot = await query.orderBy('isDeleted').orderBy('enteredAt', 'desc').get();
+        const total = allDocsSnapshot.size;
         
-        const allOperations = allDocsSnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() } as JournalVoucher))
-            .filter(op => {
-                // This additional in-code filter handles records where isDeleted might not exist (which evaluates to not true).
-                if (includeDeleted) {
-                    return op.originalData?.isDeleted === true;
-                }
-                return op.originalData?.isDeleted !== true;
-            });
+        if(!all) {
+             query = query.limit(limit).offset((page - 1) * limit);
+        }
 
-
-        // Sort in memory
-        allOperations.sort((a, b) => {
-            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            return dateB - dateA;
-        });
+        const paginatedSnapshot = await query.get();
         
-        const total = allOperations.length;
+        const bookings = paginatedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as BookingEntry));
 
-        const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        const paginatedOps = allOperations.slice(startIndex, endIndex);
-
-        return { bookings: paginatedOps, total };
+        return { bookings, total };
 
     } catch (error) {
-        console.error("Error getting unified bookings/operations from journal-vouchers: ", String(error));
+        console.error("Error getting bookings: ", String(error));
         return { bookings: [], total: 0 };
     }
 });
@@ -77,12 +66,16 @@ export async function addBooking(bookingData: Omit<BookingEntry, 'id' | 'invoice
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
 
+    const settings = await getSettings();
+    if (settings.financeAccounts?.blockDirectCashRevenue && bookingData.boxId) {
+      throw new Error("❌ غير مسموح بتسجيل الإيرادات مباشرة في الصندوق. استخدم حساب الإيراد أولًا.");
+    }
+    
     const batch = db.batch();
+    const bookingRecordRef = db.collection('bookings').doc();
     
     try {
         const newInvoiceNumber = await getNextVoucherNumber('BK');
-        
-        const journalVoucherRef = db.collection('journal-vouchers').doc();
         
         const dataToSave: Omit<BookingEntry, 'id'> = {
             ...bookingData,
@@ -102,7 +95,8 @@ export async function addBooking(bookingData: Omit<BookingEntry, 'id' | 'invoice
             enteredAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
-        
+        batch.set(bookingRecordRef, dataToSave);
+
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
 
         await postJournal({
@@ -111,15 +105,9 @@ export async function addBooking(bookingData: Omit<BookingEntry, 'id' | 'invoice
             date: new Date(dataToSave.issueDate),
             description: `إيراد تذكرة PNR: ${dataToSave.pnr}`,
             sourceType: 'booking',
-            sourceId: journalVoucherRef.id,
+            sourceId: bookingRecordRef.id,
             debitAccountId: dataToSave.clientId, // This will be used as the debit account
         });
-
-        // The journal entry logic is now handled by postJournal, 
-        // so we remove direct journal voucher creation here.
-        // We might still want to save the original booking data for reference.
-        const bookingRecordRef = db.collection('bookings_legacy').doc(); // Save to a legacy collection
-        batch.set(bookingRecordRef, dataToSave);
 
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });
         batch.update(db.collection('clients').doc(dataToSave.supplierId), { useCount: FieldValue.increment(1) });
@@ -154,7 +142,7 @@ export async function addBooking(bookingData: Omit<BookingEntry, 'id' | 'invoice
         revalidatePath('/bookings');
         revalidatePath('/accounts/vouchers/list');
 
-        const newBooking: BookingEntry = { id: journalVoucherRef.id, ...dataToSave };
+        const newBooking: BookingEntry = { id: bookingRecordRef.id, ...dataToSave };
         return { success: true, newBooking };
     } catch (error) {
         console.error("Error adding booking: ", String(error));
@@ -176,7 +164,7 @@ export async function addMultipleBookings(bookingsData: Omit<BookingEntry, 'id' 
     for (const bookingData of bookingsData) {
         try {
             const newInvoiceNumber = await getNextVoucherNumber('BK');
-            const journalVoucherRef = db.collection('journal-vouchers').doc();
+            const bookingRecordRef = db.collection('bookings').doc();
             
             const dataToSave: Omit<BookingEntry, 'id'> = {
                 ...bookingData,
@@ -197,12 +185,17 @@ export async function addMultipleBookings(bookingsData: Omit<BookingEntry, 'id' 
                 date: new Date(dataToSave.issueDate),
                 description: `إيراد تذكرة PNR: ${dataToSave.pnr}`,
                 sourceType: 'booking',
-                sourceId: journalVoucherRef.id,
+                sourceId: bookingRecordRef.id,
                 debitAccountId: dataToSave.clientId,
             });
 
+            const batch = db.batch();
+            batch.set(bookingRecordRef, dataToSave);
+            await batch.commit();
+
+
             createdCount++;
-            allAddedOrUpdatedBookings.push({ id: `temp-${journalVoucherRef.id}`, ...dataToSave });
+            allAddedOrUpdatedBookings.push({ id: `temp-${bookingRecordRef.id}`, ...dataToSave });
         } catch (error) {
              console.error(`Error processing transaction for PNR ${bookingData.pnr}:`, error);
         }
@@ -232,17 +225,9 @@ export async function updateBooking(bookingId: string, bookingData: Partial<Omit
     if (!user) return { success: false, error: "User not authenticated." };
 
     try {
-        const journalVoucherRef = db.collection('journal-vouchers').doc(bookingId);
-        const originalDoc = await journalVoucherRef.get();
-        if (!originalDoc.exists) {
-            throw new Error("Booking record not found in journal.");
-        }
+        const bookingRef = db.collection('bookings').doc(bookingId);
         
-        const originalJournalData = originalDoc.data() as JournalVoucher;
-        
-        // Merge new data with existing originalData
-        const dataToUpdate: BookingEntry = { 
-            ...(originalJournalData.originalData as BookingEntry),
+        const dataToUpdate: Partial<BookingEntry> = { 
             ...bookingData, 
             updatedAt: new Date().toISOString() 
         };
@@ -255,27 +240,7 @@ export async function updateBooking(bookingId: string, bookingData: Partial<Omit
             dataToUpdate.passengers = dataToUpdate.passengers.map(p => ({...p}));
         }
 
-        const totalSale = dataToUpdate.passengers!.reduce((sum, p) => sum + p.salePrice, 0);
-        const totalPurchase = dataToUpdate.passengers!.reduce((sum, p) => sum + p.purchasePrice, 0);
-        
-        const debitEntries: JournalEntry[] = [
-            { accountId: dataToUpdate.clientId!, amount: totalSale, description: `شراء تذكرة PNR: ${dataToUpdate.pnr}` },
-            { accountId: 'expense_tickets', amount: totalPurchase, description: `تكلفة تذكرة PNR: ${dataToUpdate.pnr}` }
-        ];
-        
-        const creditEntries: JournalEntry[] = [
-             { accountId: dataToUpdate.supplierId!, amount: totalPurchase, description: `مستحقات تذكرة PNR: ${dataToUpdate.pnr}` },
-             { accountId: 'revenue_tickets', amount: totalSale, description: `إيرادات تذكرة PNR: ${dataToUpdate.pnr}` }
-        ];
-        
-        await journalVoucherRef.update({
-            'originalData': dataToUpdate,
-            'debitEntries': debitEntries,
-            'creditEntries': creditEntries,
-            'notes': dataToUpdate.notes,
-            'date': dataToUpdate.issueDate,
-            'updatedAt': new Date().toISOString(),
-        });
+        await bookingRef.update(dataToUpdate);
         
         await createAuditLog({
             userId: user.uid,
@@ -288,8 +253,8 @@ export async function updateBooking(bookingId: string, bookingData: Partial<Omit
         revalidatePath('/bookings');
         revalidatePath('/accounts/vouchers/list');
 
-        const doc = await journalVoucherRef.get();
-        const updatedData = { id: doc.id, ...doc.data()?.originalData } as BookingEntry;
+        const doc = await bookingRef.get();
+        const updatedData = { id: doc.id, ...doc.data() } as BookingEntry;
         
         return { success: true, updatedBooking: updatedData };
     } catch (error) {
@@ -304,18 +269,18 @@ export async function softDeleteBooking(bookingId: string): Promise<{ success: b
     const user = await getCurrentUserFromSession();
     if (!user) return { success: false, error: "User not authenticated." };
 
-    const bookingRef = db.collection('journal-vouchers').doc(bookingId);
+    const bookingRef = db.collection('bookings').doc(bookingId);
     
     try {
         const bookingDoc = await bookingRef.get();
         if (!bookingDoc.exists) {
             throw new Error("Booking not found");
         }
-        const pnr = bookingDoc.data()?.originalData?.pnr || bookingId;
+        const pnr = bookingDoc.data()?.pnr || bookingId;
 
         await bookingRef.update({
-            'originalData.isDeleted': true,
-            'originalData.deletedAt': new Date().toISOString(),
+            isDeleted: true,
+            deletedAt: new Date().toISOString(),
         });
         
         await createAuditLog({
@@ -343,9 +308,9 @@ export async function restoreBooking(bookingId: string): Promise<{ success: bool
     if (!user) return { success: false, error: "User not authenticated." };
 
     try {
-        await db.collection('journal-vouchers').doc(bookingId).update({
-            'originalData.isDeleted': false,
-            'originalData.deletedAt': FieldValue.delete(),
+        await db.collection('bookings').doc(bookingId).update({
+            isDeleted: false,
+            deletedAt: FieldValue.delete(),
         });
 
         await createAuditLog({
@@ -374,12 +339,12 @@ export async function permanentDeleteBooking(bookingId: string) {
     const batch = db.batch();
     
     try {
-        const bookingRef = db.collection('journal-vouchers').doc(bookingId);
+        const bookingRef = db.collection('bookings').doc(bookingId);
         const bookingDoc = await bookingRef.get();
         if (!bookingDoc.exists) {
              throw new Error("Booking not found");
         }
-        const pnr = bookingDoc.data()?.originalData?.pnr || bookingId;
+        const pnr = bookingDoc.data()?.pnr || bookingId;
         
         batch.delete(bookingRef);
         
@@ -481,15 +446,14 @@ export async function findBookingByRef(ref: string): Promise<BookingEntry[] | nu
 
     let bookings: BookingEntry[] = [];
     
-    const pnrQuery = db.collection('journal-vouchers')
-        .where('voucherType', '==', 'booking')
-        .where('originalData.pnr', '==', ref.toUpperCase());
+    const pnrQuery = db.collection('bookings')
+        .where('pnr', '==', ref.toUpperCase());
         
     const pnrSnapshot = await pnrQuery.get();
     
     pnrSnapshot.forEach(doc => {
-        const data = doc.data().originalData as Omit<BookingEntry, 'id'>;
-        if (doc.data().originalData.isDeleted !== true) {
+        const data = doc.data() as Omit<BookingEntry, 'id'>;
+        if (data.isDeleted !== true) {
              bookings.push({ 
                 id: doc.id, 
                 ...data,
@@ -501,12 +465,10 @@ export async function findBookingByRef(ref: string): Promise<BookingEntry[] | nu
 
     if (bookings.length > 0) return bookings;
 
-    const allBookingsSnapshot = await db.collection('journal-vouchers')
-      .where('voucherType', '==', 'booking')
-      .get();
+    const allBookingsSnapshot = await db.collection('bookings').get();
       
     allBookingsSnapshot.forEach(doc => {
-        const booking = doc.data().originalData as BookingEntry;
+        const booking = doc.data() as BookingEntry;
         if (booking.isDeleted !== true && booking.passengers && booking.passengers.some(p => p.ticketNumber === ref)) {
             if (!bookings.some(b => b.id === doc.id)) {
                 bookings.push({ id: doc.id, ...booking });
@@ -730,4 +692,3 @@ export async function voidBooking(
         return { success: false, error: error.message || "Failed to void booking." };
     }
 }
-

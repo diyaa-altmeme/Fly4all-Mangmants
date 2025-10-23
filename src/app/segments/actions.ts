@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -10,6 +9,7 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
 import { FieldValue } from 'firebase-admin/firestore';
+import { postJournal } from '@/lib/finance/posting';
 
 
 export async function getSegments(includeDeleted = false): Promise<SegmentEntry[]> {
@@ -45,13 +45,13 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
          return { success: false, error: "User not authenticated or box not assigned." };
     }
 
-    const writeBatch = db.batch();
     const newEntries: SegmentEntry[] = [];
     
     try {
         const entryDate = new Date(); // Use a single timestamp for the entire batch
 
         for (const entryData of entries) {
+            const batch = db.batch();
             const segmentDocRef = db.collection('segments').doc();
             const segmentInvoiceNumber = await getNextVoucherNumber('SEG');
             
@@ -62,81 +62,21 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                 createdAt: entryDate.toISOString(),
                 isDeleted: false,
             };
-            writeBatch.set(segmentDocRef, dataWithUser);
+            batch.set(segmentDocRef, dataWithUser);
 
             newEntries.push({ ...dataWithUser, id: segmentDocRef.id });
 
-            // 1. Create a Journal Entry for the TOTAL profit owed by the client
-            const totalProfitVoucherRef = db.collection('journal-vouchers').doc();
-            const periodText = `للفترة من ${entryData.fromDate} إلى ${entryData.toDate}`;
-            const detailsText = `${entryData.tickets} تذكرة، ${entryData.visas} فيزا، ${entryData.hotels} فندق، ${entryData.groups} جروبات`;
-            const clientDescription = `قيد استحقاق أرباح السكمنت ${periodText}. تفاصيل: ${detailsText}.`;
-            
-            writeBatch.set(totalProfitVoucherRef, {
-                 invoiceNumber: segmentInvoiceNumber,
-                 date: entryDate.toISOString(),
-                 currency: entryData.currency,
-                 notes: clientDescription,
-                 createdBy: user.uid,
-                 officer: user.name,
-                 createdAt: entryDate.toISOString(),
-                 updatedAt: entryDate.toISOString(),
-                 voucherType: "segment",
-                 debitEntries: [{ accountId: entryData.clientId, amount: entryData.total, description: `استحقاق أرباح سكمنت ${entryData.companyName}` }],
-                 creditEntries: [{ accountId: 'revenue_segments', amount: entryData.total, description: `إثبات إيراد سكمنت من ${entryData.companyName}` }],
-                 isAudited: true, isConfirmed: true,
-                 originalData: { ...dataWithUser, segmentId: segmentDocRef.id, entryType: 'total_profit' }, 
+            await postJournal({
+                category: "segments",
+                amount: entryData.total,
+                date: entryDate,
+                description: `إيراد سكمنت من ${entryData.companyName} للفترة من ${entryData.fromDate} إلى ${entryData.toDate}`,
+                sourceType: "segment",
+                sourceId: segmentDocRef.id,
             });
 
-
-            // 2. Create Journal Entries for paying out partner shares
-            if (entryData.partnerShares && entryData.partnerShares.length > 0) {
-                 for (const share of entryData.partnerShares) {
-                    const partnerPaymentInvoice = await getNextVoucherNumber('PV');
-                    const partnerPaymentRef = db.collection('journal-vouchers').doc();
-                    writeBatch.set(partnerPaymentRef, {
-                        invoiceNumber: partnerPaymentInvoice,
-                        date: entryDate.toISOString(),
-                        currency: entryData.currency,
-                        notes: `دفع حصة الشريك ${share.partnerName} عن أرباح سكمنت شركة ${entryData.companyName} ${periodText}`,
-                        createdBy: user.uid,
-                        officer: user.name,
-                        createdAt: entryDate.toISOString(),
-                        updatedAt: entryDate.toISOString(),
-                        voucherType: "journal_from_payment",
-                        debitEntries: [{ accountId: share.partnerId, amount: share.share, description: `إيداع حصة أرباح سكمنت` }],
-                        creditEntries: [{ accountId: user.boxId, amount: share.share, description: `دفع حصة أرباح للشريك ${share.partnerName}` }],
-                        isAudited: true, isConfirmed: true,
-                        originalData: { ...dataWithUser, segmentId: segmentDocRef.id, partnerId: share.partnerId, entryType: 'partner_payout' }
-                    });
-                     // Increment use count for the partner
-                    writeBatch.update(db.collection('clients').doc(share.partnerId), { 'useCount': FieldValue.increment(1) });
-                }
-            }
-
-            // 3. Create a Journal Entry for Al-Rawdatain's share (moving from revenue to box)
-            if (entryData.alrawdatainShare > 0) {
-                 const companyProfitInvoice = await getNextVoucherNumber('JE');
-                 const companyProfitRef = db.collection('journal-vouchers').doc();
-                 writeBatch.set(companyProfitRef, {
-                    invoiceNumber: companyProfitInvoice,
-                    date: entryDate.toISOString(),
-                    currency: entryData.currency,
-                    notes: `إثبات حصة الشركة من أرباح سكمنت ${entryData.companyName} ${periodText}`,
-                    createdBy: user.uid,
-                    officer: user.name,
-                    createdAt: entryDate.toISOString(),
-                    updatedAt: entryDate.toISOString(),
-                    voucherType: "journal_voucher",
-                    debitEntries: [{ accountId: 'revenue_segments', amount: entryData.alrawdatainShare, description: 'عكس إيراد سكمنت' }],
-                    creditEntries: [{ accountId: 'revenue_profit_distribution', amount: entryData.alrawdatainShare, description: 'تسجيل إيراد حصة الشركة' }],
-                    isAudited: true, isConfirmed: true,
-                    originalData: { ...dataWithUser, segmentId: segmentDocRef.id, entryType: 'company_share' }
-                });
-            }
-
             // Increment use count for the client
-            writeBatch.update(db.collection('clients').doc(entryData.clientId), { 
+            batch.update(db.collection('clients').doc(entryData.clientId), { 
                 'segmentSettings.ticketProfitType': entryData.ticketProfitType,
                 'segmentSettings.ticketProfitValue': entryData.ticketProfitValue,
                 'segmentSettings.visaProfitType': entryData.visaProfitType,
@@ -148,9 +88,8 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                 'segmentSettings.alrawdatainSharePercentage': entryData.alrawdatainSharePercentage,
                 'useCount': FieldValue.increment(1)
             });
+             await batch.commit();
         }
-
-        await writeBatch.commit();
 
         revalidatePath('/segments');
         revalidatePath('/reports/account-statement');
