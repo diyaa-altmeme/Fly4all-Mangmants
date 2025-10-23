@@ -8,7 +8,7 @@ import type { AppSettings, TreeNode } from '@/lib/types';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { getChartOfAccounts } from '@/app/reports/actions';
+import { getChartOfAccounts } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import ChartOfAccountsTree from '@/components/settings/chart-of-accounts-tree';
 import InvoiceSequencesPage from '@/app/settings/invoice-sequences/page';
