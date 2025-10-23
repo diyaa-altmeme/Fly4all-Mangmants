@@ -184,6 +184,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             currency: finalSubscriptionData.currency,
             date: new Date(finalSubscriptionData.purchaseDate),
             userId: user.uid,
+            creditAccountId: finalSubscriptionData.clientId
         });
         
         batch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });
@@ -308,8 +309,6 @@ export async function paySubscriptionInstallment(
     const installmentDocRef = db.collection('subscription_installments').doc(installmentId);
     
     try {
-        const nextReceiptVoucherNumber = await getNextVoucherNumber('SUBP');
-
         return await db.runTransaction(async (transaction) => {
             const installmentDoc = await transaction.get(installmentDocRef);
             if (!installmentDoc.exists) throw new Error("Installment not found!");
@@ -326,25 +325,16 @@ export async function paySubscriptionInstallment(
             const discountAmount = discount || 0;
             const totalAmountToCreditToClient = paymentAmount + discountAmount;
             
-            const journalVoucherRef = db.collection('journal-vouchers').doc();
-            
-            const debitEntries: JournalEntry[] = [{ accountId: boxId, amount: paymentAmount, description: `إيداع دفعة من ${subscriptionData.clientName}` }];
-            if (discountAmount > 0) {
-                 debitEntries.push({ accountId: 'expense_discounts', amount: discountAmount, description: `خصم مكتسب على دفعة اشتراك ${subscriptionData.serviceName}` });
-            }
-            
-            transaction.set(journalVoucherRef, {
-                invoiceNumber: nextReceiptVoucherNumber,
-                date: new Date().toISOString(),
+            const journalVoucherId = await postJournalEntry({
+                sourceType: "journal_from_installment",
+                sourceId: installmentId,
+                description: `سداد دفعة اشتراك خدمة: ${subscriptionData.serviceName}`,
+                amount: totalAmountToCreditToClient,
                 currency: paymentCurrency,
-                exchangeRate: exchangeRate || null,
-                notes: `سداد دفعة اشتراك خدمة: ${subscriptionData.serviceName}`,
-                createdBy: user.uid, officer: user.name, createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(), voucherType: "journal_from_installment",
-                debitEntries,
-                creditEntries: [{ accountId: subscriptionData.clientId, amount: totalAmountToCreditToClient, description: `تسديد دين دفعة اشتراك ${subscriptionData.serviceName}` }],
-                isAudited: true, isConfirmed: true,
-                originalData: { ...installment, paymentAmount, boxId, discount: discountAmount }
+                date: new Date(),
+                userId: user.uid,
+                debitAccountId: boxId,
+                creditAccountId: subscriptionData.clientId,
             });
             
             let remainingPaymentToApply = paymentAmount;
@@ -390,9 +380,7 @@ export async function paySubscriptionInstallment(
                         discount: discountApplied,
                         currency: inst.currency,
                         date: new Date().toISOString(),
-                        journalVoucherId: journalVoucherRef.id,
-                        invoiceNumber: nextReceiptVoucherNumber,
-                        boxId: boxId,
+                        journalVoucherId: journalVoucherId,
                         paidBy: user.name,
                     });
                 }
@@ -401,15 +389,16 @@ export async function paySubscriptionInstallment(
             transaction.update(subscriptionRef, { paidAmount: FieldValue.increment(totalAmountToCreditToClient) });
 
             if (remainingPaymentToApply > 0.01) {
-                const creditVoucherRef = db.collection("journal-vouchers").doc();
-                const overpaymentInvoiceNumber = await getNextVoucherNumber('RC');
-                 transaction.set(creditVoucherRef, {
-                    invoiceNumber: overpaymentInvoiceNumber, date: new Date().toISOString(), currency: paymentCurrency,
-                    notes: `رصيد إضافي بعد سداد كل الدفعات لـ ${subscriptionData.clientName}`, createdBy: user.uid, officer: user.name,
-                    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), voucherType: "journal_from_standard_receipt",
-                    debitEntries: [{ accountId: boxId, amount: remainingPaymentToApply, description: 'إيداع رصيد إضافي' }],
-                    creditEntries: [{ accountId: subscriptionData.clientId, amount: remainingPaymentToApply, description: 'رصيد إضافي للعميل' }],
-                    isAudited: true, isConfirmed: true,
+                 await postJournalEntry({
+                    sourceType: 'overpayment',
+                    sourceId: installment.subscriptionId,
+                    description: `رصيد إضافي بعد سداد كل الدفعات لـ ${subscriptionData.clientName}`,
+                    amount: remainingPaymentToApply,
+                    currency: paymentCurrency,
+                    date: new Date(),
+                    userId: user.uid,
+                    debitAccountId: boxId,
+                    creditAccountId: subscriptionData.clientId,
                 });
             }
             
@@ -450,27 +439,20 @@ export async function deletePayment(paymentId: string) {
             const subscriptionRef = db.collection('subscriptions').doc(installment.subscriptionId);
             const journalRef = db.collection('journal-vouchers').doc(payment.journalVoucherId!);
             
-            const reversalJournalRef = db.collection('journal-vouchers').doc();
             const originalJournalDoc = await transaction.get(journalRef);
             if (!originalJournalDoc.exists) throw new Error("Original journal voucher not found.");
             const originalJournal = originalJournalDoc.data() as any;
 
-            const reversalInvoiceNumber = await getNextVoucherNumber('REV');
-
-            transaction.set(reversalJournalRef, {
-                invoiceNumber: reversalInvoiceNumber,
-                date: new Date().toISOString(),
-                currency: originalJournal.currency,
-                notes: `عكس قيد سداد دفعة رقم: ${originalJournal.invoiceNumber}`,
-                createdBy: user.uid,
-                officer: user.name,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                voucherType: "reversal",
-                debitEntries: originalJournal.creditEntries, // Swap debit and credit
-                creditEntries: originalJournal.debitEntries,
-                isAudited: true, isConfirmed: true,
-                originalData: { reversedVoucherId: journalRef.id }
+            await postJournalEntry({
+                sourceType: 'reversal',
+                sourceId: payment.journalVoucherId!,
+                description: `عكس قيد سداد دفعة رقم: ${originalJournal.invoiceNumber}`,
+                amount: payment.amount + (payment.discount || 0),
+                currency: payment.currency,
+                date: new Date(),
+                userId: user.uid,
+                debitAccountId: originalJournal.creditEntries[0].accountId,
+                creditAccountId: originalJournal.debitEntries[0].accountId,
             });
 
             const totalAmountToReverse = payment.amount + (payment.discount || 0);
@@ -518,26 +500,20 @@ export async function updatePayment(paymentId: string, newData: { amount?: numbe
             const amountDifference = (newData.amount ?? oldPayment.amount) - oldPayment.amount;
 
             if (Math.abs(amountDifference) > 0.01) {
-                const adjustmentJournalRef = db.collection('journal-vouchers').doc();
                 const originalJournalDoc = await transaction.get(originalJournalRef);
                 const originalJournal = originalJournalDoc.data() as JournalVoucher;
-                const adjustmentInvoiceNumber = await getNextVoucherNumber('ADJ');
-                const notes = amountDifference > 0 ? `زيادة دفعة اشتراك: ${oldPayment.id}` : `تخفيض دفعة اشتراك: ${oldPayment.id}`;
-                const debitAccount = amountDifference > 0 ? (originalJournal?.debitEntries[0].accountId) : originalJournal?.creditEntries[0].accountId;
-                const creditAccount = amountDifference > 0 ? originalJournal?.creditEntries[0].accountId : (originalJournal?.debitEntries[0].accountId);
+                const notes = `تعديل دفعة اشتراك: ${oldPayment.id}`;
 
-                 transaction.set(adjustmentJournalRef, {
-                    invoiceNumber: adjustmentInvoiceNumber,
-                    date: newData.date || new Date().toISOString(),
+                await postJournalEntry({
+                    sourceType: 'adjustment',
+                    sourceId: paymentId,
+                    description: notes,
+                    amount: Math.abs(amountDifference),
                     currency: oldPayment.currency,
-                    notes: notes,
-                    createdBy: user.uid, officer: user.name,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    voucherType: "adjustment",
-                    debitEntries: [{ accountId: debitAccount!, amount: Math.abs(amountDifference), description: notes }],
-                    creditEntries: [{ accountId: creditAccount!, amount: Math.abs(amountDifference), description: notes }],
-                    isAudited: true, isConfirmed: true,
+                    date: new Date(),
+                    userId: user.uid,
+                    debitAccountId: amountDifference > 0 ? (originalJournal.debitEntries[0].accountId) : originalJournal.creditEntries[0].accountId,
+                    creditAccountId: amountDifference > 0 ? originalJournal.creditEntries[0].accountId : (originalJournal.debitEntries[0].accountId),
                 });
             }
             
