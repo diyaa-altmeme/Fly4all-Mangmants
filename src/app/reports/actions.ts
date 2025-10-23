@@ -19,6 +19,9 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
   try {
     let rows: any[] = [];
     
+    // We need to query for the accountId in both debit and credit entries.
+    // Firestore does not support 'OR' queries on different fields in this manner.
+    // So we perform two separate queries and merge the results.
     let debitQuery: FirebaseFirestore.Query = db.collection("journal-vouchers")
       .where('debitEntries', 'array-contains', { accountId });
     let creditQuery: FirebaseFirestore.Query = db.collection("journal-vouchers")
@@ -42,7 +45,7 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
 
     const processSnapshot = (snapshot: FirebaseFirestore.QuerySnapshot) => {
         snapshot.forEach((doc) => {
-            if (processedIds.has(doc.id)) return;
+            if (processedIds.has(doc.id)) return; // Avoid duplicating entire voucher if account is in both debit and credit
             
             const v = doc.data() as JournalVoucher;
             if (v.isDeleted) return;
@@ -104,11 +107,15 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
   } catch (err: any) {
     console.error('❌ Error loading account statement:', err);
     if (err.code === 9 || (err.message && err.message.includes('requires an index'))) { 
-      const urlMatch = err.message.match(/(https?:\/\/[^\s]+)/);
+      const urlMatch = err.message.match(/(https?:\/\/[^\s)\]]+)/);
       const indexUrl = urlMatch ? urlMatch[0] : null;
       let userMessage = `فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore.`;
       if (indexUrl) {
-        userMessage += `\n\nيمكنك إنشاؤه عبر الرابط التالي:\n${indexUrl}`;
+        console.log("======================================================================");
+        console.log("|| Firestore Index Required! Please create the index using this URL: ||");
+        console.log("|| " + indexUrl + " ||");
+        console.log("======================================================================");
+        userMessage += `\n\nتم طباعة رابط إنشاء الفهرس في سجلات الخادم (server logs).`;
       } else {
         userMessage += `\nيرجى مراجعة سجلات الخادم لإنشاء الفهرس المطلوب.`;
       }
@@ -212,14 +219,14 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         const balanceIQD = entry.balanceIQD || 0;
         
          if ((entry.accountType === 'client' || entry.accountType === 'both')) {
-            if (balanceUSD > 0) acc.totalDebitUSD += balanceUSD; else acc.totalCreditUSD -= balanceUSD;
+            if (balanceUSD > 0) acc.totalCreditUSD += balanceUSD; else acc.totalDebitUSD -= balanceUSD;
         } else { // Supplier
-            if (balanceUSD < 0) acc.totalDebitUSD -= balanceUSD; else acc.totalCreditUSD += balanceUSD;
+            if (balanceUSD < 0) acc.totalCreditUSD -= balanceUSD; else acc.totalDebitUSD += balanceUSD;
         }
          if ((entry.accountType === 'client' || entry.accountType === 'both')) {
-            if (balanceIQD > 0) acc.totalDebitIQD += balanceIQD; else acc.totalCreditIQD -= balanceIQD;
+            if (balanceIQD > 0) acc.totalCreditIQD += balanceIQD; else acc.totalDebitIQD -= balanceIQD;
         } else { // Supplier
-            if (balanceIQD < 0) acc.totalDebitIQD -= balanceIQD; else acc.totalCreditIQD += balanceIQD;
+            if (balanceIQD < 0) acc.totalCreditIQD -= balanceIQD; else acc.totalDebitIQD += balanceIQD;
         }
         
         return acc;
