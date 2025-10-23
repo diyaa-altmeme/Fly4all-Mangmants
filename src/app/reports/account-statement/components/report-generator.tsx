@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft, ChevronsRightLeft } from "lucide-react";
+import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft, ChevronsRightLeft, Building } from "lucide-react";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
@@ -23,6 +23,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 interface ReportGeneratorProps {
   boxes: Box[];
@@ -35,6 +36,9 @@ interface ReportGeneratorProps {
 export default function ReportGenerator({ boxes, clients, suppliers, exchanges, defaultAccountId }: ReportGeneratorProps) {
   const [report, setReport] = useState<ReportInfo | null>(null);
   const [transactions, setTransactions] = useState<ReportTransaction[]>([]);
+  
+  const [accountType, setAccountType] = useState<'relation' | 'box' | 'exchange' | 'static'>('relation');
+
   const [filters, setFilters] = useState({
     accountId: defaultAccountId || "",
     dateRange: { from: subDays(new Date(), 30), to: new Date() } as DateRange | undefined,
@@ -48,20 +52,27 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
   const { hasPermission } = useAuth();
 
   const allAccounts = useMemo(() => {
-    const clientOptions = clients.map(c => ({ value: c.id, label: `عميل: ${c.name}` }));
-    const supplierOptions = suppliers.map(s => ({ value: s.id, label: `مورد: ${s.name}` }));
-    const boxOptions = boxes.map(b => ({ value: b.id, label: `صندوق: ${b.name}` }));
-    const exchangeOptions = exchanges.map(ex => ({ value: ex.id, label: `بورصة: ${ex.name}` }));
-    const staticAccounts = [
-      { value: "revenue_segments", label: "إيراد: السكمنت" },
-      { value: "revenue_profit_distribution", label: "إيراد: توزيع الأرباح" },
-      { value: "revenue_tickets", label: "إيرادات التذاكر" },
-      { value: "revenue_visa", label: "إيرادات الفيزا" },
-      { value: "expense_tickets", label: "تكلفة التذاكر" },
-      { value: "expense_visa", label: "تكلفة الفيزا" },
-    ];
-    return [...clientOptions, ...supplierOptions, ...boxOptions, ...exchangeOptions, ...staticAccounts];
-  }, [clients, suppliers, boxes, exchanges]);
+    switch (accountType) {
+        case 'box':
+            return boxes.map(b => ({ value: b.id, label: b.name }));
+        case 'exchange':
+            return exchanges.map(ex => ({ value: ex.id, label: ex.name }));
+        case 'static':
+            return [
+                { value: "revenue_segments", label: "إيراد: السكمنت" },
+                { value: "revenue_profit_distribution", label: "إيراد: توزيع الأرباح" },
+                { value: "revenue_tickets", label: "إيرادات التذاكر" },
+                { value: "revenue_visa", label: "إيرادات الفيزا" },
+                { value: "expense_tickets", label: "تكلفة التذاكر" },
+                { value: "expense_visa", label: "تكلفة الفيزا" },
+            ];
+        case 'relation':
+        default:
+            const clientOptions = clients.map(c => ({ value: c.id, label: `عميل: ${c.name}` }));
+            const supplierOptions = suppliers.map(s => ({ value: s.id, label: `مورد: ${s.name}` }));
+            return [...clientOptions, ...supplierOptions];
+    }
+  }, [accountType, clients, suppliers, boxes, exchanges]);
 
    const allFilters = useMemo(() => [
         { id: 'booking', label: 'حجز طيران', icon: Plane, group: 'basic' },
@@ -201,6 +212,18 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+                <Label className="font-semibold">نوع الحساب</Label>
+                <Select value={accountType} onValueChange={v => setAccountType(v as any)}>
+                    <SelectTrigger><SelectValue/></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="relation"><div className="flex items-center gap-2"><Users className="h-4 w-4"/>عميل / مورد</div></SelectItem>
+                        <SelectItem value="box"><div className="flex items-center gap-2"><Wallet className="h-4 w-4"/>صندوق</div></SelectItem>
+                        <SelectItem value="exchange"><div className="flex items-center gap-2"><Building className="h-4 w-4"/>بورصة</div></SelectItem>
+                        <SelectItem value="static"><div className="flex items-center gap-2"><FileText className="h-4 w-4"/>حساب عام</div></SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            <div className="space-y-2">
               <Label className="font-semibold">الحساب</Label>
               <Autocomplete
                 value={filters.accountId}
@@ -227,7 +250,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
                         <PopoverTrigger asChild>
                              <Button variant="outline" className={cn("justify-start text-left font-normal", !filters.dateRange?.to && "text-muted-foreground")}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : <span>إلى تاريخ</span>}
+                                {filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : "التاريخ غير مفعل فعل اختيار تاريخ الكشف من والى ليظهر كشف صحيح"}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
