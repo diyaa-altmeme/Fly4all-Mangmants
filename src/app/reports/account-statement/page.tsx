@@ -26,8 +26,16 @@ const moduleTranslations: { [key: string]: string } = {
     payment: "دفعة",
 };
 
-// This is the unified account for all client-related transactions
+// The unified account ID for all client-related receivable transactions
 const CUSTOMER_DEBT_ACCOUNT_ID = "QmqPujiHb8fo68jb4MbP"; 
+
+// Function to correctly pluralize collection names
+const getCollectionName = (sourceType: string) => {
+    if (!sourceType) return null;
+    if (sourceType.endsWith('s')) return sourceType; // Already plural
+    if (sourceType === 'exchange') return 'exchanges';
+    return `${sourceType}s`;
+}
 
 export default function AccountStatementPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -45,7 +53,7 @@ export default function AccountStatementPage() {
     users: [],
   });
 
-  // Set default date range to prevent performance issues on initial load
+  // CRITICAL FIX: Set a default date range to prevent unbounded queries and UI freezing.
   const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({
     from: startOfMonth(new Date()),
     to: new Date(),
@@ -99,10 +107,9 @@ export default function AccountStatementPage() {
               map.set(user.id, user.displayName);
           }
       });
-      map.set('migration-script', 'سكريبت الترحيل');
+      map.set('migration-script', 'سكريبت الترحيل'); // Add fallback for special cases
       return map;
   }, [dataSources.users]);
-
 
   useEffect(() => {
     setSelectedEntityId("");
@@ -113,8 +120,8 @@ export default function AccountStatementPage() {
   const optionsMap = useMemo(() => ({
     relation: dataSources.relations.map(r => ({ value: r.id, label: r.name })),
     cash: dataSources.boxes.map(b => ({ value: b.id, label: b.name })),
-    revenue: dataSources.accounts.filter(a => a.type === \'revenue\').map(a => ({ value: a.id, label: a.name })),
-    expense: dataSources.accounts.filter(a => a.type === \'expense\').map(a => ({ value: a.id, label: a.name })),
+    revenue: dataSources.accounts.filter(a => a.type === 'revenue').map(a => ({ value: a.id, label: a.name })),
+    expense: dataSources.accounts.filter(a => a.type === 'expense').map(a => ({ value: a.id, label: a.name })),
     company: dataSources.companies.map(c => ({ value: c.id, label: c.name })),
   }), [dataSources]);
 
@@ -146,15 +153,16 @@ export default function AccountStatementPage() {
       let isMatch = false;
       let accountIdToDisplay = selectedEntityId;
       
-      if (accountType === \'relation\') {
+      if (accountType === 'relation') {
         accountIdToDisplay = CUSTOMER_DEBT_ACCOUNT_ID;
-        if (v.sourceType && v.sourceId) {
+        const collectionName = getCollectionName(v.sourceType);
+
+        if (collectionName && v.sourceId) {
             try {
-                // To optimize, first check if the relevant account is even in this voucher
                 const hasCustomerAccount = [...(v.debitEntries || []), ...(v.creditEntries || [])].some((e:any) => e.accountId === CUSTOMER_DEBT_ACCOUNT_ID);
 
                 if (hasCustomerAccount) {
-                    const sourceDocRef = doc(db, `${v.sourceType}s`, v.sourceId); // Assuming plural collection names
+                    const sourceDocRef = doc(db, collectionName, v.sourceId);
                     const sourceDocSnap = await getDoc(sourceDocRef);
                     if (sourceDocSnap.exists()) {
                         const sourceData = sourceDocSnap.data();
@@ -165,14 +173,13 @@ export default function AccountStatementPage() {
                     }
                 }
             } catch (err) {
-                 if (v.sourceType === \'manual\') { // Manual entries might be for a client
-                    const hasRelevantEntry = [...(v.debitEntries || []), ...(v.creditEntries || [])]
-                        .some(e => e.accountId === CUSTOMER_DEBT_ACCOUNT_ID && e.description?.toLowerCase().includes(selectedEntityId.toLowerCase()));
-                    if(hasRelevantEntry) isMatch = true;
-                 }
+                 // Fallback for manual or other non-standard entries
+                 const hasRelevantEntry = [...(v.debitEntries || []), ...(v.creditEntries || [])]
+                    .some(e => e.accountId === CUSTOMER_DEBT_ACCOUNT_ID && e.description?.includes(selectedEntityId));
+                 if(hasRelevantEntry) isMatch = true;
             }
         }
-      } else { // For cash, company, etc.
+      } else { // For cash, company, expense, etc.
         isMatch = [...(v.debitEntries || []), ...(v.creditEntries || [])].some((e:any) => e.accountId === selectedEntityId);
       }
 
@@ -193,7 +200,7 @@ export default function AccountStatementPage() {
       return relevantEntries.map(entry => ({
         id: voucherDoc.id,
         date: date ? format(new Date(date), "dd/MM/yyyy") : "-",
-        invoiceId: v.sourceId || v.id,
+        invoiceId: v.voucherNo || v.sourceId || voucherDoc.id,
         notes: entry.description,
         module: v.sourceType || "N/A",
         user: v.createdBy,
@@ -215,15 +222,15 @@ export default function AccountStatementPage() {
 
   const selectedAccountName = useMemo(() => {
     const list = 
-      accountType === \'relation\' ? dataSources.relations :
-      accountType === \'cash\' ? dataSources.boxes :
-      accountType === \'company\' ? dataSources.companies :
-      [\'revenue\', \'expense\'].includes(accountType) ? dataSources.accounts : [];
+      accountType === 'relation' ? dataSources.relations :
+      accountType === 'cash' ? dataSources.boxes :
+      accountType === 'company' ? dataSources.companies :
+      ['revenue', 'expense'].includes(accountType) ? dataSources.accounts : [];
     const selected = list.find((item) => item.id === selectedEntityId);
     return selected ? selected.name : selectedEntityId;
   }, [selectedEntityId, accountType, dataSources]);
 
-  const currentOptions = optionsMap[accountType as keyof typeof optionsMap];
+  const currentOptions = optionsMap[accountType as keyof typeof optionsMap] || [];
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -237,15 +244,15 @@ export default function AccountStatementPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             <div className="flex flex-col space-y-1.5">
               <label className="text-sm font-medium">نوع الحساب</label>
-              <Select onValueChange={setAccountType} value={accountType} disabled={isDataLoading}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{accountTypes.map((a) => (<SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>))}</SelectContent></Select>
+              <Select onValueChange={setAccountType} value={accountType} disabled={isDataLoading || isLoading}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{accountTypes.map((a) => (<SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>))}</SelectContent></Select>
             </div>
             <div className="flex flex-col space-y-1.5">
               <label className="text-sm font-medium">الحساب</label>
-              <Autocomplete options={currentOptions || []} value={selectedEntityId} onValueChange={setSelectedEntityId} placeholder={isDataLoading ? \'جاري التحميل...\' : `ابحث...`} disabled={isDataLoading} />
+              <Autocomplete options={currentOptions} value={selectedEntityId} onValueChange={setSelectedEntityId} placeholder={isDataLoading ? 'جاري التحميل...' : `ابحث...`} disabled={isDataLoading || isLoading} />
             </div>
             <div className="flex flex-col space-y-1.5">
               <label className="text-sm font-medium">نوع العملية</label>
-              <Select onValueChange={setTransactionType} value={transactionType} disabled={isDataLoading}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{transactionTypes.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}</SelectContent></Select>
+              <Select onValueChange={setTransactionType} value={transactionType} disabled={isDataLoading || isLoading}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{transactionTypes.map((t) => (<SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>))}</SelectContent></Select>
             </div>
             <div className="flex flex-col space-y-1.5">
               <label className="text-sm font-medium">من تاريخ</label>
@@ -262,7 +269,11 @@ export default function AccountStatementPage() {
         </CardContent>
       </Card>
 
-      {selectedEntityId && !isLoading && entries.length > 0 && (
+      {isLoading && (
+          <Card><CardContent className="py-8"><div className="text-center text-muted-foreground"><Loader2 className="animate-spin h-5 w-5 inline mr-2" /> جاري جلب النتائج...</div></CardContent></Card>
+      )}
+
+      {!isLoading && selectedEntityId && entries.length > 0 && (
         <>
           <Card>
             <CardHeader>
@@ -275,7 +286,7 @@ export default function AccountStatementPage() {
                   <TableHeader><TableRow><TableHead>التاريخ</TableHead><TableHead>رقم الفاتورة</TableHead><TableHead>نوع العملية</TableHead><TableHead>الملاحظات</TableHead><TableHead>المستخدم</TableHead><TableHead className="text-right text-green-600">مدين</TableHead><TableHead className="text-right text-red-600">دائن</TableHead><TableHead>الإجراءات</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {entries.map((e, i) => (
-                      <TableRow key={i}>
+                      <TableRow key={`${e.id}-${i}`}>
                         <TableCell>{e.date}</TableCell>
                         <TableCell className="font-mono text-xs">{e.invoiceId}</TableCell>
                         <TableCell><span className="bg-muted px-2 py-1 rounded-md text-xs font-semibold">{moduleTranslations[e.module] || e.module}</span></TableCell>
@@ -285,13 +296,13 @@ export default function AccountStatementPage() {
                         <TableCell className="font-mono text-right text-red-600">{e.credit.toFixed(2)}</TableCell>
                         <TableCell>
                           {e.sourceRoute && (
-                            <Link href={e.sourceRoute} target="_blank">
+                            <Link href={e.sourceRoute} target="_blank" rel="noopener noreferrer">
                               <Button variant="outline" size="icon"><ExternalLink className="h-4 w-4" /></Button>
                             </Link>
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}\
+                    ))}
                   </TableBody>
                 </Table>
               </div>
@@ -308,12 +319,8 @@ export default function AccountStatementPage() {
         </>
       )}
       
-      {selectedEntityId && !isLoading && entries.length === 0 && (
+      {!isLoading && selectedEntityId && entries.length === 0 && (
           <Card><CardContent className="py-8"><div className="text-center text-muted-foreground">لا توجد حركات للفترة والمعايير المحددة.</div></CardContent></Card>
-      )}
-
-      {isLoading && (
-          <Card><CardContent className="py-8"><div className="text-center text-muted-foreground"><Loader2 className="animate-spin h-5 w-5 inline mr-2" /> جاري جلب النتائج...</div></CardContent></Card>
       )}
 
     </div>
