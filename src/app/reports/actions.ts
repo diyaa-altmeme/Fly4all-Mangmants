@@ -3,8 +3,9 @@
 
 import { getDb } from "@/lib/firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
-import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client } from "@/lib/types";
+import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction } from "@/lib/types";
 import { getClients } from '@/app/relations/actions';
+import { parseISO } from "date-fns";
 
 // 🔹 جلب كشف الحساب مع معالجة الحقول الجديدة وحساب أرصدة منفصلة لكل عملة
 export async function getAccountStatement(filters: { accountId: string; dateFrom?: Date; dateTo?: Date; voucherType?: string[] }) {
@@ -109,7 +110,8 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
 }
 
 export async function getClientTransactions(clientId: string) {
-    return getAccountStatement({ accountId: clientId });
+    const { transactions } = await getAccountStatement({ accountId: clientId });
+    return { transactions: transactions.map(tx => ({...tx, id: tx.id || tx.invoiceNumber})) };
 }
 
 
@@ -125,8 +127,14 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
     clients.forEach(client => {
         balances[client.id] = { balanceUSD: 0, balanceIQD: 0, lastTransaction: null };
     });
+    
+    const sortedVouchers = vouchersSnap.docs.sort((a, b) => {
+        const dateA = a.data().date;
+        const dateB = b.data().date;
+        return new Date(dateA).getTime() - new Date(dateB).getTime();
+    });
 
-    vouchersSnap.forEach(doc => {
+    sortedVouchers.forEach(doc => {
         const v = doc.data() as JournalVoucher;
         if(v.isDeleted) return;
 
@@ -162,19 +170,19 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
     }));
     
     const summary = entries.reduce((acc, entry) => {
+        const balanceUSD = entry.balanceUSD || 0;
+        const balanceIQD = entry.balanceIQD || 0;
+        
+        // A client debit means they owe us, a credit means we owe them.
+        // A supplier debit means we owe them less, a credit means we owe them more.
         if (entry.accountType === 'client' || entry.accountType === 'both') {
-            if (entry.balanceUSD > 0) acc.totalCreditUSD += entry.balanceUSD;
-            else acc.totalDebitUSD -= entry.balanceUSD;
-
-            if (entry.balanceIQD > 0) acc.totalCreditIQD += entry.balanceIQD;
-            else acc.totalDebitIQD -= entry.balanceIQD;
+            if (balanceUSD > 0) acc.totalDebitUSD += balanceUSD; else acc.totalCreditUSD -= balanceUSD;
+            if (balanceIQD > 0) acc.totalDebitIQD += balanceIQD; else acc.totalCreditIQD -= balanceIQD;
         } else { // Supplier
-            if (entry.balanceUSD < 0) acc.totalCreditUSD -= entry.balanceUSD;
-            else acc.totalDebitUSD += entry.balanceUSD;
-
-            if (entry.balanceIQD < 0) acc.totalCreditIQD -= entry.balanceIQD;
-            else acc.totalDebitIQD += entry.balanceIQD;
+            if (balanceUSD < 0) acc.totalDebitUSD -= balanceUSD; else acc.totalCreditUSD += balanceUSD;
+            if (balanceIQD < 0) acc.totalDebitIQD -= balanceIQD; else acc.totalCreditIQD += balanceIQD;
         }
+        
         return acc;
     }, { totalDebitUSD: 0, totalCreditUSD: 0, totalDebitIQD: 0, totalCreditIQD: 0 });
 
@@ -182,8 +190,8 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         entries,
         summary: {
             ...summary,
-            balanceUSD: summary.totalCreditUSD - summary.totalDebitUSD,
-            balanceIQD: summary.totalCreditIQD - summary.totalDebitIQD
+            balanceUSD: summary.totalDebitUSD - summary.totalCreditUSD,
+            balanceIQD: summary.totalDebitIQD - summary.totalCreditIQD,
         }
     };
 }

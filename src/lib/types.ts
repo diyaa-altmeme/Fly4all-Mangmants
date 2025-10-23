@@ -1,3 +1,4 @@
+
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
@@ -82,6 +83,7 @@ export type RelationSection = {
 export type Client = {
   id: string;
   name: string;
+  code?: string;
   type: ClientType;
   relationType: RelationType;
   phone: string;
@@ -98,7 +100,6 @@ export type Client = {
   createdBy: string;
   paymentType?: CompanyPaymentType;
   status?: 'active' | 'inactive';
-  code?: string; // For companyId from companies collection
   balance?: { USD: number; IQD: number };
   lastTransaction?: string | null;
   segmentSettings?: SegmentSettings;
@@ -314,6 +315,13 @@ export type ReportTransaction = {
   currency: Currency;
   otherParty?: string;
   officer?: string;
+  balanceUSD: number;
+  balanceIQD: number;
+  voucherType?: string;
+  sourceType?: string;
+  sourceId?: string;
+  sourceRoute?: string;
+  originalData?: any;
 };
 
 export type ReportInfo = {
