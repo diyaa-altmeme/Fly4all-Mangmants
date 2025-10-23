@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft, ChevronsRightLeft, Building, Users } from "lucide-react";
+import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft, ChevronsRightLeft, Building, Users, Terminal, Copy } from "lucide-react";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
@@ -25,6 +25,7 @@ import { Calendar as CalendarIcon } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { useVoucherNav } from "@/context/voucher-nav-context";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface ReportGeneratorProps {
   boxes: Box[];
@@ -52,6 +53,9 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { hasPermission } = useAuth();
+  
+  const firestoreIndexUrl = error && error.startsWith('FIRESTORE_INDEX_URL::') ? error.split('::')[1] : null;
+
 
   const allAccounts = useMemo(() => {
     switch (accountType) {
@@ -60,7 +64,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
         case 'exchange':
             return exchanges.map(ex => ({ value: ex.id, label: ex.name }));
         case 'expense':
-            return navData?.settings.voucherSettings?.expenseAccounts?.map(e => ({ value: e.id, label: e.name })) || [];
+            return navData?.settings.voucherSettings?.expenseAccounts?.map(e => ({ value: `expense_${e.id}`, label: e.name })) || [];
         case 'static':
             return [
                 { value: "revenue_segments", label: "إيراد: السكمنت" },
@@ -84,7 +88,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
         { id: 'subscription', label: 'اشتراك', icon: Repeat, group: 'basic' },
         { id: 'payment', label: 'سند دفع', icon: FileUp, group: 'basic' },
         { id: 'standard_receipt', label: 'سند قبض', icon: FileDown, group: 'basic' },
-        { id: 'expense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
+        { id: 'manualExpense', label: 'سند مصاريف', icon: Banknote, group: 'basic' },
         { id: 'distributed_receipt', label: 'سند قبض مخصص', icon: GitBranch, group: 'other' },
         { id: 'remittance', label: 'حوالة مستلمة', icon: ArrowRightLeft, group: 'other' },
         { id: 'exchange_transaction', label: 'معاملة بورصة', icon: ChevronsRightLeft, group: 'other' },
@@ -158,9 +162,11 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
       }
 
     } catch (error: any) {
-      setError("حدث خطأ أثناء تحميل البيانات");
+      setError(error.message);
       setTransactions([]);
-      toast({ title: "فشل", description: error.message, variant: "destructive" });
+      if (!error.message.startsWith('FIRESTORE_INDEX_URL::')) {
+          toast({ title: "فشل", description: error.message, variant: "destructive" });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -207,6 +213,13 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     );
   }, [transactions, filters.searchTerm]);
 
+  const handleCopyIndexUrl = () => {
+      if (firestoreIndexUrl) {
+          navigator.clipboard.writeText(firestoreIndexUrl);
+          toast({ title: "تم نسخ الرابط بنجاح!", description: "الرجاء فتح الرابط في متصفح جديد لإنشاء الفهرس."});
+      }
+  }
+
   return (
      <div className="flex flex-col lg:flex-row h-full lg:h-[calc(100vh-160px)] gap-4">
       <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 lg:sticky top-20">
@@ -217,7 +230,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
           <CardContent className="space-y-4">
             <div className="space-y-2">
                 <Label className="font-semibold">نوع الحساب</Label>
-                <Select value={accountType} onValueChange={v => setAccountType(v as any)}>
+                <Select value={accountType} onValueChange={v => {setAccountType(v as any); setFilters(f => ({...f, accountId: ''}))}}>
                     <SelectTrigger><SelectValue/></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="relation"><div className="flex items-center gap-2"><Users className="h-4 w-4"/>عميل / مورد</div></SelectItem>
@@ -255,7 +268,7 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
                         <PopoverTrigger asChild>
                              <Button variant="outline" className={cn("justify-start text-left font-normal", !filters.dateRange?.to && "text-muted-foreground")}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : "التاريخ غير مفعل فعل اختيار تاريخ الكشف من والى ليظهر كشف صحيح"}
+                                {filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : "إلى تاريخ"}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
@@ -295,7 +308,23 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
           {isLoading ? (
             <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : error ? (
-            <div className="p-8 text-center text-red-500">{error}</div>
+            <div className="p-8">
+               <Alert variant="destructive">
+                <Terminal className="h-4 w-4" />
+                <AlertTitle>حدث خطأ في قاعدة البيانات!</AlertTitle>
+                <AlertDescription>
+                    <p>يتطلب هذا الاستعلام إنشاء فهرس مركب في Firestore. بدون هذا الفهرس، لا يمكن جلب البيانات.</p>
+                    {firestoreIndexUrl && (
+                        <div className="mt-4">
+                            <Button onClick={handleCopyIndexUrl}>
+                                <Copy className="me-2 h-4 w-4" />
+                                نسخ رابط إنشاء الفهرس
+                            </Button>
+                        </div>
+                    )}
+                </AlertDescription>
+            </Alert>
+            </div>
           ) : (
             <ReportTable transactions={finalTransactions} onRefresh={handleGenerateReport} />
           )}

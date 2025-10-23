@@ -12,20 +12,15 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
   const db = await getDb();
   if (!db) {
       console.error("Database not available");
-      return [];
+      throw new Error("Database connection is not available.");
   }
   const { accountId, dateFrom, dateTo, voucherType } = filters;
 
   try {
     let rows: any[] = [];
     
-    // We need to query for the accountId in both debit and credit entries.
-    // Firestore does not support 'OR' queries on different fields in this manner.
-    // So we perform two separate queries and merge the results.
-    let debitQuery: FirebaseFirestore.Query = db.collection("journal-vouchers")
-      .where('debitEntries', 'array-contains', { accountId });
-    let creditQuery: FirebaseFirestore.Query = db.collection("journal-vouchers")
-      .where('creditEntries', 'array-contains', { accountId });
+    let debitQuery: FirebaseFirestore.Query = db.collection("journal-vouchers");
+    let creditQuery: FirebaseFirestore.Query = db.collection("journal-vouchers");
 
     if (dateFrom) {
       debitQuery = debitQuery.where("date", ">=", dateFrom.toISOString());
@@ -36,6 +31,9 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
       creditQuery = creditQuery.where("date", "<=", dateTo.toISOString());
     }
     
+    debitQuery = debitQuery.where('debitEntries', 'array-contains', { accountId });
+    creditQuery = creditQuery.where('creditEntries', 'array-contains', { accountId });
+    
     const [debitSnapshot, creditSnapshot] = await Promise.all([
       debitQuery.orderBy('date', 'asc').get(),
       creditQuery.orderBy('date', 'asc').get()
@@ -45,7 +43,7 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
 
     const processSnapshot = (snapshot: FirebaseFirestore.QuerySnapshot) => {
         snapshot.forEach((doc) => {
-            if (processedIds.has(doc.id)) return; // Avoid duplicating entire voucher if account is in both debit and credit
+            if (processedIds.has(doc.id)) return;
             
             const v = doc.data() as JournalVoucher;
             if (v.isDeleted) return;
@@ -109,11 +107,13 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     if (err.code === 9 || (err.message && err.message.includes('requires an index'))) { 
       const urlMatch = err.message.match(/(https?:\/\/[^\s)\]]+)/);
       const indexUrl = urlMatch ? urlMatch[0] : null;
-      let userMessage = `فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore.\n\n`;
+      let userMessage = `فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore.`;
+      
       if (indexUrl) {
-        userMessage += `يرجى الضغط على الرابط التالي لإنشاء الفهرس المطلوب:\n${indexUrl}`;
+        // Special prefix to be caught by the frontend
+        throw new Error(`FIRESTORE_INDEX_URL::${indexUrl}`);
       } else {
-        userMessage += `يرجى مراجعة سجلات الخادم لإنشاء الفهرس المطلوب.`;
+        userMessage += ` يرجى مراجعة سجلات الخادم للحصول على الرابط وإنشاء الفهرس المطلوب.`;
       }
       throw new Error(userMessage);
     }
