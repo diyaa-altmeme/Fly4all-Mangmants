@@ -3,7 +3,7 @@
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
-import { Timestamp } from "firebase-admin/firestore";
+import { Timestamp, FieldPath } from "firebase-admin/firestore";
 import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription } from "@/lib/types";
 import { getClients } from '@/app/relations/actions';
 import { parseISO } from "date-fns";
@@ -18,46 +18,75 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
   const { accountId, dateFrom, dateTo, voucherType } = filters;
 
   try {
-    const rows: any[] = [];
+    let rows: any[] = [];
     
     // The journal-vouchers collection is now the single source of truth.
-    // We query all entries related to the accountId.
-    let journalQuery: FirebaseFirestore.Query = db.collection("journal-vouchers")
-      .where(new FieldPath('debitEntries', 'accountId'), 'array-contains', accountId)
-      .where(new FieldPath('creditEntries', 'accountId'), 'array-contains', accountId);
-
-    if (dateFrom) journalQuery = journalQuery.where("date", ">=", dateFrom.toISOString());
-    if (dateTo) journalQuery = journalQuery.where("date", "<=", dateTo.toISOString());
+    // We can't query for array-contains on two different fields. 
+    // We need to fetch all and filter in memory, or do two separate queries and merge.
+    // Let's do two queries for performance.
     
-    const journalSnapshot = await journalQuery.orderBy("date", "asc").get();
+    let debitQuery = db.collection("journal-vouchers")
+      .where('debitEntries', 'array-contains', { accountId });
+    let creditQuery = db.collection("journal-vouchers")
+      .where('creditEntries', 'array-contains', { accountId });
 
-    journalSnapshot.forEach((doc) => {
-        const v = doc.data() as JournalVoucher;
-        if (v.isDeleted) return;
+    if (dateFrom) {
+      debitQuery = debitQuery.where("date", ">=", dateFrom.toISOString());
+      creditQuery = creditQuery.where("date", ">=", dateFrom.toISOString());
+    }
+    if (dateTo) {
+      debitQuery = debitQuery.where("date", "<=", dateTo.toISOString());
+      creditQuery = creditQuery.where("date", "<=", dateTo.toISOString());
+    }
+    
+    const [debitSnapshot, creditSnapshot] = await Promise.all([
+      debitQuery.get(),
+      creditQuery.get()
+    ]);
+    
+    const processedIds = new Set<string>();
 
-        v.debitEntries?.forEach((entry, index) => {
-            if (entry.accountId === accountId) {
-                rows.push({
-                    id: `${doc.id}_debit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
-                    description: entry.description || v.notes,
-                    debit: Number(entry.amount) || 0, credit: 0,
-                    currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
-                    sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
-                });
-            }
+    const processSnapshot = (snapshot: FirebaseFirestore.QuerySnapshot) => {
+        snapshot.forEach((doc) => {
+            if (processedIds.has(doc.id)) return;
+            
+            const v = doc.data() as JournalVoucher;
+            if (v.isDeleted) return;
+
+            let isRelevant = false;
+            
+            v.debitEntries?.forEach((entry, index) => {
+                if (entry.accountId === accountId) {
+                    isRelevant = true;
+                    rows.push({
+                        id: `${doc.id}_debit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                        description: entry.description || v.notes,
+                        debit: Number(entry.amount) || 0, credit: 0,
+                        currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                        sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                    });
+                }
+            });
+            v.creditEntries?.forEach((entry, index) => {
+                if (entry.accountId === accountId) {
+                    isRelevant = true;
+                    rows.push({
+                        id: `${doc.id}_credit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                        description: entry.description || v.notes,
+                        debit: 0, credit: Number(entry.amount) || 0,
+                        currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                        sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                    });
+                }
+            });
+
+            if(isRelevant) processedIds.add(doc.id);
         });
-        v.creditEntries?.forEach((entry, index) => {
-            if (entry.accountId === accountId) {
-                rows.push({
-                    id: `${doc.id}_credit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
-                    description: entry.description || v.notes,
-                    debit: 0, credit: Number(entry.amount) || 0,
-                    currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
-                    sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
-                });
-            }
-        });
-    });
+    }
+
+    processSnapshot(debitSnapshot);
+    processSnapshot(creditSnapshot);
+
 
     const filteredRows = voucherType && voucherType.length > 0
         ? rows.filter(r => (r.voucherType && voucherType.includes(r.voucherType)) || (r.sourceType && voucherType.includes(r.sourceType)))
@@ -86,7 +115,35 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
 
 export async function getClientTransactions(clientId: string) {
     const transactions = await getAccountStatement({ accountId: clientId });
-    return { transactions: transactions.map(tx => ({...tx, id: tx.id || tx.invoiceNumber})) };
+    const allRelations = await getClients({all: true});
+    
+    let totalSales = 0;
+    let paidAmount = 0;
+    let totalProfit = 0;
+
+    transactions.forEach(tx => {
+        if(tx.sourceType === 'booking' || tx.sourceType === 'visa' || tx.sourceType === 'subscription') {
+             totalSales += tx.debit;
+             if (tx.originalData) {
+                 const sale = tx.originalData.salePrice || (tx.originalData.passengers || []).reduce((acc: number, p: any) => acc + (p.salePrice || 0), 0);
+                 const purchase = tx.originalData.purchasePrice || (tx.originalData.passengers || []).reduce((acc: number, p: any) => acc + (p.purchasePrice || 0), 0);
+                 totalProfit += sale - purchase;
+             }
+        } else if (tx.sourceType === 'standard_receipt' || tx.sourceType === 'payment') {
+            paidAmount += tx.credit;
+        }
+    });
+
+    const dueAmount = totalSales - paidAmount;
+
+    return { 
+        transactions: transactions.map(tx => ({...tx, id: tx.id || tx.invoiceNumber})),
+        totalSales,
+        paidAmount,
+        dueAmount,
+        totalProfit,
+        currency: 'USD' as Currency,
+    };
 }
 
 
@@ -149,7 +206,7 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         const balanceUSD = entry.balanceUSD || 0;
         const balanceIQD = entry.balanceIQD || 0;
         
-        if (entry.accountType === 'client' || entry.accountType === 'both') {
+         if ((entry.accountType === 'client' || entry.accountType === 'both')) {
             if (balanceUSD > 0) acc.totalCreditUSD += balanceUSD; else acc.totalDebitUSD -= balanceUSD;
             if (balanceIQD > 0) acc.totalCreditIQD += balanceIQD; else acc.totalDebitIQD -= balanceIQD;
         } else { // Supplier
@@ -169,5 +226,3 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         }
     };
 }
-
-    
