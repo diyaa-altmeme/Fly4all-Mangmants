@@ -75,6 +75,7 @@ import {
     Paintbrush,
     Send,
     Trash2,
+    DollarSign,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -309,7 +310,7 @@ const MainNavContent = () => {
        { id: 'finance-settings', label: 'الإعدادات المالية', icon: DollarSign, activeRoutes: ['/settings/finance', '/settings/accounting', '/boxes'], children: (
             <>
             {financeSettingsItems.map(item => (
-                <DropdownMenuItem asChild key={item.path}><Link href={item.path} className="justify-between w-full"><span>{item.title}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
+                <DropdownMenuItem asChild key={item.href}><Link href={item.href} className="justify-between w-full"><span>{item.title}</span><item.icon className="h-4 w-4" /></Link></DropdownMenuItem>
             ))}
             </>
        )},
