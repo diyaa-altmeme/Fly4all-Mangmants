@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
@@ -19,10 +20,15 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
   try {
     const rows: any[] = [];
     
-    // 1. Fetch from the new centralized journal
-    let journalQuery: FirebaseFirestore.Query = db.collection("journal-vouchers");
+    // The journal-vouchers collection is now the single source of truth.
+    // We query all entries related to the accountId.
+    let journalQuery: FirebaseFirestore.Query = db.collection("journal-vouchers")
+      .where(new FieldPath('debitEntries', 'accountId'), 'array-contains', accountId)
+      .where(new FieldPath('creditEntries', 'accountId'), 'array-contains', accountId);
+
     if (dateFrom) journalQuery = journalQuery.where("date", ">=", dateFrom.toISOString());
     if (dateTo) journalQuery = journalQuery.where("date", "<=", dateTo.toISOString());
+    
     const journalSnapshot = await journalQuery.orderBy("date", "asc").get();
 
     journalSnapshot.forEach((doc) => {
@@ -52,41 +58,6 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
             }
         });
     });
-    
-    // 2. Fallback for old booking/visa/subscription data (if they don't have a journal entry)
-    const collectionsToSearch = ['bookings', 'visaBookings', 'subscriptions'];
-    for (const collectionName of collectionsToSearch) {
-        let oldDataQuery: FirebaseFirestore.Query = db.collection(collectionName);
-        if (dateFrom) oldDataQuery = oldDataQuery.where("enteredAt", ">=", dateFrom.toISOString());
-        if (dateTo) oldDataQuery = oldDataQuery.where("enteredAt", "<=", dateTo.toISOString());
-        
-        const oldDataSnap = await oldDataQuery.get();
-        oldDataSnap.forEach(doc => {
-            const data = doc.data() as any;
-            if (data.isEntered || rows.some(r => r.sourceId === doc.id)) return; // Skip if already processed via journal
-
-            const totalSale = (data.passengers || []).reduce((sum: number, p: any) => sum + (p.salePrice || 0), 0);
-            const totalPurchase = (data.passengers || []).reduce((sum: number, p: any) => sum + (p.purchasePrice || 0), 0);
-
-            if (data.clientId === accountId) {
-                 rows.push({
-                    id: doc.id, date: data.enteredAt, invoiceNumber: data.invoiceNumber,
-                    description: `فاتورة ${collectionName === 'bookings' ? 'تذاكر' : 'فيزا'} PNR: ${data.pnr || ''}`,
-                    debit: totalSale, credit: 0, currency: data.currency, officer: data.enteredBy,
-                    voucherType: collectionName.slice(0, -1), sourceType: collectionName.slice(0, -1), sourceId: doc.id
-                });
-            }
-             if (data.supplierId === accountId) {
-                rows.push({
-                    id: doc.id, date: data.enteredAt, invoiceNumber: data.invoiceNumber,
-                    description: `تكلفة ${collectionName === 'bookings' ? 'تذاكر' : 'فيزا'} PNR: ${data.pnr || ''}`,
-                    debit: 0, credit: totalPurchase, currency: data.currency, officer: data.enteredBy,
-                    voucherType: collectionName.slice(0, -1), sourceType: collectionName.slice(0, -1), sourceId: doc.id
-                });
-            }
-        })
-    }
-
 
     const filteredRows = voucherType && voucherType.length > 0
         ? rows.filter(r => (r.voucherType && voucherType.includes(r.voucherType)) || (r.sourceType && voucherType.includes(r.sourceType)))
@@ -179,8 +150,8 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         const balanceIQD = entry.balanceIQD || 0;
         
         if (entry.accountType === 'client' || entry.accountType === 'both') {
-            if (balanceUSD > 0) acc.totalDebitUSD += balanceUSD; else acc.totalCreditUSD -= balanceUSD;
-            if (balanceIQD > 0) acc.totalDebitIQD += balanceIQD; else acc.totalCreditIQD -= balanceIQD;
+            if (balanceUSD > 0) acc.totalCreditUSD += balanceUSD; else acc.totalDebitUSD -= balanceUSD;
+            if (balanceIQD > 0) acc.totalCreditIQD += balanceIQD; else acc.totalDebitIQD -= balanceIQD;
         } else { // Supplier
             if (balanceUSD < 0) acc.totalCreditUSD -= balanceUSD; else acc.totalDebitUSD += balanceUSD;
             if (balanceIQD < 0) acc.totalCreditIQD -= balanceIQD; else acc.totalDebitIQD += balanceIQD;
@@ -193,8 +164,10 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         entries,
         summary: {
             ...summary,
-            balanceUSD: summary.totalDebitUSD - summary.totalCreditUSD,
-            balanceIQD: summary.totalDebitIQD - summary.totalCreditIQD,
+            balanceUSD: summary.totalCreditUSD - summary.totalDebitUSD,
+            balanceIQD: summary.totalCreditIQD - summary.totalDebitIQD,
         }
     };
 }
+
+    
