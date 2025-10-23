@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -12,6 +11,7 @@ import { getSettings } from '@/app/settings/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createNotification } from '../notifications/actions';
 import { createAuditLog } from '../system/activity-log/actions';
+import { postJournal } from '@/lib/finance/posting';
 
 // This function is now the primary source for the unified bookings and operations table.
 export const getBookings = cache(async (options: {
@@ -82,7 +82,6 @@ export async function addBooking(bookingData: Omit<BookingEntry, 'id' | 'invoice
     try {
         const newInvoiceNumber = await getNextVoucherNumber('BK');
         
-        // This is the new primary record. The 'bookings' collection is now for denormalized display data if needed.
         const journalVoucherRef = db.collection('journal-vouchers').doc();
         
         const dataToSave: Omit<BookingEntry, 'id'> = {
@@ -105,35 +104,22 @@ export async function addBooking(bookingData: Omit<BookingEntry, 'id' | 'invoice
         };
         
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
-        const totalPurchase = dataToSave.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
 
-        const debitEntries: JournalEntry[] = [
-            { accountId: dataToSave.clientId, amount: totalSale, description: `شراء تذكرة PNR: ${dataToSave.pnr}` },
-            { accountId: `expense_tickets`, amount: totalPurchase, description: `تكلفة تذكرة PNR: ${dataToSave.pnr}` }
-        ];
-        
-        const creditEntries: JournalEntry[] = [
-             { accountId: dataToSave.supplierId, amount: totalPurchase, description: `مستحقات تذكرة PNR: ${dataToSave.pnr}` },
-             { accountId: `revenue_tickets`, amount: totalSale, description: `إيرادات تذكرة PNR: ${dataToSave.pnr}` }
-        ];
-
-        batch.set(journalVoucherRef, {
-            invoiceNumber: newInvoiceNumber,
-            date: dataToSave.issueDate,
-            currency: dataToSave.currency,
-            exchangeRate: null,
-            notes: dataToSave.notes || `تسجيل حجز طيران ${dataToSave.pnr}`,
-            createdBy: user.uid,
-            officer: user.name,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            voucherType: "booking",
-            debitEntries,
-            creditEntries,
-            isAudited: false,
-            isConfirmed: true, // Auto-confirmed
-            originalData: { ...dataToSave, bookingId: journalVoucherRef.id, isDeleted: false }, 
+        await postJournal({
+            category: 'tickets',
+            amount: totalSale,
+            date: new Date(dataToSave.issueDate),
+            description: `إيراد تذكرة PNR: ${dataToSave.pnr}`,
+            sourceType: 'booking',
+            sourceId: journalVoucherRef.id,
+            debitAccountId: dataToSave.clientId, // This will be used as the debit account
         });
+
+        // The journal entry logic is now handled by postJournal, 
+        // so we remove direct journal voucher creation here.
+        // We might still want to save the original booking data for reference.
+        const bookingRecordRef = db.collection('bookings_legacy').doc(); // Save to a legacy collection
+        batch.set(bookingRecordRef, dataToSave);
 
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });
         batch.update(db.collection('clients').doc(dataToSave.supplierId), { useCount: FieldValue.increment(1) });
@@ -204,30 +190,15 @@ export async function addMultipleBookings(bookingsData: Omit<BookingEntry, 'id' 
             };
 
             const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
-            const totalPurchase = dataToSave.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
 
-            const debitEntries: JournalEntry[] = [
-                { accountId: dataToSave.clientId, amount: totalSale, description: `شراء تذكرة PNR: ${dataToSave.pnr}` },
-                { accountId: 'expense_tickets', amount: totalPurchase, description: `تكلفة تذكرة PNR: ${dataToSave.pnr}` }
-            ];
-            const creditEntries: JournalEntry[] = [
-                { accountId: dataToSave.supplierId, amount: totalPurchase, description: `مستحقات تذكرة PNR: ${dataToSave.pnr}` },
-                { accountId: 'revenue_tickets', amount: totalSale, description: `إيرادات تذكرة PNR: ${dataToSave.pnr}` }
-            ];
-
-            await journalVoucherRef.set({
-                invoiceNumber: newInvoiceNumber,
-                date: dataToSave.issueDate,
-                currency: dataToSave.currency,
-                exchangeRate: null,
-                notes: dataToSave.notes || `تسجيل حجز طيران ${dataToSave.pnr}`,
-                createdBy: user.uid,
-                officer: user.name,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                voucherType: "booking",
-                debitEntries, creditEntries, isAudited: false, isConfirmed: true,
-                originalData: { ...dataToSave, isNewBooking: true, isDeleted: false }, 
+            await postJournal({
+                category: 'tickets',
+                amount: totalSale,
+                date: new Date(dataToSave.issueDate),
+                description: `إيراد تذكرة PNR: ${dataToSave.pnr}`,
+                sourceType: 'booking',
+                sourceId: journalVoucherRef.id,
+                debitAccountId: dataToSave.clientId,
             });
 
             createdCount++;
@@ -760,4 +731,3 @@ export async function voidBooking(
     }
 }
 
-    
