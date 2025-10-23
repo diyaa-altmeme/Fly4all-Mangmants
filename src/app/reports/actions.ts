@@ -3,7 +3,7 @@
 
 import { getDb } from "@/lib/firebase-admin";
 import { Timestamp } from "firebase-admin/firestore";
-import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction } from "@/lib/types";
+import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription } from "@/lib/types";
 import { getClients } from '@/app/relations/actions';
 import { parseISO } from "date-fns";
 
@@ -17,72 +17,76 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
   const { accountId, dateFrom, dateTo, voucherType } = filters;
 
   try {
-    // ترتيب واستعلام التاريخ
-    let query: FirebaseFirestore.Query = db.collection("journal-vouchers");
-    
-    if (dateFrom) query = query.where("date", ">=", dateFrom.toISOString());
-    if (dateTo) query = query.where("date", "<=", dateTo.toISOString());
-    
-    query = query.orderBy("date", "asc");
-
-    const snapshot = await query.get();
     const rows: any[] = [];
+    
+    // 1. Fetch from the new centralized journal
+    let journalQuery: FirebaseFirestore.Query = db.collection("journal-vouchers");
+    if (dateFrom) journalQuery = journalQuery.where("date", ">=", dateFrom.toISOString());
+    if (dateTo) journalQuery = journalQuery.where("date", "<=", dateTo.toISOString());
+    const journalSnapshot = await journalQuery.orderBy("date", "asc").get();
 
-    snapshot.forEach((doc) => {
+    journalSnapshot.forEach((doc) => {
         const v = doc.data() as JournalVoucher;
-
         if (v.isDeleted) return;
 
-        const debitEntries = v.debitEntries || [];
-        const creditEntries = v.creditEntries || [];
-        
-        const hasDebit = debitEntries.some(e => e.accountId === accountId);
-        const hasCredit = creditEntries.some(e => e.accountId === accountId);
-
-        if (!hasDebit && !hasCredit) return;
-
-        debitEntries.forEach((entry, index) => {
-            if (entry.accountId !== accountId) return;
-            rows.push({
-                id: `${doc.id}_debit_${index}`,
-                date: v.date,
-                invoiceNumber: v.invoiceNumber,
-                description: entry.description || v.notes || v.originalData?.details || v.originalData?.description || "",
-                debit: Number(entry.amount) || 0,
-                credit: 0,
-                balanceUSD: 0, 
-                balanceIQD: 0,
-                currency: v.currency || 'USD',
-                officer: v.officer || '',
-                voucherType: v.voucherType,
-                sourceType: v.originalData?.sourceType || v.voucherType,
-                sourceId: v.originalData?.sourceId || doc.id,
-                sourceRoute: v.originalData?.sourceRoute,
-                originalData: v.originalData,
-            });
+        v.debitEntries?.forEach((entry, index) => {
+            if (entry.accountId === accountId) {
+                rows.push({
+                    id: `${doc.id}_debit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                    description: entry.description || v.notes,
+                    debit: Number(entry.amount) || 0, credit: 0,
+                    currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                    sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                });
+            }
         });
-
-        creditEntries.forEach((entry, index) => {
-            if (entry.accountId !== accountId) return;
-            rows.push({
-                id: `${doc.id}_credit_${index}`,
-                date: v.date,
-                invoiceNumber: v.invoiceNumber,
-                description: entry.description || v.notes || v.originalData?.details || v.originalData?.description || "",
-                debit: 0,
-                credit: Number(entry.amount) || 0,
-                balanceUSD: 0,
-                balanceIQD: 0,
-                currency: v.currency || 'USD',
-                officer: v.officer || '',
-                voucherType: v.voucherType,
-                sourceType: v.originalData?.sourceType || v.voucherType,
-                sourceId: v.originalData?.sourceId || doc.id,
-                sourceRoute: v.originalData?.sourceRoute,
-                originalData: v.originalData,
-            });
+        v.creditEntries?.forEach((entry, index) => {
+            if (entry.accountId === accountId) {
+                rows.push({
+                    id: `${doc.id}_credit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                    description: entry.description || v.notes,
+                    debit: 0, credit: Number(entry.amount) || 0,
+                    currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                    sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                });
+            }
         });
     });
+    
+    // 2. Fallback for old booking/visa/subscription data (if they don't have a journal entry)
+    const collectionsToSearch = ['bookings', 'visaBookings', 'subscriptions'];
+    for (const collectionName of collectionsToSearch) {
+        let oldDataQuery: FirebaseFirestore.Query = db.collection(collectionName);
+        if (dateFrom) oldDataQuery = oldDataQuery.where("enteredAt", ">=", dateFrom.toISOString());
+        if (dateTo) oldDataQuery = oldDataQuery.where("enteredAt", "<=", dateTo.toISOString());
+        
+        const oldDataSnap = await oldDataQuery.get();
+        oldDataSnap.forEach(doc => {
+            const data = doc.data() as any;
+            if (data.isEntered || rows.some(r => r.sourceId === doc.id)) return; // Skip if already processed via journal
+
+            const totalSale = (data.passengers || []).reduce((sum: number, p: any) => sum + (p.salePrice || 0), 0);
+            const totalPurchase = (data.passengers || []).reduce((sum: number, p: any) => sum + (p.purchasePrice || 0), 0);
+
+            if (data.clientId === accountId) {
+                 rows.push({
+                    id: doc.id, date: data.enteredAt, invoiceNumber: data.invoiceNumber,
+                    description: `فاتورة ${collectionName === 'bookings' ? 'تذاكر' : 'فيزا'} PNR: ${data.pnr || ''}`,
+                    debit: totalSale, credit: 0, currency: data.currency, officer: data.enteredBy,
+                    voucherType: collectionName.slice(0, -1), sourceType: collectionName.slice(0, -1), sourceId: doc.id
+                });
+            }
+             if (data.supplierId === accountId) {
+                rows.push({
+                    id: doc.id, date: data.enteredAt, invoiceNumber: data.invoiceNumber,
+                    description: `تكلفة ${collectionName === 'bookings' ? 'تذاكر' : 'فيزا'} PNR: ${data.pnr || ''}`,
+                    debit: 0, credit: totalPurchase, currency: data.currency, officer: data.enteredBy,
+                    voucherType: collectionName.slice(0, -1), sourceType: collectionName.slice(0, -1), sourceId: doc.id
+                });
+            }
+        })
+    }
+
 
     const filteredRows = voucherType && voucherType.length > 0
         ? rows.filter(r => (r.voucherType && voucherType.includes(r.voucherType)) || (r.sourceType && voucherType.includes(r.sourceType)))
@@ -92,7 +96,7 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     let balanceUSD = 0;
     let balanceIQD = 0;
     const result = filteredRows
-        .sort((a, b) => a.date.localeCompare(b.date))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .map((r: any) => {
             if (r.currency === 'USD') {
                 balanceUSD += (r.debit || 0) - (r.credit || 0);
@@ -105,12 +109,12 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     return result;
   } catch (err: any) {
     console.error('❌ Error loading account statement:', err);
-    return [];
+    throw new Error(`فشل تحميل كشف الحساب: ${err.message}`);
   }
 }
 
 export async function getClientTransactions(clientId: string) {
-    const { transactions } = await getAccountStatement({ accountId: clientId });
+    const transactions = await getAccountStatement({ accountId: clientId });
     return { transactions: transactions.map(tx => ({...tx, id: tx.id || tx.invoiceNumber})) };
 }
 
@@ -162,6 +166,7 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
     const entries = clients.map((client: Client): DebtsReportEntry => ({
         id: client.id,
         name: client.name,
+        code: client.code,
         phone: client.phone,
         accountType: client.relationType,
         balanceUSD: balances[client.id]?.balanceUSD || 0,
@@ -173,14 +178,12 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         const balanceUSD = entry.balanceUSD || 0;
         const balanceIQD = entry.balanceIQD || 0;
         
-        // A client debit means they owe us, a credit means we owe them.
-        // A supplier debit means we owe them less, a credit means we owe them more.
         if (entry.accountType === 'client' || entry.accountType === 'both') {
             if (balanceUSD > 0) acc.totalDebitUSD += balanceUSD; else acc.totalCreditUSD -= balanceUSD;
             if (balanceIQD > 0) acc.totalDebitIQD += balanceIQD; else acc.totalCreditIQD -= balanceIQD;
         } else { // Supplier
-            if (balanceUSD < 0) acc.totalDebitUSD -= balanceUSD; else acc.totalCreditUSD += balanceUSD;
-            if (balanceIQD < 0) acc.totalDebitIQD -= balanceIQD; else acc.totalCreditIQD += balanceIQD;
+            if (balanceUSD < 0) acc.totalCreditUSD -= balanceUSD; else acc.totalDebitUSD += balanceUSD;
+            if (balanceIQD < 0) acc.totalCreditIQD -= balanceIQD; else acc.totalDebitIQD += balanceIQD;
         }
         
         return acc;
