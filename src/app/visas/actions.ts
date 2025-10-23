@@ -10,7 +10,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getSettings } from '@/app/settings/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
-import { postJournal } from '@/lib/finance/posting';
+import { postJournalEntry } from '@/lib/finance/postJournal';
 
 export async function getVisaBookings(includeDeleted = false): Promise<VisaBookingEntry[]> {
     const settings = await getSettings();
@@ -89,13 +89,14 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
         
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
 
-        await postJournal({
-            category: 'visas',
-            amount: totalSale,
-            date: new Date(dataToSave.submissionDate),
-            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
+        await postJournalEntry({
             sourceType: 'visa',
             sourceId: bookingRef.id,
+            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
+            amount: totalSale,
+            currency: dataToSave.currency,
+            date: new Date(dataToSave.submissionDate),
+            userId: user.uid,
         });
 
         // Increment use count for client and supplier
@@ -157,13 +158,14 @@ export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntr
 
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
 
-        await postJournal({
-            category: 'visas',
-            amount: totalSale,
-            date: new Date(dataToSave.submissionDate),
-            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
+        await postJournalEntry({
             sourceType: 'visa',
             sourceId: bookingRef.id,
+            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
+            amount: totalSale,
+            currency: dataToSave.currency,
+            date: new Date(dataToSave.submissionDate),
+            userId: user.uid,
         });
 
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });

@@ -108,8 +108,6 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
       setTransactions(transactionsData);
 
       if (transactionsData.length > 0) {
-          let balanceUSD = 0;
-          let balanceIQD = 0;
           let totalDebitUSD = 0;
           let totalCreditUSD = 0;
           let totalDebitIQD = 0;
@@ -123,27 +121,26 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
                    totalDebitIQD += tx.debit;
                   totalCreditIQD += tx.credit;
               }
-              balanceUSD = tx.balance; // This is a simplified balance for now
-              balanceIQD = tx.balance; // This logic needs improvement for dual currency
           });
           
+          const lastTransaction = transactionsData[transactionsData.length - 1];
+
           setReport({
               transactions: transactionsData,
-              openingBalanceUSD: 0,
-              openingBalanceIQD: 0,
+              openingBalanceUSD: 0, // This should be calculated based on previous period
+              openingBalanceIQD: 0, // This should be calculated based on previous period
               totalDebitUSD,
               totalCreditUSD,
-              finalBalanceUSD: balanceUSD,
+              finalBalanceUSD: lastTransaction.balanceUSD,
               totalDebitIQD,
               totalCreditIQD,
-              finalBalanceIQD: balanceIQD,
+              finalBalanceIQD: lastTransaction.balanceIQD,
               title: '',
               currency: filters.currency,
               accountType: '',
               balanceMode: 'asset',
           });
       }
-
 
     } catch (error: any) {
       setError("حدث خطأ أثناء تحميل البيانات");
@@ -170,10 +167,12 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
       'التاريخ': tx.date ? format(parseISO(tx.date), "yyyy-MM-dd") : "",
       'النوع': tx.type,
       'البيان': typeof tx.description === 'string' ? tx.description : tx.description?.title,
-      'مدين': tx.debit,
-      'دائن': tx.credit,
-      'الرصيد': tx.balance,
-      'العملة': tx.currency,
+      'مدين (USD)': tx.currency === 'USD' ? tx.debit : 0,
+      'دائن (USD)': tx.currency === 'USD' ? tx.credit : 0,
+      'الرصيد (USD)': tx.balanceUSD,
+      'مدين (IQD)': tx.currency === 'IQD' ? tx.debit : 0,
+      'دائن (IQD)': tx.currency === 'IQD' ? tx.credit : 0,
+      'الرصيد (IQD)': tx.balanceIQD,
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
