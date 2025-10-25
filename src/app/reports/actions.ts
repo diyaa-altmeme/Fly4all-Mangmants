@@ -6,6 +6,7 @@ import { Timestamp, FieldPath } from "firebase-admin/firestore";
 import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription, ReportInfo, Currency } from '@/lib/types';
 import { getClients } from '@/app/relations/actions';
 import { parseISO } from "date-fns";
+import { getUsers } from "../users/actions";
 
 // 🔹 جلب كشف الحساب مع معالجة الحقول الجديدة وحساب أرصدة منفصلة لكل عملة
 export async function getAccountStatement(filters: { accountId: string; dateFrom?: Date; dateTo?: Date; voucherType?: string[] }) {
@@ -19,8 +20,9 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
   try {
     let rows: any[] = [];
     
-    // This logic is flawed. A single voucher can have both debit and credit for the same account.
-    // Let's refactor to query ALL vouchers and filter in code. This is less efficient but more accurate.
+    // Fetch users to map createdBy UID to name
+    const users = await getUsers();
+    const usersMap = new Map(users.map(u => [u.uid, u.name]));
     
     rows = []; // Reset rows
     
@@ -52,7 +54,9 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                         id: `${doc.id}_debit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
                         description: description,
                         debit: Number(entry.amount) || 0, credit: 0,
-                        currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                        currency: v.currency || 'USD', 
+                        officer: usersMap.get(v.createdBy) || v.officer || v.createdBy, // Use map to get name
+                        voucherType: v.voucherType,
                         sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
                     });
                 }
@@ -71,7 +75,9 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                         id: `${doc.id}_credit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
                         description: description,
                         debit: 0, credit: Number(entry.amount) || 0,
-                        currency: v.currency || 'USD', officer: v.officer, voucherType: v.voucherType,
+                        currency: v.currency || 'USD', 
+                        officer: usersMap.get(v.createdBy) || v.officer || v.createdBy, // Use map to get name
+                        voucherType: v.voucherType,
                         sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
                     });
                 }
