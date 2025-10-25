@@ -28,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { addSegmentEntries } from "@/app/segments/actions";
+import { addSegmentEntries, deleteSegmentPeriod } from "@/app/segments/actions";
 import { useAuth } from "@/lib/auth-context";
 import {
   PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil, AlertCircle
@@ -59,6 +59,7 @@ const partnerSchema = z.object({
   partnerId: z.string().min(1, "اختر شريكاً من قائمة العلاقات."),
   partnerName: z.string().min(1),
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
+  amount: z.coerce.number(), // This field is for calculation display, not direct input
 });
 
 const companyEntrySchema = z.object({
@@ -90,9 +91,6 @@ const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
   currency: z.string().min(1, "اختر العملة."),
-  entries: z.array(companyEntrySchema.extend({
-    computed: z.any()
-  })).default([]),
 });
 
 
@@ -345,7 +343,7 @@ const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
            return;
       }
       
-      const newPartner: PartnerFormValues = { id: uuidv4(), partnerId: selectedPartner.value, partnerName: selectedPartner.label, percentage: newPercentage };
+      const newPartner: PartnerFormValues = { id: uuidv4(), partnerId: selectedPartner.value, partnerName: selectedPartner.label, percentage: newPercentage, amount: 0 };
       appendPartner(newPartner);
       setCurrentPartnerId('');
       setCurrentPartnerPercentage('');
@@ -530,7 +528,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         if (open) {
             const from = existingPeriod?.fromDate ? parseISO(existingPeriod.fromDate) : new Date();
             const to = existingPeriod?.toDate ? parseISO(existingPeriod.toDate) : new Date();
-            periodForm.reset({ fromDate: from, toDate: to });
+            periodForm.reset({ fromDate: from, toDate: to, currency: existingPeriod?.entries?.[0]?.currency || 'USD' });
             companyFormRef.current?.resetForm();
             setPeriodEntries(existingPeriod?.entries || []);
             setEditingEntry(null);
@@ -543,7 +541,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
     
     const updateEntry = (updatedEntry: any) => {
-        setPeriodEntries(prev => prev.map(e => e.id === updatedEntry.id ? updatedEntry : e));
+        setPeriodEntries(prev => prev.map(e => e.clientId === updatedEntry.clientId ? updatedEntry : e));
         setEditingEntry(null);
     };
 
@@ -559,7 +557,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         }
 
         if (periodEntries.length === 0) {
-            toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
+            if (isEditing && existingPeriod?.periodId) {
+                await deleteSegmentPeriod(existingPeriod.periodId);
+                toast({ title: "تم حذف الفترة", description: "تم حذف الفترة المحاسبية لعدم وجود سجلات." });
+            } else {
+                 toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
+            }
+            setOpen(false);
+            await onSuccess();
             return;
         }
 
@@ -571,6 +576,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     ...rest,
                     fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
                     toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
+                    currency: periodData.currency!,
                 };
             });
             
@@ -589,16 +595,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
 
     const currency = periodForm.watch('currency');
-    const currencySymbol = useVoucherNav().data?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                {isEditing ? (
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600"><Pencil className="h-4 w-4" /></Button>
-                ) : (
-                    <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل سكمنت</Button>
-                )}
+                {children}
             </DialogTrigger>
             <DialogContent className="sm:max-w-6xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
@@ -606,10 +607,18 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </DialogHeader>
                 
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                    <div className="p-4 border rounded-lg bg-background/50 sticky top-0 z-10">
+                     <div className="p-4 border rounded-lg bg-background/50">
                          <FormProvider {...periodForm}>
                             <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                                {/* Form content remains the same */}
+                                <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
+                                    <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem>
+                                )}/>
+                                <FormField control={periodForm.control} name="toDate" render={({ field }) => (
+                                    <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem>
+                                )}/>
+                                 <FormField control={periodForm.control} name="currency" render={({ field }) => (
+                                     <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select></FormItem>
+                                )}/>
                             </form>
                         </FormProvider>
                     </div>
@@ -624,18 +633,49 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                       partnerOptions={partnerOptions}
                     />
 
-                    {/* Rest of the component */}
+                    <div className='p-4 border rounded-lg'>
+                        <h3 className="font-semibold text-base mb-2">الشركات المضافة ({periodEntries.length})</h3>
+                        <div className='border rounded-lg overflow-hidden'>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>الشركة</TableHead>
+                                        <TableHead>إجمالي الربح</TableHead>
+                                        <TableHead>حصة الروضتين</TableHead>
+                                        <TableHead>حصة الشريك</TableHead>
+                                        <TableHead className='w-[100px] text-center'>الإجراءات</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {periodEntries.length === 0 ? (
+                                        <TableRow><TableCell colSpan={6} className="text-center h-20">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
+                                    ) : periodEntries.map((entry, index) => {
+                                        const computed = computeTotals(entry);
+                                        return (
+                                        <TableRow key={entry.id || index}>
+                                            <TableCell className="font-semibold">{entry.companyName}</TableCell>
+                                            <TableCell className="font-mono">{computed.net.toFixed(2)}</TableCell>
+                                            <TableCell className="font-mono text-green-600">{computed.rodatainShare.toFixed(2)}</TableCell>
+                                            <TableCell className="font-mono text-blue-600">{computed.partnersTotal.toFixed(2)}</TableCell>
+                                            <TableCell className='text-center'>
+                                                 <Button variant="ghost" size="icon" className='h-8 w-8 text-blue-600' onClick={() => setEditingEntry(entry)}><Pencil className='h-4 w-4'/></Button>
+                                                <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(index)}><Trash2 className='h-4 w-4'/></Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    )})}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
                 </div>
             
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
                     <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="w-full sm:w-auto">
                         {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                        حفظ بيانات الفترة ({periodEntries.length} سجلات)
+                        {isEditing ? 'حفظ التعديلات على الفترة' : `حفظ بيانات الفترة (${periodEntries.length} سجلات)`}
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
-
-```
