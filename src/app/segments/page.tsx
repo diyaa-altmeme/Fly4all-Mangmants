@@ -131,16 +131,6 @@ export default function SegmentsPage() {
     const clients = navData?.clients || [];
     const suppliers = navData?.suppliers || [];
     
-    useEffect(() => {
-        if (!navDataLoaded) {
-          fetchData();
-        }
-        if(navDataLoaded) {
-            fetchSegmentData();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [navDataLoaded, fetchData]);
-    
     const fetchSegmentData = useCallback(async () => {
         setLoading(true);
         try {
@@ -152,6 +142,16 @@ export default function SegmentsPage() {
             setLoading(false);
         }
     }, [toast]);
+
+    useEffect(() => {
+        if (!navDataLoaded) {
+          fetchData();
+        }
+        if(navDataLoaded) {
+            fetchSegmentData();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navDataLoaded]);
     
     const handleSuccess = useCallback(async () => {
         await fetchSegmentData();
@@ -262,7 +262,7 @@ export default function SegmentsPage() {
                                 <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
                                      <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
                                 </AddSegmentPeriodDialog>
-                                <Button onClick={fetchSegmentData} variant="outline" disabled={loading}>
+                                <Button onClick={handleSuccess} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
                                     تحديث
                                 </Button>
