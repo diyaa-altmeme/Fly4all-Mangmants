@@ -1,7 +1,7 @@
 
-"use client";
+      "use client";
 
-import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +34,7 @@ import { useAuth } from "@/lib/auth-context";
 import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil, AlertCircle, HandCoins } from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from 'date-fns';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormLabel, FormMessage } from "@/components/ui/form";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,7 +44,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 import { useForm, FormProvider, useFormContext, useFieldArray, useWatch, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -552,6 +552,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     
     const addEntry = (entry: any) => {
         append(entry);
+        companyFormRef.current?.resetForm();
     };
 
     const updateEntry = (index: number, entry: any) => {
@@ -639,7 +640,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                {children}
+                 {children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}
             </DialogTrigger>
             <DialogContent className="sm:max-w-6xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
@@ -651,17 +652,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         <div className="p-4 border rounded-lg bg-background/50">
                             <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
                             <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                                {/* Date fields and currency select */}
                                 <Controller
                                     control={control}
                                     name="fromDate"
                                     render={({ field }) => (
                                         <div className="space-y-1">
                                             <Label>من تاريخ</Label>
-                                            <Popover>
-                                                <PopoverTrigger asChild><Button variant="outline" className={cn("justify-start text-left font-normal w-full", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "yyyy-MM-dd") : "اختر تاريخ البدء"}</Button></PopoverTrigger>
-                                                <PopoverContent align="start" className="p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
-                                            </Popover>
+                                            <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("justify-start text-left font-normal w-full", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "yyyy-MM-dd") : "اختر تاريخ البدء"}</Button></PopoverTrigger><PopoverContent align="start" className="p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>
                                         </div>
                                     )}
                                 />
@@ -671,10 +668,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     render={({ field }) => (
                                         <div className="space-y-1">
                                             <Label>إلى تاريخ</Label>
-                                            <Popover>
-                                                <PopoverTrigger asChild><Button variant="outline" className={cn("justify-start text-left font-normal w-full", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "yyyy-MM-dd") : "اختر تاريخ الانتهاء"}</Button></PopoverTrigger>
-                                                <PopoverContent align="start" className="p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
-                                            </Popover>
+                                            <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("justify-start text-left font-normal w-full", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "yyyy-MM-dd") : "اختر تاريخ الانتهاء"}</Button></PopoverTrigger><PopoverContent align="start" className="p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>
                                         </div>
                                     )}
                                 />
@@ -764,3 +758,4 @@ const StatCard = ({ title, value, currency, className }: { title: string; value:
         </p>
     </div>
 );
+    
