@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -594,13 +594,15 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             setIsSaving(false);
         }
     };
-
+    
     const currency = periodForm.watch('currency');
+    const headerColor = currency === 'USD' ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
+
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                {children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}
+                {children}
             </DialogTrigger>
             <DialogContent className="sm:max-w-6xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
@@ -655,7 +657,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     ) : periodEntries.map((entry, index) => {
                                         const computed = computeTotals(entry);
                                         return (
-                                        <TableRow key={entry.id || index}>
+                                        <TableRow key={entry.id}>
                                             <TableCell className="font-semibold font-mono text-xs">{entry.invoiceNumber || '(جديد)'}</TableCell>
                                             <TableCell className="font-semibold">{entry.companyName}</TableCell>
                                              <TableCell>{entry.partnerName}</TableCell>
@@ -686,3 +688,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
