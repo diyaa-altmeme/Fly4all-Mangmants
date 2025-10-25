@@ -74,7 +74,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                 currency: entryData.currency,
                 date: entryDate,
                 userId: user.uid,
-                creditAccountId: entryData.clientId, // The company that owes the money
+                clientId: entryData.clientId, // The company that owes the money
             });
 
             // If there are partner shares, create payment vouchers
