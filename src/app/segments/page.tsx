@@ -49,8 +49,8 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     const invoiceNumber = period.entries[0]?.invoiceNumber || 'N/A';
     const periodNotes = period.entries[0]?.notes || '-';
 
-    const handleDeletePeriod = async (fromDate: string, toDate: string) => {
-        const { count } = await deleteSegmentPeriod(fromDate, toDate);
+    const handleDeletePeriod = async () => {
+        const { count } = await deleteSegmentPeriod(period.periodId);
         if (count > 0) {
             toast({ title: "تم نقل الفترة إلى المحذوفات" });
             onDataChange();
@@ -64,7 +64,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     }
 
     return (
-        <Collapsible asChild key={`${period.fromDate}_${period.toDate}`} open={isOpen} onOpenChange={setIsOpen}>
+        <Collapsible asChild key={period.periodId} open={isOpen} onOpenChange={setIsOpen}>
              <tbody className={cn("border-t font-bold", period.isConfirmed && "bg-green-500/10")}>
                 <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
                     <TableCell className="p-1 text-center">
@@ -94,7 +94,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                                     <AddSegmentPeriodDialog isEditing existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
                                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Pencil className="me-2 h-4 w-4" /> تعديل الفترة</DropdownMenuItem>
                                     </AddSegmentPeriodDialog>
-                                    <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.fromDate, period.toDate)} />
+                                    <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.periodId)} />
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
@@ -159,9 +159,10 @@ export default function SegmentsPage() {
     
     const groupedByPeriod = useMemo(() => {
         return segments.reduce((acc, entry) => {
-            const periodKey = `${entry.fromDate}_${entry.toDate}`;
+            const periodKey = entry.periodId || `${entry.fromDate}_${entry.toDate}`;
             if (!acc[periodKey]) {
                 acc[periodKey] = {
+                    periodId: periodKey,
                     fromDate: entry.fromDate,
                     toDate: entry.toDate,
                     entries: [],
@@ -188,7 +189,7 @@ export default function SegmentsPage() {
             if(entry.total < 0) acc[periodKey].type = 'payment';
 
             return acc;
-        }, {} as Record<string, { fromDate: string; toDate: string; entries: SegmentEntry[], totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment' }>);
+        }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment' }>);
     }, [segments]);
     
     const sortedAndFilteredPeriods = useMemo(() => {
@@ -204,7 +205,7 @@ export default function SegmentsPage() {
         }
         
         if (periodFilter !== 'all') {
-            periods = periods.filter(p => `${p.fromDate}_${p.toDate}` === periodFilter);
+            periods = periods.filter(p => p.periodId === periodFilter);
         }
 
         if (statusFilter !== 'all') {
@@ -232,7 +233,7 @@ export default function SegmentsPage() {
         return Object.values(groupedByPeriod)
             .sort((a,b) => new Date(b.toDate).getTime() - new Date(a.toDate).getTime())
             .map(p => ({
-                value: `${p.fromDate}_${p.toDate}`,
+                value: p.periodId,
                 label: `${p.fromDate} -> ${p.toDate}`
             }));
     }, [groupedByPeriod]);
@@ -326,7 +327,7 @@ export default function SegmentsPage() {
                                 </TableBody>
                             ) : sortedAndFilteredPeriods.map((period, idx) => (
                                 <PeriodRow
-                                    key={`${period.fromDate}_${period.toDate}`}
+                                    key={period.periodId}
                                     period={period}
                                     index={idx}
                                     clients={clients}
@@ -341,3 +342,5 @@ export default function SegmentsPage() {
         </div>
     )
 }
+
+    
