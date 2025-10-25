@@ -35,7 +35,7 @@ interface ReportGeneratorProps {
   defaultAccountId?: string;
 }
 
-export default function ReportGenerator({ boxes, clients, suppliers, exchanges, defaultAccountId }: ReportGeneratorProps) {
+export default function ReportGenerator({ boxes = [], clients = [], suppliers = [], exchanges = [], defaultAccountId }: ReportGeneratorProps) {
   const [report, setReport] = useState<ReportInfo | null>(null);
   const [transactions, setTransactions] = useState<ReportTransaction[]>([]);
   const { data: navData } = useVoucherNav();
@@ -336,3 +336,5 @@ export default function ReportGenerator({ boxes, clients, suppliers, exchanges, 
     </div>
   );
 }
+
+    
