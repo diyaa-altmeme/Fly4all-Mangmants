@@ -28,10 +28,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { addSegmentEntries, deleteSegmentPeriod } from "@/app/segments/actions";
+import { addSegmentEntries } from "@/app/segments/actions";
 import { useAuth } from "@/lib/auth-context";
-
-import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil, AlertCircle, HandCoins } from 'lucide-react';
+import {
+  PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil, AlertCircle
+} from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from 'date-fns';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -45,12 +46,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useForm, FormProvider, useFormContext, useFieldArray, useWatch, Controller } from 'react-hook-form';
+import { useForm, FormProvider, useFormContext, useFieldArray, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency, ProfitShare } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
-
 
 // ---------- Schemas ----------
 
