@@ -37,7 +37,7 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
     }
 }
 
-export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Promise<{ success: boolean; error?: string, newEntries?: SegmentEntry[] }> {
+export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[], periodIdToReplace?: string): Promise<{ success: boolean; error?: string, newEntries?: SegmentEntry[] }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
@@ -46,9 +46,30 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
     }
 
     const newEntries: SegmentEntry[] = [];
-    
+    const mainBatch = db.batch();
+
     try {
-        const entryDate = new Date(); // Use a single timestamp for the entire batch
+        const entryDate = new Date();
+        const periodId = periodIdToReplace || db.collection('temp').doc().id; // Generate a unique ID for this batch/period
+
+        // If we are editing, we first need to delete old entries associated with this period
+        if (periodIdToReplace) {
+            const oldSegmentsSnap = await db.collection('segments').where('periodId', '==', periodIdToReplace).get();
+            const oldVoucherPromises: Promise<FirebaseFirestore.QuerySnapshot>[] = [];
+            
+            oldSegmentsSnap.forEach(doc => {
+                const oldInvoice = doc.data().invoiceNumber;
+                if(oldInvoice) {
+                   oldVoucherPromises.push(db.collection('journal-vouchers').where('invoiceNumber', '==', oldInvoice).get());
+                }
+                mainBatch.delete(doc.ref);
+            });
+
+            const oldVoucherSnaps = await Promise.all(oldVoucherPromises);
+            oldVoucherSnaps.forEach(snap => {
+                snap.forEach(doc => mainBatch.delete(doc.ref));
+            });
+        }
 
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
@@ -56,12 +77,13 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
             
             const dataWithUser: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
+                periodId: periodId, // Link all entries to the same period
                 invoiceNumber: segmentInvoiceNumber,
-                enteredBy: user.name, // The user performing the action
+                enteredBy: user.name,
                 createdAt: entryDate.toISOString(),
                 isDeleted: false,
             };
-            await segmentDocRef.set(dataWithUser);
+            mainBatch.set(segmentDocRef, dataWithUser);
 
             newEntries.push({ ...dataWithUser, id: segmentDocRef.id });
 
@@ -74,7 +96,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                 currency: entryData.currency,
                 date: entryDate,
                 userId: user.uid,
-                clientId: entryData.clientId, // The company that owes the money
+                clientId: entryData.clientId,
             });
 
             // If there are partner shares, create payment vouchers
@@ -88,14 +110,14 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                         currency: entryData.currency,
                         date: entryDate,
                         userId: user.uid,
-                        debitAccountId: share.partnerId, // Partner's account is debited
-                        creditAccountId: user.boxId, // Paid from the user's box
+                        debitAccountId: share.partnerId,
+                        creditAccountId: user.boxId,
                     });
                 }
             }
 
             // Update client's use count and segment settings
-            await db.collection('clients').doc(entryData.clientId).set({ 
+            mainBatch.set(db.collection('clients').doc(entryData.clientId), { 
                 segmentSettings: {
                     ticketProfitType: entryData.ticketProfitType,
                     ticketProfitValue: entryData.ticketProfitValue,
@@ -110,6 +132,8 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[]): Pr
                 useCount: FieldValue.increment(1)
             }, { merge: true });
         }
+
+        await mainBatch.commit();
 
         revalidatePath('/segments');
         revalidatePath('/reports/account-statement');
@@ -134,13 +158,12 @@ export async function updateSegmentEntry(id: string, data: Partial<Omit<SegmentE
     }
 }
 
-export async function deleteSegmentPeriod(fromDate: string, toDate: string, permanent: boolean = false): Promise<{ success: boolean; error?: string; count: number; }> {
+export async function deleteSegmentPeriod(periodId: string, permanent: boolean = false): Promise<{ success: boolean; error?: string; count: number; }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available.", count: 0 };
     try {
         const snapshot = await db.collection('segments')
-            .where('fromDate', '==', fromDate)
-            .where('toDate', '==', toDate)
+            .where('periodId', '==', periodId)
             .get();
         
         if (snapshot.empty) {
@@ -158,7 +181,6 @@ export async function deleteSegmentPeriod(fromDate: string, toDate: string, perm
             }
         });
         
-        // Also soft/hard delete the corresponding journal vouchers
         if (invoiceNumbers.size > 0) {
             for (const invoiceNumber of Array.from(invoiceNumbers)) {
                 const voucherSnapshot = await db.collection('journal-vouchers')
@@ -187,13 +209,12 @@ export async function deleteSegmentPeriod(fromDate: string, toDate: string, perm
     }
 }
 
-export async function restoreSegmentPeriod(fromDate: string, toDate: string): Promise<{ success: boolean; error?: string; count: number; }> {
+export async function restoreSegmentPeriod(periodId: string): Promise<{ success: boolean; error?: string; count: number; }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available.", count: 0 };
     try {
         const snapshot = await db.collection('segments')
-            .where('fromDate', '==', fromDate)
-            .where('toDate', '==', toDate)
+            .where('periodId', '==', periodId)
             .where('isDeleted', '==', true)
             .get();
         
