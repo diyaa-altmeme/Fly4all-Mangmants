@@ -1,7 +1,7 @@
 
       "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import {
@@ -146,7 +146,7 @@ function computeTotals(d: CompanyEntryFormValues) {
 
 // ---------- Reusable fields ----------
 
-const ServiceLine = React.forwardRef(function ServiceLine({
+const ServiceLine = forwardRef(function ServiceLine({
   label,
   icon: Icon,
   color,
@@ -231,7 +231,7 @@ ServiceLine.displayName = "ServiceLine";
 
 // ---------- AddCompanyToSegmentForm ----------
 
-const AddCompanyToSegmentForm = React.forwardRef(function AddCompanyToSegmentForm(
+const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
   { onAddEntry, onUpdateEntry, editingEntry, onCancelEdit, allCompanyOptions, partnerOptions }: { 
     onAddEntry: (data: any) => void;
     onUpdateEntry: (data: any) => void;
@@ -487,7 +487,6 @@ const AddCompanyToSegmentForm = React.forwardRef(function AddCompanyToSegmentFor
     </FormProvider>
   );
 });
-AddCompanyToSegmentForm.displayName = "AddCompanyToSegmentForm";
 
 // ---------- Wrapper: AddSegmentPeriodDialog ----------
 
@@ -500,20 +499,18 @@ interface AddSegmentPeriodDialogProps {
   children?: React.ReactNode;
 }
 
-export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess, isEditing, existingPeriod, children }: AddSegmentPeriodDialogProps) {
+export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
     const { toast } = useToast();
-    const { user: currentUser } = useAuth();
     const [open, setOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [editingCompany, setEditingCompany] = useState<CompanyEntryFormValues | null>(null);
-
-    const companyFormRef = React.useRef<{ resetForm: () => void }>(null);
-
-    const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
-    const { control, getValues, reset: resetPeriodForm, trigger, handleSubmit: handlePeriodSubmit, watch: watchPeriodForm } = periodForm;
-    const { fields, append, remove, update, replace } = useFieldArray({ control, name: "entries" as const });
     
-    const partnerOptions = useMemo(() => {
+    const [periodEntries, setPeriodEntries] = useState<any[]>([]);
+    
+    const allCompanyOptions = useMemo(() => {
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+    }, [clients]);
+
+     const partnerOptions = useMemo(() => {
         const allRelations = [...clients, ...suppliers];
         const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
         return uniqueRelations.map(r => {
@@ -525,51 +522,26 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         });
     }, [clients, suppliers]);
 
-    const allCompanyOptions = useMemo(() => {
-        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: `${c.name} (${c.code || 'N/A'})`, settings: c.segmentSettings }));
-    }, [clients]);
+
+    const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
+    const companyFormRef = React.useRef<{ resetForm: () => void }>(null);
+
 
     useEffect(() => {
         if (open) {
-            const fromDate = existingPeriod?.fromDate ? parseISO(existingPeriod.fromDate) : new Date();
-            const toDate = existingPeriod?.toDate ? parseISO(existingPeriod.toDate) : new Date();
-            const currency = existingPeriod?.entries?.[0]?.currency || 'USD';
-            const entries = (existingPeriod?.entries || []).map((e: any) => ({
-                ...e,
-                computed: computeTotals(e),
-                partners: e.partnerShares?.map((p: any) => ({
-                    id: p.partnerId,
-                    partnerId: p.partnerId,
-                    partnerName: p.partnerName,
-                    type: 'fixed', // Assumption, this needs to be stored if we want to edit percentages
-                    value: p.share,
-                })) || []
-            }));
-            resetPeriodForm({ fromDate, toDate, currency, entries });
+            periodForm.reset({});
             companyFormRef.current?.resetForm();
+            setPeriodEntries([]);
         }
-    }, [open, existingPeriod, resetPeriodForm, companyFormRef]);
-    
-    const addEntry = (entry: any) => {
-        append(entry);
-        companyFormRef.current?.resetForm();
-    };
+    }, [open, periodForm]);
 
-    const updateEntry = (index: number, entry: any) => {
-        update(index, entry);
-        setEditingCompany(null);
+    const addEntry = (entry: any) => {
+        setPeriodEntries(prev => [...prev, entry]);
+        companyFormRef.current?.resetForm();
     };
     
     const removeEntry = (index: number) => {
-      const entryToRemove = fields[index];
-      if (editingCompany && (editingCompany.id === entryToRemove.id)) {
-        setEditingCompany(null);
-      }
-      remove(index);
-    };
-
-    const handleEditEntry = (entry: any, index: number) => {
-        setEditingCompany({...entry, index});
+        setPeriodEntries(prev => prev.filter((_, i) => i !== index));
     }
     
     const handleSavePeriod = async () => {
@@ -579,42 +551,23 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             return;
         }
 
-        const entriesToSave = getValues('entries');
-
-        if (entriesToSave.length === 0) {
-             if (existingPeriod) { // If editing and all entries are removed, delete the period
-                await deleteSegmentPeriod(existingPeriod.fromDate, existingPeriod.toDate);
-                toast({ title: "تم حذف الفترة", description: "تم حذف الفترة المحاسبية لعدم وجود سجلات." });
-             }
-            setOpen(false);
-            await onSuccess();
+        if (periodEntries.length === 0) {
+            toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
             return;
         }
 
         setIsSaving(true);
         try {
-            if (isEditing) {
-                await deleteSegmentPeriod(existingPeriod.fromDate, existingPeriod.toDate);
-            }
-            
-            const finalEntries = entriesToSave.map((entry: any) => ({
+            const finalEntries = periodEntries.map((entry) => ({
                 ...entry,
-                companyName: entry.clientName,
-                total: entry.computed.net,
-                alrawdatainShare: entry.computed.rodatainShare,
-                partnerShare: entry.computed.partnersTotal,
-                ticketProfits: entry.computed.perService.totalTickets,
-                otherProfits: entry.computed.perService.totalVisas + entry.computed.perService.totalHotels + entry.computed.perService.totalGroups,
-                partnerShares: entry.computed.partnerBreakdown,
                 fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
                 toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
-                currency: periodData.currency as Currency,
             }));
             
             const result = await addSegmentEntries(finalEntries as any);
             if (!result.success) throw new Error(result.error);
             
-            toast({ title: `تم ${isEditing ? 'تحديث' : 'حفظ'} بيانات الفترة بنجاح` });
+            toast({ title: `تم حفظ بيانات الفترة بنجاح` });
             setOpen(false);
             await onSuccess();
             
@@ -626,123 +579,96 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
 
     const { grandTotalProfit, grandTotalAlrawdatainShare, grandTotalPartnerShare } = React.useMemo(() => {
-        return fields.reduce((acc: any, entry: any) => {
+        return periodEntries.reduce((acc: any, entry: any) => {
             acc.grandTotalProfit += entry.computed.net;
             acc.grandTotalAlrawdatainShare += entry.computed.rodatainShare;
             acc.grandTotalPartnerShare += entry.computed.partnersTotal;
             return acc;
         }, { grandTotalProfit: 0, grandTotalAlrawdatainShare: 0, grandTotalPartnerShare: 0 });
-    }, [fields]);
+    }, [periodEntries]);
 
-    const currency = getValues('currency');
+    const currency = periodForm.watch('currency');
     const currencySymbol = useVoucherNav().data?.settings.currencySettings?.currencies.find(c => c.code === currency)?.symbol || '$';
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                 {children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}
+                 <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل سكمنت</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-6xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
-                    <DialogTitle>{isEditing ? "تعديل فترة سكمنت" : "إضافة فترة سكمنت جديدة"}</DialogTitle>
+                    <DialogTitle>إضافة سجل سكمنت جديد</DialogTitle>
                 </DialogHeader>
 
-                <FormProvider {...periodForm}>
-                    <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                        <div className="p-4 border rounded-lg bg-background/50">
-                            <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
+                <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
+                    <div className="p-4 border rounded-lg bg-background/50 sticky top-0 z-10">
+                        <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
+                        <FormProvider {...periodForm}>
                             <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                                <Controller
-                                    control={control}
-                                    name="fromDate"
-                                    render={({ field }) => (
-                                        <div className="space-y-1">
-                                            <Label>من تاريخ</Label>
-                                            <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("justify-start text-left font-normal w-full", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "yyyy-MM-dd") : "اختر تاريخ البدء"}</Button></PopoverTrigger><PopoverContent align="start" className="p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>
-                                        </div>
-                                    )}
-                                />
-                                <Controller
-                                    control={control}
-                                    name="toDate"
-                                    render={({ field }) => (
-                                        <div className="space-y-1">
-                                            <Label>إلى تاريخ</Label>
-                                            <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("justify-start text-left font-normal w-full", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "yyyy-MM-dd") : "اختر تاريخ الانتهاء"}</Button></PopoverTrigger><PopoverContent align="start" className="p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>
-                                        </div>
-                                    )}
-                                />
-                                <Controller
-                                    control={control}
-                                    name="currency"
-                                    render={({ field }) => (
-                                        <div className="space-y-1">
-                                        <Label>العملة</Label>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <SelectTrigger><SelectValue placeholder="اختر العملة" /></SelectTrigger>
-                                            <SelectContent>
-                                                {(useVoucherNav().data?.settings?.currencySettings?.currencies || []).map((c: any) => (
-                                                    <SelectItem key={c.code} value={c.code}>{c.name} ({c.symbol})</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        </div>
-                                    )}
-                                />
+                                <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
+                                    <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem>
+                                )}/>
+                                <FormField control={periodForm.control} name="toDate" render={({ field }) => (
+                                    <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem>
+                                )}/>
+                                <FormField control={periodForm.control} name="currency" render={({ field }) => (
+                                    <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="اختر العملة" /></SelectTrigger><SelectContent>
+                                        {(useVoucherNav().data?.settings?.currencySettings?.currencies || []).map((c: any) => (
+                                            <SelectItem key={c.code} value={c.code}>{c.name} ({c.symbol})</SelectItem>
+                                        ))}
+                                    </SelectContent></Select></FormItem>
+                                )}/>
                             </form>
-                        </div>
-                        <AddCompanyToSegmentForm 
-                          onAddEntry={addEntry}
-                          onUpdateEntry={(data) => {
-                              if (editingCompany && 'index' in editingCompany) {
-                                  update(editingCompany.index, data);
-                                  setEditingCompany(null);
-                              }
-                          }}
-                          ref={companyFormRef}
-                          editingEntry={editingCompany}
-                          onCancelEdit={() => setEditingCompany(null)}
-                          allCompanyOptions={allCompanyOptions}
-                          partnerOptions={partnerOptions}
-                        />
-                         <Card className="border rounded-lg">
-                            <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({fields.length})</CardTitle></CardHeader>
-                            <CardContent className="pt-0">
-                                <div className="border rounded-lg overflow-hidden">
-                                    <Table>
-                                        <TableHeader><TableRow><TableHead>الشركة</TableHead><TableHead>الشريك</TableHead><TableHead>الإجمالي</TableHead><TableHead>حصة الروضتين</TableHead><TableHead>حصة الشريك</TableHead><TableHead className="w-[100px] text-center">الإجراءات</TableHead></TableRow></TableHeader>
-                                        <TableBody>
-                                            {fields.length === 0 ? (
-                                                <TableRow><TableCell colSpan={6} className="text-center h-20">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
-                                            ) : fields.map((f: any, i: number) => (
-                                                <TableRow key={f.id}>
-                                                    <TableCell className="font-medium">{f.clientName || f.clientId}</TableCell>
-                                                    <TableCell>{f.partners?.map((p:any) => p.partnerName).join(', ')}</TableCell>
-                                                    <TableCell className="font-mono">{f.computed?.net?.toFixed(2)} {currencySymbol}</TableCell>
-                                                    <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {currencySymbol}</TableCell>
-                                                    <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {currencySymbol}</TableCell>
-                                                    <TableCell className='text-center space-x-1'>
-                                                        <Button variant="ghost" size="icon" className='h-8 w-8 text-blue-600' onClick={() => handleEditEntry(f, i)}><Pencil className='h-4 w-4'/></Button>
-                                                        <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(i)}><Trash2 className='h-4 w-4'/></Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </CardContent>
-                             <CardFooter className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency={currencySymbol} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
-                                <StatCard title="إجمالي حصة الروضتين" value={grandTotalAlrawdatainShare} currency={currencySymbol} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
-                                <StatCard title="إجمالي حصص الشركاء" value={grandTotalPartnerShare} currency={currencySymbol} className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
-                             </CardFooter>
-                        </Card>
+                        </FormProvider>
                     </div>
-                </FormProvider>
+                    
+                    <AddCompanyToSegmentForm 
+                      onAddEntry={addEntry}
+                      onUpdateEntry={() => {}} // Not used in add mode
+                      ref={companyFormRef}
+                      editingEntry={null}
+                      onCancelEdit={() => {}}
+                      allCompanyOptions={allCompanyOptions}
+                      partnerOptions={partnerOptions}
+                    />
+
+                     <Card className="border rounded-lg">
+                        <CardHeader className="py-3"><CardTitle className="text-base">الشركات المضافة ({periodEntries.length})</CardTitle></CardHeader>
+                        <CardContent className="pt-0">
+                            <div className="border rounded-lg overflow-hidden">
+                                <Table>
+                                    <TableHeader><TableRow><TableHead>الشركة</TableHead><TableHead>الشريك</TableHead><TableHead>الإجمالي</TableHead><TableHead>حصة الروضتين</TableHead><TableHead>حصة الشريك</TableHead><TableHead className="w-[60px] text-center">حذف</TableHead></TableRow></TableHeader>
+                                    <TableBody>
+                                        {periodEntries.length === 0 ? (
+                                            <TableRow><TableCell colSpan={6} className="text-center h-20">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
+                                        ) : periodEntries.map((f: any, i: number) => (
+                                            <TableRow key={f.id}>
+                                                <TableCell className="font-medium">{f.clientName || f.clientId}</TableCell>
+                                                <TableCell>{f.partners?.map((p:any) => p.partnerName).join(', ')}</TableCell>
+                                                <TableCell className="font-mono">{f.computed?.net?.toFixed(2)} {currencySymbol}</TableCell>
+                                                <TableCell className="font-mono text-green-600">{f.computed?.rodatainShare?.toFixed(2)} {currencySymbol}</TableCell>
+                                                <TableCell className="font-mono text-blue-600">{f.computed?.partnersTotal?.toFixed(2)} {currencySymbol}</TableCell>
+                                                <TableCell className='text-center space-x-1'>
+                                                    <Button variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => removeEntry(i)}><Trash2 className='h-4 w-4'/></Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                         <CardFooter className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <StatCard title="إجمالي أرباح السكمنت" value={grandTotalProfit} currency={currencySymbol} className="border-blue-500/50 bg-blue-50 dark:bg-blue-950/30" />
+                            <StatCard title="حصة الروضتين" value={grandTotalAlrawdatainShare} currency={currencySymbol} className="border-green-500/50 bg-green-50 dark:bg-green-950/30" />
+                            <StatCard title="حصة الشريك" value={grandTotalPartnerShare} currency={currencySymbol} className="border-purple-500/50 bg-purple-50 dark:bg-purple-950/30" />
+                         </CardFooter>
+                    </Card>
+                </div>
+            
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="w-full sm:w-auto">
+                    <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="w-full sm:w-auto">
                         {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                        حفظ بيانات الفترة ({fields.length} سجلات)
+                        حفظ بيانات الفترة ({periodEntries.length} سجلات)
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -758,4 +684,3 @@ const StatCard = ({ title, value, currency, className }: { title: string; value:
         </p>
     </div>
 );
-    
