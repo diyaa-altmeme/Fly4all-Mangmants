@@ -510,6 +510,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
      const partnerOptions = useMemo(() => {
         const allRelations = [...clients, ...suppliers];
         const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+
         return uniqueRelations.map(r => {
             let labelPrefix = '';
             if (r.relationType === 'client') labelPrefix = 'عميل: ';
@@ -555,12 +556,15 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
         setIsSaving(true);
         try {
-            const finalEntries = periodEntries.map((entry) => ({
-                ...entry,
-                fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
-                toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
-                currency: periodData.currency,
-            }));
+            const finalEntries = periodEntries.map((entry) => {
+                const { computed, ...rest } = entry;
+                return {
+                    ...rest,
+                    fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
+                    toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
+                    currency: periodData.currency,
+                };
+            });
             
             const result = await addSegmentEntries(finalEntries as any);
             if (!result.success) throw new Error(result.error);
@@ -597,9 +601,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 <DialogHeader>
                     <DialogTitle>إضافة سجل سكمنت جديد</DialogTitle>
                 </DialogHeader>
-
+                
                 <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6">
-                    <div className="p-4 border rounded-lg bg-background/50 sticky top-0 z-10">
+                    <div className="p-4 border rounded-lg bg-background/50">
                         <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
                         <FormProvider {...periodForm}>
                             <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
@@ -682,5 +686,3 @@ const StatCard = ({ title, value, currency, className }: { title: string; value:
         </p>
     </div>
 );
-
-    
