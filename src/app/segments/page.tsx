@@ -65,7 +65,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
 
     return (
         <Collapsible asChild key={`${period.fromDate}_${period.toDate}`} open={isOpen} onOpenChange={setIsOpen}>
-             <tbody className={cn("border-t", period.isConfirmed && "bg-green-500/10")}>
+             <tbody className={cn("border-t font-bold", period.isConfirmed && "bg-green-500/10")}>
                 <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
                     <TableCell className="p-1 text-center">
                        <CollapsibleTrigger asChild>
@@ -74,7 +74,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-center p-2">{invoiceNumber}</TableCell>
+                    <TableCell className="font-mono text-xs text-center p-2">{invoiceNumber || 'N/A'}</TableCell>
                     <TableCell className="p-2 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
