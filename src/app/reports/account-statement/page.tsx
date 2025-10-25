@@ -46,17 +46,19 @@ function AccountStatementContent() {
 export default function AccountStatementPage() {
     return (
         <div className="space-y-6">
-            <CardHeader className="px-0 sm:px-6">
-                <CardTitle>كشف الحساب</CardTitle>
-                <CardDescription>
-                    عرض وتحليل جميع الحركات المالية لحساب محدد ضمن فترة زمنية.
-                </CardDescription>
-            </CardHeader>
-            <Suspense fallback={<div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin"/></div>}>
-                <AccountStatementContent />
-            </Suspense>
+            <Card>
+                 <CardHeader>
+                    <CardTitle>كشف الحساب</CardTitle>
+                    <CardDescription>
+                        عرض وتحليل جميع الحركات المالية لحساب محدد ضمن فترة زمنية.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                        <AccountStatementContent />
+                    </Suspense>
+                </CardContent>
+            </Card>
         </div>
     )
 }
-
-    
