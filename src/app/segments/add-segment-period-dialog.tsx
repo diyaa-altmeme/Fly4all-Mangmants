@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -56,7 +56,7 @@ import { DateTimePicker } from '@/components/ui/datetime-picker';
 
 const partnerSchema = z.object({
   id: z.string(),
-  partnerId: z.string().min(1, "اختر شريكاً من قائمة العلاقات."),
+  partnerId: z.string().min(1, "اختر شريكاً."),
   partnerName: z.string().min(1),
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
   amount: z.coerce.number(), // This field is for calculation display, not direct input
@@ -498,7 +498,7 @@ interface AddSegmentPeriodDialogProps {
   onSuccess: () => Promise<void>;
   isEditing?: boolean;
   existingPeriod?: any;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess, isEditing = false, existingPeriod, children }: AddSegmentPeriodDialogProps) {
@@ -607,7 +607,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                {children}
+                {children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}
             </DialogTrigger>
             <DialogContent className="sm:max-w-6xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
