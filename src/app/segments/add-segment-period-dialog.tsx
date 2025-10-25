@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -145,7 +145,7 @@ function computeTotals(d: CompanyEntryFormValues) {
 
 // ---------- Reusable fields ----------
 
-const ServiceLine = forwardRef(function ServiceLine({
+const ServiceLine = React.forwardRef(function ServiceLine({
   label,
   icon: Icon,
   color,
@@ -229,7 +229,7 @@ const ServiceLine = forwardRef(function ServiceLine({
 
 // ---------- AddCompanyToSegmentForm ----------
 
-const AddCompanyToSegmentForm = forwardRef(function AddCompanyToSegmentForm(
+const AddCompanyToSegmentForm = React.forwardRef(function AddCompanyToSegmentForm(
   { onAddEntry, onUpdateEntry, editingEntry, onCancelEdit, allCompanyOptions, partnerOptions }: { 
     onAddEntry: (data: any) => void;
     onUpdateEntry: (data: any) => void;
@@ -529,7 +529,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         if (open) {
             const from = existingPeriod?.fromDate ? parseISO(existingPeriod.fromDate) : new Date();
             const to = existingPeriod?.toDate ? parseISO(existingPeriod.toDate) : new Date();
-            periodForm.reset({ fromDate: from, toDate: to, currency: existingPeriod?.entries?.[0]?.currency || 'USD' });
+            periodForm.reset({ fromDate: from, toDate: to });
             companyFormRef.current?.resetForm();
             setPeriodEntries(existingPeriod?.entries || []);
             setEditingEntry(null);
@@ -640,7 +640,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead>رقم الفاتورة</TableHead>
                                         <TableHead>الشركة</TableHead>
+                                        <TableHead>الشريك</TableHead>
                                         <TableHead>إجمالي الربح</TableHead>
                                         <TableHead>حصة الروضتين</TableHead>
                                         <TableHead>حصة الشريك</TableHead>
@@ -649,12 +651,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 </TableHeader>
                                 <TableBody>
                                     {periodEntries.length === 0 ? (
-                                        <TableRow><TableCell colSpan={5} className="text-center h-20">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={7} className="text-center h-20">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
                                     ) : periodEntries.map((entry, index) => {
                                         const computed = computeTotals(entry);
                                         return (
                                         <TableRow key={entry.id || index}>
+                                            <TableCell className="font-semibold font-mono text-xs">{entry.invoiceNumber || '(جديد)'}</TableCell>
                                             <TableCell className="font-semibold">{entry.companyName}</TableCell>
+                                             <TableCell>{entry.partnerName}</TableCell>
                                             <TableCell className="font-mono">{computed.net.toFixed(2)}</TableCell>
                                             <TableCell className="font-mono text-green-600">{computed.rodatainShare.toFixed(2)}</TableCell>
                                             <TableCell className="font-mono text-blue-600">{computed.partnersTotal.toFixed(2)}</TableCell>
@@ -673,7 +677,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
                     <div className="flex justify-end w-full">
                          <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
-                            {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                            {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                             {isEditing ? 'حفظ التعديلات على الفترة' : `حفظ بيانات الفترة (${periodEntries.length} سجلات)`}
                         </Button>
                     </div>
@@ -682,4 +686,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
