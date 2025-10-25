@@ -94,7 +94,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                                     <AddSegmentPeriodDialog isEditing existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
                                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Pencil className="me-2 h-4 w-4" /> تعديل الفترة</DropdownMenuItem>
                                     </AddSegmentPeriodDialog>
-                                    <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod(period.periodId)} />
+                                    <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod()} />
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
@@ -342,5 +342,4 @@ export default function SegmentsPage() {
         </div>
     )
 }
-
-    
+```
