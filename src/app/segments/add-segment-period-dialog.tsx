@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -66,6 +66,7 @@ const companyEntrySchema = z.object({
   id: z.string().optional(),
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   clientName: z.string().min(1),
+  invoiceNumber: z.string().optional(), // Added for display
 
   tickets: z.coerce.number().int().nonnegative().default(0),
   visas: z.coerce.number().int().nonnegative().default(0),
@@ -253,7 +254,7 @@ const AddCompanyToSegmentForm = React.forwardRef(function AddCompanyToSegmentFor
       form.reset(editingEntry);
     } else {
       form.reset({
-        clientId: "", clientName: "",
+        clientId: "", clientName: "", invoiceNumber: "",
         tickets: 0, visas: 0, hotels: 0, groups: 0,
         ticketProfitType: "fixed", ticketProfitValue: 1,
         visaProfitType: "fixed", visaProfitValue: 1,
@@ -306,9 +307,9 @@ const AddCompanyToSegmentForm = React.forwardRef(function AddCompanyToSegmentFor
     }
     
     if (editingEntry) {
-      onUpdateEntry({ ...data, computed });
+      onUpdateEntry({ ...data, computed, id: editingEntry.id, invoiceNumber: editingEntry.invoiceNumber });
     } else {
-      onAddEntry({ ...data, computed });
+      onAddEntry({ ...data, computed, id: uuidv4() });
     }
   };
 
@@ -330,7 +331,10 @@ const AddCompanyToSegmentForm = React.forwardRef(function AddCompanyToSegmentFor
           toast({ title: "النسبة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
           return;
       }
-      const currentTotalPartnerPercentage = (form.getValues('partners') || []).reduce((sum, p) => sum + p.percentage, 0);
+      
+      const currentPartners = form.getValues('partners') || [];
+      
+      const currentTotalPartnerPercentage = currentPartners.reduce((sum, p) => sum + p.percentage, 0);
 
       if (currentTotalPartnerPercentage + newPercentage > 100) {
            toast({ title: "لا يمكن تجاوز 100%", description: `النسبة المتبقية المتاحة هي: ${100 - currentTotalPartnerPercentage}%`, variant: 'destructive' });
@@ -494,7 +498,7 @@ interface AddSegmentPeriodDialogProps {
   onSuccess: () => Promise<void>;
   isEditing?: boolean;
   existingPeriod?: any;
-  children?: React.ReactNode;
+  children: React.ReactNode;
 }
 
 export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess, isEditing = false, existingPeriod, children }: AddSegmentPeriodDialogProps) {
@@ -529,7 +533,8 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         if (open) {
             const from = existingPeriod?.fromDate ? parseISO(existingPeriod.fromDate) : new Date();
             const to = existingPeriod?.toDate ? parseISO(existingPeriod.toDate) : new Date();
-            periodForm.reset({ fromDate: from, toDate: to });
+            const currency = existingPeriod?.entries[0]?.currency || 'USD';
+            periodForm.reset({ fromDate: from, toDate: to, currency });
             companyFormRef.current?.resetForm();
             setPeriodEntries(existingPeriod?.entries || []);
             setEditingEntry(null);
@@ -542,7 +547,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
     
     const updateEntry = (updatedEntry: any) => {
-        setPeriodEntries(prev => prev.map(e => e.clientId === updatedEntry.clientId ? updatedEntry : e));
+        setPeriodEntries(prev => prev.map(e => e.id === updatedEntry.id ? updatedEntry : e));
         setEditingEntry(null);
     };
 
@@ -660,7 +665,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <TableRow key={entry.id}>
                                             <TableCell className="font-semibold font-mono text-xs">{entry.invoiceNumber || '(جديد)'}</TableCell>
                                             <TableCell className="font-semibold">{entry.companyName}</TableCell>
-                                             <TableCell>{entry.partnerName}</TableCell>
+                                            <TableCell>{entry.partnerName}</TableCell>
                                             <TableCell className="font-mono">{computed.net.toFixed(2)}</TableCell>
                                             <TableCell className="font-mono text-green-600">{computed.rodatainShare.toFixed(2)}</TableCell>
                                             <TableCell className="font-mono text-blue-600">{computed.partnersTotal.toFixed(2)}</TableCell>
@@ -677,8 +682,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </div>
             
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <div className="flex justify-end w-full">
-                         <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
+                    <div className="flex justify-between w-full">
+                        <Button variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+                        <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
                             {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                             {isEditing ? 'حفظ التعديلات على الفترة' : `حفظ بيانات الفترة (${periodEntries.length} سجلات)`}
                         </Button>
@@ -688,5 +694,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
