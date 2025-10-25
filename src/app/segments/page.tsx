@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, User as UserIcon, Wallet, Hash, CheckCircle, ArrowLeft, Pencil, AlertCircle, History } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
-import { getSegments, deleteSegmentPeriod, updateSegmentEntry } from '@/app/segments/actions';
+import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
 import AddSegmentPeriodDialog from './add-segment-period-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -50,12 +50,12 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     const periodNotes = period.entries[0]?.notes || '-';
 
     const handleDeletePeriod = async () => {
-        const { count } = await deleteSegmentPeriod(period.periodId);
-        if (count > 0) {
+        const { count, error } = await deleteSegmentPeriod(period.periodId);
+        if (count > 0 && !error) {
             toast({ title: "تم نقل الفترة إلى المحذوفات" });
             onDataChange();
         } else {
-             toast({ title: "لم يتم العثور على الفترة", variant: "destructive" });
+             toast({ title: "لم يتم العثور على الفترة أو حدث خطأ", description: error, variant: "destructive" });
         }
     };
     
@@ -74,7 +74,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-center p-2">{invoiceNumber || 'N/A'}</TableCell>
+                    <TableCell className="font-mono text-xs text-center p-2">{invoiceNumber}</TableCell>
                     <TableCell className="p-2 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
@@ -94,7 +94,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                                     <AddSegmentPeriodDialog isEditing existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
                                       <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Pencil className="me-2 h-4 w-4" /> تعديل الفترة</DropdownMenuItem>
                                     </AddSegmentPeriodDialog>
-                                    <DeleteSegmentPeriodDialog onDelete={() => handleDeletePeriod()} />
+                                    <DeleteSegmentPeriodDialog onDelete={handleDeletePeriod} />
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
@@ -150,8 +150,7 @@ export default function SegmentsPage() {
         if(navDataLoaded) {
             fetchSegmentData();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [navDataLoaded]);
+    }, [navDataLoaded, fetchSegmentData]);
     
     const handleSuccess = useCallback(async () => {
         await fetchSegmentData();
@@ -342,4 +341,3 @@ export default function SegmentsPage() {
         </div>
     )
 }
-```
