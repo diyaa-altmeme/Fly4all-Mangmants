@@ -34,7 +34,7 @@ import { useAuth } from "@/lib/auth-context";
 import { PlusCircle, Save, Trash2, Settings2, ChevronDown, Calendar as CalendarIcon, ArrowLeft, ArrowRight, Hash, User as UserIcon, Wallet, Building, Briefcase, Ticket, CreditCard, Hotel, Users as GroupsIcon, Percent, Loader2, X, Pencil, AlertCircle, HandCoins } from 'lucide-react';
 import { Calendar } from "@/components/ui/calendar";
 import { format, parseISO } from 'date-fns';
-import { Form, FormControl, FormField, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +49,7 @@ import { useForm, FormProvider, useFormContext, useFieldArray, useWatch, Control
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency, ProfitShare } from '@/lib/types';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 
 
 // ---------- Schemas ----------
@@ -227,7 +228,6 @@ const ServiceLine = forwardRef(function ServiceLine({
     </Card>
   );
 });
-ServiceLine.displayName = "ServiceLine";
 
 // ---------- AddCompanyToSegmentForm ----------
 
@@ -533,7 +533,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             companyFormRef.current?.resetForm();
             setPeriodEntries([]);
         }
-    }, [open, periodForm]);
+    }, [open, periodForm, companyFormRef]);
 
     const addEntry = (entry: any) => {
         setPeriodEntries(prev => [...prev, entry]);
@@ -562,6 +562,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 ...entry,
                 fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
                 toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
+                currency: periodData.currency,
             }));
             
             const result = await addSegmentEntries(finalEntries as any);
