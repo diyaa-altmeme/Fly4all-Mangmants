@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useCallback } from 'react';
@@ -445,7 +446,7 @@ const AddCompanyToSegmentForm = React.forwardRef(function AddCompanyToSegmentFor
                           {partnerSharePreview.toFixed(2)}
                         </div>
                       </div>
-                      <Button type="button" size="icon" className="shrink-0 h-9 w-9" onClick={onAddPartner} disabled={totals.partnerPool <= 0}><PlusCircle className="h-5 w-5"/></Button>
+                      <Button type="button" size="icon" className="shrink-0 h-9 w-9" onClick={onAddPartner} disabled={totals.partnerPool <= 0 || !currentPartnerId || !currentPartnerPercentage}><PlusCircle className="h-5 w-5"/></Button>
                     </div>
                   </div>
                 </div>
@@ -510,7 +511,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
     const { control, getValues, reset: resetPeriodForm, trigger, handleSubmit: handlePeriodSubmit, watch: watchPeriodForm } = periodForm;
-    const { fields, append, remove, update } = useFieldArray({ control, name: "entries" as const });
+    const { fields, append, remove, update, replace } = useFieldArray({ control, name: "entries" as const });
     
     const partnerOptions = useMemo(() => {
         const allRelations = [...clients, ...suppliers];
@@ -525,7 +526,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     }, [clients, suppliers]);
 
     const allCompanyOptions = useMemo(() => {
-        return clients.map(c => ({ value: c.id, label: `${c.name} (${c.code || 'N/A'})`, settings: c.segmentSettings }));
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: `${c.name} (${c.code || 'N/A'})`, settings: c.segmentSettings }));
     }, [clients]);
 
     useEffect(() => {
@@ -591,6 +592,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
         setIsSaving(true);
         try {
+            if (isEditing) {
+                await deleteSegmentPeriod(existingPeriod.fromDate, existingPeriod.toDate);
+            }
+            
             const finalEntries = entriesToSave.map((entry: any) => ({
                 ...entry,
                 companyName: entry.clientName,
@@ -604,10 +609,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
                 currency: periodData.currency as Currency,
             }));
-            
-            if (isEditing) {
-                await deleteSegmentPeriod(existingPeriod.fromDate, existingPeriod.toDate);
-            }
             
             const result = await addSegmentEntries(finalEntries as any);
             if (!result.success) throw new Error(result.error);
@@ -650,6 +651,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         <div className="p-4 border rounded-lg bg-background/50">
                             <h3 className="font-semibold text-base mb-2">الفترة المحاسبية</h3>
                             <form className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                                {/* Date fields and currency select */}
                                 <Controller
                                     control={control}
                                     name="fromDate"
