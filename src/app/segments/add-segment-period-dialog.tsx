@@ -493,10 +493,11 @@ interface AddSegmentPeriodDialogProps {
   suppliers: Supplier[];
   onSuccess: () => Promise<void>;
   isEditing?: boolean;
-  existingPeriod?: any; // To pass in data for editing
+  existingPeriod?: any;
+  children?: React.ReactNode;
 }
 
-export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess, isEditing = false, existingPeriod }: AddSegmentPeriodDialogProps) {
+export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess, isEditing = false, existingPeriod, children }: AddSegmentPeriodDialogProps) {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -533,7 +534,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             setPeriodEntries(existingPeriod?.entries || []);
             setEditingEntry(null);
         }
-    }, [open, existingPeriod, periodForm]);
+    }, [open, existingPeriod, periodForm, companyFormRef]);
 
     const addEntry = (entry: any) => {
         setPeriodEntries(prev => [...prev, entry]);
@@ -548,7 +549,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const removeEntry = (index: number) => {
         setPeriodEntries(prev => prev.filter((_, i) => i !== index));
     }
-    
+
     const handleSavePeriod = async () => {
         const periodData = await periodForm.trigger() ? periodForm.getValues() : null;
         if (!periodData) {
@@ -599,7 +600,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                {children}
+                {children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}
             </DialogTrigger>
             <DialogContent className="sm:max-w-6xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
@@ -648,7 +649,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 </TableHeader>
                                 <TableBody>
                                     {periodEntries.length === 0 ? (
-                                        <TableRow><TableCell colSpan={6} className="text-center h-20">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={5} className="text-center h-20">ابدأ بإضافة الشركات في النموذج أعلاه.</TableCell></TableRow>
                                     ) : periodEntries.map((entry, index) => {
                                         const computed = computeTotals(entry);
                                         return (
@@ -670,12 +671,15 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </div>
             
                 <DialogFooter className="pt-4 border-t flex-shrink-0">
-                    <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="w-full sm:w-auto">
-                        {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                        {isEditing ? 'حفظ التعديلات على الفترة' : `حفظ بيانات الفترة (${periodEntries.length} سجلات)`}
-                    </Button>
+                    <div className="flex justify-end w-full">
+                         <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
+                            {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                            {isEditing ? 'حفظ التعديلات على الفترة' : `حفظ بيانات الفترة (${periodEntries.length} سجلات)`}
+                        </Button>
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
+
