@@ -1,5 +1,5 @@
 
-      "use client";
+"use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { v4 as uuidv4 } from "uuid";
@@ -494,9 +494,6 @@ interface AddSegmentPeriodDialogProps {
   clients: Client[];
   suppliers: Supplier[];
   onSuccess: () => Promise<void>;
-  isEditing?: boolean;
-  existingPeriod?: any;
-  children?: React.ReactNode;
 }
 
 export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess }: AddSegmentPeriodDialogProps) {
@@ -685,3 +682,5 @@ const StatCard = ({ title, value, currency, className }: { title: string; value:
         </p>
     </div>
 );
+
+    
