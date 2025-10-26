@@ -10,10 +10,25 @@ import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
 import { FieldValue } from 'firebase-admin/firestore';
 import { postJournalEntry } from '@/lib/finance/postJournal';
+import { getUserPermissions } from '@/lib/permissions';
 
+// Helper to check for segment access permissions
+const checkSegmentPermission = async () => {
+  const user = await getCurrentUserFromSession();
+  if (!user || !user.id || !('role' in user) || !user.boxId) {
+    throw new Error("User not authenticated or box not assigned.");
+  }
+
+  const permissions = await getUserPermissions(user.id);
+  if (!permissions.some(p => p.name === 'segment_access')) {
+    throw new Error("Access Denied: You don't have permission to manage segments.");
+  }
+  return user;
+};
 
 export async function getSegments(includeDeleted = false): Promise<SegmentEntry[]> {
     try {
+        await checkSegmentPermission();
         const db = await getDb();
         if (!db) return [];
         
@@ -40,15 +55,12 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
 export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[], periodIdToReplace?: string): Promise<{ success: boolean; error?: string, newEntries?: SegmentEntry[] }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
-    const user = await getCurrentUserFromSession();
-    if (!user || !('role' in user) || !user.boxId) {
-         return { success: false, error: "User not authenticated or box not assigned." };
-    }
-
-    const newEntries: SegmentEntry[] = [];
-    const mainBatch = db.batch();
 
     try {
+        const user = await checkSegmentPermission();
+        const newEntries: SegmentEntry[] = [];
+        const mainBatch = db.batch();
+
         const entryDate = new Date();
         const periodId = periodIdToReplace || db.collection('temp').doc().id; // Generate a unique ID for this batch/period
 
@@ -149,12 +161,13 @@ export async function updateSegmentEntry(id: string, data: Partial<Omit<SegmentE
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     try {
+        await checkSegmentPermission();
         await db.collection('segments').doc(id).update(data);
         revalidatePath('/segments');
         return { success: true };
     } catch (error: any) {
         console.error("Error updating segment entry: ", String(error));
-        return { success: false, error: "Failed to update segment entry." };
+        return { success: false, error: error.message || "Failed to update segment entry." };
     }
 }
 
@@ -162,6 +175,7 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available.", count: 0 };
     try {
+        await checkSegmentPermission();
         const snapshot = await db.collection('segments')
             .where('periodId', '==', periodId)
             .get();
@@ -205,7 +219,7 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
         return { success: true, count: snapshot.size };
     } catch (error: any) {
         console.error("Error deleting segment period: ", String(error));
-        return { success: false, error: "Failed to delete segment period.", count: 0 };
+        return { success: false, error: error.message || "Failed to delete segment period.", count: 0 };
     }
 }
 
@@ -213,6 +227,7 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available.", count: 0 };
     try {
+        await checkSegmentPermission();
         const snapshot = await db.collection('segments')
             .where('periodId', '==', periodId)
             .where('isDeleted', '==', true)
@@ -249,6 +264,6 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
         return { success: true, count: snapshot.size };
     } catch (error: any) {
         console.error("Error restoring segment period: ", String(error));
-        return { success: false, error: "Failed to restore segment period.", count: 0 };
+        return { success: false, error: error.message || "Failed to restore segment period.", count: 0 };
     }
 }

@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -26,7 +25,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import {
-  PlusCircle, Trash2, Percent, Loader2, X, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, ChevronsUpDown, ChevronDown
+  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, ChevronsUpDown
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, useWatch, Controller, useFormContext } from 'react-hook-form';
@@ -115,59 +114,6 @@ const ServiceLine = ({ label, icon: Icon, color, countField, typeField, valueFie
   );
 };
 
-const PartnerSection = ({ partnerOptions }: { partnerOptions: { value: string; label: string }[] }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const { control, watch } = useFormContext<PeriodFormValues>();
-  const { fields: partnerFields, append, remove } = useFieldArray({ control, name: "partners" });
-  
-  const [summaryEntries, alrawdatainSharePercentage, partners] = watch(["summaryEntries", "alrawdatainSharePercentage", "partners"]);
-
-  const { totalNetProfit, rodatainShare, partnerPool, partnerBreakdown, remainder } = useMemo(() => {
-    const totalProfit = summaryEntries.reduce((sum: number, entry: any) => sum + (entry.totalProfit || 0), 0);
-    const rodatainShare = (totalProfit * alrawdatainSharePercentage) / 100;
-    const partnerPool = Math.max(0, totalProfit - rodatainShare);
-    const partnerBreakdown = partners.map(p => ({ ...p, share: partnerPool * (p.percentage / 100) }));
-    const partnersTotal = partnerBreakdown.reduce((s, p) => s + p.share, 0);
-    return { totalNetProfit: totalProfit, rodatainShare, partnerPool, partnerBreakdown, remainder: partnerPool - partnersTotal };
-  }, [summaryEntries, alrawdatainSharePercentage, partners]);
-
-  const [currentPartnerId, setCurrentPartnerId] = useState('');
-  const [currentPartnerPercentage, setCurrentPartnerPercentage] = useState<number | string>('');
-  const partnerSharePreview = useMemo(() => partnerPool * (Number(currentPartnerPercentage) / 100), [currentPartnerPercentage, partnerPool]);
-  
-  const handleAddPartner = () => {
-    if (!currentPartnerId || !currentPartnerPercentage) return;
-    const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
-    if (!selectedPartner) return;
-    append({ id: uuidv4(), partnerId: selectedPartner.value, partnerName: selectedPartner.label, percentage: Number(currentPartnerPercentage), amount: 0 });
-    setCurrentPartnerId('');
-    setCurrentPartnerPercentage('');
-  };
-
-  return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger asChild>
-        <Button variant="ghost" className="w-full flex justify-between items-center p-2 h-auto">
-          <span className="font-semibold">تفاصيل توزيع الأرباح</span>
-          <ChevronsUpDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
-        </Button>
-      </CollapsibleTrigger>
-      <CollapsibleContent className="pt-2 space-y-3">
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-2">
-              <div className="font-semibold text-blue-600 text-xs p-2 bg-blue-50 dark:bg-blue-950/50 rounded-md">إجمالي الربح<span className="block text-sm font-mono">{totalNetProfit.toFixed(2)}</span></div>
-              <div className="space-y-1"><Label className="text-xs">حصة الروضتين (%)</Label><div className="relative"><Controller name="alrawdatainSharePercentage" control={control} render={({ field }) => (<NumericInput {...field} onValueChange={v => field.onChange(v || 0)} className="h-9 pe-7"/>)} /><Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></div>
-              <div className="font-semibold text-green-600 text-xs p-2 bg-green-50 dark:bg-green-950/50 rounded-md">حصة الروضتين<span className="block text-sm font-mono">{rodatainShare.toFixed(2)}</span></div>
-              <div className="font-semibold text-purple-600 text-xs p-2 bg-purple-50 dark:bg-purple-950/50 rounded-md">متاح للشركاء<span className="block text-sm font-mono">{partnerPool.toFixed(2)}</span></div>
-              <div className={cn("font-semibold text-xs p-2 rounded-md", Math.abs(remainder) > 0.01 ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600")}>المتبقي<span className="block text-sm font-mono">{remainder.toFixed(2)}</span></div>
-          </div>
-          <Separator />
-          <div className="mt-2"><h4 className="font-semibold text-sm mb-1">إضافة شريك</h4><div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end p-2 rounded-lg bg-muted/50"><div className="space-y-1"><Label className="text-xs">الشريك</Label><Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريكًا..."/></div><div className="w-40 space-y-1"><Label className="text-xs">النسبة (%)</Label><div className="relative"><NumericInput value={currentPartnerPercentage} onValueChange={setCurrentPartnerPercentage} className="h-9 pe-7" /><Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></div><div className="flex items-end gap-2"><div className="flex-grow"><Label className="text-xs">الحصة</Label><div className="h-9 flex items-center justify-center font-bold text-blue-600 font-mono p-2 bg-blue-50 rounded-md">{partnerSharePreview.toFixed(2)}</div></div><Button type="button" size="icon" className="shrink-0 h-9 w-9" onClick={handleAddPartner} disabled={partnerPool <= 0 || !currentPartnerId || !currentPartnerPercentage}><PlusCircle className="h-5 w-5"/></Button></div></div></div>
-          {partnerFields.length > 0 && <div className="mt-2"><h4 className="font-semibold text-sm mb-1">الشركاء المضافون</h4><div className="border rounded-md"><Table><TableBody>{partnerFields.map((field, index) => { const computedPartner = partnerBreakdown.find(p => p.id === field.id); return (<TableRow key={field.id}><TableCell className="font-semibold p-2 text-sm">{computedPartner?.partnerName}</TableCell><TableCell className="p-2 text-sm">{field.percentage}%</TableCell><TableCell className="font-mono font-bold p-2 text-blue-600">{computedPartner?.share.toFixed(2)}</TableCell><TableCell className="p-1 text-center"><Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button></TableCell></TableRow>) })}</TableBody></Table></div></div>}
-      </CollapsibleContent>
-    </Collapsible>
-  );
-};
-
 const CompanyEntryForm = ({ onAdd, allCompanyOptions }: { onAdd: (data: any) => void, allCompanyOptions: any[] }) => {
     const entryMethods = useForm<CompanyEntryFormValues>({ resolver: zodResolver(companyEntrySchema), defaultValues: { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, ticketProfitType: "fixed", ticketProfitValue: 1, visaProfitType: "fixed", visaProfitValue: 1, hotelProfitType: "fixed", hotelProfitValue: 1, groupProfitType: "fixed", groupProfitValue: 1, notes: "" } });
     const { control, handleSubmit, reset, watch, setValue } = entryMethods;
@@ -203,55 +149,33 @@ const CompanyEntryForm = ({ onAdd, allCompanyOptions }: { onAdd: (data: any) => 
     );
 }
 
-const SummaryEntryDetailRow = ({ label, count, type, value }: { label: string, count: number, type: string, value: number }) => {
-  if (!count) return null;
+const ProfitDetailRow = ({ icon, label, count, type, value, currencySymbol }: { icon: React.ReactNode, label: string, count: number, type: string, value: number, currencySymbol: string }) => {
+  if (!count || count === 0) return null;
   const profit = computeService(count, type as any, value);
   return (
-    <div className="flex justify-between items-center text-xs p-1.5 bg-background rounded-md">
-      <span className="font-semibold text-muted-foreground">{label}:</span>
-      <div className="flex items-center gap-3 font-mono">
+    <div className="flex items-center justify-between p-2 rounded-md bg-muted/50">
+      <div className="flex items-center gap-2 text-sm">
+        {icon}
+        <span className="font-semibold">{label}</span>
+      </div>
+      <div className="flex items-center gap-4 font-mono text-xs">
         <span>العدد: {count}</span>
-        <span>العمولة: {value} ({type === 'fixed' ? 'مبلغ' : '%'})</span>
+        <span>العمولة: {value} {type === 'fixed' ? currencySymbol : '%'}</span>
         <span className="font-bold text-primary">الربح: {profit.toFixed(2)}</span>
       </div>
     </div>
   );
 };
 
-const SummaryTableRow = ({ entry, index, onRemove }: { entry: any, index: number, onRemove: (index: number) => void }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  return (
-    <>
-      <TableRow className={cn(isOpen && "bg-muted/50")} key={entry.id}>
-        <TableCell className="font-semibold">{entry.clientName}</TableCell>
-        <TableCell className="font-mono font-bold text-blue-600">{entry.totalProfit.toFixed(2)}</TableCell>
-        <TableCell className="text-left p-1">
-          <div className="flex items-center">
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => onRemove(index)}><Trash2 className="h-4 w-4" /></Button>
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsOpen(!isOpen)}><ChevronDown className={cn("h-5 w-5 transition-transform", isOpen && "rotate-180")} /></Button>
-          </div>
-        </TableCell>
-      </TableRow>
-      {isOpen && (
-        <TableRow>
-          <TableCell colSpan={3} className="p-2 bg-muted/50">
-            <div className="space-y-1 p-2 border rounded-md">
-                {entry.notes && <p className="text-xs text-gray-600 dark:text-gray-300 pb-1 mb-1 border-b"><b>ملاحظة:</b> {entry.notes}</p>}
-                <SummaryEntryDetailRow label="التذاكر" count={entry.tickets} type={entry.ticketProfitType} value={entry.ticketProfitValue} />
-                <SummaryEntryDetailRow label="الفيزا" count={entry.visas} type={entry.visaProfitType} value={entry.visaProfitValue} />
-                <SummaryEntryDetailRow label="الفنادق" count={entry.hotels} type={entry.hotelProfitType} value={entry.hotelProfitValue} />
-                <SummaryEntryDetailRow label="الكروبات" count={entry.groups} type={entry.groupProfitType} value={entry.groupProfitValue} />
-            </div>
-          </TableCell>
-        </TableRow>
-      )}
-    </>
-  );
-};
-
-const SummaryTable = ({ onRemove }: { onRemove: (index: number) => void }) => {
+const SummaryList = ({ onRemove }: { onRemove: (index: number) => void }) => {
     const { watch } = useFormContext<PeriodFormValues>();
+    const { data: navData } = useVoucherNav();
     const summaryEntries = watch("summaryEntries");
+    const currencyCode = watch("currency");
+    
+    const currency = useMemo(() => 
+        navData?.settings?.currencySettings?.currencies.find((c: any) => c.code === currencyCode) || { symbol: '$', code: 'USD' }
+    , [currencyCode, navData]);
 
     if (!summaryEntries || summaryEntries.length === 0) {
         return <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">لم يتم إضافة أي شركات إلى الفترة حتى الآن.</div>;
@@ -259,20 +183,74 @@ const SummaryTable = ({ onRemove }: { onRemove: (index: number) => void }) => {
 
     return (
         <Card>
-            <CardHeader className="p-3"><CardTitle className="text-base">الشركات المضافة للفترة</CardTitle></CardHeader>
-            <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                    <Table className="text-sm">
-                        <TableHeader><TableRow><TableHead>الشركة</TableHead><TableHead>إجمالي الربح</TableHead><TableHead className="w-[100px] text-left">إجراءات</TableHead></TableRow></TableHeader>
-                        <TableBody>
-                            {summaryEntries.map((entry, index) => <SummaryTableRow key={entry.id} entry={entry} index={index} onRemove={onRemove} /> )}
-                        </TableBody>
-                    </Table>
-                </div>
+            <CardHeader className="p-3">
+                <CardTitle className="text-base">الشركات المضافة للفترة</CardTitle>
+            </CardHeader>
+            <CardContent className="p-3 space-y-2">
+                {summaryEntries.map((entry, index) => (
+                    <Collapsible key={entry.id} className="border rounded-lg overflow-hidden">
+                        <div className="flex items-center p-2 bg-muted/30">
+                           <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <ChevronsUpDown className="h-4 w-4" />
+                                    <span className="sr-only">Toggle details</span>
+                                </Button>
+                            </CollapsibleTrigger>
+                            <span className="font-bold flex-grow mx-2">{entry.clientName}</span>
+                            <span className="font-mono text-lg font-bold text-blue-600">{entry.totalProfit.toFixed(2)} {currency.symbol}</span>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive me-1" onClick={() => onRemove(index)}>
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Remove item</span>
+                            </Button>
+                        </div>
+                        <CollapsibleContent>
+                            <div className="p-3 space-y-2 border-t">
+                               {entry.notes && (
+                                 <p className="text-sm text-muted-foreground pb-2 mb-2 border-b">
+                                   <b>ملاحظة:</b> {entry.notes}
+                                 </p>
+                               )}
+                               <ProfitDetailRow
+                                 icon={<Ticket className="h-5 w-5 text-blue-500" />}
+                                 label="تذاكر"
+                                 count={entry.tickets}
+                                 type={entry.ticketProfitType}
+                                 value={entry.ticketProfitValue}
+                                 currencySymbol={currency.symbol}
+                               />
+                               <ProfitDetailRow
+                                 icon={<CreditCard className="h-5 w-5 text-orange-500" />}
+                                 label="فيزا"
+                                 count={entry.visas}
+                                 type={entry.visaProfitType}
+                                 value={entry.visaProfitValue}
+                                 currencySymbol={currency.symbol}
+                               />
+                               <ProfitDetailRow
+                                  icon={<Hotel className="h-5 w-5 text-purple-500" />}
+                                  label="فنادق"
+                                  count={entry.hotels}
+                                  type={entry.hotelProfitType}
+                                  value={entry.hotelProfitValue}
+                                  currencySymbol={currency.symbol}
+                               />
+                               <ProfitDetailRow
+                                  icon={<GroupsIcon className="h-5 w-5 text-teal-500" />}
+                                  label="كروبات"
+                                  count={entry.groups}
+                                  type={entry.groupProfitType}
+                                  value={entry.groupProfitValue}
+                                  currencySymbol={currency.symbol}
+                               />
+                            </div>
+                        </CollapsibleContent>
+                    </Collapsible>
+                ))}
             </CardContent>
         </Card>
     );
 };
+
 
 // Main Dialog Wrapper
 interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; children?: React.ReactNode; }
@@ -283,11 +261,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const [open, setOpen] = useState(false);
     
     const periodMethods = useForm<PeriodFormValues>({ resolver: zodResolver(periodFormSchema), defaultValues: { fromDate: new Date(), toDate: new Date(), currency: "USD", hasPartner: false, alrawdatainSharePercentage: 100, partners: [], summaryEntries: [] } });
-    const { control, handleSubmit, reset, watch, formState: { isSubmitting, errors } } = periodMethods;
-    const { fields, append, remove } = useFieldArray({ control, name: "summaryEntries" });
+    const { control, handleSubmit, reset, formState: { isSubmitting, errors } } = periodMethods;
+    const { remove, append } = useFieldArray({ control, name: "summaryEntries" });
 
     const allCompanyOptions = useMemo(() => clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings })), [clients]);
-    const partnerOptions = useMemo(() => [...clients, ...suppliers].map(r => ({ value: r.id, label: `${r.relationType === 'client' ? 'عميل: ' : r.relationType === 'supplier' ? 'مورد: ' : ''}${r.name}` })), [clients, suppliers]);
 
     useEffect(() => {
         if (open) {
@@ -323,17 +300,16 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             toast({ title: "خطأ", description: error.message || "لم يتم حفظ البيانات.", variant: "destructive" });
         }
     };
-    
-    const watchHasPartner = watch("hasPartner");
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
-            <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader><DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle></DialogHeader>
                 <FormProvider {...periodMethods}>
                     <form onSubmit={handleSubmit(finalOnSubmit)} className="flex-grow flex flex-col overflow-hidden">
-                        <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-3 pb-4">
+                        <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-4 pb-4">
+                            
                             <div className="p-3 border rounded-lg bg-background/50 space-y-3">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                                     <Controller control={control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
@@ -341,13 +317,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     <Controller control={control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{navData?.settings?.currencySettings?.currencies.map((c: any) => (<SelectItem key={c.code} value={c.code}>{c.name} ({c.symbol})</SelectItem>))}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                 </div>
                                 <Separator />
-                                <Controller control={control} name="hasPartner" render={({ field }) => (<div className="flex items-center gap-2"><Switch checked={field.value} onCheckedChange={field.onChange} id="has-partners-global" /><Label htmlFor="has-partners-global" className="font-semibold text-base">توزيع الأرباح على الشركاء</Label></div>)} />
-                                {watchHasPartner && <PartnerSection partnerOptions={partnerOptions} />}
+                                {/* Partner section can be added here if needed */}
                             </div>
 
                             <CompanyEntryForm onAdd={handleAddEntryToSummary} allCompanyOptions={allCompanyOptions} />
 
-                            <SummaryTable onRemove={remove} />
+                            <SummaryList onRemove={remove} />
                             {errors.summaryEntries && <p className='text-sm text-destructive text-center'>{errors.summaryEntries.root?.message || errors.summaryEntries.message}</p>}
 
                         </div>
@@ -365,3 +340,4 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
