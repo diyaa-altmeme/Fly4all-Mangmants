@@ -51,8 +51,9 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
 
     } catch (error) {
         console.error("Error getting segments from Firestore: ", String(error));
+        // Do not throw permission errors, just return empty array. The UI will handle it.
         if (error instanceof Error && error.message.startsWith('Access Denied')) {
-            throw error;
+             return [];
         }
         return [];
     }
@@ -214,4 +215,6 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
         return { success: true, count: snapshot.size };
     } catch (error: any) {
         console.error("Error restoring segment period: ", String(error));
-        return { success: false, error: error.message || "Failed to restore segment period.", count: 0
+        return { success: false, error: error.message || "Failed to restore segment period.", count: 0 };
+    }
+}
