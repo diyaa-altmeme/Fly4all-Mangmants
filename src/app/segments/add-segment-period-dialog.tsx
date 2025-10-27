@@ -33,7 +33,7 @@ import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 
@@ -70,7 +70,7 @@ const periodSchema = z.object({
 
 type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
 type PeriodFormValues = z.infer<typeof periodSchema>;
-type PartnerFormValues = z.infer<typeof partnerSchema>;
+export type PartnerShare = z.infer<typeof partnerSchema>;
 
 // Helpers
 function computeService(count: number, type: "fixed" | "percentage", value: number): number {
@@ -122,11 +122,12 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: {
 interface AddCompanyToSegmentFormProps {
     onAdd: (data: any) => void;
     allCompanyOptions: { value: string; label: string; settings?: SegmentSettings }[];
+    partnerOptions: { value: string; label: string }[];
     editingEntry?: any;
     onCancelEdit: () => void;
 }
 
-const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
+const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
     const { getValues } = useFormContext<PeriodFormValues>();
     
     const form = useForm<CompanyEntryFormValues>({
@@ -134,17 +135,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingE
     });
     
      useEffect(() => {
-        const { id, ...rest } = editingEntry || {};
-        form.reset({
-            id: id || uuidv4(),
-            clientId: rest.clientId || "",
-            clientName: rest.clientName || "",
-            tickets: rest.tickets || 0,
-            visas: rest.visas || 0,
-            hotels: rest.hotels || 0,
-            groups: rest.groups || 0,
-            notes: rest.notes || ""
-        });
+        form.reset(editingEntry || { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
     }, [editingEntry, form]);
 
 
@@ -370,12 +361,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 
                 <FormProvider {...periodForm}>
                     <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
-                        <div className={cn("p-3 border rounded-lg bg-background/50 space-y-3", isStep1Valid && "border-green-500")}>
+                        <div className={cn("p-3 border rounded-lg bg-background/50 space-y-3")}>
                             <h3 className="font-semibold text-base">البيانات الرئيسية للفترة</h3>
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                 <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
-                                <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1 md:col-span-2"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
+                                <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                             </div>
                             <Separator/>
                             <div className="space-y-3">
@@ -383,14 +374,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                                         <div className="space-y-0.5">
                                             <FormLabel className="font-semibold">توزيع حصص الشركاء</FormLabel>
-                                            <FormDescription className="text-xs">
+                                             <FormDescription className="text-xs">
                                                 تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.
                                             </FormDescription>
                                         </div>
                                         <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                     </FormItem>
                                 )} />
-                                {hasPartner && (
+                                {periodForm.watch('hasPartner') && (
                                      <div className="p-3 border rounded-lg space-y-3">
                                         <h4 className="font-semibold">توزيع الأرباح</h4>
                                          <FormField control={periodForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
