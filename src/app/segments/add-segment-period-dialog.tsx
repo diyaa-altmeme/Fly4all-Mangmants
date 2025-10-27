@@ -122,7 +122,6 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: {
 interface AddCompanyToSegmentFormProps {
     onAdd: (data: any) => void;
     allCompanyOptions: { value: string; label: string; settings?: SegmentSettings }[];
-    partnerOptions: { value: string; label: string }[];
     editingEntry?: any;
     onCancelEdit: () => void;
 }
@@ -279,10 +278,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         return uniqueRelations.map(r => ({ value: r.id, label: r.name }));
     }, [clients, suppliers]);
 
-    const hasPartner = watch('hasPartner');
-
-    const isStep1Valid = !!watch('fromDate') && !!watch('toDate') && !!watch('currency');
-
     useEffect(() => {
         if (open) {
             periodForm.reset({
@@ -354,7 +349,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
     
     const goToNextStep = async () => {
-        const isValid = await periodForm.trigger(['fromDate', 'toDate', 'currency']);
+        const isValid = await periodForm.trigger(['fromDate', 'toDate']);
         if (isValid) {
             setStep(2);
         }
@@ -377,10 +372,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                         <div className={cn("p-3 border rounded-lg bg-background/50 space-y-3", isStep1Valid && "border-green-500")}>
                             <h3 className="font-semibold text-base">البيانات الرئيسية للفترة</h3>
-                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                 <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
-                                <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
+                                <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1 md:col-span-2"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                             </div>
                             <Separator/>
                             <div className="space-y-3">
