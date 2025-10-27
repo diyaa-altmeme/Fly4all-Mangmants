@@ -32,7 +32,7 @@ import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
@@ -247,7 +247,7 @@ const SummaryList = ({ onRemove, onEdit }: { onRemove: (index: number) => void, 
                                     <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)}</TableCell>
                                     <TableCell className='text-center'>
                                         <Button type="button" variant="ghost" size="icon" className='h-8 w-8 text-blue-600' onClick={() => onEdit(index)}><Pencil className='h-4 w-4'/></Button>
-                                        <Button type="button" variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => remove(index)}><Trash2 className='h-4 w-4'/></Button>
+                                        <Button type="button" variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => onRemove(index)}><Trash2 className='h-4 w-4'/></Button>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -265,7 +265,6 @@ interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]
 export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess, isEditing = false, existingPeriod, children }: AddSegmentPeriodDialogProps) {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
-    const [step, setStep] = useState(1);
     const [isSaving, setIsSaving] = useState(false);
     const addCompanyFormRef = React.useRef<{ resetForm: () => void }>(null);
     const [editingEntry, setEditingEntry] = useState<any | null>(null);
@@ -350,13 +349,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
     
     const handleEditEntry = (index: number) => setEditingEntry(summaryFields[index]);
-    
-    const handleEditPartner = (index: number) => {
-        const partnerToEdit = partnerFields[index];
-        setEditingPartnerIndex(index);
-        setCurrentPartnerId(partnerToEdit.partnerId);
-        setCurrentPercentage(partnerToEdit.percentage);
-    };
     
     const removeEntry = (index: number) => remove(index);
 
@@ -443,6 +435,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         setCurrentPartnerId('');
         setCurrentPercentage('');
     };
+    
+    const handleEditPartner = (index: number) => {
+        const partnerToEdit = partnerFields[index];
+        setEditingPartnerIndex(index);
+        setCurrentPartnerId(partnerToEdit.partnerId);
+        setCurrentPercentage(partnerToEdit.percentage);
+    };
 
     const isDistributionLocked = watchedPeriod.hasPartner && Math.abs(totalPartnerPercentage - 100) > 0.01;
     
@@ -470,6 +469,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>{boxName}</span></div>
                                 <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
                             </div>
+                            <div className="flex-1">
+                                <div className="grid grid-cols-4 gap-2">
+                                    <SummaryStat title="إجمالي الربح" value={grandTotalProfit} currency={watchedPeriod.currency} />
+                                    <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedPeriod.currency} className="bg-green-50 dark:bg-green-950/30 border-green-500/30 text-green-700 dark:text-green-300" />
+                                    <SummaryStat title="حصة الشركاء" value={amountForPartners} currency={watchedPeriod.currency} className="bg-purple-50 dark:bg-purple-950/30 border-purple-500/30 text-purple-700 dark:text-purple-300" />
+                                    <SummaryStat title="المتبقي" value={remainderForPartners} currency={watchedPeriod.currency} className={cn(Math.abs(remainderForPartners) > 0.01 && 'bg-destructive/10 text-destructive')} />
+                                </div>
+                            </div>
                             <div className="flex items-center gap-2">
                                 <Button type="submit" disabled={isSaving || summaryFields.length === 0 || isDistributionLocked}>
                                     {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
@@ -490,5 +497,3 @@ const SummaryStat = ({ title, value, currency, className }: { title: string; val
         <p className="font-mono font-bold text-sm">{(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</p>
     </div>
 );
-
-    
