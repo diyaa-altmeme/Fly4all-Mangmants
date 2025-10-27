@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
@@ -27,7 +28,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import {
-  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, ChevronsUpDown, Save, Pencil, ArrowLeft
+  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, ChevronsUpDown, Save, Pencil, ArrowLeft, ArrowRight, X, Building, Store, Settings2, RotateCcw, Hash, User as UserIcon, CheckCircle, Wallet,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
@@ -47,14 +48,6 @@ const companyEntrySchema = z.object({
   hotels: z.coerce.number().int().nonnegative().default(0),
   groups: z.coerce.number().int().nonnegative().default(0),
   notes: z.string().optional(),
-});
-
-const partnerSchema = z.object({
-  id: z.string(),
-  partnerId: z.string().min(1, "اختر شريكاً."),
-  partnerName: z.string().min(1),
-  share: z.coerce.number(),
-  percentage: z.coerce.number().min(0).max(100),
 });
 
 const periodFormSchema = z.object({
@@ -151,7 +144,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
 
     return (
         <FormProvider {...form}>
-            <form onSubmit={handleSubmit(handleAddClick)} className="space-y-3">
+            <div className="space-y-3">
                 <Card className="border rounded-lg shadow-sm border-primary/40">
                     <CardHeader className="p-2 flex flex-row items-center justify-between bg-muted/30">
                         <CardTitle className="text-base font-semibold">{editingEntry ? 'تعديل بيانات الشركة' : 'إدخال بيانات الشركة'}</CardTitle>
@@ -169,14 +162,14 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
                             <ServiceLine label="كروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" />
                         </div>
                         <div className="flex justify-center pt-2">
-                          <Button type="submit" className='w-full md:w-1/2'>
+                          <Button type="button" onClick={handleSubmit(handleAddClick)} className='w-full md:w-1/2'>
                               {editingEntry ? <Pencil className="me-2 h-4 w-4" /> : <ArrowDown className="me-2 h-4 w-4" />}
                               {editingEntry ? 'تحديث الشركة' : 'إضافة إلى الفترة'}
                           </Button>
                         </div>
                     </CardContent>
                 </Card>
-            </form>
+            </div>
         </FormProvider>
     );
 });
@@ -228,12 +221,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const [isSaving, setIsSaving] = useState(false);
     const addCompanyFormRef = React.useRef<{ resetForm: () => void }>(null);
     const [editingEntry, setEditingEntry] = useState<any | null>(null);
+    const [step, setStep] = useState(0);
 
     const periodForm = useForm<PeriodFormValues>({ 
         resolver: zodResolver(periodFormSchema),
-        defaultValues: { hasPartner: false, alrawdatainSharePercentage: 100, partners: [], summaryEntries: [] }
+        defaultValues: { hasPartner: false, alrawdatainSharePercentage: 100, partners: [], summaryEntries: [], fromDate: undefined, toDate: undefined, currency: undefined }
     });
-    const { control, handleSubmit: handlePeriodSubmit, watch, setValue, formState: { errors } } = periodForm;
+    const { control, handleSubmit: handlePeriodSubmit, watch, setValue, formState: { errors }, trigger } = periodForm;
     const { fields, append, remove, update } = useFieldArray({ control: periodForm.control, name: "summaryEntries" });
     const hasPartner = watch('hasPartner');
 
@@ -252,15 +246,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     useEffect(() => {
         if (!open) {
             periodForm.reset({
-                fromDate: undefined,
-                toDate: undefined,
-                currency: undefined,
-                hasPartner: false,
-                alrawdatainSharePercentage: 100,
-                partners: [],
-                summaryEntries: [],
+                fromDate: undefined, toDate: undefined, currency: undefined, hasPartner: false,
+                alrawdatainSharePercentage: 100, partners: [], summaryEntries: [],
             });
             setEditingEntry(null);
+            setStep(0);
         }
     }, [open, periodForm]);
 
@@ -323,6 +313,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         }
     };
     
+    const goToNextStep = async () => {
+        const isValid = await periodForm.trigger();
+        if (isValid) setStep(1);
+    };
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
@@ -330,50 +325,48 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
                     <DialogDescription>
-                        حدد الفترة المحاسبية أولاً، ثم قم بإضافة الشركات وتفاصيل أرباحها لهذه الفترة.
+                         {step === 0 
+                            ? "الخطوة 1: حدد الفترة المحاسبية للسجل."
+                            : "الخطوة 2: أضف بيانات الشركات لهذه الفترة."}
                     </DialogDescription>
                 </DialogHeader>
-                <FormProvider {...periodForm}>
-                    <form onSubmit={handlePeriodSubmit(handleSavePeriod)} className="flex-grow flex flex-col overflow-hidden">
-                        <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
-                             <div className="p-3 border rounded-lg bg-background/50 space-y-3">
-                                <h3 className="font-semibold text-base">الخطوة 1: تحديد الفترة والشركاء</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                                    <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
-                                        <FormItem><FormLabel>من تاريخ</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={periodForm.control} name="toDate" render={({ field }) => (
-                                        <FormItem><FormLabel>إلى تاريخ</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (
-                                        <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="اختر العملة..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                                    )}/>
-                                </div>
-                                <Separator />
-                                <div className="space-y-3">
-                                  <FormField control={periodForm.control} name="hasPartner" render={({ field }) => ( <div className="flex items-center space-x-2 space-x-reverse"><Switch id="hasPartner" checked={field.value} onCheckedChange={field.onChange} /><Label htmlFor="hasPartner" className="font-semibold">هل يوجد شريك في الربح؟</Label></div> )}/>
-                                  {hasPartner && <FormField control={periodForm.control} name="alrawdatainSharePercentage" render={({ field }) => (<div className="space-y-1"><Label>حصة شركة الروضتين (%)</Label><div className="relative w-48"><NumericInput value={field.value} onValueChange={(v) => field.onChange(v || 0)} className="pe-7"/><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4" /></div><p className="h-3"></p></div>)} />}
-                                </div>
+                
+                 <FormProvider {...periodForm}>
+                    <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
+                        <div className="p-3 border rounded-lg bg-background/50 space-y-3">
+                            <h3 className="font-semibold text-base">البيانات الرئيسية</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                                <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
+                                <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
+                                <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                             </div>
-                            
-                            <Collapsible open={isStep1Valid}>
-                              <CollapsibleContent className="space-y-6">
-                                <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions}/>
-                                <SummaryList onRemove={remove} onEdit={handleEditEntry} />
-                              </CollapsibleContent>
-                            </Collapsible>
+                            <Separator />
+                            <div className="space-y-3">
+                              <FormField control={periodForm.control} name="hasPartner" render={({ field }) => ( <div className="flex items-center space-x-2 space-x-reverse"><Switch id="hasPartner" checked={field.value} onCheckedChange={field.onChange} /><Label htmlFor="hasPartner" className="font-semibold">هل يوجد شريك في الربح؟</Label></div> )}/>
+                              {hasPartner && <FormField control={periodForm.control} name="alrawdatainSharePercentage" render={({ field }) => (<div className="space-y-1"><Label>حصة شركة الروضتين (%)</Label><div className="relative w-48"><NumericInput value={field.value} onValueChange={(v) => field.onChange(v || 0)} className="pe-7"/><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4" /></div><p className="h-3"></p></div>)} />}
+                            </div>
                         </div>
-                        <div className="pt-4 border-t flex justify-end">
-                            <Button type="submit" disabled={isSaving || fields.length === 0} className="sm:w-auto">
-                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                                {isEditing ? 'حفظ التعديلات' : `حفظ الفترة بالكامل (${fields.length} شركة)`}
-                            </Button>
-                        </div>
-                    </form>
+
+                        <Collapsible open={isStep1Valid}>
+                          <CollapsibleContent className="space-y-6">
+                            <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions}/>
+                            <SummaryList onRemove={remove} onEdit={handleEditEntry} />
+                          </CollapsibleContent>
+                        </Collapsible>
+                    </div>
                 </FormProvider>
+            
+                <DialogFooter className="pt-4 border-t flex-shrink-0">
+                     <div className="flex justify-between w-full">
+                        <Button variant="outline" onClick={() => { setOpen(false) }}>إلغاء</Button>
+                        <Button type="button" onClick={handlePeriodSubmit(handleSavePeriod)} disabled={isSaving || fields.length === 0} className="sm:w-auto">
+                            {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                            حفظ بيانات الفترة ({fields.length} سجلات)
+                        </Button>
+                    </div>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
 
-    
