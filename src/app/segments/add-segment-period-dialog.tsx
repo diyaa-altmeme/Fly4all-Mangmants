@@ -322,53 +322,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         addCompanyFormRef.current?.resetForm();
     };
     
-    const handleAddOrUpdatePartner = () => {
-        if(!currentPartnerId || !currentPercentage) {
-            toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
-            return;
-        }
-        const newPercentage = Number(currentPercentage);
-        if (isNaN(newPercentage) || newPercentage <= 0) {
-            toast({ title: "النسبة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
-            return;
-        }
-        
-        const currentPartners = getValues('partners') || [];
-        
-        const editingPartnerOldPercentage = editingPartnerIndex !== null ? currentPartners[editingPartnerIndex]?.percentage || 0 : 0;
-        const currentTotalPartnerPercentage = currentPartners.reduce((sum, p) => sum + p.percentage, 0) - editingPartnerOldPercentage;
-        const adjustedTotal = currentTotalPartnerPercentage + newPercentage;
-
-        if (adjustedTotal > 100.01) { // Use tolerance
-             toast({ title: "لا يمكن تجاوز 100%", description: `إجمالي النسب الحالية: ${currentTotalPartnerPercentage.toFixed(2)}%`, variant: 'destructive' });
-             return;
-        }
-
-        const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
-        if(!selectedPartner) {
-             toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
-             return;
-        }
-
-        const partnerData = {
-            id: editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].id : `new-${Date.now()}`,
-            partnerId: selectedPartner.value,
-            partnerName: selectedPartner.label,
-            percentage: newPercentage,
-            amount: (amountForPartners * newPercentage) / 100
-        };
-
-        if (editingPartnerIndex !== null) {
-          updatePartner(editingPartnerIndex, partnerData);
-          setEditingPartnerIndex(null);
-        } else {
-          appendPartner(partnerData);
-        }
-        
-        setCurrentPartnerId('');
-        setCurrentPercentage('');
-    };
-    
     const handleEditEntry = (index: number) => setEditingEntry(summaryFields[index]);
     
     const handleEditPartner = (index: number) => {
@@ -422,6 +375,53 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         } finally {
             setIsSaving(false);
         }
+    };
+    
+    const handleAddOrUpdatePartner = () => {
+        if(!currentPartnerId || !currentPercentage) {
+            toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
+            return;
+        }
+        const newPercentage = Number(currentPercentage);
+        if (isNaN(newPercentage) || newPercentage <= 0) {
+            toast({ title: "النسبة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
+            return;
+        }
+        
+        const currentPartners = getValues('partners') || [];
+        
+        const editingPartnerOldPercentage = editingPartnerIndex !== null ? currentPartners[editingPartnerIndex]?.percentage || 0 : 0;
+        const currentTotalPartnerPercentage = currentPartners.reduce((sum, p) => sum + p.percentage, 0) - editingPartnerOldPercentage;
+        const adjustedTotal = currentTotalPartnerPercentage + newPercentage;
+
+        if (adjustedTotal > 100.01) { // Use tolerance
+             toast({ title: "لا يمكن تجاوز 100%", description: `إجمالي النسب الحالية: ${currentTotalPartnerPercentage.toFixed(2)}%`, variant: 'destructive' });
+             return;
+        }
+
+        const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
+        if(!selectedPartner) {
+             toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
+             return;
+        }
+
+        const partnerData = {
+            id: editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].id : `new-${Date.now()}`,
+            partnerId: selectedPartner.value,
+            partnerName: selectedPartner.label,
+            percentage: newPercentage,
+            amount: (amountForPartners * newPercentage) / 100
+        };
+
+        if (editingPartnerIndex !== null) {
+          updatePartner(editingPartnerIndex, partnerData);
+          setEditingPartnerIndex(null);
+        } else {
+          appendPartner(partnerData);
+        }
+        
+        setCurrentPartnerId('');
+        setCurrentPercentage('');
     };
 
     return (
@@ -500,16 +500,16 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                             
                             {periodDataIsValid && (
                                 <>
-                                    <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions} />
+                                    <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} />
                                     <SummaryList onRemove={remove} onEdit={handleEditEntry} />
                                 </>
                             )}
                         </div>
-                        <DialogFooter className="p-3 border-t flex-col sm:flex-row justify-between items-center bg-background sticky bottom-0">
+                         <DialogFooter className="p-3 border-t flex-col sm:flex-row justify-between items-center bg-background">
                             <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-2">
                                <SummaryStat title="إجمالي ربح السكمنت" value={grandTotalProfit} currency={watchedPeriod.currency} />
-                                <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedPeriod.currency} />
-                                <SummaryStat title="حصة الشركاء" value={amountForPartners} currency={watchedPeriod.currency} />
+                                <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedPeriod.currency} className="bg-green-50 dark:bg-green-950/30 border-green-500/30 text-green-700 dark:text-green-300"/>
+                                <SummaryStat title="حصة الشركاء" value={amountForPartners} currency={watchedPeriod.currency} className="bg-purple-50 dark:bg-purple-950/30 border-purple-500/30 text-purple-700 dark:text-purple-300"/>
                                 <SummaryStat title="المتبقي للتوزيع" value={remainderForPartners} currency={watchedPeriod.currency} className={cn(Math.abs(remainderForPartners) > 0.01 && "border-destructive text-destructive")} />
                             </div>
                             <Button type="submit" size="lg" disabled={isSaving || summaryFields.length === 0} className="w-full sm:w-auto">
@@ -530,5 +530,3 @@ const SummaryStat = ({ title, value, currency, className }: { title: string; val
         <p className="font-mono font-bold text-sm">{(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</p>
     </div>
 );
-
-    
