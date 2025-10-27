@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
@@ -33,9 +32,11 @@ import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
 
 // Schemas
 const companyEntrySchema = z.object({
@@ -295,24 +296,26 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         setEditingEntry(fields[index]);
     };
 
+    const periodEntries = watch("summaryEntries");
+
     const handleSavePeriod = async () => {
         const periodData = periodForm.getValues();
         
-        if (fields.length === 0) {
+        if (periodEntries.length === 0) {
             toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
             return;
         }
 
         setIsSaving(true);
         try {
-            const finalEntries = fields.map((entry: any) => ({
+            const finalEntries = periodEntries.map((entry: any) => ({
                 ...entry,
                 fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
                 toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
                 currency: periodData.currency!,
             }));
             
-            const result = await addSegmentEntries(finalEntries, isEditing ? existingPeriod?.periodId : undefined);
+            const result = await addSegmentEntries(finalEntries as any, isEditing ? existingPeriod?.periodId : undefined);
             if (!result.success) throw new Error(result.error);
             
             toast({ title: `تم حفظ الفترة بنجاح` });
@@ -343,6 +346,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const [editingPartnerIndex, setEditingPartnerIndex] = useState<number | null>(null);
 
     const watchedPeriod = watch();
+
     const { totalPartnerPercentage, amountForPartners, alrawdatainShareAmount, distributedToPartners, remainderForPartners } = useMemo(() => {
         const totalProfit = periodEntries.reduce((sum, e) => sum + (e.total || 0), 0);
         const alrawdatainPerc = Number(watchedPeriod.alrawdatainSharePercentage) || 100;
@@ -372,10 +376,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                          <div className={cn("p-3 border rounded-lg bg-background/50 space-y-3")}>
                              <h3 className="font-semibold text-base">البيانات الرئيسية للفترة</h3>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                  <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                  <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
-                                 <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                              </div>
                              <div className="pt-3 border-t">
                                 <FormField
@@ -437,5 +440,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
