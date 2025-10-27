@@ -5,6 +5,4 @@
 // It can be removed in a future cleanup.
 import React from 'react';
 
-export default function DeprecatedEditSegmentPeriodDialog() {
-    return null;
-}
+export default function DeprecatedEditSegmentPeriodDialog()
