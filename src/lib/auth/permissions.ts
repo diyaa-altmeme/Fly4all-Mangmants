@@ -39,6 +39,7 @@ export const PERMISSIONS = {
     'remittances:receive': 'استلام الحوالات',
 
     // Segments
+    'segment_access': 'الوصول إلى ميزة السكمنت',
     'segments:read': 'عرض السكمنت',
     'segments:create': 'إنشاء سجلات سكمنت',
     'segments:update': 'تعديل سجلات سكمنت',
@@ -107,6 +108,14 @@ export const PERMISSION_MODULES = [
             { id: 'subscriptions:read', name: 'عرض' }, { id: 'subscriptions:create', name: 'إنشاء' },
             { id: 'subscriptions:update', name: 'تعديل' }, { id: 'subscriptions:delete', name: 'حذف' },
             { id: 'subscriptions:payments', name: 'دفع الأقساط' },
+        ]
+    },
+     {
+        id: 'segments', name: 'السكمنت',
+        permissions: [
+            { id: 'segment_access', name: 'الوصول إلى الميزة' },
+            { id: 'segments:read', name: 'عرض' }, { id: 'segments:create', name: 'إنشاء' },
+            { id: 'segments:update', name: 'تعديل' }, { id: 'segments:delete', name: 'حذف' },
         ]
     },
     {
