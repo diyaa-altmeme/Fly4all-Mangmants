@@ -33,14 +33,13 @@ import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from '@/lib/auth-context';
 
 
-// Schemas
 const companyEntrySchema = z.object({
   id: z.string(),
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
@@ -99,7 +98,7 @@ function computeCompanyTotal(d: any, companySettings?: SegmentSettings) {
 }
 
 // Sub-components
-const ServiceLine = ({ label, icon: Icon, color, countField, typeField, valueField }: any) => {
+const ServiceLine = ({ label, icon: Icon, color, countField }: any) => {
   const { control } = useFormContext<CompanyEntryFormValues>();
   const count = useWatch({ control, name: countField });
   const result = count || 0;
@@ -251,9 +250,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const { data: navData, fetchData } = useVoucherNav();
     const { user: currentUser } = useAuth();
     
-    const [isFromCalendarOpen, setIsFromCalendarOpen] = useState(false);
-    const [isToCalendarOpen, setIsToCalendarOpen] = useState(false);
-    
     const [currentPartnerId, setCurrentPartnerId] = useState('');
     const [currentPercentage, setCurrentPercentage] = useState<number | string>('');
     const [editingPartnerIndex, setEditingPartnerIndex] = useState<number | null>(null);
@@ -278,7 +274,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             setEditingEntry(null);
         }
     }, [open, resetForm]);
-
+    
+    const allCompanyOptions = useMemo(() => {
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+    }, [clients]);
+    
     const { totalProfit, alrawdatainShareAmount, amountForPartners, totalPartnerPercentage, distributedToPartners, remainderForPartners } = useMemo(() => {
         const periodEntries = watchedPeriod.summaryEntries || [];
         const totalProfit = periodEntries.reduce((sum, e) => sum + (e.total || 0), 0);
@@ -303,10 +303,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const value = Number(currentPercentage) || 0;
         return amountForPartners * (value / 100);
     }, [currentPercentage, amountForPartners]);
-
-    const allCompanyOptions = useMemo(() => {
-        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
-    }, [clients]);
 
     const partnerOptions = useMemo(() => {
         const allRelations = [...clients, ...suppliers];
@@ -333,6 +329,8 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const handleEditEntry = (index: number) => setEditingEntry(summaryFields[index]);
 
+    const removeEntry = (index: number) => remove(index);
+    
     const handleSavePeriod = async () => {
         const periodData = await trigger() ? getValues() : null;
         if (!periodData) {
@@ -361,7 +359,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 }))
             }));
             
-            const result = await addSegmentEntries(finalEntries, isEditing ? existingPeriod?.periodId : undefined);
+            const result = await addSegmentEntries(finalEntries as any, isEditing ? existingPeriod?.periodId : undefined);
             if (!result.success) throw new Error(result.error);
             
             toast({ title: "تم حفظ بيانات الفترة بنجاح" });
@@ -428,17 +426,22 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         setCurrentPercentage(partnerToEdit.percentage);
     };
 
+    const currencyOptions = navData?.settings?.currencySettings?.currencies || [];
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
-            <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
+                     <DialogDescription>
+                        حدد الفترة المحاسبية، ثم أضف بيانات الشركات لهذه الفترة.
+                    </DialogDescription>
                 </DialogHeader>
                 
                 <FormProvider {...periodForm}>
                     <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
-                        <div className="p-3 border rounded-lg bg-background/50 space-y-3">
+                        <div className={cn("p-3 border rounded-lg bg-background/50 space-y-3")}>
                             <h3 className="font-semibold text-base">البيانات الرئيسية للفترة</h3>
                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
@@ -453,9 +456,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                                             <div className="space-y-0.5">
                                                 <FormLabel className="font-semibold">توزيع حصص الشركاء</FormLabel>
-                                                 <FormDescription className="text-xs">
+                                                <p className="text-xs text-muted-foreground">
                                                     تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.
-                                                </FormDescription>
+                                                </p>
                                             </div>
                                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                         </FormItem>
@@ -474,13 +477,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         )}
                         
                         {periodDataIsValid && (
-                            <SummaryList onRemove={remove} onEdit={handleEditEntry} />
+                            <SummaryList onRemove={removeEntry} onEdit={handleEditEntry} />
                         )}
                     </div>
                 
                     <DialogFooter className="pt-4 border-t flex-shrink-0">
-                        <div className="flex justify-between w-full">
-                            <Button type="button" variant="outline" onClick={() => setOpen(false)}>إلغاء</Button>
+                        <div className="flex justify-end w-full">
                             <Button type="button" onClick={handleSavePeriod} disabled={isSaving || summaryFields.length === 0} className="sm:w-auto">
                                 {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
                                 حفظ بيانات الفترة ({summaryFields.length} سجلات)
