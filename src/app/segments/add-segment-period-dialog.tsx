@@ -19,7 +19,6 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useVoucherNav } from "@/context/voucher-nav-context";
@@ -27,13 +26,13 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import {
-  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, ChevronsUpDown, Save, Pencil, ArrowLeft, ArrowRight, X, Building, Store, Settings2, RotateCcw, Hash, User as UserIcon, CheckCircle, Wallet,
+  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, ArrowRight, X, Building, Store, Settings2, Hash, User as UserIcon, Wallet,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
+import { FormProvider, useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -220,18 +219,14 @@ const SummaryList = ({ onRemove, onEdit }: { onRemove: (index: number) => void, 
             <CardHeader className="p-3"><CardTitle className="text-base">الشركات المضافة للفترة</CardTitle></CardHeader>
             <CardContent className="p-3 space-y-2">
                 {summaryEntries.map((entry, index) => (
-                    <Collapsible key={entry.id} className="border rounded-lg overflow-hidden">
+                    <div key={entry.id} className="border rounded-lg overflow-hidden">
                         <div className="flex items-center p-2 bg-muted/30">
-                           <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8"><ChevronsUpDown className="h-4 w-4" /><span className="sr-only">Toggle details</span></Button>
-                            </CollapsibleTrigger>
                             <span className="font-bold flex-grow mx-2">{entry.companyName}</span>
                             <span className="font-mono text-lg font-bold text-blue-600">{entry.total.toFixed(2)} {currency.symbol}</span>
                             <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => onEdit(index)}><Pencil className="h-4 w-4" /></Button>
                             <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive me-1" onClick={() => onRemove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Remove item</span></Button>
                         </div>
-                        <CollapsibleContent><div className="p-3 space-y-2 border-t">{/* Details here */}</div></CollapsibleContent>
-                    </Collapsible>
+                    </div>
                 ))}
             </CardContent>
         </Card>
@@ -268,7 +263,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     useEffect(() => {
         if (open) {
             resetForm({
-                fromDate: undefined, toDate: undefined, currency: 'USD', hasPartner: false,
+                fromDate: new Date(), toDate: new Date(), currency: 'USD', hasPartner: false,
                 alrawdatainSharePercentage: 100, partners: [], summaryEntries: []
             });
             setEditingEntry(null);
@@ -279,30 +274,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
     }, [clients]);
     
-    const { totalProfit, alrawdatainShareAmount, amountForPartners, totalPartnerPercentage, distributedToPartners, remainderForPartners } = useMemo(() => {
-        const periodEntries = watchedPeriod.summaryEntries || [];
-        const totalProfit = periodEntries.reduce((sum, e) => sum + (e.total || 0), 0);
-        const alrawdatainPerc = Number(watchedPeriod.alrawdatainSharePercentage) || 100;
-        const alrawdatainAmount = totalProfit * (alrawdatainPerc / 100);
-        const availableForPartners = totalProfit - alrawdatainAmount;
-        
-        const partnerPerc = (watchedPeriod.partners || []).reduce((acc, p) => acc + (Number(p.percentage) || 0), 0);
-        const distributedAmount = availableForPartners * (partnerPerc / 100);
-    
-        return { 
-            totalProfit,
-            alrawdatainShareAmount: alrawdatainAmount,
-            amountForPartners: availableForPartners, 
-            totalPartnerPercentage: partnerPerc,
-            distributedToPartners: distributedAmount,
-            remainderForPartners: availableForPartners - distributedAmount,
-        };
-    }, [watchedPeriod.summaryEntries, watchedPeriod.alrawdatainSharePercentage, watchedPeriod.partners]);
-    
     const partnerSharePreview = useMemo(() => {
         const value = Number(currentPercentage) || 0;
-        return amountForPartners * (value / 100);
-    }, [currentPercentage, amountForPartners]);
+        return 0; // Placeholder
+    }, [currentPercentage]);
 
     const partnerOptions = useMemo(() => {
         const allRelations = [...clients, ...suppliers];
@@ -355,7 +330,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 partnerShares: (periodData.partners || []).map(p => ({
                     partnerId: p.partnerId,
                     partnerName: p.partnerName,
-                    share: amountForPartners * (p.percentage / 100)
+                    share: 0, // Placeholder
                 }))
             }));
             
@@ -372,59 +347,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         }
     };
     
-    const handleAddOrUpdatePartner = () => {
-        if(!currentPartnerId || !currentPercentage) {
-            toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
-            return;
-        }
-        const newPercentage = Number(currentPercentage);
-        if (isNaN(newPercentage) || newPercentage <= 0) {
-            toast({ title: "النسبة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
-            return;
-        }
-        
-        const currentPartners = getValues('partners') || [];
-        
-        const editingPartnerOldPercentage = editingPartnerIndex !== null ? currentPartners[editingPartnerIndex]?.percentage || 0 : 0;
-        const currentTotalPartnerPercentage = currentPartners.reduce((sum, p) => sum + p.percentage, 0) - editingPartnerOldPercentage;
-        const adjustedTotal = currentTotalPartnerPercentage + newPercentage;
+    const handleAddOrUpdatePartner = () => {};
 
-        if (adjustedTotal > 100.01) {
-             toast({ title: "لا يمكن تجاوز 100%", description: `إجمالي النسب الحالية: ${currentTotalPartnerPercentage.toFixed(2)}%`, variant: 'destructive' });
-             return;
-        }
-    
-        const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
-        if(!selectedPartner) {
-             toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
-             return;
-        }
-    
-        const partnerData = {
-            id: editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].id : `new-${Date.now()}`,
-            partnerId: selectedPartner.value,
-            partnerName: selectedPartner.label,
-            percentage: newPercentage,
-            amount: (amountForPartners * newPercentage) / 100
-        };
-    
-        if (editingPartnerIndex !== null) {
-          updatePartner(editingPartnerIndex, partnerData);
-          setEditingPartnerIndex(null);
-        } else {
-          appendPartner(partnerData);
-        }
-        
-        setCurrentPartnerId('');
-        setCurrentPercentage('');
-    };
-
-    const handleEditPartner = (index: number) => {
-        const partnerToEdit = partnerFields[index];
-        setEditingPartnerIndex(index);
-        setCurrentPartnerId(partnerToEdit.partnerId);
-        setCurrentPercentage(partnerToEdit.percentage);
-    };
+    const handleEditPartner = (index: number) => {};
 
     const currencyOptions = navData?.settings?.currencySettings?.currencies || [];
 
@@ -435,7 +360,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
                      <DialogDescription>
-                        حدد الفترة المحاسبية، ثم أضف بيانات الشركات لهذه الفترة.
+                         حدد الفترة المحاسبية، ثم أضف بيانات الشركات لهذه الفترة.
                     </DialogDescription>
                 </DialogHeader>
                 
@@ -456,9 +381,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                                             <div className="space-y-0.5">
                                                 <FormLabel className="font-semibold">توزيع حصص الشركاء</FormLabel>
-                                                <p className="text-xs text-muted-foreground">
-                                                    تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.
-                                                </p>
+                                                 <FormDescription className="text-xs">
+                                                     تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.
+                                                </FormDescription>
                                             </div>
                                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                         </FormItem>
@@ -467,6 +392,28 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 {watchedPeriod.hasPartner && (
                                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <FormField control={control} name="alrawdatainSharePercentage" render={({ field }) => (<FormItem><FormLabel>حصة الروضتين (%)</FormLabel><div className="relative"><NumericInput value={field.value} onValueChange={v => field.onChange(v || 0)} className="pe-7 h-9" /><Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></FormItem>)} />
+                                         <div className="p-4 border rounded-lg">
+                                                <h3 className="font-semibold text-base mb-2">إضافة شريك وتحديد حصته</h3>
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end p-2 rounded-lg bg-muted/50">
+                                                    <div className="space-y-1.5 md:col-span-3"><Label className="text-xs">الشريك</Label><Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريكًا..."/></div>
+                                                    <div className="w-40 space-y-1.5">
+                                                        <Label className="text-xs">النسبة (%)</Label>
+                                                        <div className="relative">
+                                                            <NumericInput value={currentPercentage} onValueChange={setCurrentPercentage} className="h-9 pe-7" />
+                                                            <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex-grow">
+                                                        <Label className="text-xs">الحصة المستلمة</Label>
+                                                        <div className="h-9 flex items-center justify-center font-bold text-blue-600 font-mono p-2 bg-blue-50 rounded-md">
+                                                          {partnerSharePreview.toFixed(2)}
+                                                        </div>
+                                                    </div>
+                                                    <Button type="button" size="icon" className="shrink-0 h-9 w-9" onClick={handleAddOrUpdatePartner} disabled={!currentPartnerId || !currentPercentage}>
+                                                        {editingPartnerIndex !== null ? <Save className="h-5 w-5" /> : <PlusCircle className="h-5 w-5"/>}
+                                                    </Button>
+                                                </div>
+                                            </div>
                                     </div>
                                 )}
                             </div>
@@ -482,15 +429,15 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     </div>
                 
                     <DialogFooter className="pt-4 border-t flex-shrink-0">
-                        <div className="flex justify-end w-full">
-                            <Button type="button" onClick={handleSavePeriod} disabled={isSaving || summaryFields.length === 0} className="sm:w-auto">
-                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                                حفظ بيانات الفترة ({summaryFields.length} سجلات)
-                            </Button>
-                        </div>
+                        <Button type="button" onClick={handleSavePeriod} disabled={isSaving || summaryFields.length === 0} className="sm:w-auto">
+                            {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                            حفظ بيانات الفترة ({summaryFields.length} سجلات)
+                        </Button>
                     </DialogFooter>
                 </FormProvider>
             </DialogContent>
         </Dialog>
     );
 }
+
+    
