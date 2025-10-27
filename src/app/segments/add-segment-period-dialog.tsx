@@ -33,7 +33,7 @@ import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -98,13 +98,8 @@ function computeCompanyTotal(d: any, companySettings?: SegmentSettings) {
   return ticketProfits + otherProfits;
 }
 
-// UI Components
-const ServiceLine = ({ label, icon: Icon, color, countField }: {
-    label: string,
-    icon: React.ElementType,
-    color: string,
-    countField: keyof CompanyEntryFormValues
-}) => {
+// Sub-components
+const ServiceLine = ({ label, icon: Icon, color, countField, typeField, valueField }: any) => {
   const { control } = useFormContext<CompanyEntryFormValues>();
   const count = useWatch({ control, name: countField });
   const result = count || 0;
@@ -253,11 +248,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const [step, setStep] = useState(1);
     const [isSaving, setIsSaving] = useState(false);
     
-    const [editingPartnerIndex, setEditingPartnerIndex] = useState<number | null>(null);
-    const [currentPartnerId, setCurrentPartnerId] = useState('');
-    const [currentPercentage, setCurrentPercentage] = useState<number | string>('');
-
-    
     const addCompanyFormRef = React.useRef<{ resetForm: () => void }>(null);
     const [editingEntry, setEditingEntry] = useState<any | null>(null);
     const { data: navData, fetchData } = useVoucherNav();
@@ -313,19 +303,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
     const periodEntries = watch("summaryEntries");
     const watchedPeriod = watch();
-
-    const { totalPartnerPercentage, amountForPartners, alrawdatainShareAmount, distributedToPartners, remainderForPartners } = useMemo(() => {
-        const totalProfit = (periodEntries || []).reduce((sum, e) => sum + (e.total || 0), 0);
-        const alrawdatainPerc = Number(watchedPeriod.alrawdatainSharePercentage) || 100;
-        const alrawdatainAmount = totalProfit * (alrawdatainPerc / 100);
-        const availableForPartners = totalProfit - alrawdatainAmount;
-        
-        const partnerPerc = (watchedPeriod.partners || []).reduce((acc, p) => acc + (Number(p.percentage) || 0), 0);
-        const distributedAmount = (watchedPeriod.partners || []).reduce((acc, p) => acc + ((availableForPartners * (p.percentage || 0)) / 100), 0);
-
-        return { totalPartnerPercentage: partnerPerc, amountForPartners: availableForPartners, alrawdatainShareAmount: alrawdatainAmount, distributedToPartners: distributedAmount, remainderForPartners: availableForPartners - distributedAmount };
-    }, [periodEntries, watchedPeriod.alrawdatainSharePercentage, watchedPeriod.partners]);
-
+    
     const handleSavePeriod = async () => {
         const periodData = periodForm.getValues();
         
@@ -362,21 +340,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         }
     };
 
-    const handleAddOrUpdatePartner = () => {
-        // ... (previous implementation)
-    };
-    const handleEditPartner = (index: number) => {
-        // ... (previous implementation)
-    };
-
-
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
             <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
-                    <DialogDescription>
+                     <DialogDescription>
                          {step === 1 
                             ? "الخطوة 1 من 2: حدد الفترة المحاسبية للسجل وتوزيع الأرباح."
                             : "الخطوة 2 من 2: أضف بيانات الشركات لهذه الفترة."}
@@ -446,4 +416,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     );
 }
 
-    
