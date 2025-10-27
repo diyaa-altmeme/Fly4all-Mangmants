@@ -10,19 +10,26 @@ import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
 import { FieldValue } from 'firebase-admin/firestore';
 import { postJournalEntry } from '@/lib/finance/postJournal';
-import { getUserPermissions } from '@/lib/permissions';
 
 // Helper to check for segment access permissions
 const checkSegmentPermission = async () => {
   const user = await getCurrentUserFromSession();
-  if (!user || !user.id || !('role' in user) || !user.boxId) {
-    throw new Error("User not authenticated or box not assigned.");
+
+  // Ensure it's a user and not a client, and they are authenticated.
+  if (!user || 'isClient' in user) {
+    throw new Error("Access Denied: User not authenticated or does not have required permissions.");
   }
 
-  const permissions = await getUserPermissions(user.id);
-  if (!permissions.some(p => p.name === 'segment_access')) {
+  // Check for the specific permission directly on the user object.
+  if (!user.permissions?.includes('segment_access')) {
     throw new Error("Access Denied: You don't have permission to manage segments.");
   }
+  
+  // The user object must include boxId for some operations
+  if (!user.boxId) {
+      throw new Error("User has no assigned box. Please contact admin.");
+  }
+
   return user;
 };
 
@@ -48,6 +55,11 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
 
     } catch (error) {
         console.error("Error getting segments from Firestore: ", String(error));
+         // We re-throw the specific error from the permission check
+        if (error instanceof Error && error.message.startsWith('Access Denied')) {
+            throw error;
+        }
+        // Return empty array for other data-fetching errors
         return [];
     }
 }
@@ -152,7 +164,7 @@ export async function addSegmentEntries(entries: Omit<SegmentEntry, 'id'>[], per
         return { success: true, newEntries };
     } catch (error: any) {
         console.error("Error adding segment entries: ", String(error));
-        return { success: false, error: `Failed to add segment entries: ${error.message}` };
+        return { success: false, error: error.message || `Failed to add segment entries` };
     }
 }
 
