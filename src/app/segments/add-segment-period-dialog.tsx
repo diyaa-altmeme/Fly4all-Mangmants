@@ -33,7 +33,7 @@ import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 
@@ -54,6 +54,7 @@ const partnerSchema = z.object({
     partnerId: z.string().min(1, "اختر شريكاً."),
     partnerName: z.string(),
     percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
+    amount: z.coerce.number(), // This field is for calculation display, not direct input
 });
 
 const periodSchema = z.object({
@@ -121,11 +122,12 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: {
 interface AddCompanyToSegmentFormProps {
     onAdd: (data: any) => void;
     allCompanyOptions: { value: string; label: string; settings?: SegmentSettings }[];
+    partnerOptions: { value: string; label: string }[];
     editingEntry?: any;
     onCancelEdit: () => void;
 }
 
-const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
+const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
     const form = useForm<CompanyEntryFormValues>({
         resolver: zodResolver(companyEntrySchema),
     });
@@ -170,7 +172,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingE
                     <CardContent className="space-y-3 p-3">
                         <div className="grid md:grid-cols-2 gap-3">
                             <Controller control={control} name="clientId" render={({ field, fieldState }) => (<div className="space-y-1"><Label>الشركة المصدرة</Label><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={v => field.onChange(v)} placeholder="ابحث/اختر..."/><p className="text-xs text-destructive h-3">{fieldState.error?.message}</p></div>)} />
-                            <Controller control={control} name="notes" render={({ field }) => (<div className="space-y-1"><Label>ملاحظة</Label><Input {...field} placeholder="وصف مختصر (اختياري)" value={field.value || ''} /><p className="h-3"></p></div>)} />
+                            <Controller control={control} name="partnerId" render={({ field, fieldState }) => (<div className="space-y-1"><Label>الشريك</Label><Autocomplete options={partnerOptions} value={field.value} onValueChange={v => field.onChange(v)} placeholder="ابحث/اختر..."/><p className="text-xs text-destructive h-3">{fieldState.error?.message}</p></div>)} />
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                             <ServiceLine label="تذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" />
@@ -306,7 +308,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
         setIsSaving(true);
         try {
-            const finalEntries = fields.map((entry) => {
+            const finalEntries = fields.map((entry: any) => {
                 const partnerSharePercentage = 100 - (periodData.alrawdatainSharePercentage || 100);
                 const partnerShare = (entry.total || 0) * (partnerSharePercentage / 100);
                 
@@ -422,3 +424,4 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
