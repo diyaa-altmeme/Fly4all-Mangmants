@@ -189,7 +189,9 @@ function SegmentsContent() {
                                 <CardDescription>إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
+                                     <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
+                                </AddSegmentPeriodDialog>
                                 <Button onClick={handleSuccess} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث
                                 </Button>
