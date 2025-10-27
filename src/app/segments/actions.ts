@@ -37,7 +37,6 @@ const checkSegmentPermission = async () => {
 
 export async function getSegments(includeDeleted = false): Promise<SegmentEntry[]> {
     try {
-        // PERMISSION CHECK REMOVED FROM HERE - It will be handled by ProtectedPage on the client.
         const db = await getDb();
         if (!db) return [];
         
@@ -52,15 +51,12 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
 
     } catch (error) {
         console.error("Error getting segments from Firestore: ", String(error));
-        // We re-throw the specific error from the permission check
         if (error instanceof Error && error.message.startsWith('Access Denied')) {
             throw error;
         }
-        // Return empty array for other data-fetching errors
         return [];
     }
 }
-
 
 export async function addSegmentEntries(
     entries: Omit<SegmentEntry, 'id'>[],
@@ -99,7 +95,7 @@ export async function addSegmentEntries(
 
             mainBatch.set(segmentDocRef, dataToSave);
             
-            // 1. Client owes the company the full profit
+            // 1. Client (issuing company) owes the company the full profit
             await postJournalEntry({
                 sourceType: 'segment',
                 sourceId: segmentDocRef.id,
@@ -218,8 +214,4 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
         return { success: true, count: snapshot.size };
     } catch (error: any) {
         console.error("Error restoring segment period: ", String(error));
-        return { success: false, error: error.message || "Failed to restore segment period.", count: 0 };
-    }
-}
-
-    
+        return { success: false, error: error.message || "Failed to restore segment period.", count: 0
