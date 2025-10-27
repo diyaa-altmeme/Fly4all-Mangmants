@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
@@ -28,10 +29,11 @@ import { addSegmentEntries } from "@/app/segments/actions";
 import {
   PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, ChevronsUpDown, Save, Pencil, ArrowLeft, ArrowRight, X, Building, Store, Settings2, RotateCcw, Hash, User as UserIcon, CheckCircle, Wallet,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 
@@ -209,7 +211,7 @@ const SummaryList = ({ onRemove, onEdit }: { onRemove: (index: number) => void, 
 // Main Dialog Wrapper
 interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; children?: React.ReactNode; }
 
-export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, isEditing = false, existingPeriod, children }: AddSegmentPeriodDialogProps) {
+export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], onSuccess, isEditing = false, existingPeriod, children }: AddSegmentPeriodDialogProps) {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -347,26 +349,17 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                         <Collapsible open={isStep1Valid}>
                           <CollapsibleContent className="space-y-6">
                             <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions}/>
-                            <SummaryList onRemove={remove} onEdit={handleEditEntry} />
+                            <SummaryList onRemove={removeEntry} onEdit={handleEditEntry} />
                           </CollapsibleContent>
                         </Collapsible>
                     </div>
                 
                     <DialogFooter className="pt-4 border-t flex-shrink-0">
-                       <div className="flex justify-between w-full">
-                            <Button type="button" variant="outline" onClick={() => setStep(1)} disabled={step === 1}>
-                                <ArrowRight className="me-2 h-4 w-4" /> السابق
+                       <div className="flex justify-end w-full">
+                            <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
+                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                                حفظ بيانات الفترة ({fields.length} سجلات)
                             </Button>
-                            {step === 1 ? (
-                                <Button type="button" onClick={goToNextStep} >
-                                    التالي <ArrowLeft className="ms-2 h-4 w-4" />
-                                </Button>
-                            ) : (
-                                <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
-                                    {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                                    حفظ بيانات الفترة ({fields.length} سجلات)
-                                </Button>
-                            )}
                         </div>
                     </DialogFooter>
                 </FormProvider>
