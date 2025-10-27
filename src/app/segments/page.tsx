@@ -75,7 +75,9 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="p-1 text-center">
-                       <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
+                       <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600"><Pencil className='h-4 w-4'/></Button>
+                       </EditSegmentPeriodDialog>
                     </TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
@@ -252,7 +254,7 @@ function SegmentsContent() {
 
 export default function SegmentsPage() {
   return (
-    <ProtectedPage permission="segments:read">
+    <ProtectedPage requiredPermission="segments:read">
       <SegmentsContent />
     </ProtectedPage>
   );
