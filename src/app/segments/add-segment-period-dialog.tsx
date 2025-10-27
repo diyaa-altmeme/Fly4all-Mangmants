@@ -29,7 +29,7 @@ import {
   PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, Building, User as UserIcon, Wallet, Hash, AlertTriangle, CheckCircle,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { FormProvider, useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
+import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -172,7 +172,6 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             alrawdatainShare, 
             partnerShare, 
             companyName: companyData?.label || '',
-            // Pass the settings used for calculation
             ...companySettings
         });
         reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
@@ -428,20 +427,17 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+            <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
+            <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
-                    <DialogDescription>
-                        حدد الفترة ثم أضف بيانات الشركات لهذه الفترة، ثم قم بحفظ السجل.
-                    </DialogDescription>
                 </DialogHeader>
                 
                 <FormProvider {...periodForm}>
                     <form onSubmit={handlePeriodSubmit(handleSavePeriod)} className="flex flex-col flex-grow overflow-hidden">
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
-                             <div className="p-3 border rounded-lg bg-background/50 space-y-3">
-                                 <h3 className="font-semibold text-base">البيانات الرئيسية للفترة</h3>
+                            <div className="p-3 border rounded-lg bg-background/50 space-y-3">
+                                <h3 className="font-semibold text-base">البيانات الرئيسية للفترة</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                                     <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                     <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
@@ -449,8 +445,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 </div>
                             </div>
                             {isPeriodDataValid && (
-                                <>
-                                 <div className="p-4 border rounded-lg space-y-4">
+                                <div className="p-4 border rounded-lg space-y-4">
                                      <FormField control={control} name="hasPartner" render={({ field }) => (
                                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                                             <div className="space-y-0.5">
@@ -462,8 +457,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                     )}/>
                                     {watchedPeriod.hasPartner && (
                                         <div className="mt-4 p-4 border rounded-lg space-y-4">
-                                             <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-4">
-                                                <SummaryStat title="إجمالي الأرباح" value={grandTotalProfit} currency={watchedPeriod.currency} />
+                                             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
                                                 <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedPeriod.currency} className="bg-green-50 dark:bg-green-950/30 border-green-500/30 text-green-700 dark:text-green-300"/>
                                                 <SummaryStat title="المتاح للشركاء" value={amountForPartners} currency={watchedPeriod.currency} className="bg-purple-50 dark:bg-purple-950/30 border-purple-500/30 text-purple-700 dark:text-purple-300"/>
                                                 <SummaryStat title="الموزع للشركاء" value={distributedToPartners} currency={watchedPeriod.currency} />
@@ -486,7 +480,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                           {partnerSharePreview.toFixed(2)}
                                                         </div>
                                                       </div>
-                                                      <Button type="button" size="icon" className="shrink-0 h-9 w-9" onClick={handleAddOrUpdatePartner} disabled={!isPeriodDataValid || amountForPartners <= 0 || !currentPartnerId || !currentPercentage}>
+                                                      <Button type="button" size="icon" className="shrink-0 h-9 w-9" onClick={handleAddOrUpdatePartner} disabled={amountForPartners <= 0 || !currentPartnerId || !currentPercentage}>
                                                         {editingPartnerIndex !== null ? <Save className="h-5 w-5" /> : <PlusCircle className="h-5 w-5"/>}
                                                       </Button>
                                                     </div>
@@ -519,26 +513,20 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         </div>
                                     )}
                                 </div>
-                                    <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions}/>
-                                    <SummaryList onRemove={remove} onEdit={handleEditEntry} />
-                                </>
                             )}
                         </div>
-                        <DialogFooter className="p-3 border-t flex-row items-center justify-between sticky bottom-0 bg-background">
-                            <div className="flex-grow w-full">
-                                {summaryFields.length > 0 && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                                        <SummaryStat title="إجمالي ربح السكمنت" value={grandTotalProfit} currency={watchedPeriod.currency} />
-                                        <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedPeriod.currency} />
-                                        <SummaryStat title="إجمالي حصص الشركاء" value={amountForPartners} currency={watchedPeriod.currency} />
-                                        <SummaryStat title="الموزع للشركاء" value={distributedToPartners} currency={watchedPeriod.currency} />
-                                    </div>
-                                )}
+                        <DialogFooter className="p-4 border-t flex-row items-center justify-between sticky bottom-0 bg-background">
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4"/> <span>{currentUser?.name || '...'}</span></div>
+                                <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>{boxName}</span></div>
+                                <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
                             </div>
-                            <Button type="submit" size="lg" disabled={isSaving || summaryFields.length === 0 || (watchedPeriod.hasPartner && Math.abs(totalPartnerPercentage - 100) > 0.01)} className="w-full sm:w-auto">
-                                {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                                {isEditing ? 'حفظ التعديلات' : `حفظ (${summaryFields.length} سجلات)`}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button type="submit" disabled={isSaving || summaryFields.length === 0 || (watchedPeriod.hasPartner && Math.abs(totalPartnerPercentage - 100) > 0.01)}>
+                                    {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+                                    {isEditing ? 'حفظ التعديلات' : `حفظ (${summaryFields.length} سجلات)`}
+                                </Button>
+                            </div>
                         </DialogFooter>
                     </form>
                 </FormProvider>
@@ -547,7 +535,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     );
 }
 
-const SummaryStat = ({ title, value, currency, isPercentage = false, className }: { title: string; value: number; currency?: Currency; isPercentage?: boolean; className?: string; }) => (
+const SummaryStat = ({ title, value, currency, className }: { title: string; value: number; currency?: Currency; className?: string; }) => (
     <div className={cn("p-2 text-center rounded-md border", className)}>
         <p className="text-xs font-semibold text-muted-foreground">{title}</p>
         <p className="font-mono font-bold text-sm">{(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</p>
