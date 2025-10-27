@@ -22,6 +22,7 @@ import { ChevronDown, MoreHorizontal, Pencil } from 'lucide-react';
 import SegmentDetailsTable from '@/components/segments/segment-details-table';
 import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
 import EditSegmentPeriodDialog from './components/edit-segment-period-dialog';
+import ProtectedPage from '@/components/auth/protected-page';
 
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
@@ -92,8 +93,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     )
 }
 
-
-export default function SegmentsPage() {
+function SegmentsContent() {
     const [segments, setSegments] = useState<SegmentEntry[]>([]);
     const { data: navData, loaded: navDataLoaded, fetchData } = useVoucherNav();
     const [loading, setLoading] = useState(true);
@@ -132,20 +132,20 @@ export default function SegmentsPage() {
     const groupedByPeriod = useMemo(() => {
         if (!segments) return {};
         return segments.reduce((acc, entry) => {
-            const periodKey = entry.periodId || `${entry.fromDate}_${entry.toDate}`;
-            if (!acc[periodKey]) {
-                acc[periodKey] = {
-                    periodId: periodKey, fromDate: entry.fromDate, toDate: entry.toDate, entries: [],
+            const periodId = entry.periodId || `${entry.fromDate}_${entry.toDate}`;
+            if (!acc[periodId]) {
+                acc[periodId] = {
+                    periodId: periodId, fromDate: entry.fromDate, toDate: entry.toDate, entries: [],
                     totalProfit: 0, totalAlrawdatainShare: 0, totalPartnerShare: 0, totalTickets: 0, totalOther: 0,
                     isConfirmed: entry.isConfirmed, type: 'transaction',
                 };
             }
-            acc[periodKey].entries.push(entry);
-            acc[periodKey].totalProfit += entry.total || 0;
-            acc[periodKey].totalAlrawdatainShare += entry.alrawdatainShare || 0;
-            acc[periodKey].totalPartnerShare += entry.partnerShare || 0;
-            acc[periodKey].totalTickets += entry.ticketProfits || 0;
-            acc[periodKey].totalOther += entry.otherProfits || 0;
+            acc[periodId].entries.push(entry);
+            acc[periodId].totalProfit += entry.total || 0;
+            acc[periodId].totalAlrawdatainShare += entry.alrawdatainShare || 0;
+            acc[periodId].totalPartnerShare += entry.partnerShare || 0;
+            acc[periodId].totalTickets += entry.ticketProfits || 0;
+            acc[periodId].totalOther += entry.otherProfits || 0;
             return acc;
         }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment' }>);
     }, [segments]);
@@ -248,4 +248,12 @@ export default function SegmentsPage() {
             </Card>
         </div>
     )
+}
+
+export default function SegmentsPage() {
+  return (
+    <ProtectedPage permission="segments:read">
+      <SegmentsContent />
+    </ProtectedPage>
+  );
 }
