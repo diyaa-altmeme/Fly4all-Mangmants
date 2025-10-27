@@ -49,19 +49,27 @@ const companyEntrySchema = z.object({
   notes: z.string().optional(),
 });
 
+const partnerSchema = z.object({
+    id: z.string(),
+    partnerId: z.string().min(1, "اختر شريكاً."),
+    partnerName: z.string(),
+    percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
+});
+
 const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
-  currency: z.string().min(1, "اختر العملة.").optional(),
+  currency: z.string().min(1, "اختر العملة."),
   hasPartner: z.boolean().default(false),
-  partnerId: z.string().optional(),
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(100),
-  partners: z.array(z.any()).optional(), // Simplified for now
+  partners: z.array(partnerSchema).optional(),
   summaryEntries: z.array(z.any()).min(1, "يجب إضافة شركة واحدة على الأقل."),
 });
 
+
 type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
 type PeriodFormValues = z.infer<typeof periodSchema>;
+type PartnerFormValues = z.infer<typeof partnerSchema>;
 
 // Helpers
 function computeService(count: number, type: "fixed" | "percentage", value: number): number {
@@ -113,19 +121,28 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: {
 interface AddCompanyToSegmentFormProps {
     onAdd: (data: any) => void;
     allCompanyOptions: { value: string; label: string; settings?: SegmentSettings }[];
-    partnerOptions: { value: string; label: string }[];
     editingEntry?: any;
     onCancelEdit: () => void;
 }
 
-const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
+const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
     const form = useForm<CompanyEntryFormValues>({
         resolver: zodResolver(companyEntrySchema),
     });
     
      useEffect(() => {
-        form.reset(editingEntry || { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
-    }, [editingEntry, form.reset]);
+        const { id, ...rest } = editingEntry || {};
+        form.reset({
+            id: id || uuidv4(),
+            clientId: rest.clientId || "",
+            clientName: rest.clientName || "",
+            tickets: rest.tickets || 0,
+            visas: rest.visas || 0,
+            hotels: rest.hotels || 0,
+            groups: rest.groups || 0,
+            notes: rest.notes || ""
+        });
+    }, [editingEntry, form]);
 
 
     useImperativeHandle(ref, () => ({ resetForm: () => form.reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" }) }), [form]);
@@ -219,6 +236,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    
     const addCompanyFormRef = React.useRef<{ resetForm: () => void }>(null);
     const [editingEntry, setEditingEntry] = useState<any | null>(null);
     const [step, setStep] = useState(1);
@@ -226,15 +244,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const periodForm = useForm<PeriodFormValues>({ 
         resolver: zodResolver(periodSchema),
-        defaultValues: {
-            fromDate: undefined,
-            toDate: undefined,
-            currency: '',
-            hasPartner: false,
-            alrawdatainSharePercentage: 100,
-            partners: [],
-            summaryEntries: [],
-        },
     });
     const { control, handleSubmit: handlePeriodSubmit, watch, setValue, formState: { errors }, trigger, reset: resetForm } = periodForm;
     const { fields, append, remove, update } = useFieldArray({ control: periodForm.control, name: "summaryEntries" });
@@ -249,6 +258,8 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
         return uniqueRelations.map(r => ({ value: r.id, label: r.name }));
     }, [clients, suppliers]);
+
+    const hasPartner = watch('hasPartner');
 
     const isStep1Valid = !!watch('fromDate') && !!watch('toDate') && !!watch('currency');
 
@@ -337,7 +348,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
                     <DialogDescription>
                          {step === 1 
-                            ? "الخطوة 1 من 2: حدد الفترة المحاسبية للسجل."
+                            ? "الخطوة 1 من 2: حدد الفترة المحاسبية للسجل وتوزيع الأرباح."
                             : "الخطوة 2 من 2: أضف بيانات الشركات لهذه الفترة."}
                     </DialogDescription>
                 </DialogHeader>
@@ -351,9 +362,39 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                 <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                             </div>
+                            <Separator/>
+                             <div className="space-y-3">
+                                <FormField control={periodForm.control} name="hasPartner" render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="font-semibold">توزيع حصص الشركاء</FormLabel>
+                                            <FormDescription className="text-xs">
+                                                تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.
+                                            </FormDescription>
+                                        </div>
+                                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                    </FormItem>
+                                )} />
+                                {hasPartner && (
+                                     <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={periodForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
+                                            <FormItem><FormLabel className="text-xs">حصة الروضتين (%)</FormLabel>
+                                            <div className="relative">
+                                                <FormControl><NumericInput value={field.value} onValueChange={v => field.onChange(v || 0)} className="pe-7"/></FormControl>
+                                                <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            </div>
+                                            <FormMessage /></FormItem>
+                                        )}/>
+                                         <div className="space-y-1">
+                                            <Label className="text-xs">حصة الشركاء (%)</Label>
+                                            <Input readOnly disabled value={`${(100 - (watch('alrawdatainSharePercentage') || 0)).toFixed(2)}%`} className="font-bold" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        <Collapsible open={isStep1Valid}>
+                        <Collapsible open={step === 2}>
                           <CollapsibleContent className="space-y-6">
                             <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions}/>
                             <SummaryList onRemove={remove} onEdit={handleEditEntry} />
@@ -362,12 +403,19 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     </div>
                 
                     <DialogFooter className="pt-4 border-t flex-shrink-0">
-                        <div className="flex justify-end w-full">
-                             <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
-                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                                حفظ بيانات الفترة ({fields.length} سجلات)
-                            </Button>
-                        </div>
+                        {step === 1 ? (
+                            <div className="flex justify-end w-full">
+                                <Button type="button" onClick={goToNextStep}>التالي<ArrowLeft className="ms-2 h-4 w-4" /></Button>
+                            </div>
+                        ) : (
+                            <div className="flex justify-between w-full">
+                                <Button type="button" variant="outline" onClick={() => setStep(1)}><ArrowRight className="me-2 h-4 w-4" />رجوع</Button>
+                                <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
+                                    {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                                    حفظ بيانات الفترة ({fields.length} سجلات)
+                                </Button>
+                            </div>
+                        )}
                     </DialogFooter>
                 </FormProvider>
             </DialogContent>
