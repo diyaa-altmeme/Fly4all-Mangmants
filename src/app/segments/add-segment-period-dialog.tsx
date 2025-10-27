@@ -29,13 +29,13 @@ import {
   PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, Building, User as UserIcon, Wallet, Hash, AlertTriangle, CheckCircle,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
+import { FormProvider, useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { useAuth } from '@/lib/auth-context';
 
 const companyEntrySchema = z.object({
@@ -97,8 +97,8 @@ function computeCompanyTotal(d: any, companySettings?: SegmentSettings) {
 
 // Sub-components
 const ServiceLine = ({ label, icon: Icon, color, countField }: any) => {
-  const { control } = useFormContext<CompanyEntryFormValues>();
-  const count = useWatch({ control, name: countField });
+  const { control, watch } = useForm<CompanyEntryFormValues>();
+  const count = watch(countField);
   const result = count || 0;
 
   return (
@@ -117,11 +117,12 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: any) => {
 interface AddCompanyToSegmentFormProps {
     onAdd: (data: any) => void;
     allCompanyOptions: { value: string; label: string; settings?: SegmentSettings }[];
+    partnerOptions: { value: string; label: string }[];
     editingEntry?: any;
     onCancelEdit: () => void;
 }
 
-const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
+const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
     const { getValues } = useFormContext<PeriodFormValues>();
     
     const form = useForm<CompanyEntryFormValues>({
@@ -428,8 +429,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children}</DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
-                <DialogHeader className="p-4"><DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle></DialogHeader>
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+                <DialogHeader>
+                    <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
+                    <DialogDescription>
+                        حدد الفترة ثم أضف بيانات الشركات لهذه الفترة، ثم قم بحفظ السجل.
+                    </DialogDescription>
+                </DialogHeader>
+                
                 <FormProvider {...periodForm}>
                     <form onSubmit={handlePeriodSubmit(handleSavePeriod)} className="flex flex-col flex-grow overflow-hidden">
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
@@ -438,37 +445,50 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                                     <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                     <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
-                                    <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} defaultValue={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
+                                    <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                 </div>
                             </div>
                             {isPeriodDataValid && (
                                 <>
-                                <div className="p-4 border rounded-lg space-y-4">
+                                 <div className="p-4 border rounded-lg space-y-4">
                                      <FormField control={control} name="hasPartner" render={({ field }) => (
                                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                                             <div className="space-y-0.5">
                                                 <FormLabel className="font-semibold">توزيع حصص الشركاء</FormLabel>
+                                                <p className="text-xs text-muted-foreground">تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.</p>
                                             </div>
                                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                         </FormItem>
                                     )}/>
                                     {watchedPeriod.hasPartner && (
                                         <div className="mt-4 p-4 border rounded-lg space-y-4">
-                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
-                                                <div className="p-3 border rounded-lg grid grid-cols-2 gap-2">
-                                                    <SummaryStat title="حصة الروضتين" value={alrawdatainSharePercentage} isPercentage />
-                                                    <SummaryStat title="المتاح للشركاء" value={availableForPartnersPercentage} isPercentage />
-                                                </div>
+                                             <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-4">
+                                                <SummaryStat title="إجمالي الأرباح" value={grandTotalProfit} currency={watchedPeriod.currency} />
+                                                <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedPeriod.currency} className="bg-green-50 dark:bg-green-950/30 border-green-500/30 text-green-700 dark:text-green-300"/>
+                                                <SummaryStat title="المتاح للشركاء" value={amountForPartners} currency={watchedPeriod.currency} className="bg-purple-50 dark:bg-purple-950/30 border-purple-500/30 text-purple-700 dark:text-purple-300"/>
+                                                <SummaryStat title="الموزع للشركاء" value={distributedToPartners} currency={watchedPeriod.currency} />
+                                                <SummaryStat title="المتبقي للتوزيع" value={remainderForPartners} currency={watchedPeriod.currency} className={cn(Math.abs(remainderForPartners) > 0.01 && 'text-destructive')} />
+                                            </div>
+                                            <Separator />
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                                                 <FormField control={control} name="alrawdatainSharePercentage" render={({ field }) => (<FormItem><FormLabel>نسبة حصة الروضتين (%)</FormLabel><div className="relative"><NumericInput value={field.value} onValueChange={v => field.onChange(v || 0)} className="pe-7 h-9" /><Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></FormItem>)} />
                                             </div>
                                             <Separator />
                                             <div className="space-y-3">
                                                 <h4 className="font-semibold text-base">توزيع حصص الشركاء</h4>
-                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-2 rounded-lg bg-muted/50 border">
+                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 p-2 rounded-lg bg-muted/50 border">
                                                     <div className="space-y-1.5"><Label className="text-xs">الشريك</Label><Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريكًا..."/></div>
+                                                    <div className="w-40 space-y-1.5"><Label className="text-xs">النسبة (%)</Label><div className="relative"><NumericInput value={currentPercentage} onValueChange={setCurrentPercentage} className="h-9 pe-7" /><Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></div>
                                                     <div className="flex items-end gap-2">
-                                                        <div className="w-24 space-y-1.5"><Label className="text-xs">النسبة (%)</Label><div className="relative"><NumericInput value={currentPercentage} onValueChange={setCurrentPercentage} className="h-9 pe-7" /><Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></div>
-                                                        <Button type="button" size="sm" onClick={handleAddOrUpdatePartner} disabled={!currentPartnerId || !currentPercentage}>{editingPartnerIndex !== null ? 'تحديث' : 'إضافة'}</Button>
+                                                      <div className="flex-grow">
+                                                        <Label className="text-xs">الحصة المستلمة</Label>
+                                                        <div className="h-9 flex items-center justify-center font-bold text-blue-600 font-mono p-2 bg-blue-50 rounded-md text-sm">
+                                                          {partnerSharePreview.toFixed(2)}
+                                                        </div>
+                                                      </div>
+                                                      <Button type="button" size="icon" className="shrink-0 h-9 w-9" onClick={handleAddOrUpdatePartner} disabled={!isPeriodDataValid || amountForPartners <= 0 || !currentPartnerId || !currentPercentage}>
+                                                        {editingPartnerIndex !== null ? <Save className="h-5 w-5" /> : <PlusCircle className="h-5 w-5"/>}
+                                                      </Button>
                                                     </div>
                                                 </div>
                                                 {partnerFields.length > 0 && (
@@ -504,12 +524,16 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                 </>
                             )}
                         </div>
-                         <DialogFooter className="p-3 border-t flex-col sm:flex-row justify-between items-center bg-background">
-                             <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-2">
-                                <SummaryStat title="إجمالي ربح السكمنت" value={grandTotalProfit} currency={watchedPeriod.currency} />
-                                <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedPeriod.currency} />
-                                <SummaryStat title="حصة الشركاء" value={amountForPartners} currency={watchedPeriod.currency} />
-                                <SummaryStat title="المتبقي للتوزيع" value={remainderForPartners} currency={watchedPeriod.currency} className={cn(Math.abs(remainderForPartners) > 0.01 && 'text-destructive')} />
+                        <DialogFooter className="p-3 border-t flex-row items-center justify-between sticky bottom-0 bg-background">
+                            <div className="flex-grow w-full">
+                                {summaryFields.length > 0 && (
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        <SummaryStat title="إجمالي ربح السكمنت" value={grandTotalProfit} currency={watchedPeriod.currency} />
+                                        <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedPeriod.currency} />
+                                        <SummaryStat title="إجمالي حصص الشركاء" value={amountForPartners} currency={watchedPeriod.currency} />
+                                        <SummaryStat title="الموزع للشركاء" value={distributedToPartners} currency={watchedPeriod.currency} />
+                                    </div>
+                                )}
                             </div>
                             <Button type="submit" size="lg" disabled={isSaving || summaryFields.length === 0 || (watchedPeriod.hasPartner && Math.abs(totalPartnerPercentage - 100) > 0.01)} className="w-full sm:w-auto">
                                 {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
@@ -526,9 +550,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 const SummaryStat = ({ title, value, currency, isPercentage = false, className }: { title: string; value: number; currency?: Currency; isPercentage?: boolean; className?: string; }) => (
     <div className={cn("p-2 text-center rounded-md border", className)}>
         <p className="text-xs font-semibold text-muted-foreground">{title}</p>
-        <p className="font-mono font-bold text-sm">
-          {value.toLocaleString(undefined, { minimumFractionDigits: isPercentage ? 2 : 2, maximumFractionDigits: 2 })}
-          {isPercentage ? '%' : ` ${currency}`}
-        </p>
+        <p className="font-mono font-bold text-sm">{(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</p>
     </div>
 );
