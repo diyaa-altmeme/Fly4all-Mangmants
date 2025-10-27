@@ -29,10 +29,11 @@ import { addSegmentEntries } from "@/app/segments/actions";
 import {
   PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, ChevronsUpDown, Save, Pencil
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, useWatch, Controller, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 
@@ -93,16 +94,24 @@ function computeCompanyTotal(d: any, companySettings?: SegmentSettings) {
 }
 
 // UI Components
-const ServiceLine = ({ label, icon: Icon, color, countField, typeField, valueField }: any) => {
+const ServiceLine = ({ label, icon: Icon, color, countField }: {
+    label: string,
+    icon: React.ElementType,
+    color: string,
+    countField: keyof CompanyEntryFormValues
+}) => {
   const { control, watch } = useFormContext();
-  const [count, type, val] = watch([countField, typeField, valueField]);
-  const result = useMemo(() => computeService(count, type, val), [count, type, val]);
+  const count = watch(countField);
+
+  // Note: Profit calculation logic needs to be added back if needed at this level.
+  // For now, it's simplified to just show the count.
+  const result = count || 0;
 
   return (
     <Card className={cn("shadow-sm overflow-hidden", color)}>
       <CardHeader className="p-2 flex flex-row items-center justify-between space-y-0 text-white">
         <CardTitle className="text-xs font-bold flex items-center gap-1.5"><Icon className="h-4 w-4" />{label}</CardTitle>
-        <div className="text-xs font-bold font-mono px-1.5 py-0.5 bg-background/20 rounded-md">{result.toFixed(2)}</div>
+        <div className="text-xs font-bold font-mono px-1.5 py-0.5 bg-background/20 rounded-md">{result}</div>
       </CardHeader>
       <CardContent className="p-2 pt-1 space-y-1">
         <Controller control={control} name={countField} render={({ field }) => (<div><Label className="sr-only">العدد</Label><NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="العدد" className="h-8 text-center font-semibold text-sm" /></div>)} />
@@ -110,6 +119,7 @@ const ServiceLine = ({ label, icon: Icon, color, countField, typeField, valueFie
     </Card>
   );
 };
+
 
 const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: {
     onAdd: (data: any) => void;
@@ -155,7 +165,12 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
                             <Controller control={control} name="clientId" render={({ field, fieldState }) => (<div className="space-y-1"><Label>الشركة المصدرة</Label><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={v => field.onChange(v)} placeholder="ابحث/اختر..."/><p className="text-xs text-destructive h-3">{fieldState.error?.message}</p></div>)} />
                             <Controller control={control} name="notes" render={({ field }) => (<div className="space-y-1"><Label>ملاحظة</Label><Input {...field} placeholder="وصف مختصر (اختياري)" /><p className="h-3"></p></div>)} />
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2"><ServiceLine label="تذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" /><ServiceLine label="فيزا" icon={CreditCard} color="bg-orange-500" countField="visas" /><ServiceLine label="فنادق" icon={Hotel} color="bg-purple-500" countField="hotels" /><ServiceLine label="كروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" /></div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <ServiceLine label="تذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" />
+                            <ServiceLine label="فيزا" icon={CreditCard} color="bg-orange-500" countField="visas" />
+                            <ServiceLine label="فنادق" icon={Hotel} color="bg-purple-500" countField="hotels" />
+                            <ServiceLine label="كروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" />
+                        </div>
                         <div className="flex justify-center pt-2">
                           <Button type="submit" className='w-full md:w-1/2'>
                               {editingEntry ? <Pencil className="me-2 h-4 w-4" /> : <ArrowDown className="me-2 h-4 w-4" />}
@@ -169,21 +184,6 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     );
 });
 AddCompanyToSegmentForm.displayName = "AddCompanyToSegmentForm";
-
-const ProfitDetailRow = ({ icon, label, count, type, value, currencySymbol }: { icon: React.ReactNode, label: string, count: number, type: string, value: number, currencySymbol: string }) => {
-  if (!count || count === 0) return null;
-  const profit = computeService(count, type as any, value);
-  return (
-    <div className="flex items-center justify-between p-2 rounded-md bg-muted/50">
-      <div className="flex items-center gap-2 text-sm">{icon}<span className="font-semibold">{label}</span></div>
-      <div className="flex items-center gap-4 font-mono text-xs">
-        <span>العدد: {count}</span>
-        <span>العمولة: {value} {type === 'fixed' ? currencySymbol : '%'}</span>
-        <span className="font-bold text-primary">الربح: {profit.toFixed(2)}</span>
-      </div>
-    </div>
-  );
-};
 
 const SummaryList = ({ onRemove, onEdit }: { onRemove: (index: number) => void, onEdit: (index: number) => void }) => {
     const { watch } = useFormContext<PeriodFormValues>();
@@ -246,8 +246,15 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const { control, handleSubmit: handlePeriodSubmit, watch, setValue, formState: { errors } } = periodForm;
     const { fields, append, remove, update } = useFieldArray({ control, name: "summaryEntries" });
 
-    const allCompanyOptions = useMemo(() => clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings })), [clients]);
-    const partnerOptions = useMemo(() => [...clients, ...suppliers].map(r => ({ value: r.id, label: r.name })), [clients, suppliers]);
+    const allCompanyOptions = useMemo(() => {
+      return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+    }, [clients]);
+
+    const partnerOptions = useMemo(() => {
+        const allRelations = [...clients, ...suppliers];
+        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+        return uniqueRelations.map(r => ({ value: r.id, label: r.name }));
+    }, [clients, suppliers]);
 
     const handleAddOrUpdateEntry = (entryData: any) => {
         if (editingEntry) {
@@ -257,28 +264,34 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         } else {
             append({ ...entryData, id: uuidv4() });
         }
+        addCompanyFormRef.current?.resetForm();
     };
     
     const handleEditEntry = (index: number) => {
         setEditingEntry(fields[index]);
     };
 
-    const finalOnSubmit = async (data: PeriodFormValues) => {
-        const totalPeriodProfit = data.summaryEntries.reduce((sum, e) => sum + e.totalProfit, 0);
-        const partnerPool = totalPeriodProfit * (1 - data.alrawdatainSharePercentage / 100);
+    const handleSavePeriod = async () => {
+        const periodData = periodForm.getValues();
+        const entries = periodForm.getValues("summaryEntries");
 
-        const finalEntries = data.summaryEntries.map(entry => ({
-            ...entry,
-            fromDate: format(data.fromDate!, 'yyyy-MM-dd'), toDate: format(data.toDate!, 'yyyy-MM-dd'), currency: data.currency,
-            hasPartner: data.hasPartner, alrawdatainSharePercentage: data.alrawdatainSharePercentage,
-            partnerShares: data.partners.map(p => ({ ...p, share: partnerPool * (p.percentage / 100) })),
-            total: entry.totalProfit,
-        }));
+        if (entries.length === 0) {
+            toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
+            return;
+        }
 
         setIsSaving(true);
         try {
-            const result = await addSegmentEntries(finalEntries as any, isEditing ? existingPeriod?.periodId : undefined);
+            const finalEntries = entries.map((entry) => ({
+                ...entry,
+                fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
+                toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
+                currency: periodData.currency!,
+            }));
+            
+            const result = await addSegmentEntries(finalEntries, isEditing ? existingPeriod?.periodId : undefined);
             if (!result.success) throw new Error(result.error);
+            
             toast({ title: `تم حفظ الفترة بنجاح` });
             setOpen(false);
             await onSuccess();
@@ -292,25 +305,22 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
-            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader><DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle></DialogHeader>
                 <FormProvider {...periodForm}>
-                    <form onSubmit={handlePeriodSubmit(finalOnSubmit)} className="flex-grow flex flex-col overflow-hidden">
-                        <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-4 pb-4">
+                    <form onSubmit={handlePeriodSubmit(handleSavePeriod)} className="flex-grow flex flex-col overflow-hidden">
+                        <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                              <div className="p-3 border rounded-lg bg-background/50 space-y-3">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                                    <FormField control={control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
-                                    <FormField control={control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
-                                    <FormField control={control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
+                                    <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
+                                    <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
+                                    <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (
+                                        <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                                    )}/>
                                 </div>
                                 <Separator />
                                 <div className="space-y-3">
-                                  <FormField control={control} name="hasPartner" render={({ field }) => ( <div className="flex items-center space-x-2 space-x-reverse"><Switch id="hasPartner" checked={field.value} onCheckedChange={field.onChange} /><Label htmlFor="hasPartner" className="font-semibold">هل يوجد شريك في الربح؟</Label></div> )}/>
-                                  {watch('hasPartner') && (
-                                    <div className="grid md:grid-cols-2 gap-4">
-                                      <FormField control={control} name="alrawdatainSharePercentage" render={({ field }) => (<div className="space-y-1"><Label>حصة الروضتين (%)</Label><NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} min={0} max={100} /></div>)} />
-                                    </div>
-                                  )}
+                                  <FormField control={periodForm.control} name="hasPartner" render={({ field }) => ( <div className="flex items-center space-x-2 space-x-reverse"><Switch id="hasPartner" checked={field.value} onCheckedChange={field.onChange} /><Label htmlFor="hasPartner" className="font-semibold">هل يوجد شريك في الربح؟</Label></div> )}/>
                                 </div>
                             </div>
                             <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions}/>
