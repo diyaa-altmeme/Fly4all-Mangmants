@@ -4,31 +4,24 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, Users, BarChart3, MoreHorizontal, Edit, Trash2, Loader2, GitBranch, Filter, Search, RefreshCw, HandCoins, ChevronDown, BadgeCent, DollarSign, User as UserIcon, Wallet, Hash, CheckCircle, ArrowLeft, Pencil, AlertCircle, History } from 'lucide-react';
+import { PlusCircle, Search, Filter, Loader2, RefreshCw, History, GitBranch } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
 import AddSegmentPeriodDialog from './add-segment-period-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import SegmentDetailsTable from '@/components/segments/segment-details-table';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
-import { DateRange } from "react-day-picker";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon } from 'lucide-react';
-import { Calendar as CalendarUI } from "@/components/ui/calendar";
 import { format, parseISO } from "date-fns";
 import { cn } from '@/lib/utils';
+import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Input } from '@/components/ui/input';
-import { useDebounce } from '@/hooks/use-debounce';
-import { Badge } from '@/components/ui/badge';
-import { produce } from 'immer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
-import { useVoucherNav } from '@/context/voucher-nav-context';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { ChevronDown, MoreHorizontal, Pencil } from 'lucide-react';
+import SegmentDetailsTable from '@/components/segments/segment-details-table';
+import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
+import EditSegmentPeriodDialog from './components/edit-segment-period-dialog';
 
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
@@ -59,10 +52,6 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
         }
     };
     
-    const handleConfirmChange = async (checked: boolean) => {
-        toast({ title: `تم ${checked ? 'تأكيد' : 'إلغاء تأكيد'} الفترة` });
-    }
-
     return (
         <Collapsible asChild key={period.periodId} open={isOpen} onOpenChange={setIsOpen}>
              <tbody className={cn("border-t font-bold", period.isConfirmed && "bg-green-500/10")}>
@@ -85,19 +74,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="p-1 text-center">
-                        <div className="flex items-center justify-center">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <AddSegmentPeriodDialog isEditing existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
-                                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Pencil className="me-2 h-4 w-4" /> تعديل الفترة</DropdownMenuItem>
-                                    </AddSegmentPeriodDialog>
-                                    <DeleteSegmentPeriodDialog onDelete={handleDeletePeriod} />
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
+                       <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange} />
                     </TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
@@ -122,12 +99,8 @@ export default function SegmentsPage() {
     const [loading, setLoading] = useState(true);
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
-    const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [periodFilter, setPeriodFilter] = useState<string>('all');
-    const [statusFilter, setStatusFilter] = useState<'all' | 'confirmed' | 'unconfirmed'>('all');
-    const [typeFilter, setTypeFilter] = useState<'all' | 'transaction' | 'payment'>('all');
-
-
+    
     const clients = navData?.clients || [];
     const suppliers = navData?.suppliers || [];
     
@@ -157,72 +130,33 @@ export default function SegmentsPage() {
     }, [fetchSegmentData]);
     
     const groupedByPeriod = useMemo(() => {
-        const uniqueSegments = segments.filter((entry, index, self) =>
-            index === self.findIndex((t) => (
-                t.id === entry.id
-            ))
-        );
-        return uniqueSegments.reduce((acc, entry) => {
+        if (!segments) return {};
+        return segments.reduce((acc, entry) => {
             const periodKey = entry.periodId || `${entry.fromDate}_${entry.toDate}`;
             if (!acc[periodKey]) {
                 acc[periodKey] = {
-                    periodId: periodKey,
-                    fromDate: entry.fromDate,
-                    toDate: entry.toDate,
-                    entries: [],
-                    totalProfit: 0,
-                    totalAlrawdatainShare: 0,
-                    totalPartnerShare: 0,
-                    totalTickets: 0,
-                    totalOther: 0,
-                    isConfirmed: entry.isConfirmed,
-                    type: 'transaction',
+                    periodId: periodKey, fromDate: entry.fromDate, toDate: entry.toDate, entries: [],
+                    totalProfit: 0, totalAlrawdatainShare: 0, totalPartnerShare: 0, totalTickets: 0, totalOther: 0,
+                    isConfirmed: entry.isConfirmed, type: 'transaction',
                 };
             }
             acc[periodKey].entries.push(entry);
-            acc[periodKey].totalProfit += entry.total;
-            acc[periodKey].totalAlrawdatainShare += entry.alrawdatainShare;
-            acc[periodKey].totalPartnerShare += entry.partnerShare;
-            acc[periodKey].totalTickets += entry.ticketProfits;
-            acc[periodKey].totalOther += entry.otherProfits;
-
-            if(acc[periodKey].isConfirmed !== false) {
-                 acc[periodKey].isConfirmed = entry.isConfirmed === true;
-            }
-
-            if(entry.total < 0) acc[periodKey].type = 'payment';
-
+            acc[periodKey].totalProfit += entry.total || 0;
+            acc[periodKey].totalAlrawdatainShare += entry.alrawdatainShare || 0;
+            acc[periodKey].totalPartnerShare += entry.partnerShare || 0;
+            acc[periodKey].totalTickets += entry.ticketProfits || 0;
+            acc[periodKey].totalOther += entry.otherProfits || 0;
             return acc;
         }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment' }>);
     }, [segments]);
     
     const sortedAndFilteredPeriods = useMemo(() => {
          let periods = Object.values(groupedByPeriod).sort((a,b) => new Date(b.toDate).getTime() - new Date(a.toDate).getTime());
-        
-        if (debouncedSearchTerm) {
-            periods = periods.filter(p => 
-                p.entries.some(e => 
-                    e.companyName.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) || 
-                    (e.partnerName || '').toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-                )
-            );
-        }
-        
         if (periodFilter !== 'all') {
             periods = periods.filter(p => p.periodId === periodFilter);
         }
-
-        if (statusFilter !== 'all') {
-            periods = periods.filter(p => (statusFilter === 'confirmed') ? p.isConfirmed : !p.isConfirmed);
-        }
-
-        if (typeFilter !== 'all') {
-            periods = periods.filter(p => p.type === typeFilter);
-        }
-        
         return periods;
-
-    }, [groupedByPeriod, debouncedSearchTerm, periodFilter, statusFilter, typeFilter]);
+    }, [groupedByPeriod, periodFilter]);
 
     const { grandTotalProfit, grandTotalAlrawdatainShare, grandTotalPartnerShare } = useMemo(() => {
         return sortedAndFilteredPeriods.reduce((acc: any, period: any) => {
@@ -232,15 +166,6 @@ export default function SegmentsPage() {
             return acc;
         }, { grandTotalProfit: 0, grandTotalAlrawdatainShare: 0, grandTotalPartnerShare: 0 });
     }, [sortedAndFilteredPeriods]);
-
-    const periodOptions = useMemo(() => {
-        return Object.values(groupedByPeriod)
-            .sort((a,b) => new Date(b.toDate).getTime() - new Date(a.toDate).getTime())
-            .map(p => ({
-                value: p.periodId,
-                label: `${p.fromDate} -> ${p.toDate}`
-            }));
-    }, [groupedByPeriod]);
 
     if (loading || !navDataLoaded) {
         return (
@@ -259,38 +184,16 @@ export default function SegmentsPage() {
                         <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-2">
                              <div>
                                 <CardTitle>سجل حسابات السكمنت</CardTitle>
-                                <CardDescription>
-                                    إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.
-                                </CardDescription>
+                                <CardDescription>إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
-                                     <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
-                                </AddSegmentPeriodDialog>
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
                                 <Button onClick={handleSuccess} variant="outline" disabled={loading}>
-                                    {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />}
-                                    تحديث
+                                    {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث
                                 </Button>
                                 <Button asChild variant="outline">
                                     <Link href="/segments/deleted-segments"><History className="me-2 h-4 w-4" />سجل المحذوفات</Link>
                                 </Button>
-                            </div>
-                        </div>
-                        <div className="w-full flex flex-col sm:flex-row gap-2">
-                             <div className="relative flex-grow">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    placeholder="بحث بالشركة أو الشريك..."
-                                    className="ps-10"
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                />
-                            </div>
-                            <div className="flex gap-2 w-full sm:w-auto">
-                                <Select value={periodFilter} onValueChange={setPeriodFilter}>
-                                    <SelectTrigger className="w-full sm:w-[250px]"><SelectValue placeholder="اختر فترة..." /></SelectTrigger>
-                                    <SelectContent><SelectItem value="all">كل الفترات</SelectItem>{periodOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}</SelectContent>
-                                </Select>
                             </div>
                         </div>
                     </div>
