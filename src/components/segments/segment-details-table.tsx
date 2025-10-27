@@ -51,6 +51,10 @@ interface SegmentDetailsTableProps {
 }
 
 export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDetailsTableProps) {
+  const uniqueEntries = period.entries.filter((entry, index, self) =>
+    index === self.findIndex((t) => t.id === entry.id)
+  );
+
   return (
     <Table>
       <TableHeader>
@@ -65,7 +69,7 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
         </TableRow>
       </TableHeader>
       <TableBody>
-        {period.entries.map((entry) => {
+        {uniqueEntries.map((entry) => {
             return (
               <TableRow key={entry.id}>
                 <TableCell className="font-semibold p-2">{entry.companyName}</TableCell>

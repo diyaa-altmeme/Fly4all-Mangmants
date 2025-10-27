@@ -157,7 +157,12 @@ export default function SegmentsPage() {
     }, [fetchSegmentData]);
     
     const groupedByPeriod = useMemo(() => {
-        return segments.reduce((acc, entry) => {
+        const uniqueSegments = segments.filter((entry, index, self) =>
+            index === self.findIndex((t) => (
+                t.id === entry.id
+            ))
+        );
+        return uniqueSegments.reduce((acc, entry) => {
             const periodKey = entry.periodId || `${entry.fromDate}_${entry.toDate}`;
             if (!acc[periodKey]) {
                 acc[periodKey] = {
@@ -267,7 +272,7 @@ export default function SegmentsPage() {
                                     تحديث
                                 </Button>
                                 <Button asChild variant="outline">
-                                    <Link href="/segments/deleted-segments"><History className="me-2 h-4 w-4"/>سجل المحذوفات</Link>
+                                    <Link href="/segments/deleted-segments"><History className="me-2 h-4 w-4" />سجل المحذوفات</Link>
                                 </Button>
                             </div>
                         </div>
@@ -283,7 +288,7 @@ export default function SegmentsPage() {
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
                                 <Select value={periodFilter} onValueChange={setPeriodFilter}>
-                                    <SelectTrigger className="w-full sm:w-[250px]"><SelectValue placeholder="اختر فترة..."/></SelectTrigger>
+                                    <SelectTrigger className="w-full sm:w-[250px]"><SelectValue placeholder="اختر فترة..." /></SelectTrigger>
                                     <SelectContent><SelectItem value="all">كل الفترات</SelectItem>{periodOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}</SelectContent>
                                 </Select>
                             </div>
