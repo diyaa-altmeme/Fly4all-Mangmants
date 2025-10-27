@@ -123,7 +123,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
 
     useEffect(() => {
         form.reset(editingEntry || { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
-    }, [editingEntry, form]);
+    }, [editingEntry, form.reset]);
 
     useImperativeHandle(ref, () => ({ resetForm: () => form.reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" }) }), [form]);
 
@@ -139,7 +139,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     };
 
     return (
-        <FormProvider {...form} control={control} handleSubmit={handleSubmit} watch={watch} setValue={setValue}>
+        <FormProvider {...form}>
             <div className="space-y-3">
                 <Card className="border rounded-lg shadow-sm border-primary/40">
                     <CardHeader className="p-2 flex flex-row items-center justify-between bg-muted/30">
@@ -222,6 +222,15 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const periodForm = useForm<PeriodFormValues>({ 
         resolver: zodResolver(periodSchema),
+        defaultValues: {
+            fromDate: undefined,
+            toDate: undefined,
+            currency: '',
+            hasPartner: false,
+            alrawdatainSharePercentage: 100,
+            partners: [],
+            summaryEntries: [],
+        },
     });
     const { control, handleSubmit: handlePeriodSubmit, watch, setValue, formState: { errors }, trigger, reset: resetForm } = periodForm;
     const { fields, append, remove, update } = useFieldArray({ control: periodForm.control, name: "summaryEntries" });
@@ -242,7 +251,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const isStep1Valid = !!watch('fromDate') && !!watch('toDate') && !!watch('currency');
 
     useEffect(() => {
-        if (!open) {
+        if (open) {
             periodForm.reset({
                 fromDate: undefined, toDate: undefined, currency: undefined, hasPartner: false,
                 alrawdatainSharePercentage: 100, partners: [], summaryEntries: []
@@ -255,7 +264,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const handleAddOrUpdateEntry = (entryData: any) => {
         if (editingEntry) {
             const index = fields.findIndex(f => f.id === editingEntry.id);
-            if (index > -1) update(index, { ...fields[index], ...entryData, id: fields[index].id }); // Keep original ID
+            if (index > -1) update(index, { ...fields[index], ...entryData, id: fields[index].id });
             setEditingEntry(null);
         } else {
             append({ ...entryData, id: uuidv4() });
@@ -266,10 +275,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const handleEditEntry = (index: number) => {
         setEditingEntry(fields[index]);
     };
-
-    const removeEntry = (index: number) => {
-        remove(index);
-    }
     
     const goToNextStep = async () => {
         const isValid = await periodForm.trigger(['fromDate', 'toDate', 'currency']);
@@ -349,17 +354,22 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         <Collapsible open={isStep1Valid}>
                           <CollapsibleContent className="space-y-6">
                             <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions}/>
-                            <SummaryList onRemove={removeEntry} onEdit={handleEditEntry} />
+                            <SummaryList onRemove={remove} onEdit={handleEditEntry} />
                           </CollapsibleContent>
                         </Collapsible>
                     </div>
                 
                     <DialogFooter className="pt-4 border-t flex-shrink-0">
-                       <div className="flex justify-end w-full">
-                            <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
-                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                                حفظ بيانات الفترة ({fields.length} سجلات)
-                            </Button>
+                        <div className="flex justify-between w-full">
+                            {step === 1 ? <div /> : <Button variant="outline" onClick={() => setStep(1)}><ArrowRight className="me-2 h-4 w-4" />السابق</Button>}
+                            {step === 1 ? (
+                                <Button type="button" onClick={goToNextStep}>التالي<ArrowLeft className="ms-2 h-4 w-4" /></Button>
+                            ) : (
+                                <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
+                                    {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                                    حفظ بيانات الفترة ({fields.length} سجلات)
+                                </Button>
+                            )}
                         </div>
                     </DialogFooter>
                 </FormProvider>
