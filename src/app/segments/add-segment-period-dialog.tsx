@@ -47,6 +47,15 @@ const companyEntrySchema = z.object({
   hotels: z.coerce.number().int().nonnegative().default(0),
   groups: z.coerce.number().int().nonnegative().default(0),
   notes: z.string().optional(),
+  // Profit settings
+  ticketProfitType: z.enum(['fixed', 'percentage']).default('percentage'),
+  ticketProfitValue: z.coerce.number().min(0).default(50),
+  visaProfitType: z.enum(['fixed', 'percentage']).default('percentage'),
+  visaProfitValue: z.coerce.number().min(0).default(100),
+  hotelProfitType: z.enum(['fixed', 'percentage']).default('percentage'),
+  hotelProfitValue: z.coerce.number().min(0).default(100),
+  groupProfitType: z.enum(['fixed', 'percentage']).default('percentage'),
+  groupProfitValue: z.coerce.number().min(0).default(100),
 });
 
 const partnerSchema = z.object({
@@ -78,37 +87,46 @@ function computeService(count: number, type: "fixed" | "percentage", value: numb
   return type === "fixed" ? count * value : count * (value / 100);
 }
 
-function computeCompanyTotal(d: any, companySettings?: SegmentSettings) {
+function computeCompanyTotal(d: any, companySettings: any) {
   if (!d) return 0;
-  const settings = companySettings || {
-    ticketProfitType: 'percentage', ticketProfitValue: 50,
-    visaProfitType: 'percentage', visaProfitValue: 100,
-    hotelProfitType: 'percentage', hotelProfitValue: 100,
-    groupProfitType: 'percentage', groupProfitValue: 100,
-    alrawdatainSharePercentage: 50,
-  };
-  const ticketProfits = computeService(d.tickets, settings.ticketProfitType, settings.ticketProfitValue);
-  const visaProfits = computeService(d.visas, settings.visaProfitType, settings.visaProfitValue);
-  const hotelProfits = computeService(d.hotels, settings.hotelProfitType, settings.hotelProfitValue);
-  const groupProfits = computeService(d.groups, settings.groupProfitType, settings.groupProfitValue);
-  const otherProfits = visaProfits + hotelProfits + groupProfits;
-  return ticketProfits + otherProfits;
+  const settings = companySettings || {};
+  return [
+    computeService(d.tickets, d.ticketProfitType, d.ticketProfitValue),
+    computeService(d.visas, d.visaProfitType, d.visaProfitValue),
+    computeService(d.hotels, d.hotelProfitType, d.hotelProfitValue),
+    computeService(d.groups, d.groupProfitType, d.groupProfitValue)
+  ].reduce((sum, val) => sum + val, 0);
 }
 
 // Sub-components
-const ServiceLine = ({ label, icon: Icon, color, countField }: any) => {
+const ServiceLine = ({ label, icon: Icon, color, countField, typeField, valueField }: any) => {
   const { control, watch } = useFormContext<CompanyEntryFormValues>();
   const count = watch(countField);
-  const result = count || 0;
+  const type = watch(typeField);
+  const value = watch(valueField);
+
+  const result = useMemo(() => computeService(count, type, value), [count, type, value]);
 
   return (
-    <Card className={cn("shadow-sm overflow-hidden", color)}>
-      <CardHeader className="p-2 flex flex-row items-center justify-between space-y-0 text-white">
+    <Card className="shadow-sm overflow-hidden" style={{ borderColor: `hsl(var(--${color}))`}}>
+      <CardHeader className="p-2 flex flex-row items-center justify-between space-y-0 text-white" style={{ backgroundColor: `hsl(var(--${color}))`}}>
         <CardTitle className="text-xs font-bold flex items-center gap-1.5"><Icon className="h-4 w-4" />{label}</CardTitle>
-        <div className="text-xs font-bold font-mono px-1.5 py-0.5 bg-background/20 rounded-md">{result}</div>
+        <div className="text-xs font-bold font-mono px-1.5 py-0.5 bg-background/20 rounded-md">{result.toFixed(2)}</div>
       </CardHeader>
       <CardContent className="p-2 pt-1 space-y-1">
         <Controller control={control} name={countField} render={({ field }) => (<div><Label className="sr-only">العدد</Label><NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="العدد" className="h-8 text-center font-semibold text-sm" /></div>)} />
+        <div className="flex gap-1">
+            <Controller control={control} name={typeField} render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="h-7 w-16 text-xs"><SelectValue/></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="percentage">%</SelectItem>
+                        <SelectItem value="fixed">$</SelectItem>
+                    </SelectContent>
+                </Select>
+            )}/>
+             <Controller control={control} name={valueField} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="القيمة" className="h-7 text-xs" />)} />
+        </div>
       </CardContent>
     </Card>
   );
@@ -116,7 +134,7 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: any) => {
 
 interface AddCompanyToSegmentFormProps {
     onAdd: (data: any) => void;
-    allCompanyOptions: { value: string; label: string; settings?: SegmentSettings }[];
+    allCompanyOptions: { value: string; label: string; settings?: Partial<SegmentSettings> }[];
     editingEntry?: any;
     onCancelEdit: () => void;
 }
@@ -128,50 +146,44 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingE
         resolver: zodResolver(companyEntrySchema),
     });
     
-    const { reset, control, handleSubmit, watch, setValue } = form;
+    const { reset, control, handleSubmit, watch, setValue, formState } = form;
 
     React.useEffect(() => {
-        reset(editingEntry || { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
-    }, [editingEntry, reset]);
+        const defaultValues = { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" };
+        const segmentSettings = editingEntry?.clientId ? allCompanyOptions.find(c => c.value === editingEntry.clientId)?.settings : {};
+        const initialFormValues = { ...defaultValues, ...segmentSettings, ...(editingEntry || {}) };
+        reset(initialFormValues);
+    }, [editingEntry, reset, allCompanyOptions]);
+
 
     useImperativeHandle(ref, () => ({ resetForm: () => reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" }) }), [reset]);
 
     const watchAll = watch();
     const currentClientId = watch('clientId');
-    const selectedCompany = useMemo(() => allCompanyOptions.find(c => c.value === currentClientId), [allCompanyOptions, currentClientId]);
     
-    const { hasPartner, alrawdatainSharePercentage } = getValues();
-    
-    const companySettings = useMemo(() => {
-        const baseSettings = selectedCompany?.settings || {};
-        return {
-            ...baseSettings,
-            alrawdatainSharePercentage: hasPartner ? alrawdatainSharePercentage : 100,
-        };
-    }, [selectedCompany, hasPartner, alrawdatainSharePercentage]);
-    
-    const { total, alrawdatainShare, partnerShare } = useMemo(() => {
-        const totalProfit = computeCompanyTotal(watchAll, companySettings);
-        const alrawdatainS = totalProfit * ((companySettings.alrawdatainSharePercentage || 100) / 100);
-        return {
-            total: totalProfit,
-            alrawdatainShare: alrawdatainS,
-            partnerShare: totalProfit - alrawdatainS,
-        };
-    }, [watchAll, companySettings]);
+    useEffect(() => {
+        const company = allCompanyOptions.find(opt => opt.value === currentClientId);
+        if (company) {
+            setValue('clientName', company.label);
+            if(company.settings) {
+                Object.entries(company.settings).forEach(([key, value]) => {
+                    setValue(key as keyof SegmentSettings, value);
+                });
+            }
+        }
+    }, [currentClientId, allCompanyOptions, setValue]);
 
+    const total = useMemo(() => computeCompanyTotal(watchAll, allCompanyOptions.find(c => c.value === watchAll.clientId)?.settings), [watchAll, allCompanyOptions]);
 
     const handleAddClick = (data: CompanyEntryFormValues) => {
-        const companyData = allCompanyOptions.find(opt => opt.value === data.clientId);
-        if (!companyData) return;
-
+        const { hasPartner, alrawdatainSharePercentage } = getValues();
+        const effectiveAlrawdatainShare = hasPartner ? alrawdatainSharePercentage : 100;
+        
         onAdd({ 
             ...data, 
-            total, 
-            alrawdatainShare, 
-            partnerShare, 
-            companyName: companyData?.label || '',
-            ...companySettings
+            total: total,
+            alrawdatainShare: total * (effectiveAlrawdatainShare / 100),
+            partnerShare: total * ((100 - effectiveAlrawdatainShare) / 100),
         });
         reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
         onCancelEdit();
@@ -186,13 +198,13 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingE
                         <div className='font-mono text-sm text-blue-600 font-bold'>ربح الشركة: {total.toFixed(2)}</div>
                     </CardHeader>
                     <CardContent className="space-y-3 p-3">
-                        <Controller control={control} name="clientId" render={({ field, fieldState }) => (<div className="space-y-1"><Label>الشركة المصدرة للسكمنت</Label><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={v => field.onChange(v)} placeholder="ابحث/اختر..."/><p className="text-xs text-destructive h-3">{fieldState.error?.message}</p></div>)} />
+                        <Controller control={control} name="clientId" render={({ field, fieldState }) => (<div className="space-y-1"><Label>الشركة المصدرة للسكمنت</Label><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث/اختر..."/><p className="text-xs text-destructive h-3">{fieldState.error?.message}</p></div>)} />
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            <ServiceLine label="تذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" />
-                            <ServiceLine label="فيزا" icon={CreditCard} color="bg-orange-500" countField="visas" />
-                            <ServiceLine label="فنادق" icon={Hotel} color="bg-purple-500" countField="hotels" />
-                            <ServiceLine label="كروبات" icon={GroupsIcon} color="bg-teal-500" countField="groups" />
+                            <ServiceLine label="تذاكر" icon={Ticket} color="primary" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
+                            <ServiceLine label="فيزا" icon={CreditCard} color="accent" countField="visas" typeField="visaProfitType" valueField="visaProfitValue" />
+                            <ServiceLine label="فنادق" icon={Hotel} color="primary" countField="hotels" typeField="hotelProfitType" valueField="hotelProfitValue" />
+                            <ServiceLine label="كروبات" icon={GroupsIcon} color="accent" countField="groups" typeField="groupProfitType" valueField="groupProfitValue" />
                         </div>
                         <div className="flex justify-center pt-2">
                           <Button type="button" onClick={handleSubmit(handleAddClick)} className='w-full md:w-1/2'>
@@ -240,7 +252,7 @@ const SummaryList = ({ onRemove, onEdit }: { onRemove: (index: number) => void, 
                                     <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)}</TableCell>
                                     <TableCell className='text-center'>
                                         <Button type="button" variant="ghost" size="icon" className='h-8 w-8 text-blue-600' onClick={() => onEdit(index)}><Pencil className='h-4 w-4'/></Button>
-                                        <Button type="button" variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => remove(index)}><Trash2 className='h-4 w-4'/></Button>
+                                        <Button type="button" variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => onRemove(index)}><Trash2 className='h-4 w-4'/></Button>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -251,14 +263,6 @@ const SummaryList = ({ onRemove, onEdit }: { onRemove: (index: number) => void, 
         </Card>
     );
 };
-
-const SummaryStat = ({ title, value, currency, className }: { title: string; value: number; currency?: Currency; className?: string; }) => (
-    <div className={cn("p-2 text-center rounded-md border", className)}>
-        <p className="text-xs font-semibold text-muted-foreground">{title}</p>
-        <p className="font-mono font-bold text-sm">{(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</p>
-    </div>
-);
-
 
 // Main Dialog Wrapper
 interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; children?: React.ReactNode; }
@@ -450,11 +454,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         return navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد';
     }, [currentUser, navData?.boxes]);
 
-    const { control: periodControl } = periodForm;
-
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
             <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
@@ -466,14 +468,24 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                             <div className="p-4 border rounded-lg bg-background/50 sticky top-0 z-10">
                                 <h3 className="font-semibold text-base mb-2">الخطوة 1: تحديد الفترة وتوزيع الربح</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <FormField control={periodControl} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
-                                    <FormField control={periodControl} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
-                                    <FormField control={periodControl} name="currency" render={({ field }) => ( <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select></FormItem> )}/>
+                                     <FormField control={periodForm.control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
+                                     <FormField control={periodForm.control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
+                                     <FormField control={periodForm.control} name="currency" render={({ field }) => (
+                                         <FormItem>
+                                            <FormLabel>العملة</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                                                <SelectContent>
+                                                    {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </FormItem>
+                                     )}/>
                                 </div>
                             </div>
-                            <div className="p-4 border rounded-lg">
+                             <div className="p-4 border rounded-lg">
                                 <h3 className="font-semibold text-base mb-2">الخطوة 2: توزيع الحصص</h3>
-                                <FormField control={periodForm.control} name="hasPartner" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 mb-4"><div className="space-y-0.5"><FormLabel className="font-semibold">هل يوجد شركاء في الربح؟</FormLabel><FormMessage>تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.</FormMessage></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)}/>
+                                <FormField control={periodForm.control} name="hasPartner" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 mb-4"><div className="space-y-0.5"><FormLabel className="font-semibold">هل يوجد شركاء في الربح؟</FormLabel></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>)}/>
                                 {watchedPeriod.hasPartner && (
                                     <div className="space-y-4">
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 border p-2 rounded-md">
@@ -487,8 +499,16 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             <div>
                                                  <div className="grid grid-cols-3 gap-2 items-end">
                                                     <div className="space-y-1.5"><Label>الشريك</Label><Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر..."/></div>
-                                                    <div className="space-y-1.5"><Label>النسبة (%)</Label><NumericInput value={currentPercentage} onValueChange={setCurrentPercentage} /></div>
-                                                    <Button type="button" onClick={handleAddOrUpdatePartner}>{editingPartnerIndex !== null ? 'تحديث' : 'إضافة'}</Button>
+                                                    <div className="space-y-1.5">
+                                                        <Label>النسبة (%)</Label>
+                                                        <div className="relative">
+                                                            <NumericInput value={currentPercentage} onValueChange={setCurrentPercentage} className="h-9 pe-7" />
+                                                            <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                        </div>
+                                                    </div>
+                                                    <Button type="button" onClick={handleAddOrUpdatePartner} className="shrink-0 h-9 w-full">
+                                                        {editingPartnerIndex !== null ? 'تحديث' : 'إضافة'}
+                                                    </Button>
                                                 </div>
                                                  <div className="text-sm text-muted-foreground mt-1">الحصة المحسوبة: <span className="font-bold text-blue-600 font-mono">{partnerSharePreview.toFixed(2)}</span></div>
                                             </div>
@@ -496,16 +516,18 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                          <Table>
                                             <TableHeader><TableRow><TableHead>الشريك</TableHead><TableHead className="text-center">النسبة</TableHead><TableHead className="w-24 text-center">الإجراءات</TableHead></TableRow></TableHeader>
                                             <TableBody>
-                                                {partnerFields.map((field, index) => (
-                                                    <TableRow key={field.id}>
-                                                        <TableCell>{field.partnerName}</TableCell>
-                                                        <TableCell className="text-center font-mono">{field.percentage}%</TableCell>
+                                                {partnerFields.map((d, index) => {
+                                                    const amount = (amountForPartners * (d.percentage || 0)) / 100;
+                                                    return (
+                                                    <TableRow key={d.id}>
+                                                        <TableCell>{d.partnerName}</TableCell>
+                                                        <TableCell className="text-center font-mono">{d.percentage}%</TableCell>
                                                         <TableCell className="text-center">
                                                             <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => handleEditPartner(index)}><Pencil className="h-4 w-4"/></Button>
                                                             <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removePartner(index)}><Trash2 className="h-4 w-4" /></Button>
                                                         </TableCell>
                                                     </TableRow>
-                                                ))}
+                                                )})}
                                             </TableBody>
                                         </Table>
                                     </div>
@@ -519,11 +541,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                             </div>
                         </div>
                         <DialogFooter className="pt-4 border-t flex-row items-center justify-between sticky bottom-0 bg-background mt-auto">
-                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                                <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4"/> <span>{currentUser?.name || '...'}</span></div>
-                                <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>{boxName}</span></div>
-                                <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>رقم الفاتورة: (تلقائي)</span></div>
-                                <Separator orientation="vertical" className="h-4" />
+                             <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
                                 <SummaryStat title="إجمالي الربح" value={grandTotalProfit} currency={watchedPeriod.currency} />
                                 <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedPeriod.currency} className="text-green-600" />
                                 <SummaryStat title="حصة الشركاء" value={amountForPartners} currency={watchedPeriod.currency} className="text-blue-600" />
