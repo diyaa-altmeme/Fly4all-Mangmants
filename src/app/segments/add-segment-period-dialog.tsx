@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +25,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import {
-  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, ArrowRight, X, Building, Store, Settings2, Hash, User as UserIcon, Wallet,
+  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, Building, User as UserIcon, Wallet, Hash,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
@@ -37,7 +36,6 @@ import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetti
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from '@/lib/auth-context';
-
 
 const companyEntrySchema = z.object({
   id: z.string(),
@@ -51,11 +49,11 @@ const companyEntrySchema = z.object({
 });
 
 const partnerSchema = z.object({
-    id: z.string(),
-    partnerId: z.string().min(1, "اختر شريكاً."),
-    partnerName: z.string(),
-    percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
-    amount: z.coerce.number(), // This field is for calculation display, not direct input
+  id: z.string(),
+  partnerId: z.string().min(1, "اختر شريكاً."),
+  partnerName: z.string(),
+  percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
+  amount: z.coerce.number(),
 });
 
 const periodSchema = z.object({
@@ -142,6 +140,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingE
     const selectedCompany = useMemo(() => allCompanyOptions.find(c => c.value === currentClientId), [allCompanyOptions, currentClientId]);
     
     const { hasPartner, alrawdatainSharePercentage } = getValues();
+    
     const companySettings = useMemo(() => {
         const baseSettings = selectedCompany?.settings || {};
         return {
@@ -248,10 +247,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const [currentPercentage, setCurrentPercentage] = useState<number | string>('');
     const [editingPartnerIndex, setEditingPartnerIndex] = useState<number | null>(null);
 
-    const periodForm = useForm<PeriodFormValues>({
-        resolver: zodResolver(periodSchema),
-    });
-    
+    const periodForm = useForm<PeriodFormValues>({ resolver: zodResolver(periodSchema) });
     const { control, handleSubmit: handlePeriodSubmit, watch, setValue, formState: { errors: periodErrors }, trigger, reset: resetForm, getValues } = periodForm;
     const { fields: summaryFields, append, remove, update } = useFieldArray({ control: periodForm.control, name: "summaryEntries" });
     const { fields: partnerFields, append: appendPartner, remove: removePartner, update: updatePartner } = useFieldArray({ control: periodForm.control, name: "partners" });
@@ -260,7 +256,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const periodDataIsValid = watch('fromDate') && watch('toDate');
     
     const allCompanyOptions = useMemo(() => {
-        return (clients || []).filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
     }, [clients]);
 
      const partnerOptions = useMemo(() => {
@@ -292,7 +288,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const alrawdatainPerc = Number(watchedPeriod.alrawdatainSharePercentage) || 100;
         const alrawdatainAmount = totalProfit * (alrawdatainPerc / 100);
         const availableForPartners = totalProfit - alrawdatainAmount;
-        
         const partnerPerc = (watchedPeriod.partners || []).reduce((acc, p) => acc + (Number(p.percentage) || 0), 0);
         const distributedAmount = (watchedPeriod.partners || []).reduce((acc, p) => acc + ((availableForPartners * (p.percentage || 0)) / 100), 0);
 
@@ -331,17 +326,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         setCurrentPercentage(partnerToEdit.percentage);
     };
     
-    const removeEntry = (index: number) => {
-        remove(index);
-    }
-
+    const removeEntry = (index: number) => remove(index);
 
     const handleSavePeriod = async (data: PeriodFormValues) => {
         if (summaryFields.length === 0) {
             toast({ title: "لا توجد سجلات للحفظ", variant: "destructive" });
             return;
         }
-        
         if (data.hasPartner && Math.abs(totalPartnerPercentage - 100) > 0.01) {
             toast({ title: "خطأ في توزيع حصص الشركاء", description: `مجموع نسب الشركاء يجب أن يكون 100% تمامًا من المبلغ المتاح لهم. المجموع الحالي: ${totalPartnerPercentage.toFixed(2)}%`, variant: "destructive" });
             return;
@@ -362,14 +353,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     share: (entry.total - entry.alrawdatainShare) * (p.percentage / 100),
                 }))
             }));
-            
             const result = await addSegmentEntries(finalEntries as any, isEditing ? existingPeriod?.periodId : undefined);
             if (!result.success) throw new Error(result.error);
-            
             toast({ title: "تم حفظ بيانات الفترة بنجاح" });
             setOpen(false);
             await onSuccess();
-            
         } catch (error: any) {
             toast({ title: "خطأ", description: error.message || "لم يتم حفظ البيانات.", variant: "destructive" });
         } finally {
@@ -387,24 +375,20 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             toast({ title: "النسبة يجب أن تكون رقمًا موجبًا", variant: 'destructive' });
             return;
         }
-        
         const currentPartners = getValues('partners') || [];
-        
         const editingPartnerOldPercentage = editingPartnerIndex !== null ? currentPartners[editingPartnerIndex]?.percentage || 0 : 0;
         const currentTotalPartnerPercentage = currentPartners.reduce((sum, p) => sum + p.percentage, 0) - editingPartnerOldPercentage;
         const adjustedTotal = currentTotalPartnerPercentage + newPercentage;
 
-        if (adjustedTotal > 100.01) { // Use tolerance
+        if (adjustedTotal > 100.01) {
              toast({ title: "لا يمكن تجاوز 100%", description: `إجمالي النسب الحالية: ${currentTotalPartnerPercentage.toFixed(2)}%`, variant: 'destructive' });
              return;
         }
-
         const selectedPartner = partnerOptions.find(p => p.value === currentPartnerId);
         if(!selectedPartner) {
              toast({ title: "الشريك المختار غير صالح", variant: 'destructive' });
              return;
         }
-
         const partnerData = {
             id: editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].id : `new-${Date.now()}`,
             partnerId: selectedPartner.value,
@@ -412,14 +396,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             percentage: newPercentage,
             amount: (amountForPartners * newPercentage) / 100
         };
-
         if (editingPartnerIndex !== null) {
           updatePartner(editingPartnerIndex, partnerData);
           setEditingPartnerIndex(null);
         } else {
           appendPartner(partnerData);
         }
-        
         setCurrentPartnerId('');
         setCurrentPercentage('');
     };
@@ -433,35 +415,30 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     <form onSubmit={handlePeriodSubmit(handleSavePeriod)} className="flex flex-col flex-grow overflow-hidden">
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                              <div className="p-3 border rounded-lg bg-background/50 space-y-3">
-                                <h3 className="font-semibold text-base">البيانات الرئيسية للفترة</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                                     <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                     <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                     <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                 </div>
-                                <div className="pt-4 border-t">
-                                    <FormField
-                                        control={control}
-                                        name="hasPartner"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                                <div className="space-y-0.5">
-                                                    <FormLabel className="font-semibold">توزيع حصص الشركاء</FormLabel>
-                                                    <FormDescription className="text-xs">
-                                                        تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.
-                                                    </FormDescription>
-                                                </div>
-                                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                            </FormItem>
-                                        )}
-                                    />
+                            </div>
+                            {periodDataIsValid && (
+                                <>
+                                <div className="p-4 border rounded-lg space-y-4">
+                                     <FormField control={control} name="hasPartner" render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                            <div className="space-y-0.5">
+                                                <FormLabel className="font-semibold">توزيع حصص الشركاء</FormLabel>
+                                            </div>
+                                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                        </FormItem>
+                                    )}/>
                                     {watchedPeriod.hasPartner && (
                                         <div className="mt-4 p-4 border rounded-lg space-y-4">
                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                                                  <FormField control={control} name="alrawdatainSharePercentage" render={({ field }) => (<FormItem><FormLabel>حصة الروضتين (%)</FormLabel><div className="relative"><NumericInput value={field.value} onValueChange={v => field.onChange(v || 0)} className="pe-7 h-9" /><Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></FormItem>)} />
                                                  <div className="md:col-span-2">
                                                     <div className="p-3 border rounded-lg grid grid-cols-1 sm:grid-cols-2 gap-2 bg-muted/30">
-                                                        <h4 className="font-semibold text-base sm:col-span-2 mb-1">إضافة شريك وتحديد حصته من المبلغ المتاح</h4>
+                                                        <h4 className="font-semibold text-base sm:col-span-2 mb-1">إضافة شريك وتحديد حصته</h4>
                                                         <div className="space-y-1.5"><Label className="text-xs">الشريك</Label><Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر شريكًا..."/></div>
                                                         <div className="flex items-end gap-2">
                                                             <div className="w-24 space-y-1.5"><Label className="text-xs">النسبة (%)</Label><div className="relative"><NumericInput value={currentPercentage} onValueChange={setCurrentPercentage} className="h-9 pe-7" /><Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></div>
@@ -496,11 +473,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         </div>
                                     )}
                                 </div>
-                            </div>
-                            
-                            {periodDataIsValid && (
-                                <>
-                                    <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} />
+                                    <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions}/>
                                     <SummaryList onRemove={remove} onEdit={handleEditEntry} />
                                 </>
                             )}
