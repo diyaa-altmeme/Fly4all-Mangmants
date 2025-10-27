@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
@@ -49,8 +50,8 @@ const companyEntrySchema = z.object({
 });
 
 const periodSchema = z.object({
-  fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }).optional(),
-  toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }).optional(),
+  fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
+  toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
   currency: z.string().min(1, "اختر العملة.").optional(),
   hasPartner: z.boolean().default(false),
   partnerId: z.string().optional(),
@@ -109,20 +110,23 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: {
   );
 };
 
-const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: {
+interface AddCompanyToSegmentFormProps {
     onAdd: (data: any) => void;
     allCompanyOptions: { value: string; label: string; settings?: SegmentSettings }[];
     partnerOptions: { value: string; label: string }[];
     editingEntry?: any;
     onCancelEdit: () => void;
-}, ref) => {
+}
+
+const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
     const form = useForm<CompanyEntryFormValues>({
         resolver: zodResolver(companyEntrySchema),
     });
-
-    useEffect(() => {
+    
+     useEffect(() => {
         form.reset(editingEntry || { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
-    }, [editingEntry, form]);
+    }, [editingEntry, form.reset]);
+
 
     useImperativeHandle(ref, () => ({ resetForm: () => form.reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" }) }), [form]);
 
@@ -358,16 +362,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     </div>
                 
                     <DialogFooter className="pt-4 border-t flex-shrink-0">
-                        <div className="flex justify-between w-full">
-                            {step === 1 ? <div /> : <Button variant="outline" onClick={() => setStep(1)}><ArrowRight className="me-2 h-4 w-4" />السابق</Button>}
-                            {step === 1 ? (
-                                <Button type="button" onClick={goToNextStep}>التالي<ArrowLeft className="ms-2 h-4 w-4" /></Button>
-                            ) : (
-                                <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
-                                    {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                                    حفظ بيانات الفترة ({fields.length} سجلات)
-                                </Button>
-                            )}
+                        <div className="flex justify-end w-full">
+                             <Button type="button" onClick={handleSavePeriod} disabled={isSaving || fields.length === 0} className="sm:w-auto">
+                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                                حفظ بيانات الفترة ({fields.length} سجلات)
+                            </Button>
                         </div>
                     </DialogFooter>
                 </FormProvider>
