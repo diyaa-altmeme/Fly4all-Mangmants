@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
@@ -50,9 +49,9 @@ const companyEntrySchema = z.object({
 });
 
 const periodSchema = z.object({
-  fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
-  toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
-  currency: z.string().min(1, "اختر العملة."),
+  fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }).optional(),
+  toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }).optional(),
+  currency: z.string().min(1, "اختر العملة.").optional(),
   hasPartner: z.boolean().default(false),
   partnerId: z.string().optional(),
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(100),
@@ -93,8 +92,8 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: {
     color: string,
     countField: keyof CompanyEntryFormValues
 }) => {
-  const { control, watch } = useFormContext();
-  const count = watch(countField);
+  const { control } = useFormContext();
+  const count = useWatch({ control, name: countField as string });
   const result = count || 0;
 
   return (
@@ -117,16 +116,17 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     editingEntry?: any;
     onCancelEdit: () => void;
 }, ref) => {
-    const {control, handleSubmit, watch, setValue, ...form} = useForm<CompanyEntryFormValues>({
+    const form = useForm<CompanyEntryFormValues>({
         resolver: zodResolver(companyEntrySchema),
     });
 
     useEffect(() => {
         form.reset(editingEntry || { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
-    }, [editingEntry, form.reset]);
+    }, [editingEntry, form]);
 
     useImperativeHandle(ref, () => ({ resetForm: () => form.reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" }) }), [form]);
 
+    const { control, handleSubmit, watch, setValue } = form;
     const watchAll = watch();
     const currentClientId = watch('clientId');
     const selectedCompany = useMemo(() => allCompanyOptions.find(c => c.value === currentClientId), [allCompanyOptions, currentClientId]);
@@ -141,7 +141,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     return (
         <FormProvider {...form}>
             <div className="space-y-3">
-                <Card className="border rounded-lg shadow-sm border-primary/40">
+                 <Card className="border rounded-lg shadow-sm border-primary/40">
                     <CardHeader className="p-2 flex flex-row items-center justify-between bg-muted/30">
                         <CardTitle className="text-base font-semibold">{editingEntry ? 'تعديل بيانات الشركة' : 'إدخال بيانات الشركة'}</CardTitle>
                         <div className='font-mono text-sm text-blue-600 font-bold'>ربح الشركة: {companyTotal.toFixed(2)}</div>
@@ -234,8 +234,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     });
     const { control, handleSubmit: handlePeriodSubmit, watch, setValue, formState: { errors }, trigger, reset: resetForm } = periodForm;
     const { fields, append, remove, update } = useFieldArray({ control: periodForm.control, name: "summaryEntries" });
-    const hasPartner = watch('hasPartner');
-    
     const currencyOptions = navData?.settings?.currencySettings?.currencies || [];
 
     const allCompanyOptions = useMemo(() => {
@@ -253,7 +251,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     useEffect(() => {
         if (open) {
             periodForm.reset({
-                fromDate: undefined, toDate: undefined, currency: undefined, hasPartner: false,
+                fromDate: undefined, toDate: undefined, currency: '', hasPartner: false,
                 alrawdatainSharePercentage: 100, partners: [], summaryEntries: []
             });
             setEditingEntry(null);
