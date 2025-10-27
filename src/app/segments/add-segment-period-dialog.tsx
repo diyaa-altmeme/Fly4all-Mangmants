@@ -34,7 +34,7 @@ import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormCont
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting } from '@/lib/types';
+import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 
 // Schemas
@@ -49,18 +49,19 @@ const companyEntrySchema = z.object({
   notes: z.string().optional(),
 });
 
-const periodFormSchema = z.object({
+const periodSchema = z.object({
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }),
   currency: z.string().min(1, "اختر العملة."),
   hasPartner: z.boolean().default(false),
   partnerId: z.string().optional(),
   alrawdatainSharePercentage: z.coerce.number().min(0).max(100).default(100),
+  partners: z.array(z.any()).optional(), // Simplified for now
   summaryEntries: z.array(z.any()).min(1, "يجب إضافة شركة واحدة على الأقل."),
 });
 
 type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
-type PeriodFormValues = z.infer<typeof periodFormSchema>;
+type PeriodFormValues = z.infer<typeof periodSchema>;
 
 // Helpers
 function computeService(count: number, type: "fixed" | "percentage", value: number): number {
@@ -109,7 +110,6 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: {
   );
 };
 
-
 const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: {
     onAdd: (data: any) => void;
     allCompanyOptions: { value: string; label: string; settings?: SegmentSettings }[];
@@ -143,7 +143,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
 
     return (
         <FormProvider {...form}>
-            <div className="space-y-3">
+            <div>
                 <Card className="border rounded-lg shadow-sm border-primary/40">
                     <CardHeader className="p-2 flex flex-row items-center justify-between bg-muted/30">
                         <CardTitle className="text-base font-semibold">{editingEntry ? 'تعديل بيانات الشركة' : 'إدخال بيانات الشركة'}</CardTitle>
@@ -152,7 +152,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
                     <CardContent className="space-y-3 p-3">
                         <div className="grid md:grid-cols-2 gap-3">
                             <Controller control={control} name="clientId" render={({ field, fieldState }) => (<div className="space-y-1"><Label>الشركة المصدرة</Label><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={v => field.onChange(v)} placeholder="ابحث/اختر..."/><p className="text-xs text-destructive h-3">{fieldState.error?.message}</p></div>)} />
-                            <Controller control={control} name="notes" render={({ field }) => (<div className="space-y-1"><Label>ملاحظة</Label><Input {...field} placeholder="وصف مختصر (اختياري)" /><p className="h-3"></p></div>)} />
+                            <Controller control={control} name="notes" render={({ field }) => (<div className="space-y-1"><Label>ملاحظة</Label><Input {...field} placeholder="وصف مختصر (اختياري)" value={field.value || ''} /><p className="h-3"></p></div>)} />
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                             <ServiceLine label="تذاكر" icon={Ticket} color="bg-blue-600" countField="tickets" />
@@ -220,12 +220,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const [isSaving, setIsSaving] = useState(false);
     const addCompanyFormRef = React.useRef<{ resetForm: () => void }>(null);
     const [editingEntry, setEditingEntry] = useState<any | null>(null);
-    const [step, setStep] = useState(0);
+    const [step, setStep] = useState(1);
     const { data: navData } = useVoucherNav();
 
     const periodForm = useForm<PeriodFormValues>({ 
-        resolver: zodResolver(periodFormSchema),
-        defaultValues: { fromDate: undefined, toDate: undefined, currency: '', hasPartner: false, alrawdatainSharePercentage: 100, partners: [], summaryEntries: [] }
+        resolver: zodResolver(periodSchema),
+        defaultValues: { fromDate: undefined, toDate: undefined, currency: undefined, hasPartner: false, alrawdatainSharePercentage: 100, partners: [], summaryEntries: [] }
     });
     const { control, handleSubmit: handlePeriodSubmit, watch, setValue, formState: { errors }, trigger } = periodForm;
     const { fields, append, remove, update } = useFieldArray({ control: periodForm.control, name: "summaryEntries" });
@@ -250,14 +250,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 alrawdatainSharePercentage: 100, partners: [], summaryEntries: [],
             });
             setEditingEntry(null);
-            setStep(0);
+            setStep(1);
         }
     }, [open, periodForm]);
 
     const handleAddOrUpdateEntry = (entryData: any) => {
         if (editingEntry) {
             const index = fields.findIndex(f => f.id === editingEntry.id);
-            if (index > -1) update(index, { ...fields[index], ...entryData });
+            if (index > -1) update(index, { ...fields[index], ...entryData, id: fields[index].id }); // Keep original ID
             setEditingEntry(null);
         } else {
             append({ ...entryData, id: uuidv4() });
@@ -269,6 +269,10 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         setEditingEntry(fields[index]);
     };
 
+    const removeEntry = (index: number) => {
+        remove(index);
+    }
+    
     const handleSavePeriod = async () => {
         const periodData = periodForm.getValues();
         const entries = periodForm.getValues("summaryEntries");
@@ -316,7 +320,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     
     const goToNextStep = async () => {
         const isValid = await periodForm.trigger(['fromDate', 'toDate', 'currency']);
-        if (isValid) setStep(1);
+        if (isValid) setStep(2);
     };
 
     const currencyOptions = navData?.settings.currencySettings?.currencies || [];
@@ -324,9 +328,14 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
-            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
+                    <DialogDescription>
+                         {step === 1 
+                            ? "الخطوة 1 من 2: حدد الفترة المحاسبية للسجل."
+                            : "الخطوة 2 من 2: أضف بيانات الشركات لهذه الفترة."}
+                    </DialogDescription>
                 </DialogHeader>
                 
                  <FormProvider {...periodForm}>
@@ -342,12 +351,28 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                         <Select onValueChange={field.onChange} value={field.value}>
                                             <SelectTrigger><SelectValue placeholder="اختر العملة..." /></SelectTrigger>
                                             <SelectContent>
-                                                {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
+                                                {(currencyOptions || []).map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
                                             </SelectContent>
                                         </Select>
                                         <p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p>
                                     </div>
                                 )} />
+                            </div>
+                            <Separator />
+                            <div className="space-y-3">
+                                <FormField control={periodForm.control} name="hasPartner" render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-start gap-4 space-y-0 rounded-lg border p-3">
+                                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                        <FormLabel className="font-semibold text-base leading-none">هل يوجد شريك في الربح؟</FormLabel>
+                                    </FormItem>
+                                )} />
+                                {hasPartner && (
+                                <div className="p-3 border rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <FormField control={periodForm.control} name="alrawdatainSharePercentage" render={({ field }) => (
+                                        <FormItem><FormLabel>حصة الروضتين (%)</FormLabel><div className="relative"><FormControl><NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} /></FormControl><Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div><FormMessage /></FormItem>
+                                    )} />
+                                </div>
+                                )}
                             </div>
                         </div>
 
@@ -358,18 +383,19 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                           </CollapsibleContent>
                         </Collapsible>
                     </div>
-                </FormProvider>
-            
-                <DialogFooter className="pt-4 border-t flex-shrink-0">
-                     <div className="flex justify-between w-full">
-                        <Button variant="outline" onClick={() => { setOpen(false) }}>إلغاء</Button>
-                        <Button type="button" onClick={handlePeriodSubmit(handleSavePeriod)} disabled={isSaving || fields.length === 0} className="sm:w-auto">
-                            {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                            حفظ بيانات الفترة ({fields.length} سجلات)
-                        </Button>
-                    </div>
-                </DialogFooter>
+                
+                    <DialogFooter className="pt-4 border-t flex-shrink-0">
+                        <div className="flex justify-end w-full">
+                            <Button type="button" onClick={handleSavePeriod} disabled={isSaving || periodEntries.length === 0} className="sm:w-auto">
+                                {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
+                                حفظ بيانات الفترة ({periodEntries.length} سجلات)
+                            </Button>
+                        </div>
+                    </DialogFooter>
+                 </FormProvider>
             </DialogContent>
         </Dialog>
     );
 }
+
+    
