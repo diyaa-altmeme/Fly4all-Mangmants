@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -20,7 +21,6 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { ChevronDown, MoreHorizontal, Pencil } from 'lucide-react';
 import SegmentDetailsTable from '@/components/segments/segment-details-table';
 import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
-import EditSegmentPeriodDialog from './components/edit-segment-period-dialog';
 import ProtectedPage from '@/components/auth/protected-page';
 
 
@@ -74,9 +74,9 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="p-1 text-center">
-                       <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
+                       <AddSegmentPeriodDialog isEditing existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600"><Pencil className='h-4 w-4'/></Button>
-                       </EditSegmentPeriodDialog>
+                       </AddSegmentPeriodDialog>
                     </TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
@@ -258,3 +258,5 @@ export default function SegmentsPage() {
     </ProtectedPage>
   );
 }
+
+    
