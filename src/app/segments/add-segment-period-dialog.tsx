@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
@@ -36,6 +37,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuth } from '@/lib/auth-context';
 
 
 // Schemas
@@ -55,7 +57,7 @@ const partnerSchema = z.object({
     partnerId: z.string().min(1, "اختر شريكاً."),
     partnerName: z.string(),
     percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
-    amount: z.coerce.number(),
+    amount: z.coerce.number(), // This field is for calculation display, not direct input
 });
 
 const periodSchema = z.object({
@@ -123,24 +125,26 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: {
 interface AddCompanyToSegmentFormProps {
     onAdd: (data: any) => void;
     allCompanyOptions: { value: string; label: string; settings?: SegmentSettings }[];
+    partnerOptions: { value: string; label: string }[];
     editingEntry?: any;
     onCancelEdit: () => void;
 }
 
-const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
+const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
     const { getValues } = useFormContext<PeriodFormValues>();
     
     const form = useForm<CompanyEntryFormValues>({
         resolver: zodResolver(companyEntrySchema),
     });
     
+    const { reset, control, handleSubmit, watch, setValue } = form;
+
     React.useEffect(() => {
-        form.reset(editingEntry || { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
-    }, [editingEntry, form]);
+        reset(editingEntry || { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
+    }, [editingEntry, reset]);
 
-    useImperativeHandle(ref, () => ({ resetForm: () => form.reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" }) }), [form]);
+    useImperativeHandle(ref, () => ({ resetForm: () => reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" }) }), [reset]);
 
-    const { control, handleSubmit, watch, setValue } = form;
     const watchAll = watch();
     const currentClientId = watch('clientId');
     const selectedCompany = useMemo(() => allCompanyOptions.find(c => c.value === currentClientId), [allCompanyOptions, currentClientId]);
@@ -167,7 +171,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingE
 
     const handleAddClick = (data: CompanyEntryFormValues) => {
         onAdd({ ...data, total: total, alrawdatainShare, partnerShare, companyName: selectedCompany?.label || '' });
-        form.reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
+        reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
         onCancelEdit();
     };
 
@@ -297,7 +301,21 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
 
     const periodEntries = watch("summaryEntries");
+    const watchedPeriod = watch();
 
+
+    const { totalPartnerPercentage, amountForPartners, alrawdatainShareAmount, distributedToPartners, remainderForPartners } = useMemo(() => {
+        const totalProfit = (periodEntries || []).reduce((sum, e) => sum + (e.total || 0), 0);
+        const alrawdatainPerc = Number(watchedPeriod.alrawdatainSharePercentage) || 100;
+        const alrawdatainAmount = totalProfit * (alrawdatainPerc / 100);
+        const availableForPartners = totalProfit - alrawdatainAmount;
+        
+        const partnerPerc = (watchedPeriod.partners || []).reduce((acc, p) => acc + (Number(p.percentage) || 0), 0);
+        const distributedAmount = (watchedPeriod.partners || []).reduce((acc, p) => acc + ((availableForPartners * (p.percentage || 0)) / 100), 0);
+
+        return { totalPartnerPercentage: partnerPerc, amountForPartners: availableForPartners, alrawdatainShareAmount: alrawdatainAmount, distributedToPartners: distributedAmount, remainderForPartners: availableForPartners - distributedAmount };
+    }, [periodEntries, watchedPeriod.alrawdatainSharePercentage, watchedPeriod.partners]);
+    
     const handleSavePeriod = async () => {
         const periodData = periodForm.getValues();
         
@@ -334,31 +352,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             setStep(2);
         }
     }
-
-    const { control: partnerFormControl, watch: watchPartners, setValue: setPartnerValue } = useForm<{
-        currentPartnerId: string,
-        currentPercentage: number | string
-    }>({
-        defaultValues: { currentPartnerId: '', currentPercentage: '' }
-    });
     
-    const { fields: partnerFields, append: appendPartner, remove: removePartner, update: updatePartner } = useFieldArray({ control: periodForm.control, name: "partners" });
-    const [editingPartnerIndex, setEditingPartnerIndex] = useState<number | null>(null);
-
-    const watchedPeriod = watch();
-
-    const { totalPartnerPercentage, amountForPartners, alrawdatainShareAmount, distributedToPartners, remainderForPartners } = useMemo(() => {
-        const totalProfit = periodEntries.reduce((sum, e) => sum + (e.total || 0), 0);
-        const alrawdatainPerc = Number(watchedPeriod.alrawdatainSharePercentage) || 100;
-        const alrawdatainAmount = totalProfit * (alrawdatainPerc / 100);
-        const availableForPartners = totalProfit - alrawdatainAmount;
-        
-        const partnerPerc = (watchedPeriod.partners || []).reduce((acc, p) => acc + (Number(p.percentage) || 0), 0);
-        const distributedAmount = (watchedPeriod.partners || []).reduce((acc, p) => acc + ((availableForPartners * (p.percentage || 0)) / 100), 0);
-
-        return { totalPartnerPercentage: partnerPerc, amountForPartners: availableForPartners, alrawdatainShareAmount: alrawdatainAmount, distributedToPartners: distributedAmount, remainderForPartners: availableForPartners - distributedAmount };
-    }, [periodEntries, watchedPeriod.alrawdatainSharePercentage, watchedPeriod.partners]);
-
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
@@ -374,40 +368,34 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 
                 <FormProvider {...periodForm}>
                     <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
-                         <div className={cn("p-3 border rounded-lg bg-background/50 space-y-3")}>
+                         <div className={cn("p-3 border rounded-lg bg-background/50 space-y-3", step === 2 && 'hidden')}>
                              <h3 className="font-semibold text-base">البيانات الرئيسية للفترة</h3>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                                  <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                  <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
+                                 <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                              </div>
-                             <div className="pt-3 border-t">
+                              <div className="pt-4 border-t">
                                 <FormField
                                     control={periodForm.control}
                                     name="hasPartner"
                                     render={({ field }) => (
-                                        <FormItem className="flex flex-row items-center justify-between rounded-lg p-3">
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                                             <div className="space-y-0.5">
                                                 <FormLabel className="font-semibold">توزيع حصص الشركاء</FormLabel>
                                                 <FormDescription className="text-xs">
                                                     تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.
                                                 </FormDescription>
                                             </div>
-                                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                            <FormControl>
+                                                <Switch
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                />
+                                            </FormControl>
                                         </FormItem>
                                     )}
                                 />
-                                {watch("hasPartner") && (
-                                    <div className="p-3 space-y-4">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                             <FormField control={periodForm.control} name="alrawdatainSharePercentage" render={({ field }) => (<div className="space-y-1"><Label>حصة الروضتين (%)</Label><NumericInput value={field.value} onValueChange={v => field.onChange(v || 0)} /></div>)} />
-                                            <div className="space-y-1"><Label>حصة الشركاء (%)</Label><Input value={100 - (watch("alrawdatainSharePercentage") || 0)} readOnly disabled /></div>
-                                        </div>
-                                         <div className="p-4 border rounded-lg">
-                                            <h4 className="font-semibold text-base mb-2">إدارة الشركاء</h4>
-                                             {/* Partner management UI will go here */}
-                                         </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
@@ -440,3 +428,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
