@@ -27,7 +27,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { addSegmentEntries } from "@/app/segments/actions";
 import {
-  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, ChevronsUpDown, Save, Pencil
+  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, ChevronsUpDown, Save, Pencil, ArrowLeft
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
@@ -231,7 +231,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const periodForm = useForm<PeriodFormValues>({ 
         resolver: zodResolver(periodFormSchema),
-        defaultValues: { fromDate: new Date(), toDate: new Date(), currency: "USD", hasPartner: false, alrawdatainSharePercentage: 100, partners: [], summaryEntries: [] }
+        defaultValues: { hasPartner: false, alrawdatainSharePercentage: 100, partners: [], summaryEntries: [] }
     });
     const { control, handleSubmit: handlePeriodSubmit, watch, setValue, formState: { errors } } = periodForm;
     const { fields, append, remove, update } = useFieldArray({ control: periodForm.control, name: "summaryEntries" });
@@ -246,6 +246,23 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
         return uniqueRelations.map(r => ({ value: r.id, label: r.name }));
     }, [clients, suppliers]);
+
+    const isStep1Valid = !!watch('fromDate') && !!watch('toDate') && !!watch('currency');
+
+    useEffect(() => {
+        if (!open) {
+            periodForm.reset({
+                fromDate: undefined,
+                toDate: undefined,
+                currency: undefined,
+                hasPartner: false,
+                alrawdatainSharePercentage: 100,
+                partners: [],
+                summaryEntries: [],
+            });
+            setEditingEntry(null);
+        }
+    }, [open, periodForm]);
 
     const handleAddOrUpdateEntry = (entryData: any) => {
         if (editingEntry) {
@@ -305,22 +322,32 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             setIsSaving(false);
         }
     };
-
-    const isStep1Valid = periodForm.formState.isValid && !!watch('fromDate') && !!watch('toDate');
     
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
             <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
-                <DialogHeader><DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle></DialogHeader>
+                <DialogHeader>
+                    <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
+                    <DialogDescription>
+                        حدد الفترة المحاسبية أولاً، ثم قم بإضافة الشركات وتفاصيل أرباحها لهذه الفترة.
+                    </DialogDescription>
+                </DialogHeader>
                 <FormProvider {...periodForm}>
                     <form onSubmit={handlePeriodSubmit(handleSavePeriod)} className="flex-grow flex flex-col overflow-hidden">
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                              <div className="p-3 border rounded-lg bg-background/50 space-y-3">
+                                <h3 className="font-semibold text-base">الخطوة 1: تحديد الفترة والشركاء</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                                    <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
-                                    <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
-                                    <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
+                                    <FormField control={periodForm.control} name="fromDate" render={({ field }) => (
+                                        <FormItem><FormLabel>من تاريخ</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>
+                                    )}/>
+                                    <FormField control={periodForm.control} name="toDate" render={({ field }) => (
+                                        <FormItem><FormLabel>إلى تاريخ</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>
+                                    )}/>
+                                    <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (
+                                        <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="اختر العملة..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                                    )}/>
                                 </div>
                                 <Separator />
                                 <div className="space-y-3">
@@ -339,7 +366,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         <div className="pt-4 border-t flex justify-end">
                             <Button type="submit" disabled={isSaving || fields.length === 0} className="sm:w-auto">
                                 {isSaving && <Loader2 className="ms-2 h-4 w-4 animate-spin" />}
-                                {isEditing ? 'حفظ التعديلات' : `حفظ الفترة بالكامل`}
+                                {isEditing ? 'حفظ التعديلات' : `حفظ الفترة بالكامل (${fields.length} شركة)`}
                             </Button>
                         </div>
                     </form>
@@ -348,3 +375,5 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
