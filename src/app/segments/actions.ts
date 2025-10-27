@@ -37,7 +37,7 @@ const checkSegmentPermission = async () => {
 
 export async function getSegments(includeDeleted = false): Promise<SegmentEntry[]> {
     try {
-        await checkSegmentPermission(); // Permissions check at the start
+        // PERMISSION CHECK REMOVED FROM HERE - It will be handled by ProtectedPage on the client.
         const db = await getDb();
         if (!db) return [];
         
@@ -221,3 +221,5 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
         return { success: false, error: error.message || "Failed to restore segment period.", count: 0 };
     }
 }
+
+    
