@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
@@ -222,10 +221,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const addCompanyFormRef = React.useRef<{ resetForm: () => void }>(null);
     const [editingEntry, setEditingEntry] = useState<any | null>(null);
     const [step, setStep] = useState(0);
+    const { data: navData } = useVoucherNav();
 
     const periodForm = useForm<PeriodFormValues>({ 
         resolver: zodResolver(periodFormSchema),
-        defaultValues: { hasPartner: false, alrawdatainSharePercentage: 100, partners: [], summaryEntries: [], fromDate: undefined, toDate: undefined, currency: undefined }
+        defaultValues: { fromDate: undefined, toDate: undefined, currency: '', hasPartner: false, alrawdatainSharePercentage: 100, partners: [], summaryEntries: [] }
     });
     const { control, handleSubmit: handlePeriodSubmit, watch, setValue, formState: { errors }, trigger } = periodForm;
     const { fields, append, remove, update } = useFieldArray({ control: periodForm.control, name: "summaryEntries" });
@@ -293,6 +293,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                     ...entry,
                     fromDate: format(periodData.fromDate!, 'yyyy-MM-dd'),
                     toDate: format(periodData.toDate!, 'yyyy-MM-dd'),
+                    currency: periodData.currency!,
                     alrawdatainSharePercentage: periodData.alrawdatainSharePercentage || 100,
                     alrawdatainShare: (entry.total || 0) * ((periodData.alrawdatainSharePercentage || 100) / 100),
                     partnerShare: partnerShare,
@@ -314,21 +315,18 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     };
     
     const goToNextStep = async () => {
-        const isValid = await periodForm.trigger();
+        const isValid = await periodForm.trigger(['fromDate', 'toDate', 'currency']);
         if (isValid) setStep(1);
     };
+
+    const currencyOptions = navData?.settings.currencySettings?.currencies || [];
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
-                    <DialogDescription>
-                         {step === 0 
-                            ? "الخطوة 1: حدد الفترة المحاسبية للسجل."
-                            : "الخطوة 2: أضف بيانات الشركات لهذه الفترة."}
-                    </DialogDescription>
                 </DialogHeader>
                 
                  <FormProvider {...periodForm}>
@@ -338,12 +336,18 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                                 <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                 <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
-                                <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="IQD">IQD</SelectItem></SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
-                            </div>
-                            <Separator />
-                            <div className="space-y-3">
-                              <FormField control={periodForm.control} name="hasPartner" render={({ field }) => ( <div className="flex items-center space-x-2 space-x-reverse"><Switch id="hasPartner" checked={field.value} onCheckedChange={field.onChange} /><Label htmlFor="hasPartner" className="font-semibold">هل يوجد شريك في الربح؟</Label></div> )}/>
-                              {hasPartner && <FormField control={periodForm.control} name="alrawdatainSharePercentage" render={({ field }) => (<div className="space-y-1"><Label>حصة شركة الروضتين (%)</Label><div className="relative w-48"><NumericInput value={field.value} onValueChange={(v) => field.onChange(v || 0)} className="pe-7"/><Percent className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4" /></div><p className="h-3"></p></div>)} />}
+                                <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (
+                                    <div className="space-y-1">
+                                        <Label>العملة</Label>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <SelectTrigger><SelectValue placeholder="اختر العملة..." /></SelectTrigger>
+                                            <SelectContent>
+                                                {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                        <p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p>
+                                    </div>
+                                )} />
                             </div>
                         </div>
 
@@ -369,4 +373,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
