@@ -32,7 +32,7 @@ import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
 import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -118,12 +118,11 @@ const ServiceLine = ({ label, icon: Icon, color, countField }: any) => {
 interface AddCompanyToSegmentFormProps {
     onAdd: (data: any) => void;
     allCompanyOptions: { value: string; label: string; settings?: SegmentSettings }[];
-    partnerOptions: { value: string; label: string }[];
     editingEntry?: any;
     onCancelEdit: () => void;
 }
 
-const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
+const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
     const { getValues } = useFormContext<PeriodFormValues>();
     
     const form = useForm<CompanyEntryFormValues>({
@@ -435,7 +434,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                              <div className="p-3 border rounded-lg bg-background/50 space-y-3">
                                 <h3 className="font-semibold text-base">البيانات الرئيسية للفترة</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                                     <FormField control={periodForm.control} name="fromDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>من تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                     <FormField control={periodForm.control} name="toDate" render={({ field, fieldState }) => (<div className="space-y-1"><Label>إلى تاريخ</Label><DateTimePicker date={field.value} setDate={field.onChange} /><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
                                     <FormField control={periodForm.control} name="currency" render={({ field, fieldState }) => (<div className="space-y-1"><Label>العملة</Label><Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select><p className='text-xs text-destructive h-3'>{fieldState.error?.message}</p></div>)} />
@@ -448,7 +447,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                                                 <div className="space-y-0.5">
                                                     <FormLabel className="font-semibold">توزيع حصص الشركاء</FormLabel>
-                                                    <FormDescription className="text-xs">تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.</FormDescription>
+                                                    <FormDescription className="text-xs">
+                                                        تفعيل هذا الخيار سيسمح لك بتوزيع حصة الشركاء من الأرباح.
+                                                    </FormDescription>
                                                 </div>
                                                 <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                             </FormItem>
@@ -529,3 +530,5 @@ const SummaryStat = ({ title, value, currency, className }: { title: string; val
         <p className="font-mono font-bold text-sm">{(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</p>
     </div>
 );
+
+    
