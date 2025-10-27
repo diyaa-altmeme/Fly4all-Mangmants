@@ -127,9 +127,9 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
         cookieStore.set('session', sessionCookie, {
             maxAge: expiresIn / 1000,
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            secure: true, // Always true for SameSite=None
             path: '/',
-            sameSite: 'lax', 
+            sameSite: 'none', 
         });
 
         return { success: true, user: userInDb };
