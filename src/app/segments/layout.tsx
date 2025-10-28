@@ -1,30 +1,53 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, Loader2, RefreshCw, History, GitBranch, Trash2 } from 'lucide-react';
-import type { SegmentEntry, Client, Supplier } from '@/lib/types';
-import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
-import AddSegmentPeriodDialog from './add-segment-period-dialog';
-import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, parseISO } from "date-fns";
-import { cn } from '@/lib/utils';
-import { useVoucherNav } from '@/context/voucher-nav-context';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import Link from 'next/link';
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { ChevronDown, MoreHorizontal, Pencil } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { v4 as uuidv4 } from "uuid";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { useVoucherNav } from "@/context/voucher-nav-context";
+import { NumericInput } from "@/components/ui/numeric-input";
+import { Autocomplete } from "@/components/ui/autocomplete";
+import { addSegmentEntries, deleteSegmentPeriod } from "@/app/segments/actions";
+import {
+  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, Building, User as UserIcon, Wallet, Hash, AlertTriangle, CheckCircle, ArrowRight, X,
+  History
+} from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { useAuth } from '@/lib/auth-context';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Stepper, StepperItem, useStepper } from '@/components/ui/stepper';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown, MoreHorizontal } from 'lucide-react';
 import SegmentDetailsTable from '@/components/segments/segment-details-table';
-import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
+import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog'; 
 import EditSegmentPeriodDialog from './add-segment-period-dialog'; 
 import ProtectedPage from '@/components/auth/protected-page';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog, DialogHeader as DialogHeaderPrimitive, DialogTitle as DialogTitlePrimitive, DialogContent as DialogContentPrimitive } from '@/components/ui/dialog';
+import { Dialog as DialogPrimitive } from '@/components/ui/dialog';
 import { buttonVariants } from '@/components/ui/button';
 
 
@@ -39,11 +62,11 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
 
 const AuditLogDialog = ({ open, onOpenChange, item }: { open: boolean; onOpenChange: (open: boolean) => void; item: any }) => {
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogPrimitive open={open} onOpenChange={onOpenChange}>
             <DialogContentPrimitive className="max-w-4xl">
-                <DialogHeaderPrimitive>
-                    <DialogTitlePrimitive>سجل التعديلات — الفاتورة: {item?.invoiceNumber || "-"}</DialogTitlePrimitive>
-                </DialogHeaderPrimitive>
+                <DialogHeader>
+                    <DialogTitle>سجل التعديلات — الفاتورة: {item?.invoiceNumber || "-"}</DialogTitle>
+                </DialogHeader>
                 <div className="border rounded-md overflow-auto mt-4 max-h-[60vh]">
                     <Table>
                         <TableHeader>
@@ -71,7 +94,7 @@ const AuditLogDialog = ({ open, onOpenChange, item }: { open: boolean; onOpenCha
                     </Table>
                 </div>
             </DialogContentPrimitive>
-        </Dialog>
+        </DialogPrimitive>
     );
 };
 
@@ -84,7 +107,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     const entryUser = period.entries[0]?.enteredBy || 'غير معروف';
     const entryDate = period.entries[0]?.createdAt ? format(parseISO(period.entries[0].createdAt), 'yyyy-MM-dd hh:mm a') : 'N/A';
     
-    const invoiceNumber = period.periodId.substring(0, 8); // Display a shortened period ID as the main "invoice"
+    const invoiceNumber = period.invoiceNumber;
     const periodNotes = period.entries[0]?.notes || '-';
 
     const handleDeletePeriod = async () => {
@@ -206,6 +229,7 @@ function SegmentsContent() {
             if (!acc[periodId]) {
                 acc[periodId] = {
                     periodId: periodId, fromDate: entry.fromDate, toDate: entry.toDate, entries: [],
+                    invoiceNumber: entry.invoiceNumber.split('-')[0] + '-' + entry.invoiceNumber.split('-')[1], // Group by period invoice
                     totalProfit: 0, totalAlrawdatainShare: 0, totalPartnerShare: 0, totalTickets: 0, totalOther: 0,
                     isConfirmed: entry.isConfirmed, type: 'transaction', auditLog: entry.auditLog || [],
                 };
@@ -220,7 +244,7 @@ function SegmentsContent() {
                  acc[periodId].auditLog = [...(acc[periodId].auditLog || []), ...entry.auditLog];
             }
             return acc;
-        }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment', auditLog?: any[] }>);
+        }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], invoiceNumber: string, totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment', auditLog?: any[] }>);
     }, [segments]);
     
     const sortedAndFilteredPeriods = useMemo(() => {
@@ -260,9 +284,7 @@ function SegmentsContent() {
                                 <CardDescription>إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
-                                     <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
-                                </AddSegmentPeriodDialog>
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
                                 <Button onClick={handleSuccess} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث
                                 </Button>
