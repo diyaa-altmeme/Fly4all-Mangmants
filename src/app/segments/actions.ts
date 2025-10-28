@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -96,6 +97,23 @@ export async function addSegmentEntries(
 
             mainBatch.set(segmentDocRef, dataToSave);
             
+            const creditEntries: JournalEntry[] = (entryData.partnerShares || [])
+                .filter(share => share.share > 0)
+                .map(share => ({
+                    accountId: share.partnerId,
+                    amount: share.share,
+                    description: `حصة الشريك ${share.partnerName}`
+                }));
+
+            // Always add the company's share as a credit entry to the revenue account
+            if (entryData.alrawdatainShare > 0) {
+                 creditEntries.push({
+                    accountId: 'revenue_segments', // This is the fixed account for company's segment revenue
+                    amount: entryData.alrawdatainShare,
+                    description: 'حصة الشركة من السكمنت'
+                });
+            }
+
              await postJournalEntry({
                 sourceType: 'segment',
                 sourceId: segmentDocRef.id,
@@ -104,13 +122,8 @@ export async function addSegmentEntries(
                 currency: entryData.currency,
                 date: entryDate,
                 userId: user.uid,
-                debitAccountId: entryData.clientId, // The company owes us this
-                // This is a special case that postJournalEntry doesn't handle natively,
-                // so we will pass multiple credit entries.
-                creditEntries: [
-                    { accountId: entryData.partnerId, amount: entryData.partnerShare, description: `حصة الشريك ${entryData.partnerName}` },
-                    { accountId: 'revenue_segments', amount: entryData.alrawdatainShare, description: 'حصة الشركة من السكمنت' }
-                ],
+                debitAccountId: entryData.clientId, // The company owes us this amount
+                creditEntries: creditEntries, // Pass the combined credit entries
             });
         }
 
