@@ -41,6 +41,7 @@ export default function FinanceControlCenter() {
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const { data: navData, fetchData, loaded: navDataLoaded } = useVoucherNav();
+  const expenseAccountsFromSettings = navData?.settings?.voucherSettings?.expenseAccounts || [];
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -67,11 +68,8 @@ export default function FinanceControlCenter() {
         const accs = flatten(chart);
         setAccounts(accs);
 
-        const settingsSnap = await getDoc(doc(db, "settings", "app"));
-        if (settingsSnap.exists()) {
-          const data = settingsSnap.data();
-          setSettings(data.financeAccountsSettings || {});
-        }
+        const appSettings = navData?.settings || await getSettings();
+        setSettings(appSettings.financeAccounts || {});
       } catch (err: any) {
         console.error("Error loading finance data:", err);
         toast({
@@ -85,7 +83,7 @@ export default function FinanceControlCenter() {
     };
 
     fetchInitialData();
-  }, [toast, navDataLoaded, fetchData]);
+  }, [toast, navData, navDataLoaded, fetchData]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -122,19 +120,20 @@ export default function FinanceControlCenter() {
     }));
   };
 
-  const expenseAccounts = useMemo(() => {
-    const fromSettings = navData?.settings?.voucherSettings?.expenseAccounts || [];
-    return fromSettings.map(acc => ({ ...acc, type: 'expense' } as Account));
-  }, [navData]);
 
-  const filteredAccounts = useMemo(() => ({
-    assets: accounts.filter((a) => a.type === "asset"),
-    liabilities: accounts.filter((a) => a.type === "liability"),
-    income: accounts.filter((a) => a.type === "income"),
-    expense: [...accounts.filter((a) => a.type === "expense"), ...expenseAccounts],
-    cash: accounts.filter((a) => a.name.includes("صندوق") || a.name.includes("cash")),
-    bank: accounts.filter((a) => a.name.includes("بنك") || a.name.includes("bank")),
-  }), [accounts, expenseAccounts]);
+  const filteredAccounts = useMemo(() => {
+    const fromChart = accounts || [];
+    const fromSettings = expenseAccountsFromSettings.map(acc => ({ ...acc, type: 'expense' as const }));
+
+    return {
+        assets: fromChart.filter((a) => a.type === "asset"),
+        liabilities: fromChart.filter((a) => a.type === "liability"),
+        income: fromChart.filter((a) => a.type === "income"),
+        expense: [...fromChart.filter((a) => a.type === "expense"), ...fromSettings],
+        cash: fromChart.filter((a) => a.name.includes("صندوق") || a.name.includes("cash")),
+        bank: fromChart.filter((a) => a.name.includes("بنك") || a.name.includes("bank")),
+    };
+  }, [accounts, expenseAccountsFromSettings]);
 
   if (loading) {
     return (
@@ -260,9 +259,18 @@ function AccountSelect({ label, value, onValueChange, accounts }: AccountSelectP
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger><SelectValue placeholder="اختر حساب..." /></SelectTrigger>
         <SelectContent>
-          {accounts.map((a) => (
-            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-          ))}
+            {accounts.length === 0 ? (
+                <SelectItem value="add_new" disabled>
+                    لا توجد حسابات، يرجى إنشاء حساب أولاً
+                </SelectItem>
+            ) : (
+                accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                ))
+            )}
+             <SelectItem value="add_new_placeholder" className="text-blue-500 font-bold">
+              + إنشاء حساب جديد
+            </SelectItem>
         </SelectContent>
       </Select>
     </div>
