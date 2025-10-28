@@ -1,8 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
-import { v4 as uuidv4 } from "uuid";
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,43 +14,28 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useVoucherNav } from "@/context/voucher-nav-context";
-import { NumericInput } from "@/components/ui/numeric-input";
-import { Autocomplete } from "@/components/ui/autocomplete";
-import { addSegmentEntries, deleteSegmentPeriod } from "@/app/segments/actions";
+import { getSegments, deleteSegmentPeriod } from "@/app/segments/actions";
+import type { Client, Supplier, SegmentEntry } from '@/lib/types';
 import {
-  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, Building, User as UserIcon, Wallet, Hash, AlertTriangle, CheckCircle, ArrowRight, X,
-  History
+  PlusCircle, Trash2, Loader2, History,
+  ChevronDown, Pencil,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
-import { DateTimePicker } from '@/components/ui/datetime-picker';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { useAuth } from '@/lib/auth-context';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Stepper, StepperItem, useStepper } from '@/components/ui/stepper';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, MoreHorizontal } from 'lucide-react';
-import SegmentDetailsTable from '@/components/segments/segment-details-table';
-import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog'; 
-import EditSegmentPeriodDialog from './add-segment-period-dialog'; 
-import ProtectedPage from '@/components/auth/protected-page';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Dialog as DialogPrimitive } from '@/components/ui/dialog';
 import { buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import AddSegmentPeriodDialog from './add-segment-period-dialog';
-
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { MoreHorizontal } from 'lucide-react';
+import SegmentDetailsTable from '@/components/segments/segment-details-table';
+import EditSegmentPeriodDialog from './add-segment-period-dialog'; 
+import ProtectedPage from '@/components/auth/protected-page';
+import AddSegmentPeriodDialog from './add-segment-period-dialog'; 
+import Link from 'next/link';
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
     <div className={cn("text-center p-3 rounded-lg bg-background border", className)}>
@@ -62,56 +46,14 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
     </div>
 );
 
-const AuditLogDialog = ({ open, onOpenChange, item }: { open: boolean; onOpenChange: (open: boolean) => void; item: any }) => {
-    return (
-        <DialogPrimitive open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl">
-                <DialogHeader>
-                    <DialogTitle>سجل التعديلات — الفاتورة: {item?.invoiceNumber || "-"}</DialogTitle>
-                </DialogHeader>
-                <div className="border rounded-md overflow-auto mt-4 max-h-[60vh]">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="text-center">التاريخ</TableHead>
-                                <TableHead className="text-center">الموظف</TableHead>
-                                <TableHead className="text-center">نوع التعديل</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {Array.isArray(item?.auditLog) && item.auditLog.length > 0 ? (
-                                item.auditLog.map((log: any, idx: number) => (
-                                    <TableRow key={idx}>
-                                        <TableCell className="text-center">{log.timestamp ? format(parseISO(log.timestamp), "yyyy-MM-dd HH:mm") : "-"}</TableCell>
-                                        <TableCell className="text-center">{log.userName || "-"}</TableCell>
-                                        <TableCell className="text-center">{log.action || "-"}</TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={3} className="text-center text-muted-foreground">لا يوجد سجل تعديلات</TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-            </DialogContent>
-        </DialogPrimitive>
-    );
-};
-
 
 const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period: any, index: number, onDataChange: () => void, clients: Client[], suppliers: Supplier[] }) => {
     const [isOpen, setIsOpen] = useState(false);
     const { toast } = useToast();
-    const [isAuditOpen, setIsAuditOpen] = useState(false);
-
+    
     const entryUser = period.entries[0]?.enteredBy || 'غير معروف';
     const entryDate = period.entries[0]?.createdAt ? format(parseISO(period.entries[0].createdAt), 'yyyy-MM-dd hh:mm a') : 'N/A';
     
-    const invoiceNumber = period.invoiceNumber;
-    const periodNotes = period.entries[0]?.notes || '-';
-
     const handleDeletePeriod = async () => {
         const { count, error } = await deleteSegmentPeriod(period.periodId);
         if (count > 0 && !error) {
@@ -123,8 +65,6 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     };
     
     return (
-        <>
-        <AuditLogDialog open={isAuditOpen} onOpenChange={setIsAuditOpen} item={period} />
         <Collapsible asChild key={period.periodId} open={isOpen} onOpenChange={setIsOpen}>
              <tbody className={cn("border-t font-bold", period.isConfirmed && "bg-green-500/10")}>
                 <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
@@ -135,11 +75,10 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-center p-2">{invoiceNumber}</TableCell>
-                    <TableCell className="p-2 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
+                    <TableCell className="p-2 text-center">{period.invoiceNumber}</TableCell>
+                    <TableCell className="p-2 text-center">{period.entries.length}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
-                     <TableCell className="p-2 text-xs text-center">{periodNotes}</TableCell>
                     <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{entryDate}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalTickets.toFixed(2)}</TableCell>
@@ -147,14 +86,20 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                     <TableCell className="font-mono text-center text-green-600 p-2">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="p-1 text-center">
-                        <div className="flex items-center justify-center">
-                             <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600"><Pencil className='h-4 w-4'/></Button>
-                            </EditSegmentPeriodDialog>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500" onClick={(e) => { e.stopPropagation(); setIsAuditOpen(true); }}><History className='h-4 w-4'/></Button>
-                            <AlertDialog>
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => e.stopPropagation()}><MoreHorizontal className='h-4 w-4'/></Button></DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                        <Pencil className="me-2 h-4 w-4"/> تعديل
+                                    </DropdownMenuItem>
+                                </EditSegmentPeriodDialog>
+                                <DropdownMenuItem disabled><History className="me-2 h-4 w-4"/> سجل التعديلات</DropdownMenuItem>
+                                <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={e => e.stopPropagation()}><Trash2 className='h-4 w-4'/></Button>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                                        <Trash2 className="me-2 h-4 w-4"/> حذف
+                                    </DropdownMenuItem>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
@@ -165,26 +110,27 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleDeletePeriod} className={cn(buttonVariants({ variant: 'destructive' }))}>نعم، حذف</AlertDialogAction>
+                                        <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleDeletePeriod(); }} className={cn(buttonVariants({ variant: 'destructive' }))}>نعم، حذف</AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
-                        </div>
+
+                            </DropdownMenuContent>
+                         </DropdownMenu>
                     </TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={13} className="p-0">
+                        <TableCell colSpan={12} className="p-0">
                             <div className="p-4 bg-muted/50">
                                 <h4 className="font-bold mb-2">تفاصيل شركات الفترة:</h4>
-                                <SegmentDetailsTable period={period} onDeleteEntry={() => {}} />
+                                <SegmentDetailsTable period={period} />
                             </div>
                         </TableCell>
                     </TableRow>
                 </CollapsibleContent>
             </tbody>
         </Collapsible>
-        </>
     )
 }
 
@@ -233,7 +179,7 @@ function SegmentsContent() {
                     periodId: periodId, fromDate: entry.fromDate, toDate: entry.toDate, entries: [],
                     invoiceNumber: entry.invoiceNumber.split('-')[0] + '-' + entry.invoiceNumber.split('-')[1], // Group by period invoice
                     totalProfit: 0, totalAlrawdatainShare: 0, totalPartnerShare: 0, totalTickets: 0, totalOther: 0,
-                    isConfirmed: entry.isConfirmed, type: 'transaction', auditLog: entry.auditLog || [],
+                    isConfirmed: entry.isConfirmed, type: 'transaction',
                 };
             }
             acc[periodId].entries.push(entry);
@@ -242,11 +188,8 @@ function SegmentsContent() {
             acc[periodId].totalPartnerShare += entry.partnerShare || 0;
             acc[periodId].totalTickets += entry.ticketProfits || 0;
             acc[periodId].totalOther += entry.otherProfits || 0;
-            if(entry.auditLog) {
-                 acc[periodId].auditLog = [...(acc[periodId].auditLog || []), ...entry.auditLog];
-            }
             return acc;
-        }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], invoiceNumber: string, totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment', auditLog?: any[] }>);
+        }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], invoiceNumber: string, totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment' }>);
     }, [segments]);
     
     const sortedAndFilteredPeriods = useMemo(() => {
@@ -286,9 +229,7 @@ function SegmentsContent() {
                                 <CardDescription>إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
-                                    <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة سجل جديد</Button>
-                                </AddSegmentPeriodDialog>
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
                                 <Button onClick={handleSuccess} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث
                                 </Button>
@@ -359,5 +300,3 @@ export default function SegmentsLayout({ children }: { children: React.ReactNode
     </ProtectedPage>
   );
 }
-
-    

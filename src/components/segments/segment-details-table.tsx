@@ -41,16 +41,10 @@ const CalculationDetailsPopover = ({ entry }: { entry: SegmentEntry }) => {
 interface SegmentDetailsTableProps {
   period: {
     entries: SegmentEntry[];
-    totalProfit: number;
-    totalAlrawdatainShare: number;
-    totalPartnerShare: number;
-    totalTickets: number;
-    totalOther: number;
   };
-  onDeleteEntry: (id: string) => void;
 }
 
-export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDetailsTableProps) {
+export default function SegmentDetailsTable({ period }: SegmentDetailsTableProps) {
   const uniqueEntries = period.entries.filter((entry, index, self) =>
     index === self.findIndex((t) => t.id === entry.id)
   );
@@ -60,7 +54,7 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
       <TableHeader>
         <TableRow>
           <TableHead className="p-2">رقم الفاتورة</TableHead>
-          <TableHead className="p-2">الشركة المصدرة</TableHead>
+          <TableHead className="p-2">الشركة</TableHead>
           <TableHead className="p-2">الشركاء</TableHead>
           <TableHead className="text-center p-2">أرباح التذاكر</TableHead>
           <TableHead className="text-center p-2">أرباح أخرى</TableHead>
@@ -96,16 +90,6 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
             )
         })}
       </TableBody>
-       <TableFooter>
-        <TableRow className="bg-muted font-bold">
-          <TableCell colSpan={3} className="p-2">المجموع</TableCell>
-          <TableCell className="text-center font-mono p-2">{formatCurrency(period.totalTickets)}</TableCell>
-          <TableCell className="text-center font-mono p-2">{formatCurrency(period.totalOther)}</TableCell>
-          <TableCell className="text-center font-mono text-green-600 p-2">{formatCurrency(period.totalAlrawdatainShare)}</TableCell>
-          <TableCell className="text-center font-mono text-blue-600 p-2">{formatCurrency(period.totalPartnerShare)}</TableCell>
-          <TableCell className="p-2"></TableCell>
-        </TableRow>
-      </TableFooter>
     </Table>
   );
 }
