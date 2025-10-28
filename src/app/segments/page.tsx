@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -17,10 +18,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { ChevronDown, MoreHorizontal, Pencil } from 'lucide-react';
+import { ChevronDown, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import SegmentDetailsTable from '@/components/segments/segment-details-table';
-import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
-import EditSegmentPeriodDialog from './add-segment-period-dialog'; // Re-using the add dialog for editing
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { buttonVariants } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import EditSegmentPeriodDialog from './add-segment-period-dialog'; 
 import ProtectedPage from '@/components/auth/protected-page';
 
 
@@ -36,10 +39,11 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
 const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period: any, index: number, onDataChange: () => void, clients: Client[], suppliers: Supplier[] }) => {
     const [isOpen, setIsOpen] = useState(false);
     const { toast } = useToast();
+    
     const entryUser = period.entries[0]?.enteredBy || 'غير معروف';
     const entryDate = period.entries[0]?.createdAt ? format(parseISO(period.entries[0].createdAt), 'yyyy-MM-dd hh:mm a') : 'N/A';
     
-    const invoiceNumber = period.entries[0]?.invoiceNumber || 'N/A';
+    const invoiceNumber = period.invoiceNumber || 'N/A';
     const periodNotes = period.entries[0]?.notes || '-';
 
     const handleDeletePeriod = async () => {
@@ -63,20 +67,49 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-center p-2">{invoiceNumber}</TableCell>
+                    <TableCell className="p-2 text-center">{invoiceNumber}</TableCell>
                     <TableCell className="p-2 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
-                     <TableCell className="p-2 text-xs text-center">{periodNotes}</TableCell>
+                    <TableCell className="p-2 text-xs text-center">{periodNotes}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalTickets.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalOther.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-green-600 p-2">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="p-1 text-center">
-                       <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600"><Pencil className='h-4 w-4'/></Button>
-                       </EditSegmentPeriodDialog>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => e.stopPropagation()}><MoreHorizontal className='h-4 w-4'/></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                        <Pencil className="me-2 h-4 w-4"/> تعديل
+                                    </DropdownMenuItem>
+                                </EditSegmentPeriodDialog>
+                                <DropdownMenuItem disabled><History className="me-2 h-4 w-4"/> سجل التعديلات</DropdownMenuItem>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                                            <Trash2 className="me-2 h-4 w-4"/> حذف
+                                        </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                هل أنت متأكد من حذف هذه الفترة؟ سيتم نقلها إلى سجل المحذوفات ويمكن استعادتها لاحقًا.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                            <AlertDialogAction onClick={(e) => { e.stopPropagation(); handleDeletePeriod(); }} className={cn(buttonVariants({ variant: 'destructive' }))}>نعم، حذف</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </DropdownMenuContent>
+                         </DropdownMenu>
                     </TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
@@ -84,7 +117,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                         <TableCell colSpan={13} className="p-0">
                             <div className="p-4 bg-muted/50">
                                 <h4 className="font-bold mb-2">تفاصيل شركات الفترة:</h4>
-                                <SegmentDetailsTable period={period} onDeleteEntry={() => {}} />
+                                <SegmentDetailsTable period={period} />
                             </div>
                         </TableCell>
                     </TableRow>
@@ -124,7 +157,7 @@ function SegmentsContent() {
         if(navDataLoaded) {
             fetchSegmentData();
         }
-    }, [navDataLoaded, fetchSegmentData]);
+    }, [navDataLoaded, fetchData, fetchSegmentData]);
     
     const handleSuccess = useCallback(async () => {
         await fetchSegmentData();
@@ -137,6 +170,7 @@ function SegmentsContent() {
             if (!acc[periodId]) {
                 acc[periodId] = {
                     periodId: periodId, fromDate: entry.fromDate, toDate: entry.toDate, entries: [],
+                    invoiceNumber: entry.invoiceNumber.split('-')[0] + '-' + entry.invoiceNumber.split('-')[1], // Group by period invoice
                     totalProfit: 0, totalAlrawdatainShare: 0, totalPartnerShare: 0, totalTickets: 0, totalOther: 0,
                     isConfirmed: entry.isConfirmed, type: 'transaction',
                 };
@@ -148,7 +182,7 @@ function SegmentsContent() {
             acc[periodId].totalTickets += entry.ticketProfits || 0;
             acc[periodId].totalOther += entry.otherProfits || 0;
             return acc;
-        }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment' }>);
+        }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], invoiceNumber: string, totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment' }>);
     }, [segments]);
     
     const sortedAndFilteredPeriods = useMemo(() => {
@@ -188,7 +222,9 @@ function SegmentsContent() {
                                 <CardDescription>إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
+                                    <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة سجل جديد</Button>
+                                </AddSegmentPeriodDialog>
                                 <Button onClick={handleSuccess} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث
                                 </Button>
@@ -258,3 +294,5 @@ export default function SegmentsPage() {
         </ProtectedPage>
     );
 }
+
+    
