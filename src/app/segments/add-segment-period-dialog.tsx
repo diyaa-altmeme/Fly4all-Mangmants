@@ -1,5 +1,5 @@
 
-      "use client";
+"use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { v4 as uuidv4 } from "uuid";
@@ -40,7 +40,7 @@ import { useAuth } from '@/lib/auth-context';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Stepper, StepperItem, useStepper } from '@/components/ui/stepper';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-
+import { getNextVoucherNumber } from '@/lib/sequences';
 
 const companyEntrySchema = z.object({
   id: z.string(),
@@ -66,11 +66,13 @@ const partnerSchema = z.object({
   id: z.string(),
   partnerId: z.string().min(1, "اختر شريكاً."),
   partnerName: z.string(),
+  partnerInvoiceNumber: z.string(), // New field
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
   amount: z.coerce.number(), // This field is for calculation display, not direct input
 });
 
 const periodSchema = z.object({
+  periodInvoiceNumber: z.string().optional(),
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }).nullable(),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }).nullable(),
   entryDate: z.date({ required_error: "تاريخ الإضافة مطلوب." }),
@@ -149,6 +151,7 @@ interface AddCompanyToSegmentFormProps {
 
 const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
     const { getValues: getPeriodValues } = useFormContext<PeriodFormValues>();
+    const [companyInvoiceNumber, setCompanyInvoiceNumber] = useState('(تلقائي)');
     
     const form = useForm<CompanyEntryFormValues>({
         resolver: zodResolver(companyEntrySchema),
@@ -156,15 +159,28 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     
     const { reset, control, handleSubmit, watch, setValue } = form;
 
+    const generateCompanyInvoiceNumber = useCallback(async () => {
+        const compInv = await getNextVoucherNumber("COMP");
+        setCompanyInvoiceNumber(compInv);
+    }, []);
+
     React.useEffect(() => {
         const defaultValues = { id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage' as const, ticketProfitValue: 50, visaProfitType: 'percentage' as const, visaProfitValue: 100, hotelProfitType: 'percentage' as const, hotelProfitValue: 100, groupProfitType: 'percentage' as const, groupProfitValue: 100 };
         const companySettings = editingEntry?.clientId ? allCompanyOptions.find(c => c.value === editingEntry.clientId)?.settings : {};
         const initialFormValues = { ...defaultValues, ...companySettings, ...(editingEntry || {}) };
         reset(initialFormValues);
-    }, [editingEntry, reset, allCompanyOptions]);
+        if (!editingEntry) {
+            generateCompanyInvoiceNumber();
+        } else {
+            setCompanyInvoiceNumber(editingEntry.companyInvoiceNumber);
+        }
+    }, [editingEntry, reset, allCompanyOptions, generateCompanyInvoiceNumber]);
 
 
-    useImperativeHandle(ref, () => ({ resetForm: () => reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" }) }), [reset]);
+    useImperativeHandle(ref, () => ({ resetForm: () => {
+        reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
+        generateCompanyInvoiceNumber();
+    }}), [reset, generateCompanyInvoiceNumber]);
 
     const watchAll = watch();
     const currentClientId = watch('clientId');
@@ -183,7 +199,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     
     const total = useMemo(() => computeCompanyTotal(watchAll, allCompanyOptions.find(c => c.value === watchAll.clientId)?.settings), [watchAll, allCompanyOptions]);
 
-    const handleAddClick = (data: CompanyEntryFormValues) => {
+    const handleAddClick = async (data: CompanyEntryFormValues) => {
         const { hasPartner, alrawdatainSharePercentage, partners } = getPeriodValues();
         const totalProfitForCompany = computeCompanyTotal(data, allCompanyOptions.find(c => c.value === data.clientId)?.settings);
         
@@ -192,19 +208,29 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             : 0;
 
         const alrawdatainShare = totalProfitForCompany - partnerShareAmount;
+
+        const partnerSharesWithInvoices = await Promise.all(
+            (partners || []).map(async (p) => {
+                const partnerInvoiceNumber = await getNextVoucherNumber("PARTNER");
+                return {
+                    partnerId: p.partnerId,
+                    partnerName: p.partnerName,
+                    partnerInvoiceNumber: partnerInvoiceNumber,
+                    share: partnerShareAmount * (p.percentage / 100)
+                };
+            })
+        );
         
         onAdd({ 
-            ...data, 
+            ...data,
+            companyInvoiceNumber: companyInvoiceNumber, 
             total: totalProfitForCompany,
             alrawdatainShare: alrawdatainShare,
             partnerShare: partnerShareAmount,
-            partnerShares: (partners || []).map(p => ({
-                partnerId: p.partnerId,
-                partnerName: p.partnerName,
-                share: partnerShareAmount * (p.percentage / 100)
-            }))
+            partnerShares: partnerSharesWithInvoices
         });
         reset({ id: uuidv4(), clientId: "", clientName: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
+        generateCompanyInvoiceNumber();
         onCancelEdit();
     };
 
@@ -213,7 +239,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             <div className="space-y-3">
                  <Card className="border rounded-lg shadow-sm border-primary/40">
                     <CardHeader className="p-2 flex flex-row items-center justify-between bg-muted/30">
-                        <CardTitle className="text-base font-semibold">{editingEntry ? 'تعديل بيانات الشركة' : 'إدخال بيانات الشركة'}</CardTitle>
+                        <CardTitle className="text-base font-semibold">{editingEntry ? `تعديل - فاتورة: ${companyInvoiceNumber}` : `إدخال شركة - فاتورة: ${companyInvoiceNumber}`}</CardTitle>
                         <div className='font-mono text-sm text-blue-600 font-bold'>ربح الشركة: {total.toFixed(2)}</div>
                     </CardHeader>
                     <CardContent className="space-y-3 p-3">
@@ -272,9 +298,9 @@ const SummaryList = ({
             <Table>
             <TableHeader className="bg-muted/40">
                 <TableRow>
-                <TableHead className="w-[90px] text-center">رقم الفاتورة</TableHead>
+                <TableHead className="text-center">رقم فاتورة الشركة</TableHead>
                 <TableHead>الشركة المصدرة للسكمنت</TableHead>
-                <TableHead>الشركاء</TableHead>
+                <TableHead>الشركاء (مع أرقام فواتيرهم)</TableHead>
                 <TableHead className="text-center">إجمالي المبلغ</TableHead>
                 <TableHead className="text-center">حصة الروضتين</TableHead>
                 <TableHead className="text-center">حصة الشركاء</TableHead>
@@ -286,40 +312,17 @@ const SummaryList = ({
             <TableBody>
                 {summaryEntries.map((entry: any, index: number) => (
                 <TableRow key={entry.id}>
-                    <TableCell className="text-center font-mono">
-                         <Button variant="link" className="p-0 h-auto" type="button">
-                            {entry.invoiceNumber || "(تلقائي)"}
-                        </Button>
-                    </TableCell>
-                    <TableCell className="font-semibold text-sm">
-                    {entry.clientName || "غير محدد"}
-                    </TableCell>
-
+                    <TableCell className="text-center font-mono">{entry.companyInvoiceNumber || "(تلقائي)"}</TableCell>
+                    <TableCell className="font-semibold text-sm">{entry.clientName || "غير محدد"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                    {entry.partnerShares && entry.partnerShares.length > 0
-                        ? entry.partnerShares
-                            .map(
-                            (p: any) =>
-                                `${p.partnerName} (${Number(p.share).toFixed(2)})`
-                            )
-                            .join("، ")
-                        : "لا يوجد شركاء"}
+                        {entry.partnerShares && entry.partnerShares.length > 0
+                            ? entry.partnerShares.map((p: any) => `${p.partnerName} (${p.partnerInvoiceNumber})`).join("، ")
+                            : "لا يوجد شركاء"}
                     </TableCell>
-
-                    <TableCell className="text-center font-mono">
-                    {Number(entry.total || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-center font-mono text-green-600">
-                    {Number(entry.alrawdatainShare || 0).toFixed(2)}
-                    </TableCell>
-                    <TableCell className="text-center font-mono text-blue-600">
-                    {Number(entry.partnerShare || 0).toFixed(2)}
-                    </TableCell>
-
-                    <TableCell className="text-center text-sm">
-                    {currentUser?.name || 'غير محدد'}
-                    </TableCell>
-
+                    <TableCell className="text-center font-mono">{Number(entry.total || 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-mono text-green-600">{Number(entry.alrawdatainShare || 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-center font-mono text-blue-600">{Number(entry.partnerShare || 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-center text-sm">{currentUser?.name || 'غير محدد'}</TableCell>
                     <TableCell className="text-center space-x-1 rtl:space-x-reverse">
                     <Button
                         type="button"
@@ -411,6 +414,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
     useEffect(() => {
         if (open) {
              const defaultValues = {
+                periodInvoiceNumber: '(تلقائي)',
                 fromDate: null, toDate: null, entryDate: new Date(), currency: navData?.settings?.currencySettings?.defaultCurrency || 'USD', hasPartner: false,
                 alrawdatainSharePercentage: navData?.settings?.segmentSettings?.alrawdatainSharePercentage || 100, partners: [], summaryEntries: []
             };
@@ -507,6 +511,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                 partnerShares: (data.partners || []).map(p => ({
                     partnerId: p.partnerId,
                     partnerName: p.partnerName,
+                    partnerInvoiceNumber: p.partnerInvoiceNumber,
                     share: (entry.partnerShare * (p.percentage / 100))
                 }))
             }));
@@ -522,7 +527,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
         }
     };
     
-    const handleAddOrUpdatePartner = () => {
+    const handleAddOrUpdatePartner = async () => {
         if(!currentPartnerId || !currentPercentage) {
             toast({ title: "الرجاء تحديد الشريك والنسبة", variant: 'destructive' });
             return;
@@ -550,10 +555,13 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
              return;
         }
 
+        const partnerInvoiceNumber = editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].partnerInvoiceNumber : await getNextVoucherNumber("PARTNER");
+
         const partnerData = {
             id: editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].id : `new-${Date.now()}`,
             partnerId: selectedPartner.value.split('-')[1] || selectedPartner.value,
             partnerName: selectedPartner.label,
+            partnerInvoiceNumber: partnerInvoiceNumber,
             percentage: newPercentage,
             amount: (amountForPartners * newPercentage) / 100
         };
@@ -590,7 +598,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                             <Collapsible defaultOpen={true} className="p-4 border rounded-lg space-y-6 bg-background/50">
                                <CollapsibleTrigger asChild>
-                                  <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</h3>
+                                  <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص - فاتورة عامة: {watchedPeriod.periodInvoiceNumber}</h3>
                                </CollapsibleTrigger>
                                <CollapsibleContent className="space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -620,9 +628,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                                                     <FormLabel className="font-semibold text-base">
                                                         هل يوجد شركاء في الربح؟
                                                     </FormLabel>
-                                                    <FormControl>
-                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                                    </FormControl>
+                                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                                     </FormItem>
                                                 )}
                                                 />
@@ -648,11 +654,12 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                                                 </div>
 
                                                 <div className="border rounded-lg overflow-hidden">
-                                                    <Table><TableHeader className="bg-muted/30"><TableRow><TableHead>الشريك</TableHead><TableHead className="text-center">النسبة</TableHead><TableHead className="w-24 text-center">الإجراءات</TableHead></TableRow></TableHeader>
+                                                    <Table><TableHeader className="bg-muted/30"><TableRow><TableHead>فاتورة الشريك</TableHead><TableHead>الشريك</TableHead><TableHead className="text-center">النسبة</TableHead><TableHead className="w-24 text-center">الإجراءات</TableHead></TableRow></TableHeader>
                                                     <TableBody>
-                                                    {partnerFields.length === 0 ? (<TableRow><TableCell colSpan={3} className="text-center text-muted-foreground py-4">لا يوجد شركاء مضافون بعد</TableCell></TableRow>) :
+                                                    {partnerFields.length === 0 ? (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-4">لا يوجد شركاء مضافون بعد</TableCell></TableRow>) :
                                                     (partnerFields.map((d, index) => (
                                                         <TableRow key={d.id}>
+                                                            <TableCell className="font-mono">{d.partnerInvoiceNumber}</TableCell>
                                                             <TableCell>{d.partnerName}</TableCell>
                                                             <TableCell className="text-center font-mono">{Number(d.percentage).toFixed(2)}%</TableCell>
                                                             <TableCell className="text-center">
