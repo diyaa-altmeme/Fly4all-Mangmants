@@ -352,16 +352,6 @@ const SummaryList = ({
   );
 };
 
-const SummaryStat = ({ title, value, currency, className }: { title: string; value: number; currency: string; className?: string; }) => (
-    <div className={cn("text-center p-2 rounded-lg bg-background border", className)}>
-        <p className="text-xs font-semibold text-muted-foreground">{title}</p>
-        <p className="font-bold font-mono text-sm">
-            {value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-        </p>
-    </div>
-);
-
-
 // Main Dialog Wrapper
 interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; children?: React.ReactNode; }
 
@@ -477,7 +467,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
             if (index > -1) update(index, { ...summaryFields[index], ...entryData, id: summaryFields[index].id });
             setEditingEntry(null);
         } else {
-            append({ ...entryData, id: uuidv4(), createdBy: currentUser?.name, invoiceNumber: `BK-${Date.now()}` });
+            append({ ...entryData, id: uuidv4(), createdBy: currentUser?.name });
         }
         addCompanyFormRef.current?.resetForm();
     };
@@ -554,7 +544,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
 
         const partnerData = {
             id: editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].id : `new-${Date.now()}`,
-            partnerId: selectedPartner.value,
+            partnerId: selectedPartner.value.split('-')[1] || selectedPartner.value,
             partnerName: selectedPartner.label,
             percentage: newPercentage,
             amount: (amountForPartners * newPercentage) / 100
@@ -582,7 +572,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
+            <DialogTrigger asChild>{children}</DialogTrigger>
             <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
@@ -701,3 +691,4 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
     );
 }
 
+    
