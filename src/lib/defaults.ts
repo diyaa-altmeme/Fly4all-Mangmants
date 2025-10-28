@@ -1,6 +1,6 @@
 
 
-import type { AppSettings, RelationSection, LandingPageSettings, CurrencySettings, VoucherSettings, InvoiceSequenceSettings, ImportFieldSettings, ImportLogicSettings, CustomRelationField, SegmentSettings, PartnerShareSetting, FinanceAccountsSettings } from './types';
+import type { AppSettings, RelationSection, LandingPageSettings, CurrencySettings, VoucherSettings, InvoiceSequenceSettings, ImportFieldSettings, ImportLogicSettings, CustomRelationField, SegmentSettings, PartnerShareSetting, FinanceAccountsSettings, CustomRevenueAccountsSettings } from './types';
 import { COUNTRIES_DATA } from './countries-data';
 import { parseISO } from 'date-fns';
 
@@ -186,19 +186,20 @@ const defaultPartnerShareSetting: PartnerShareSetting = {
 };
 
 const defaultFinanceAccountsSettings: FinanceAccountsSettings = {
-  receivableAccountId: '',
-  payableAccountId: '',
-  revenueAccountId: '',
-  expenseAccountId: '',
-  cashAccountId: '',
-  bankAccountId: '',
-  blockDirectCashRevenue: false,
-  revenueMap: {
-      tickets: '',
-      visas: '',
-      subscriptions: '',
-      segments: '',
-  },
+    cashAccountId: "",
+    bankAccountId: "",
+    clientAccountId: "",
+    partnerAccountId: "",
+    revenueAccountId: "",
+    expenseAccountId: "",
+    alrawdatainAccountId: ""
+};
+
+const defaultCustomRevenueAccountsSettings: CustomRevenueAccountsSettings = {
+    ticketsRevenueAccountId: "",
+    visaRevenueAccountId: "",
+    subscriptionsRevenueAccountId: "",
+    segmentsRevenueAccountId: ""
 };
 
 export const defaultSettingsData: AppSettings = {
@@ -237,4 +238,7 @@ export const defaultSettingsData: AppSettings = {
     importLogicSettings: defaultImportLogicSettings,
     relationSections: defaultRelationSections,
     financeAccounts: defaultFinanceAccountsSettings,
+    customRevenueAccounts: defaultCustomRevenueAccountsSettings,
+    preventDirectProfitToCash: true,
 };
+
