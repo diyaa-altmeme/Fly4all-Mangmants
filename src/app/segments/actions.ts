@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -80,8 +81,8 @@ function calculateShares(data: any, clientSettings?: SegmentSettings) {
     const otherProfits = visaProfits + hotelProfits + groupProfits;
     const total = ticketProfits + otherProfits;
     
-    const alrawdatainShare = total * (settings.alrawdatainSharePercentage / 100);
-    const partnerShare = total - alrawdatainShare;
+    const alrawdatainShare = data.hasPartner ? total * (data.alrawdatainSharePercentage / 100) : total;
+    const partnerShare = data.hasPartner ? total - alrawdatainShare : 0;
     
     return { ticketProfits, otherProfits, total, alrawdatainShare, partnerShare };
 }
@@ -130,8 +131,9 @@ export async function addSegmentEntries(
             const dataToSave: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
                 ...calculatedShares, // Use server-calculated shares
-                companyName: client.name, // Ensure correct name is saved
-                partnerName: partner?.name || entryData.partnerName, // Fallback to passed name
+                companyName: client.name,
+                partnerId: entryData.hasPartner && partner ? partner.id : '',
+                partnerName: entryData.hasPartner && partner ? partner.name : '',
                 periodId: periodId,
                 invoiceNumber: segmentInvoiceNumber, 
                 enteredBy: user.name,
@@ -141,17 +143,19 @@ export async function addSegmentEntries(
 
             mainBatch.set(segmentDocRef, dataToSave);
             
-            const creditEntries: JournalEntry[] = (entryData.partnerShares || [])
-                .filter(share => share.share > 0)
-                .map(share => ({
-                    accountId: share.partnerId,
-                    amount: share.share,
-                    description: `حصة الشريك ${share.partnerName}`
-                }));
+             const creditEntries: JournalEntry[] = [];
 
-            // Always add the company's share as a credit entry to the revenue account
+            if (dataToSave.hasPartner && dataToSave.partnerId && dataToSave.partnerShare > 0) {
+                 creditEntries.push({
+                    accountId: dataToSave.partnerId,
+                    amount: dataToSave.partnerShare,
+                    description: `حصة الشريك ${dataToSave.partnerName}`
+                });
+            }
+
             if (dataToSave.alrawdatainShare > 0) {
                  const revenueAccountId = 'revenue_segments';
+                 if(!revenueAccountId) throw new Error("Revenue account for segments is not defined.");
                  creditEntries.push({
                     accountId: revenueAccountId,
                     amount: dataToSave.alrawdatainShare,
@@ -167,19 +171,11 @@ export async function addSegmentEntries(
                 currency: dataToSave.currency,
                 date: entryDate,
                 userId: user.uid,
-                debitAccountId: dataToSave.clientId, // The company owes us this amount
+                debitAccountId: dataToSave.clientId,
                 creditEntries: creditEntries,
             });
-
-            mainBatch.update(db.collection('clients').doc(entryData.clientId), { useCount: FieldValue.increment(1) });
-            if (entryData.partnerId) {
-                mainBatch.update(db.collection('clients').doc(entryData.partnerId), { useCount: FieldValue.increment(1) });
-            }
         }
 
-        // It seems the batch was already committed inside postJournalEntry, which is incorrect.
-        // The commit should happen here, once.
-        // Assuming postJournalEntry is now fixed to not commit a batch.
         await mainBatch.commit();
         
         revalidatePath('/segments');
