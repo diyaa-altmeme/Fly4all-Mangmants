@@ -1,5 +1,5 @@
 
-"use client";
+      "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { v4 as uuidv4 } from "uuid";
@@ -110,6 +110,7 @@ const ServiceLine = ({ label, icon: Icon, color, countField, typeField, valueFie
   const value = watch(valueField);
 
   const result = useMemo(() => computeService(count, type, value), [count, type, value]);
+  const currency = useFormContext<PeriodFormValues>().watch('currency');
 
   return (
     <Card className="shadow-sm overflow-hidden" style={{ borderColor: `hsl(var(--${color}))`}}>
@@ -131,7 +132,7 @@ const ServiceLine = ({ label, icon: Icon, color, countField, typeField, valueFie
                   </Select>
                 </FormItem>
             )}/>
-             <Controller control={control} name={valueField} render={({ field }) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="القيمة" className="h-7 text-xs" />)} />
+             <Controller control={control} name={valueField} render={({ field }) => (<NumericInput currency={currency as Currency} currencyClassName={cn(currency === 'USD' ? 'bg-accent text-accent-foreground' : 'bg-primary text-primary-foreground')} {...field} onValueChange={(v) => field.onChange(v || 0)} placeholder="القيمة" className="h-7 text-xs" />)} />
         </div>
       </CardContent>
     </Card>
@@ -241,6 +242,8 @@ const SummaryList = ({
 }) => {
   const { watch } = useFormContext<PeriodFormValues>();
   const summaryEntries = watch("summaryEntries");
+  const { user: currentUser } = useAuth();
+
 
   if (!summaryEntries || summaryEntries.length === 0) {
     return (
@@ -280,7 +283,7 @@ const SummaryList = ({
                     <TableCell className="text-center font-mono">
                          <Button variant="link" className="p-0 h-auto" type="button">
                             {entry.invoiceNumber || "(تلقائي)"}
-                         </Button>
+                        </Button>
                     </TableCell>
                     <TableCell className="font-semibold text-sm">
                     {entry.clientName || "غير محدد"}
@@ -308,7 +311,7 @@ const SummaryList = ({
                     </TableCell>
 
                     <TableCell className="text-center text-sm">
-                    {entry.createdBy || "غير محدد"}
+                    {currentUser?.name || 'غير محدد'}
                     </TableCell>
 
                     <TableCell className="text-center space-x-1 rtl:space-x-reverse">
@@ -342,7 +345,6 @@ const SummaryList = ({
     </Card>
   );
 };
-
 
 const SummaryStat = ({ title, value, currency, className }: { title: string; value: number; currency: string; className?: string; }) => (
     <div className={cn("text-center p-2 rounded-lg bg-background border", className)}>
@@ -404,14 +406,27 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
 
     useEffect(() => {
         if (open) {
-            resetForm({
-                fromDate: null, toDate: null, entryDate: new Date(), currency: navData?.settings?.currencySettings?.defaultCurrency || 'USD', hasPartner: false,
-                alrawdatainSharePercentage: navData?.settings?.segmentSettings?.alrawdatainSharePercentage || 50, partners: [], summaryEntries: []
-            });
+            if (isEditing && existingPeriod) {
+                resetForm({
+                    fromDate: parseISO(existingPeriod.fromDate),
+                    toDate: parseISO(existingPeriod.toDate),
+                    entryDate: existingPeriod.entries[0]?.entryDate ? parseISO(existingPeriod.entries[0].entryDate) : new Date(),
+                    currency: existingPeriod.entries[0]?.currency || navData?.settings?.currencySettings?.defaultCurrency || 'USD',
+                    hasPartner: existingPeriod.entries[0]?.hasPartner || false,
+                    alrawdatainSharePercentage: existingPeriod.entries[0]?.alrawdatainSharePercentage || 50,
+                    partners: (existingPeriod.entries[0]?.partnerShares || []).map((p: any) => ({ ...p, id: p.partnerId })),
+                    summaryEntries: existingPeriod.entries.map((e: any) => ({ ...e })),
+                });
+            } else {
+                 resetForm({
+                    fromDate: null, toDate: null, entryDate: new Date(), currency: navData?.settings?.currencySettings?.defaultCurrency || 'USD', hasPartner: false,
+                    alrawdatainSharePercentage: navData?.settings?.segmentSettings?.alrawdatainSharePercentage || 50, partners: [], summaryEntries: []
+                });
+            }
             setEditingEntry(null);
             resetSteps();
         }
-    }, [open, resetForm, navData, resetSteps]);
+    }, [open, isEditing, existingPeriod, resetForm, navData, resetSteps]);
     
     const grandTotalProfit = useMemo(() => (summaryFields || []).reduce((sum, e) => sum + (e.total || 0), 0), [summaryFields]);
     
@@ -578,7 +593,21 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                                         <FormField control={periodForm.control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
                                         <FormField control={periodForm.control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
                                         <FormField control={periodForm.control} name="entryDate" render={({ field }) => ( <FormItem><FormLabel>تاريخ الإضافة</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
-                                        <FormField control={periodForm.control} name="currency" render={({ field }) => ( <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select></FormItem> )}/>
+                                        <FormField control={periodForm.control} name="currency" render={({ field }) => ( 
+                                            <FormItem>
+                                                <FormLabel>العملة</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormItem>
+                                        )}/>
                                     </div>
                                     <div className="space-y-5">
                                         <div className="flex items-center justify-between border-b pb-2">
@@ -668,3 +697,5 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
     );
 }
 
+
+    
