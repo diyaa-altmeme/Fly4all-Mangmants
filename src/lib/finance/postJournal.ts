@@ -1,5 +1,4 @@
 
-
 import { getDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getSettings } from "@/app/settings/actions";
@@ -7,18 +6,16 @@ import { getNextVoucherNumber } from "@/lib/sequences";
 import type { JournalVoucher, JournalEntry } from "../types";
 
 interface PostJournalParams {
-  sourceType: string; // booking | visa | subscription | segment
+  sourceType: string;
   sourceId: string;
   description: string;
-  amount: number; // Represents total sale price
+  amount: number;
   currency: string;
   date: Date;
   userId?: string;
-  // Optional params for more complex entries
   debitAccountId?: string;
   creditAccountId?: string;
-  creditEntries?: JournalEntry[]; // For compound credit entries
-  // New optional param for cost
+  creditEntries?: JournalEntry[];
   cost?: number;
   costAccountId?: string;
   revenueAccountId?: string;
@@ -38,7 +35,6 @@ export async function postJournalEntry({
   creditAccountId,
   creditEntries,
   cost,
-  costAccountId,
   revenueAccountId,
   clientId,
   supplierId,
@@ -58,26 +54,25 @@ export async function postJournalEntry({
     currency,
     notes: description,
     createdBy: userId || "system",
-    officer: userId || 'system', // This should be replaced with actual user name later
+    officer: userId || 'system',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     voucherType: `journal_from_${sourceType}`,
     debitEntries: [],
     creditEntries: [],
     isAudited: false,
-    isConfirmed: true, // Auto-confirm system entries
-    originalData: { sourceType, sourceId, amount, cost: cost || 0 }, // Ensure cost is not undefined
+    isConfirmed: true,
+    originalData: { sourceType, sourceId, amount, cost: cost || 0 },
   };
 
   const saleAmount = amount;
   const costAmount = cost || 0;
-  
+
   if (creditEntries && creditEntries.length > 0) {
-    // Special compound entry (like segment profit distribution)
+    // Special compound entry (e.g., segment profit distribution)
     const finalDebitAccount = debitAccountId || clientId || settings.defaultReceivableAccount;
-    if (!finalDebitAccount) {
-      throw new Error("Missing debit account for compound entry.");
-    }
+    if (!finalDebitAccount) throw new Error("Missing debit account for compound entry.");
+    
     // The source company is debited for the full profit amount.
     newVoucher.debitEntries.push({ accountId: finalDebitAccount, amount: saleAmount, description: `دين عن: ${description}` });
     
@@ -85,7 +80,7 @@ export async function postJournalEntry({
     newVoucher.creditEntries.push(...creditEntries);
 
   } else if (costAmount > 0) {
-    // This is a compound entry for Sale, Cost, and Profit
+    // Compound entry for Sale, Cost, and Profit
     const profitAmount = saleAmount - costAmount;
     const finalClientId = clientId || debitAccountId || settings.defaultReceivableAccount;
     const finalSupplierId = supplierId || costAccountId || settings.defaultPayableAccount;
@@ -95,26 +90,21 @@ export async function postJournalEntry({
       throw new Error("Missing default accounts for compound entry in finance settings.");
     }
     
-    // 1. Client owes the full sale amount
     newVoucher.debitEntries.push({ accountId: finalClientId, amount: saleAmount, description: `دين عن: ${description}` });
-    
-    // 2. We owe the supplier the cost amount
     newVoucher.creditEntries.push({ accountId: finalSupplierId, amount: costAmount, description: `تكلفة: ${description}` });
     
-    // 3. We record the profit as revenue
     if (profitAmount > 0) {
-        newVoucher.creditEntries.push({ accountId: finalRevenueAccountId, amount: profitAmount, description: `ربح عن: ${description}` });
+      newVoucher.creditEntries.push({ accountId: finalRevenueAccountId, amount: profitAmount, description: `ربح عن: ${description}` });
     } else if (profitAmount < 0) {
-        // If there's a loss, it's a debit to an expense account
-        newVoucher.debitEntries.push({ accountId: settings.defaultExpenseAccount || 'expense_general', amount: Math.abs(profitAmount), description: `خسارة عن: ${description}` });
+      newVoucher.debitEntries.push({ accountId: settings.defaultExpenseAccount || 'expense_general', amount: Math.abs(profitAmount), description: `خسارة عن: ${description}` });
     }
-
+    
   } else {
     // Simple entry (e.g., receipt, payment, expense)
     const finalDebitAccount = debitAccountId || settings.defaultReceivableAccount;
     const finalCreditAccount = creditAccountId || settings.defaultRevenueAccount;
     
-     if (!finalDebitAccount || !finalCreditAccount) {
+    if (!finalDebitAccount || !finalCreditAccount) {
       throw new Error(`Could not determine debit/credit accounts for sourceType '${sourceType}'. Check finance settings.`);
     }
 
@@ -133,7 +123,6 @@ export async function postJournalEntry({
     });
     throw new Error(`Journal entry is not balanced. Debits: ${totalDebit}, Credits: ${totalCredit}`);
   }
-
 
   await voucherRef.set({
       ...newVoucher,
