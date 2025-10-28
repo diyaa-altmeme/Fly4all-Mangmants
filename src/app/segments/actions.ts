@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -72,7 +71,6 @@ export async function addSegmentEntries(
         const mainBatch = db.batch();
         const periodId = periodIdToReplace || db.collection('temp').doc().id;
         
-
         // If editing, delete old data first
         if (periodIdToReplace) {
             const oldSegmentsSnap = await db.collection('segments').where('periodId', '==', periodIdToReplace).get();
@@ -84,7 +82,7 @@ export async function addSegmentEntries(
 
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
-            const segmentInvoiceNumber = await getNextVoucherNumber('BK');
+            const segmentInvoiceNumber = await getNextVoucherNumber('SEG');
             const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
 
             const dataToSave: Omit<SegmentEntry, 'id'> = {
