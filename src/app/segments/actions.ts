@@ -83,14 +83,15 @@ export async function addSegmentEntries(
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
             const segmentInvoiceNumber = await getNextVoucherNumber('SEG');
-            const entryDate = new Date();
+            const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
+
 
             const dataToSave: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
                 periodId: periodId,
                 invoiceNumber: segmentInvoiceNumber,
                 enteredBy: user.name,
-                createdAt: entryDate.toISOString(),
+                createdAt: new Date().toISOString(),
                 isDeleted: false,
             };
 
