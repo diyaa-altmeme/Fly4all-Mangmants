@@ -102,6 +102,7 @@ export async function addSegmentEntries(
 
             mainBatch.set(segmentDocRef, dataToSave);
             
+            // Post journal to record the profit as a receivable from the client
             await postJournalEntry({
                 sourceType: 'segment',
                 sourceId: segmentDocRef.id,
@@ -111,22 +112,25 @@ export async function addSegmentEntries(
                 date: entryDate,
                 userId: user.uid,
                 clientId: entryData.clientId,
-                cost: 0, // No direct cost for segment profit itself
+                cost: 0, 
             });
 
+            // If there are partners, create separate payment vouchers for their shares
             if (entryData.hasPartner && entryData.partnerShares && entryData.partnerShares.length > 0) {
                 for (const share of entryData.partnerShares) {
-                    await postJournalEntry({
-                        sourceType: 'profit-sharing',
-                        sourceId: segmentDocRef.id,
-                        description: `دفع حصة الشريك ${share.partnerName} من أرباح السكمنت`,
-                        amount: share.share,
-                        currency: entryData.currency,
-                        date: entryDate,
-                        userId: user.uid,
-                        debitAccountId: share.partnerId,
-                        creditAccountId: user.boxId, // Pay from user's box
-                    });
+                    if (share.amount > 0) {
+                         await postJournalEntry({
+                            sourceType: 'profit-sharing',
+                            sourceId: segmentDocRef.id,
+                            description: `دفع حصة الشريك ${share.partnerName} من أرباح السكمنت`,
+                            amount: share.share,
+                            currency: entryData.currency,
+                            date: entryDate,
+                            userId: user.uid,
+                            debitAccountId: share.partnerId,
+                            creditAccountId: user.boxId, // Pay from user's box
+                        });
+                    }
                 }
             }
         }
@@ -230,3 +234,6 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
         return { success: false, error: error.message || "Failed to restore segment period.", count: 0 };
     }
 }
+
+// Dummy functions to satisfy type requirements in other files temporarily
+export async function updateSegmentEntry(entryId: string, data: any) { return { success: false, error: 'Not implemented' }; }
