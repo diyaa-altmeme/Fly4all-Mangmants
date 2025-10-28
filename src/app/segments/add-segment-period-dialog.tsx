@@ -228,7 +228,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingE
 });
 AddCompanyToSegmentForm.displayName = "AddCompanyToSegmentForm";
 
-const SummaryList = ({ onRemove, onEdit }: { onRemove: (index: number) => void, onEdit: (index: number) => void }) => {
+const SummaryList = ({ onRemove, onEdit, remove }: { onRemove: (index: number) => void, onEdit: (index: number) => void, remove: (index: number) => void }) => {
     const { watch } = useFormContext<PeriodFormValues>();
     const summaryEntries = watch("summaryEntries");
 
@@ -293,12 +293,13 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const [editingEntry, setEditingEntry] = useState<any | null>(null);
     const { data: navData, fetchData } = useVoucherNav();
     const { user: currentUser } = useAuth();
-    const { activeStep, goToNextStep, goToPreviousStep, isLastStep, isDisabledStep, resetSteps } = useStepper({
+    
+    const { activeStep, goToNextStep, goToPreviousStep, isLastStep, resetSteps } = useStepper({
         initialStep: 0,
         steps: [
-            { label: "تحديد الفترة وتوزيع الربح" },
-            { label: "إضافة بيانات الشركات" },
-            { label: "توزيع حصص الشركاء" },
+            { label: "الفترة والتوزيع" },
+            { label: "إدخال الشركات" },
+            { label: "الملخص والحفظ" }
         ],
     });
     
@@ -325,12 +326,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             if (r.relationType === 'client') labelPrefix = 'عميل: ';
             else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
             else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
-            return { value: `${r.relationType}-${r.id}`, label: `${labelPrefix}${r.name}` };
+            return { value: r.id, label: `${labelPrefix}${r.name}` };
         });
     }, [clients, suppliers]);
     
     const currencyOptions = useMemo(() => navData?.settings?.currencySettings?.currencies || [], [navData]);
-    const boxName = useMemo(() => (currentUser && 'role' in currentUser && currentUser.boxId) ? navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد' : 'غير محدد', [currentUser, navData?.boxes]);
+    const boxName = useMemo(() => (currentUser && 'boxId' in currentUser && currentUser.boxId) ? navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد' : 'غير محدد', [currentUser, navData?.boxes]);
 
 
     useEffect(() => {
@@ -452,7 +453,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
         const partnerData = {
             id: editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].id : `new-${Date.now()}`,
-            partnerId: selectedPartner.value.split('-')[1] || selectedPartner.value,
+            partnerId: selectedPartner.value,
             partnerName: selectedPartner.label,
             percentage: newPercentage,
             amount: (amountForPartners * newPercentage) / 100
@@ -472,7 +473,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const handleEditPartner = (index: number) => {
         const partnerToEdit = partnerFields[index];
         setEditingPartnerIndex(index);
-        setCurrentPartnerId(partnerOptions.find(p => p.value.endsWith(partnerToEdit.partnerId))?.value || '');
+        setCurrentPartnerId(partnerToEdit.partnerId);
         setCurrentPercentage(partnerToEdit.percentage);
     };
 
@@ -490,28 +491,20 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                             <div className="p-4 border rounded-lg space-y-6 bg-background/50">
                                 <h3 className="font-semibold text-base">الفترة وتوزيع الحصص</h3>
-
-                                {/* تحديد الفترة */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     <FormField control={periodForm.control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
                                     <FormField control={periodForm.control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
                                     <FormField control={periodForm.control} name="currency" render={({ field }) => ( <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></Select></FormItem> )}/>
                                 </div>
-
-                                {/* توزيع الحصص */}
                                 <div className="pt-4 border-t">
-                                     <FormField control={periodForm.control} name="hasPartner" render={({ field }) => (
+                                    <FormField control={periodForm.control} name="hasPartner" render={({ field }) => (
                                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 mb-4">
-                                            <div className="space-y-0.5">
-                                            <FormLabel className="font-semibold">هل يوجد شركاء في الربح؟</FormLabel>
-                                            </div>
-                                            <FormControl>
-                                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                            </FormControl>
+                                            <div className="space-y-0.5"><FormLabel className="font-semibold">هل يوجد شركاء في الربح؟</FormLabel></div>
+                                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                         </FormItem>
                                     )}/>
                                     {watchedPeriod.hasPartner && (
-                                        <>
+                                        <div className="space-y-4">
                                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 border p-2 rounded-md">
                                                 <SummaryStat title="حصة الروضتين" value={alrawdatainSharePercentage} currency="%" />
                                                 <SummaryStat title="المتاح للشركاء" value={availableForPartnersPercentage} currency="%" />
@@ -554,16 +547,16 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                                                     )})}
                                                 </TableBody>
                                             </Table>
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             </div>
     
                             <div className={cn("p-4 border rounded-lg", isDistributionLocked && "opacity-50 pointer-events-none")}>
-                                <h3 className="font-semibold text-base mb-2">الخطوة 2: إضافة بيانات الشركات</h3>
+                                <h3 className="font-semibold text-base mb-2">إضافة بيانات الشركات</h3>
                                 {isDistributionLocked && <div className="text-center text-destructive font-semibold my-2 p-2 bg-destructive/10 rounded-md">يجب أن يكون مجموع نسب الشركاء 100% للمتابعة.</div>}
                                  <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions} />
-                                <div className="mt-4"><SummaryList onRemove={removeEntry} onEdit={handleEditEntry} /></div>
+                                <div className="mt-4"><SummaryList onRemove={removeEntry} onEdit={handleEditEntry} remove={remove} /></div>
                             </div>
                         </div>
                         <DialogFooter className="pt-4 border-t flex-row items-center justify-between sticky bottom-0 bg-background mt-auto">
@@ -587,5 +580,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-```
