@@ -49,6 +49,7 @@ import ProtectedPage from '@/components/auth/protected-page';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog as DialogPrimitive } from '@/components/ui/dialog';
 import { buttonVariants } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
@@ -63,7 +64,7 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
 const AuditLogDialog = ({ open, onOpenChange, item }: { open: boolean; onOpenChange: (open: boolean) => void; item: any }) => {
     return (
         <DialogPrimitive open={open} onOpenChange={onOpenChange}>
-            <DialogContentPrimitive className="max-w-4xl">
+            <DialogContent className="max-w-4xl">
                 <DialogHeader>
                     <DialogTitle>سجل التعديلات — الفاتورة: {item?.invoiceNumber || "-"}</DialogTitle>
                 </DialogHeader>
@@ -93,7 +94,7 @@ const AuditLogDialog = ({ open, onOpenChange, item }: { open: boolean; onOpenCha
                         </TableBody>
                     </Table>
                 </div>
-            </DialogContentPrimitive>
+            </DialogContent>
         </DialogPrimitive>
     );
 };
@@ -138,12 +139,12 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
                      <TableCell className="p-2 text-xs text-center">{periodNotes}</TableCell>
+                    <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{entryDate}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalTickets.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalOther.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-green-600 p-2">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
-                    <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="p-1 text-center">
                         <div className="flex items-center justify-center">
                             <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
@@ -284,7 +285,9 @@ function SegmentsContent() {
                                 <CardDescription>إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
+                                    <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة سجل جديد</Button>
+                                </AddSegmentPeriodDialog>
                                 <Button onClick={handleSuccess} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث
                                 </Button>
@@ -317,12 +320,12 @@ function SegmentsContent() {
                                     <TableHead className="font-bold text-center p-2">من</TableHead>
                                     <TableHead className="font-bold text-center p-2">إلى</TableHead>
                                     <TableHead className="font-bold text-center p-2">الملاحظات</TableHead>
-                                    <TableHead className="text-center font-bold p-2">تاريخ الإضافة</TableHead>
+                                    <TableHead className="font-bold text-center p-2">الموظف</TableHead>
+                                    <TableHead className="font-bold text-center p-2">تاريخ الإضافة</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح التذاكر</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح أخرى</TableHead>
                                     <TableHead className="text-center font-bold p-2">حصة الروضتين</TableHead>
                                     <TableHead className="text-center font-bold p-2">حصة الشريك</TableHead>
-                                    <TableHead className="font-bold text-center p-2">الموظف</TableHead>
                                     <TableHead className="text-center p-2">الإجراءات</TableHead>
                                 </TableRow>
                             </TableHeader>
