@@ -274,7 +274,7 @@ const SummaryList = ({ onRemove, onEdit }: { onRemove: (index: number) => void, 
     );
 };
 
-const SummaryStat = ({ title, value, currency, className }: { title: string; value: number; currency: string; className?: string; }) => (
+const SummaryStat = ({ title, value, currency, className }: { title: string; value: number; currency: Currency; className?: string; }) => (
     <div className={cn("text-center p-2 rounded-lg bg-background border", className)}>
         <p className="text-xs font-semibold text-muted-foreground">{title}</p>
         <p className="font-bold font-mono text-sm">
@@ -305,6 +305,11 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const { fields: summaryFields, append, remove, update } = useFieldArray({ control: periodForm.control, name: "summaryEntries" });
     const { fields: partnerFields, append: appendPartner, remove: removePartner, update: updatePartner } = useFieldArray({ control: periodForm.control, name: "partners" });
     
+    const { activeStep, goToNextStep, goToPreviousStep, isLastStep, resetSteps } = useStepper({
+        initialStep: 0,
+        steps: [{ label: "الفترة" }, { label: "الشركات" }, { label: "الحصص" }, { label: "الحفظ" }],
+    });
+    
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
@@ -324,7 +329,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     }, [clients, suppliers]);
     
     const currencyOptions = useMemo(() => navData?.settings?.currencySettings?.currencies || [], [navData]);
-    const boxName = useMemo(() => (currentUser && 'role' in currentUser && currentUser.boxId) ? navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد' : 'غير محدد', [currentUser, navData?.boxes]);
+    const boxName = useMemo(() => (currentUser && 'boxId' in currentUser && currentUser.boxId) ? navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد' : 'غير محدد', [currentUser, navData?.boxes]);
 
 
     useEffect(() => {
@@ -334,8 +339,9 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 alrawdatainSharePercentage: navData?.settings?.segmentSettings?.alrawdatainSharePercentage || 50, partners: [], summaryEntries: []
             });
             setEditingEntry(null);
+            resetSteps();
         }
-    }, [open, resetForm, navData]);
+    }, [open, resetForm, navData, resetSteps]);
     
     const grandTotalProfit = useMemo(() => (summaryFields || []).reduce((sum, e) => sum + (e.total || 0), 0), [summaryFields]);
     const { totalPartnerPercentage, alrawdatainSharePercentage, availableForPartnersPercentage, remainingForPartnersPercentage, alrawdatainShareAmount, amountForPartners, distributedToPartners, remainderForPartners } = useMemo(() => {
@@ -480,178 +486,196 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </DialogHeader>
                 <FormProvider {...periodForm}>
                     <form onSubmit={handlePeriodSubmit(handleSavePeriod)} className="flex flex-col flex-grow overflow-hidden">
-                        <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
-                            <div className="p-4 border rounded-lg space-y-6 bg-background/50">
-                                <h3 className="font-semibold text-base">الفترة وتوزيع الحصص</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <FormField control={periodForm.control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
-                                    <FormField control={periodForm.control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
-                                    <FormField control={periodForm.control} name="currency" render={({ field }) => ( <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></FormItem> )}/>
-                                </div>
-                                
-                                <div className="space-y-5">
-                                    <div className="flex items-center justify-between border-b pb-2">
-                                        <FormField
-                                        control={periodForm.control}
-                                        name="hasPartner"
-                                        render={({ field }) => (
-                                            <FormItem className="flex items-center gap-3">
-                                            <FormLabel className="font-semibold text-base">
-                                                هل يوجد شركاء في الربح؟
-                                            </FormLabel>
+                       <div className="flex-grow overflow-y-auto px-6 space-y-6 pb-4">
+                           <Collapsible open className="p-4 border rounded-lg space-y-6 bg-background/50">
+                            <CollapsibleTrigger asChild>
+                                 <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</h3>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                                <div className="p-4 border rounded-lg space-y-6 bg-background/50">
+                                  <h3 className="font-semibold text-base">الفترة وتوزيع الحصص</h3>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                      <FormField control={periodForm.control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
+                                      <FormField control={periodForm.control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
+                                      <FormField control={periodForm.control} name="currency" render={({ field }) => (
+                                        <FormItem>
+                                          <FormLabel>العملة</FormLabel>
+                                          <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
-                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                              <SelectTrigger><SelectValue /></SelectTrigger>
                                             </FormControl>
+                                            <SelectContent>
+                                              {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
+                                            </SelectContent>
+                                          </Select>
+                                        </FormItem>
+                                      )}/>
+                                  </div>
+                                  <div className="pt-4 border-t">
+                                    <div className="space-y-5">
+                                      <div className="flex items-center justify-between border-b pb-2">
+                                        <FormField
+                                          control={periodForm.control}
+                                          name="hasPartner"
+                                          render={({ field }) => (
+                                            <FormItem className="flex items-center gap-3">
+                                              <FormLabel className="font-semibold text-base">
+                                                هل يوجد شركاء في الربح؟
+                                              </FormLabel>
+                                              <FormControl>
+                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                              </FormControl>
                                             </FormItem>
-                                        )}
+                                          )}
                                         />
-                                    </div>
+                                      </div>
                                 
-                                    {watchedPeriod.hasPartner && (
+                                      {watchedPeriod.hasPartner && (
                                         <>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                             <SummaryStat
-                                            title="حصة الروضتين"
-                                            value={alrawdatainSharePercentage}
-                                            currency="%"
-                                            className="bg-green-50 text-green-700 border-green-200"
+                                              title="حصة الروضتين"
+                                              value={alrawdatainSharePercentage}
+                                              currency="%"
+                                              className="bg-green-50 text-green-700 border-green-200"
                                             />
                                             <SummaryStat
-                                            title="المتاح للشركاء"
-                                            value={availableForPartnersPercentage}
-                                            currency="%"
-                                            className="bg-blue-50 text-blue-700 border-blue-200"
+                                              title="المتاح للشركاء"
+                                              value={availableForPartnersPercentage}
+                                              currency="%"
+                                              className="bg-blue-50 text-blue-700 border-blue-200"
                                             />
                                             <SummaryStat
-                                            title="الموزع للشركاء"
-                                            value={totalPartnerPercentage}
-                                            currency="%"
-                                            className="bg-amber-50 text-amber-700 border-amber-200"
+                                              title="الموزع للشركاء"
+                                              value={totalPartnerPercentage}
+                                              currency="%"
+                                              className="bg-amber-50 text-amber-700 border-amber-200"
                                             />
                                             <SummaryStat
-                                            title="المتبقي للتوزيع"
-                                            value={100 - totalPartnerPercentage}
-                                            currency="%"
-                                            className={cn(
+                                              title="المتبقي للتوزيع"
+                                              value={100 - totalPartnerPercentage}
+                                              currency="%"
+                                              className={cn(
                                                 "border",
                                                 Math.abs(100 - totalPartnerPercentage) > 0.01
-                                                ? "bg-red-50 text-red-700 border-red-300"
-                                                : "bg-gray-50 text-gray-600 border-gray-200"
-                                            )}
+                                                  ? "bg-red-50 text-red-700 border-red-300"
+                                                  : "bg-gray-50 text-gray-600 border-gray-200"
+                                              )}
                                             />
-                                        </div>
+                                          </div>
                                 
-                                        <div className="p-3 border rounded-lg bg-muted/10 space-y-3">
+                                          <div className="p-3 border rounded-lg bg-muted/10 space-y-3">
                                             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
-                                            <div className="space-y-1.5">
+                                              <div className="space-y-1.5">
                                                 <Label>نسبة الروضتين (%)</Label>
                                                 <Controller
-                                                control={periodForm.control}
-                                                name="alrawdatainSharePercentage"
-                                                render={({ field }) => (
+                                                  control={periodForm.control}
+                                                  name="alrawdatainSharePercentage"
+                                                  render={({ field }) => (
                                                     <NumericInput
-                                                    {...field}
-                                                    onValueChange={(v) => field.onChange(v || 0)}
-                                                    className="h-9 text-center"
+                                                      {...field}
+                                                      onValueChange={v => field.onChange(v || 0)}
+                                                      className="h-9 text-center"
                                                     />
-                                                )}
+                                                  )}
                                                 />
-                                            </div>
+                                              </div>
                                 
-                                            <div className="space-y-1.5">
+                                              <div className="space-y-1.5">
                                                 <Label>الشريك</Label>
                                                 <Autocomplete
-                                                options={partnerOptions}
-                                                value={currentPartnerId}
-                                                onValueChange={setCurrentPartnerId}
-                                                placeholder="اختر الشريك..."
+                                                  options={partnerOptions}
+                                                  value={currentPartnerId}
+                                                  onValueChange={setCurrentPartnerId}
+                                                  placeholder="اختر الشريك..."
                                                 />
-                                            </div>
+                                              </div>
                                 
-                                            <div className="space-y-1.5">
+                                              <div className="space-y-1.5">
                                                 <Label>النسبة (%)</Label>
                                                 <div className="relative">
-                                                <NumericInput
+                                                  <NumericInput
                                                     value={currentPercentage}
                                                     onValueChange={setCurrentPercentage}
                                                     className="h-9 pe-7 text-center"
-                                                />
-                                                <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                  />
+                                                  <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                                 </div>
-                                            </div>
+                                              </div>
                                 
-                                            <Button
+                                              <Button
                                                 type="button"
                                                 onClick={handleAddOrUpdatePartner}
                                                 className="h-9 w-full md:w-auto"
-                                            >
+                                              >
                                                 {editingPartnerIndex !== null ? "تحديث" : "إضافة"}
-                                            </Button>
+                                              </Button>
                                             </div>
                                 
                                             <p className="text-xs text-muted-foreground text-end">
-                                            الحصة المحسوبة:
-                                            <span className="font-bold text-blue-600 font-mono ms-1">
+                                              الحصة المحسوبة:
+                                              <span className="font-bold text-blue-600 font-mono ms-1">
                                                 {partnerSharePreview.toFixed(2)}
-                                            </span>
+                                              </span>
                                             </p>
-                                        </div>
+                                          </div>
                                 
-                                        <div className="border rounded-lg overflow-hidden">
+                                          <div className="border rounded-lg overflow-hidden">
                                             <Table>
-                                            <TableHeader className="bg-muted/30">
+                                              <TableHeader className="bg-muted/30">
                                                 <TableRow>
-                                                <TableHead>الشريك</TableHead>
-                                                <TableHead className="text-center">النسبة</TableHead>
-                                                <TableHead className="w-24 text-center">الإجراءات</TableHead>
+                                                  <TableHead>الشريك</TableHead>
+                                                  <TableHead className="text-center">النسبة</TableHead>
+                                                  <TableHead className="w-24 text-center">الإجراءات</TableHead>
                                                 </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
+                                              </TableHeader>
+                                              <TableBody>
                                                 {partnerFields.length === 0 ? (
-                                                <TableRow>
+                                                  <TableRow>
                                                     <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
-                                                    لا يوجد شركاء مضافون بعد
+                                                      لا يوجد شركاء مضافون بعد
                                                     </TableCell>
-                                                </TableRow>
+                                                  </TableRow>
                                                 ) : (
-                                                partnerFields.map((d, index) => (
+                                                  partnerFields.map((d, index) => (
                                                     <TableRow key={d.id}>
-                                                    <TableCell>{d.partnerName}</TableCell>
-                                                    <TableCell className="text-center font-mono">
+                                                      <TableCell>{d.partnerName}</TableCell>
+                                                      <TableCell className="text-center font-mono">
                                                         {Number(d.percentage).toFixed(2)}%
-                                                    </TableCell>
-                                                    <TableCell className="text-center">
+                                                      </TableCell>
+                                                      <TableCell className="text-center">
                                                         <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-blue-600"
-                                                        onClick={() => handleEditPartner(index)}
+                                                          type="button"
+                                                          variant="ghost"
+                                                          size="icon"
+                                                          className="h-8 w-8 text-blue-600"
+                                                          onClick={() => handleEditPartner(index)}
                                                         >
-                                                        <Pencil className="h-4 w-4" />
+                                                          <Pencil className="h-4 w-4" />
                                                         </Button>
                                                         <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-destructive"
-                                                        onClick={() => removePartner(index)}
+                                                          type="button"
+                                                          variant="ghost"
+                                                          size="icon"
+                                                          className="h-8 w-8 text-destructive"
+                                                          onClick={() => removePartner(index)}
                                                         >
-                                                        <Trash2 className="h-4 w-4" />
+                                                          <Trash2 className="h-4 w-4" />
                                                         </Button>
-                                                    </TableCell>
+                                                      </TableCell>
                                                     </TableRow>
-                                                ))
+                                                  ))
                                                 )}
-                                            </TableBody>
+                                              </TableBody>
                                             </Table>
-                                        </div>
+                                          </div>
                                         </>
-                                    )}
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-
-                            </div>
-    
+                            </CollapsibleContent>
+                           </Collapsible>
                             <div className={cn("p-4 border rounded-lg", isDistributionLocked && "opacity-50 pointer-events-none")}>
                                 <h3 className="font-semibold text-base mb-2">إضافة بيانات الشركات</h3>
                                 {isDistributionLocked && <div className="text-center text-destructive font-semibold my-2 p-2 bg-destructive/10 rounded-md">يجب أن يكون مجموع نسب الشركاء 100% للمتابعة.</div>}
@@ -680,5 +704,3 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
-
-    
