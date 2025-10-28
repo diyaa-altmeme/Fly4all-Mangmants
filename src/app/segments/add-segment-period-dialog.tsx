@@ -352,6 +352,14 @@ const SummaryList = ({
   );
 };
 
+const SummaryStat = ({ title, value, currency, className }: { title: string; value: number; currency: Currency; className?: string; }) => (
+    <div className={cn("p-2 rounded-lg text-center border", className)}>
+        <p className="text-xs font-semibold text-muted-foreground">{title}</p>
+        <p className="font-mono font-bold text-lg">{value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}</p>
+    </div>
+);
+
+
 // Main Dialog Wrapper
 interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; children?: React.ReactNode; }
 
@@ -585,10 +593,10 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                                   <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</h3>
                                </CollapsibleTrigger>
                                <CollapsibleContent className="space-y-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         <FormField control={periodForm.control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
                                         <FormField control={periodForm.control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
-                                        <FormField control={periodForm.control} name="entryDate" render={({ field }) => ( <FormItem><FormLabel>تاريخ الإضافة</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
+                                         <FormField control={periodForm.control} name="entryDate" render={({ field }) => ( <FormItem><FormLabel>تاريخ الإضافة</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
                                         <FormField control={periodForm.control} name="currency" render={({ field }) => ( 
                                             <FormItem>
                                                 <FormLabel>العملة</FormLabel>
@@ -690,5 +698,3 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
         </Dialog>
     );
 }
-
-    
