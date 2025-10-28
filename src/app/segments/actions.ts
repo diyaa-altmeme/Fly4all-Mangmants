@@ -60,7 +60,7 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
 }
 
 export async function addSegmentEntries(
-    entries: Omit<SegmentEntry, 'id'>[],
+    entries: Omit<SegmentEntry, 'id' | 'invoiceNumber'>[],
     periodIdToReplace?: string
 ): Promise<{ success: boolean; error?: string; newEntries?: SegmentEntry[] }> {
     const db = await getDb();
@@ -70,6 +70,9 @@ export async function addSegmentEntries(
         const user = await checkSegmentPermission();
         const mainBatch = db.batch();
         const periodId = periodIdToReplace || db.collection('temp').doc().id;
+        
+        const mainInvoiceNumber = await getNextVoucherNumber('SEG');
+
 
         // If editing, delete old data first
         if (periodIdToReplace) {
@@ -82,14 +85,13 @@ export async function addSegmentEntries(
 
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
-            const segmentInvoiceNumber = await getNextVoucherNumber('SEG');
+            const segmentInvoiceNumber = await getNextVoucherNumber('BK');
             const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
-
 
             const dataToSave: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
                 periodId: periodId,
-                invoiceNumber: segmentInvoiceNumber,
+                invoiceNumber: segmentInvoiceNumber, // Each entry gets a unique invoice number
                 enteredBy: user.name,
                 createdAt: new Date().toISOString(),
                 isDeleted: false,
@@ -97,7 +99,6 @@ export async function addSegmentEntries(
 
             mainBatch.set(segmentDocRef, dataToSave);
             
-            // 1. Client (issuing company) owes the company the full profit
             await postJournalEntry({
                 sourceType: 'segment',
                 sourceId: segmentDocRef.id,
@@ -106,11 +107,11 @@ export async function addSegmentEntries(
                 currency: entryData.currency,
                 date: entryDate,
                 userId: user.uid,
-                clientId: entryData.clientId, // The company is the client in this context
+                clientId: entryData.clientId,
+                cost: 0, // No direct cost for segment profit itself
             });
 
-            // 2. Pay out partner shares from the company's box
-            if (entryData.partnerShares && entryData.partnerShares.length > 0) {
+            if (entryData.hasPartner && entryData.partnerShares && entryData.partnerShares.length > 0) {
                 for (const share of entryData.partnerShares) {
                     await postJournalEntry({
                         sourceType: 'profit-sharing',
@@ -121,7 +122,7 @@ export async function addSegmentEntries(
                         date: entryDate,
                         userId: user.uid,
                         debitAccountId: share.partnerId,
-                        creditAccountId: user.boxId,
+                        creditAccountId: user.boxId, // Pay from user's box
                     });
                 }
             }
@@ -149,7 +150,7 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
         if (snapshot.empty) return { success: true, count: 0 };
 
         const batch = db.batch();
-        const invoiceNumbers = new Set(snapshot.docs.map(doc => doc.data().invoiceNumber).filter(Boolean));
+        const segmentIds = snapshot.docs.map(doc => doc.id);
 
         snapshot.docs.forEach(doc => {
             if (permanent) {
@@ -159,15 +160,19 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
             }
         });
         
-        if (invoiceNumbers.size > 0) {
-            const voucherSnapshot = await db.collection('journal-vouchers').where('invoiceNumber', 'in', Array.from(invoiceNumbers)).get();
-            voucherSnapshot.forEach(doc => {
-                 if (permanent) {
-                    batch.delete(doc.ref);
-                } else {
-                    batch.update(doc.ref, { isDeleted: true, deletedAt: new Date().toISOString() });
-                }
-            });
+        if (segmentIds.length > 0) {
+            // Firestore 'in' queries are limited to 30 items
+            for (let i = 0; i < segmentIds.length; i += 30) {
+                const chunk = segmentIds.slice(i, i + 30);
+                const voucherSnapshot = await db.collection('journal-vouchers').where('sourceId', 'in', chunk).get();
+                voucherSnapshot.forEach(doc => {
+                    if (permanent) {
+                        batch.delete(doc.ref);
+                    } else {
+                        batch.update(doc.ref, { isDeleted: true, deletedAt: new Date().toISOString() });
+                    }
+                });
+            }
         }
 
         await batch.commit();
@@ -195,17 +200,20 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
         if (snapshot.empty) return { success: true, count: 0 };
 
         const batch = db.batch();
-        const invoiceNumbers = new Set(snapshot.docs.map(doc => doc.data().invoiceNumber).filter(Boolean));
+        const segmentIds = snapshot.docs.map(doc => doc.id);
 
         snapshot.docs.forEach(doc => {
             batch.update(doc.ref, { isDeleted: false, deletedAt: FieldValue.delete() });
         });
 
-        if (invoiceNumbers.size > 0) {
-            const voucherSnapshot = await db.collection('journal-vouchers').where('invoiceNumber', 'in', Array.from(invoiceNumbers)).get();
-            voucherSnapshot.forEach(doc => {
-                batch.update(doc.ref, { isDeleted: false, deletedAt: FieldValue.delete() });
-            });
+        if (segmentIds.length > 0) {
+             for (let i = 0; i < segmentIds.length; i += 30) {
+                const chunk = segmentIds.slice(i, i + 30);
+                const voucherSnapshot = await db.collection('journal-vouchers').where('sourceId', 'in', chunk).get();
+                voucherSnapshot.forEach(doc => {
+                    batch.update(doc.ref, { isDeleted: false, deletedAt: FieldValue.delete() });
+                });
+            }
         }
 
         await batch.commit();
