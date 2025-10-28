@@ -42,10 +42,10 @@ export async function postJournalEntry({
 }: PostJournalParams): Promise<string> {
   const db = await getDb();
 
-  const settingsDoc = await db.collection("settings").doc("app").get();
+  const settingsDoc = await db.collection("settings").doc("app_settings").get();
   const settings = settingsDoc.data()?.financeAccounts;
   if (!settings) {
-    throw new Error("Finance settings (financeAccounts) not found in settings/app document!");
+    throw new Error("Finance settings (financeAccounts) not found in settings/app_settings document!");
   }
 
   const voucherRef = db.collection("journal-vouchers").doc();
