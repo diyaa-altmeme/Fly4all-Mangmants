@@ -59,8 +59,9 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="p-2">الشركة</TableHead>
-          <TableHead className="p-2">الشريك</TableHead>
+          <TableHead className="p-2">رقم الفاتورة</TableHead>
+          <TableHead className="p-2">الشركة المصدرة</TableHead>
+          <TableHead className="p-2">الشركاء</TableHead>
           <TableHead className="text-center p-2">أرباح التذاكر</TableHead>
           <TableHead className="text-center p-2">أرباح أخرى</TableHead>
           <TableHead className="text-center p-2">حصة الروضتين</TableHead>
@@ -72,11 +73,12 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
         {uniqueEntries.map((entry) => {
             return (
               <TableRow key={entry.id}>
+                <TableCell className="font-mono text-xs p-2">{entry.invoiceNumber}</TableCell>
                 <TableCell className="font-semibold p-2">{entry.companyName}</TableCell>
                 <TableCell className="p-2">
                    <div className="flex flex-col gap-1">
                       {(entry.partnerShares || []).map((share, i) => (
-                          <Badge key={i} variant="secondary" className="justify-between">
+                          <Badge key={i} variant="secondary" className="justify-between text-xs">
                             <span>{share.partnerName}</span>
                             <span className="font-mono">{formatCurrency(share.share, entry.currency)}</span>
                           </Badge>
@@ -96,7 +98,7 @@ export default function SegmentDetailsTable({ period, onDeleteEntry }: SegmentDe
       </TableBody>
        <TableFooter>
         <TableRow className="bg-muted font-bold">
-          <TableCell colSpan={2} className="p-2">المجموع</TableCell>
+          <TableCell colSpan={3} className="p-2">المجموع</TableCell>
           <TableCell className="text-center font-mono p-2">{formatCurrency(period.totalTickets)}</TableCell>
           <TableCell className="text-center font-mono p-2">{formatCurrency(period.totalOther)}</TableCell>
           <TableCell className="text-center font-mono text-green-600 p-2">{formatCurrency(period.totalAlrawdatainShare)}</TableCell>
