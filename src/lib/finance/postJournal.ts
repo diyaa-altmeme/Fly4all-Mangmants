@@ -1,4 +1,5 @@
 
+
 import { getDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getSettings } from "@/app/settings/actions";
@@ -68,15 +69,17 @@ export async function postJournalEntry({
   const saleAmount = amount;
   const costAmount = cost || 0;
 
-  if (creditEntries && creditEntries.length > 0) {
-    // Special compound entry (e.g., segment profit distribution)
+  if (sourceType === 'segment' && creditEntries) {
+    // Special handling for segment entries
     const finalDebitAccount = debitAccountId || clientId || settings.defaultReceivableAccount;
-    if (!finalDebitAccount) throw new Error("Missing debit account for compound entry.");
-    
-    // The source company is debited for the full profit amount.
+    if (!finalDebitAccount) throw new Error("Missing debit account for segment entry.");
+
+    const finalRevenueAccount = revenueAccountId || 'revenue_segments';
+    if(!finalRevenueAccount) throw new Error("Segment revenue account is not defined.");
+
     newVoucher.debitEntries.push({ accountId: finalDebitAccount, amount: saleAmount, description: `دين عن: ${description}` });
     
-    // The partners and the company's share are credited.
+    // Spread the passed credit entries (partner shares)
     newVoucher.creditEntries.push(...creditEntries);
 
   } else if (costAmount > 0) {
