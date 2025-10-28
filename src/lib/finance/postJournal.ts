@@ -4,7 +4,7 @@ import { getDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getSettings } from "@/app/settings/actions";
 import { getNextVoucherNumber } from "@/lib/sequences";
-import type { JournalVoucher } from "../types";
+import type { JournalVoucher, JournalEntry } from "../types";
 
 interface PostJournalParams {
   sourceType: string; // booking | visa | subscription | segment
@@ -17,6 +17,7 @@ interface PostJournalParams {
   // Optional params for more complex entries
   debitAccountId?: string;
   creditAccountId?: string;
+  creditEntries?: JournalEntry[]; // For compound credit entries
   // New optional param for cost
   cost?: number;
   costAccountId?: string;
@@ -35,6 +36,7 @@ export async function postJournalEntry({
   userId,
   debitAccountId,
   creditAccountId,
+  creditEntries,
   cost,
   costAccountId,
   revenueAccountId,
@@ -70,8 +72,17 @@ export async function postJournalEntry({
   const saleAmount = amount;
   const costAmount = cost || 0;
   const profitAmount = saleAmount - costAmount;
+  
+  if (creditEntries && creditEntries.length > 0) {
+    // Special compound entry (like segment profit distribution)
+    const finalDebitAccount = debitAccountId || clientId || settings.defaultReceivableAccount;
+    if (!finalDebitAccount) {
+      throw new Error("Missing debit account for compound entry.");
+    }
+    newVoucher.debitEntries.push({ accountId: finalDebitAccount, amount: saleAmount, description: `دين عن: ${description}` });
+    newVoucher.creditEntries.push(...creditEntries);
 
-  if (costAmount > 0 && profitAmount > 0) {
+  } else if (costAmount > 0 && profitAmount > 0) {
     // This is a compound entry for Sale, Cost, and Profit
     const finalClientId = clientId || debitAccountId || settings.defaultReceivableAccount;
     const finalSupplierId = supplierId || costAccountId || settings.defaultPayableAccount;
@@ -107,6 +118,11 @@ export async function postJournalEntry({
   const totalDebit = newVoucher.debitEntries.reduce((sum, e) => sum + e.amount, 0);
   const totalCredit = newVoucher.creditEntries.reduce((sum, e) => sum + e.amount, 0);
   if (Math.abs(totalDebit - totalCredit) > 0.01) {
+    console.error("Journal Entry Imbalance Details:", {
+        debits: newVoucher.debitEntries,
+        credits: newVoucher.creditEntries,
+        totalDebit, totalCredit
+    });
     throw new Error(`Journal entry is not balanced. Debits: ${totalDebit}, Credits: ${totalCredit}`);
   }
 
@@ -120,4 +136,3 @@ export async function postJournalEntry({
   console.log(`✅ Posted journal for ${sourceType} (${sourceId}) amount: ${amount}`);
   return voucherRef.id;
 }
-

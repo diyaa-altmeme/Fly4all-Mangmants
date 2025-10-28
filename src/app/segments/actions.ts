@@ -61,7 +61,7 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
 }
 
 export async function addSegmentEntries(
-    entries: Omit<SegmentEntry, 'id' | 'invoiceNumber'>[],
+    entries: Omit<SegmentEntry, 'id'>[],
     periodIdToReplace?: string
 ): Promise<{ success: boolean; error?: string; newEntries?: SegmentEntry[] }> {
     const db = await getDb();
@@ -72,9 +72,6 @@ export async function addSegmentEntries(
         const mainBatch = db.batch();
         const periodId = periodIdToReplace || db.collection('temp').doc().id;
         
-        // This is now the main invoice number for the whole period.
-        const mainInvoiceNumber = await getNextVoucherNumber('SEG');
-
 
         // If editing, delete old data first
         if (periodIdToReplace) {
@@ -87,14 +84,13 @@ export async function addSegmentEntries(
 
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
-            // Each individual entry now gets its own invoice number
             const segmentInvoiceNumber = await getNextVoucherNumber('BK');
             const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
 
             const dataToSave: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
                 periodId: periodId,
-                invoiceNumber: segmentInvoiceNumber, // Each entry gets a unique invoice number
+                invoiceNumber: segmentInvoiceNumber, 
                 enteredBy: user.name,
                 createdAt: new Date().toISOString(),
                 isDeleted: false,
@@ -102,37 +98,22 @@ export async function addSegmentEntries(
 
             mainBatch.set(segmentDocRef, dataToSave);
             
-            // Post journal to record the profit as a receivable from the client
-            await postJournalEntry({
+             await postJournalEntry({
                 sourceType: 'segment',
                 sourceId: segmentDocRef.id,
                 description: `ربح سكمنت من ${entryData.companyName} للفترة من ${entryData.fromDate} إلى ${entryData.toDate}`,
-                amount: entryData.total,
+                amount: entryData.total, // The full profit amount
                 currency: entryData.currency,
                 date: entryDate,
                 userId: user.uid,
-                clientId: entryData.clientId,
-                cost: 0, 
+                debitAccountId: entryData.clientId, // The company owes us this
+                // This is a special case that postJournalEntry doesn't handle natively,
+                // so we will pass multiple credit entries.
+                creditEntries: [
+                    { accountId: entryData.partnerId, amount: entryData.partnerShare, description: `حصة الشريك ${entryData.partnerName}` },
+                    { accountId: 'revenue_segments', amount: entryData.alrawdatainShare, description: 'حصة الشركة من السكمنت' }
+                ],
             });
-
-            // If there are partners, create separate payment vouchers for their shares
-            if (entryData.hasPartner && entryData.partnerShares && entryData.partnerShares.length > 0) {
-                for (const share of entryData.partnerShares) {
-                    if (share.amount > 0) {
-                         await postJournalEntry({
-                            sourceType: 'profit-sharing',
-                            sourceId: segmentDocRef.id,
-                            description: `دفع حصة الشريك ${share.partnerName} من أرباح السكمنت`,
-                            amount: share.share,
-                            currency: entryData.currency,
-                            date: entryDate,
-                            userId: user.uid,
-                            debitAccountId: share.partnerId,
-                            creditAccountId: user.boxId, // Pay from user's box
-                        });
-                    }
-                }
-            }
         }
 
         await mainBatch.commit();

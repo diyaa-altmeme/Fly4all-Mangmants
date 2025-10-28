@@ -1,4 +1,5 @@
 
+
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
@@ -356,9 +357,11 @@ export type TreeNode = {
 // Updated SegmentEntry
 export type SegmentEntry = {
   id: string;
+  periodId: string;
   invoiceNumber: string;
   fromDate: string;
   toDate: string;
+  entryDate: string; // The date this entry was added
   companyName: string;
   clientId: string;
   partnerId: string;
