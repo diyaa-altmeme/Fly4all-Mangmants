@@ -69,7 +69,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
                      <TableCell className="p-2 text-xs text-center">{periodNotes}</TableCell>
-                     <TableCell className="font-mono text-center text-xs p-2">{entryDate}</TableCell>
+                    <TableCell className="font-mono text-center text-xs p-2">{entryDate}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalTickets.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalOther.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-green-600 p-2">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
@@ -261,5 +261,3 @@ export default function SegmentsPage() {
     </ProtectedPage>
   );
 }
-
-    
