@@ -1,6 +1,6 @@
 
 
-import type { AppSettings, RelationSection, LandingPageSettings, CurrencySettings, VoucherSettings, InvoiceSequenceSettings, ImportFieldSettings, ImportLogicSettings, CustomRelationField, SegmentSettings, PartnerShareSetting } from './types';
+import type { AppSettings, RelationSection, LandingPageSettings, CurrencySettings, VoucherSettings, InvoiceSequenceSettings, ImportFieldSettings, ImportLogicSettings, CustomRelationField, SegmentSettings, PartnerShareSetting, FinanceAccountsSettings } from './types';
 import { COUNTRIES_DATA } from './countries-data';
 import { parseISO } from 'date-fns';
 
@@ -169,15 +169,36 @@ const defaultCurrencySettings: CurrencySettings = {
 };
 
 const defaultSegmentSettings: SegmentSettings = {
-  tickets: { type: 'fixed', value: 1 },
-  visas: { type: 'fixed', value: 1 },
-  hotels: { type: 'fixed', value: 1 },
-  groups: { type: 'fixed', value: 1 },
+  ticketProfitType: 'percentage',
+  ticketProfitValue: 50,
+  visaProfitType: 'percentage',
+  visaProfitValue: 100,
+  hotelProfitType: 'percentage',
+  hotelProfitValue: 100,
+  groupProfitType: 'percentage',
+  groupProfitValue: 100,
+  alrawdatainSharePercentage: 50,
 };
 
 const defaultPartnerShareSetting: PartnerShareSetting = {
   type: 'percentage',
   value: 50,
+};
+
+const defaultFinanceAccountsSettings: FinanceAccountsSettings = {
+  receivableAccountId: '',
+  payableAccountId: '',
+  revenueAccountId: '',
+  expenseAccountId: '',
+  cashAccountId: '',
+  bankAccountId: '',
+  blockDirectCashRevenue: false,
+  revenueMap: {
+      tickets: '',
+      visas: '',
+      subscriptions: '',
+      segments: '',
+  },
 };
 
 export const defaultSettingsData: AppSettings = {
@@ -215,4 +236,5 @@ export const defaultSettingsData: AppSettings = {
     importFieldsSettings: defaultImportFieldsSettings,
     importLogicSettings: defaultImportLogicSettings,
     relationSections: defaultRelationSections,
+    financeAccounts: defaultFinanceAccountsSettings,
 };
