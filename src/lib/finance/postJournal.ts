@@ -73,10 +73,7 @@ export async function postJournalEntry({
     // Special handling for segment entries
     const finalDebitAccount = debitAccountId || clientId || settings.defaultReceivableAccount;
     if (!finalDebitAccount) throw new Error("Missing debit account for segment entry.");
-
-    const finalRevenueAccount = revenueAccountId || 'revenue_segments';
-    if(!finalRevenueAccount) throw new Error("Segment revenue account is not defined.");
-
+    
     newVoucher.debitEntries.push({ accountId: finalDebitAccount, amount: saleAmount, description: `دين عن: ${description}` });
     
     // Spread the passed credit entries (partner shares)
