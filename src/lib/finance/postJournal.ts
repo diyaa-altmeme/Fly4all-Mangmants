@@ -42,9 +42,10 @@ export async function postJournalEntry({
 }: PostJournalParams): Promise<string> {
   const db = await getDb();
 
-  const settingsDoc = await db.collection("settings").doc("app_settings").get();
-  const settings = settingsDoc.data()?.financeAccounts;
-  if (!settings) {
+  const appSettings = await getSettings();
+  const financeSettings = appSettings.financeAccounts;
+
+  if (!financeSettings) {
     throw new Error("Finance settings (financeAccounts) not found in settings/app_settings document!");
   }
 
@@ -71,7 +72,7 @@ export async function postJournalEntry({
 
   if (sourceType === 'segment' && creditEntries) {
     // Special handling for segment entries
-    const finalDebitAccount = debitAccountId || clientId || settings.defaultReceivableAccount;
+    const finalDebitAccount = debitAccountId || clientId || financeSettings.defaultReceivableAccount;
     if (!finalDebitAccount) throw new Error("Missing debit account for segment entry.");
     
     newVoucher.debitEntries.push({ accountId: finalDebitAccount, amount: saleAmount, description: `دين عن: ${description}` });
@@ -82,13 +83,13 @@ export async function postJournalEntry({
   } else if (costAmount > 0) {
     // Compound entry for Sale, Cost, and Profit
     const profitAmount = saleAmount - costAmount;
-    const finalClientId = clientId || debitAccountId || settings.defaultReceivableAccount;
-    const finalSupplierId = supplierId || costAccountId || settings.defaultPayableAccount;
+    const finalClientId = clientId || debitAccountId || financeSettings.defaultReceivableAccount;
+    const finalSupplierId = supplierId || costAccountId || financeSettings.defaultPayableAccount;
     
     let finalRevenueAccountId = revenueAccountId;
-    if (sourceType === 'booking') finalRevenueAccountId = settings.revenueMap?.['tickets'] || settings.defaultRevenueAccount;
-    if (sourceType === 'visa') finalRevenueAccountId = settings.revenueMap?.['visas'] || settings.defaultRevenueAccount;
-    if (sourceType === 'subscription') finalRevenueAccountId = settings.revenueMap?.['subscriptions'] || settings.defaultRevenueAccount;
+    if (sourceType === 'booking') finalRevenueAccountId = financeSettings.revenueMap?.['tickets'] || financeSettings.defaultRevenueAccount;
+    if (sourceType === 'visa') finalRevenueAccountId = financeSettings.revenueMap?.['visas'] || financeSettings.defaultRevenueAccount;
+    if (sourceType === 'subscription') finalRevenueAccountId = financeSettings.revenueMap?.['subscriptions'] || financeSettings.defaultRevenueAccount;
 
     if (!finalClientId || !finalSupplierId || !finalRevenueAccountId) {
       throw new Error("Missing default accounts for compound entry in finance settings.");
@@ -100,7 +101,7 @@ export async function postJournalEntry({
     if (profitAmount > 0) {
       newVoucher.creditEntries.push({ accountId: finalRevenueAccountId, amount: profitAmount, description: `ربح عن: ${description}` });
     } else if (profitAmount < 0) {
-      newVoucher.debitEntries.push({ accountId: settings.defaultExpenseAccount || 'expense_general', amount: Math.abs(profitAmount), description: `خسارة عن: ${description}` });
+      newVoucher.debitEntries.push({ accountId: financeSettings.defaultExpenseAccount || 'expense_general', amount: Math.abs(profitAmount), description: `خسارة عن: ${description}` });
     }
     
   } else {
