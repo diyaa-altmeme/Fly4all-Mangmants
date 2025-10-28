@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -230,49 +229,115 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, editingE
 });
 AddCompanyToSegmentForm.displayName = "AddCompanyToSegmentForm";
 
-const SummaryList = ({ onRemove, onEdit }: { onRemove: (index: number) => void, onEdit: (index: number) => void }) => {
-    const { watch } = useFormContext<PeriodFormValues>();
-    const summaryEntries = watch("summaryEntries");
+const SummaryList = ({
+  onRemove,
+  onEdit,
+}: {
+  onRemove: (index: number) => void;
+  onEdit: (index: number) => void;
+}) => {
+  const { watch } = useFormContext<PeriodFormValues>();
+  const summaryEntries = watch("summaryEntries");
 
-    if (!summaryEntries || summaryEntries.length === 0) {
-        return <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">لم يتم إضافة أي شركات إلى الفترة حتى الآن.</div>;
-    }
-
+  if (!summaryEntries || summaryEntries.length === 0) {
     return (
-        <Card>
-            <CardHeader className="p-3"><CardTitle className="text-base">الشركات المضافة ({summaryEntries.length})</CardTitle></CardHeader>
-            <CardContent className="p-0">
-                <div className='border rounded-lg overflow-hidden'>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>الشركة</TableHead>
-                                <TableHead>إجمالي الربح</TableHead>
-                                <TableHead>حصة الروضتين</TableHead>
-                                <TableHead>حصة الشركاء</TableHead>
-                                <TableHead className='w-[100px] text-center'>الإجراءات</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {summaryEntries.map((entry, index) => (
-                                <TableRow key={entry.id}>
-                                    <TableCell className="font-semibold">{entry.companyName}</TableCell>
-                                    <TableCell className="font-mono">{entry.total.toFixed(2)}</TableCell>
-                                    <TableCell className="font-mono text-green-600">{entry.alrawdatainShare.toFixed(2)}</TableCell>
-                                    <TableCell className="font-mono text-blue-600">{entry.partnerShare.toFixed(2)}</TableCell>
-                                    <TableCell className='text-center'>
-                                        <Button type="button" variant="ghost" size="icon" className='h-8 w-8 text-blue-600' onClick={() => onEdit(index)}><Pencil className='h-4 w-4'/></Button>
-                                        <Button type="button" variant="ghost" size="icon" className='h-8 w-8 text-destructive' onClick={() => remove(index)}><Trash2 className='h-4 w-4'/></Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            </CardContent>
-        </Card>
+      <div className="text-center text-muted-foreground py-8 border-2 border-dashed rounded-lg">
+        لم يتم إضافة أي شركات إلى الفترة حتى الآن.
+      </div>
     );
+  }
+
+  return (
+    <Card className="border border-muted shadow-sm">
+      <CardHeader className="p-3 flex items-center justify-between bg-muted/20 rounded-t-md">
+        <CardTitle className="text-base font-semibold">
+          الشركات المضافة ({summaryEntries.length})
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader className="bg-muted/40">
+            <TableRow>
+              <TableHead className="w-[90px] text-center">رقم الفاتورة</TableHead>
+              <TableHead>الشركة المصدرة للسكمنت</TableHead>
+              <TableHead>الشركاء</TableHead>
+              <TableHead className="text-center">إجمالي المبلغ</TableHead>
+              <TableHead className="text-center">حصة الروضتين</TableHead>
+              <TableHead className="text-center">حصة الشركاء</TableHead>
+              <TableHead className="text-center">موظف الإدخال</TableHead>
+              <TableHead className="text-center w-[110px]">الإجراءات</TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {summaryEntries.map((entry: any, index: number) => (
+              <TableRow key={entry.id}>
+                <TableCell className="text-center font-mono">
+                  <Button variant="link" className="p-0 h-auto" type="button">
+                    {entry.invoiceNumber || "-"}
+                  </Button>
+                </TableCell>
+                <TableCell className="font-semibold text-sm">
+                  {entry.clientName || "غير محدد"}
+                </TableCell>
+
+                <TableCell className="text-xs text-muted-foreground">
+                  {entry.partnerShares && entry.partnerShares.length > 0
+                    ? entry.partnerShares
+                        .map(
+                          (p: any) =>
+                            `${p.partnerName} (${Number(p.share).toFixed(2)})`
+                        )
+                        .join("، ")
+                    : "لا يوجد شركاء"}
+                </TableCell>
+
+                <TableCell className="text-center font-mono">
+                  {Number(entry.total || 0).toFixed(2)}
+                </TableCell>
+                <TableCell className="text-center font-mono text-green-600">
+                  {Number(entry.alrawdatainShare || 0).toFixed(2)}
+                </TableCell>
+                <TableCell className="text-center font-mono text-blue-600">
+                  {Number(entry.partnerShare || 0).toFixed(2)}
+                </TableCell>
+
+                <TableCell className="text-center text-sm">
+                  {entry.createdBy || "غير محدد"}
+                </TableCell>
+
+                <TableCell className="text-center space-x-1 rtl:space-x-reverse">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-blue-600"
+                    title="تعديل"
+                    onClick={() => onEdit(index)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive"
+                    title="حذف"
+                    onClick={() => onRemove(index)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
 };
+
 
 const SummaryStat = ({ title, value, currency, className }: { title: string; value: number; currency: Currency; className?: string; }) => (
     <div className={cn("text-center p-2 rounded-lg bg-background border", className)}>
@@ -305,11 +370,6 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
     const { fields: summaryFields, append, remove, update } = useFieldArray({ control: periodForm.control, name: "summaryEntries" });
     const { fields: partnerFields, append: appendPartner, remove: removePartner, update: updatePartner } = useFieldArray({ control: periodForm.control, name: "partners" });
     
-    const { activeStep, goToNextStep, goToPreviousStep, isLastStep, resetSteps } = useStepper({
-        initialStep: 0,
-        steps: [{ label: "الفترة" }, { label: "الشركات" }, { label: "الحصص" }, { label: "الحفظ" }],
-    });
-    
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
@@ -324,7 +384,7 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
             if (r.relationType === 'client') labelPrefix = 'عميل: ';
             else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
             else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
-            return { value: `${r.relationType}-${r.id}`, label: `${labelPrefix}${r.name}` };
+            return { value: r.id, label: `${labelPrefix}${r.name}` };
         });
     }, [clients, suppliers]);
     
@@ -339,9 +399,8 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 alrawdatainSharePercentage: navData?.settings?.segmentSettings?.alrawdatainSharePercentage || 50, partners: [], summaryEntries: []
             });
             setEditingEntry(null);
-            resetSteps();
         }
-    }, [open, resetForm, navData, resetSteps]);
+    }, [open, resetForm, navData]);
     
     const grandTotalProfit = useMemo(() => (summaryFields || []).reduce((sum, e) => sum + (e.total || 0), 0), [summaryFields]);
     const { totalPartnerPercentage, alrawdatainSharePercentage, availableForPartnersPercentage, remainingForPartnersPercentage, alrawdatainShareAmount, amountForPartners, distributedToPartners, remainderForPartners } = useMemo(() => {
@@ -477,6 +536,12 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
 
     const isDistributionLocked = watchedPeriod.hasPartner && Math.abs(totalPartnerPercentage - 100) > 0.01;
     
+    const STEPS = [
+        { label: 'الفترة', isComplete: !!(watchedPeriod.fromDate && watchedPeriod.toDate)},
+        { label: 'الشركات', isComplete: summaryFields.length > 0 },
+        { label: 'الحصص', isComplete: !watchedPeriod.hasPartner || Math.abs(totalPartnerPercentage - 100) <= 0.01 },
+    ]
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>}</DialogTrigger>
@@ -486,202 +551,183 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
                 </DialogHeader>
                 <FormProvider {...periodForm}>
                     <form onSubmit={handlePeriodSubmit(handleSavePeriod)} className="flex flex-col flex-grow overflow-hidden">
-                       <div className="flex-grow overflow-y-auto px-6 space-y-6 pb-4">
-                           <Collapsible open className="p-4 border rounded-lg space-y-6 bg-background/50">
-                            <CollapsibleTrigger asChild>
-                                 <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</h3>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent>
-                                <div className="p-4 border rounded-lg space-y-6 bg-background/50">
-                                  <h3 className="font-semibold text-base">الفترة وتوزيع الحصص</h3>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                      <FormField control={periodForm.control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
-                                      <FormField control={periodForm.control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
-                                      <FormField control={periodForm.control} name="currency" render={({ field }) => (
-                                        <FormItem>
-                                          <FormLabel>العملة</FormLabel>
-                                          <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                              <SelectTrigger><SelectValue /></SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                              {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
-                                            </SelectContent>
-                                          </Select>
-                                        </FormItem>
-                                      )}/>
-                                  </div>
-                                  <div className="pt-4 border-t">
-                                    <div className="space-y-5">
-                                      <div className="flex items-center justify-between border-b pb-2">
-                                        <FormField
-                                          control={periodForm.control}
-                                          name="hasPartner"
-                                          render={({ field }) => (
-                                            <FormItem className="flex items-center gap-3">
-                                              <FormLabel className="font-semibold text-base">
-                                                هل يوجد شركاء في الربح؟
-                                              </FormLabel>
-                                              <FormControl>
-                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
-                                              </FormControl>
-                                            </FormItem>
-                                          )}
-                                        />
-                                      </div>
-                                
-                                      {watchedPeriod.hasPartner && (
-                                        <>
-                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                            <SummaryStat
-                                              title="حصة الروضتين"
-                                              value={alrawdatainSharePercentage}
-                                              currency="%"
-                                              className="bg-green-50 text-green-700 border-green-200"
-                                            />
-                                            <SummaryStat
-                                              title="المتاح للشركاء"
-                                              value={availableForPartnersPercentage}
-                                              currency="%"
-                                              className="bg-blue-50 text-blue-700 border-blue-200"
-                                            />
-                                            <SummaryStat
-                                              title="الموزع للشركاء"
-                                              value={totalPartnerPercentage}
-                                              currency="%"
-                                              className="bg-amber-50 text-amber-700 border-amber-200"
-                                            />
-                                            <SummaryStat
-                                              title="المتبقي للتوزيع"
-                                              value={100 - totalPartnerPercentage}
-                                              currency="%"
-                                              className={cn(
-                                                "border",
-                                                Math.abs(100 - totalPartnerPercentage) > 0.01
-                                                  ? "bg-red-50 text-red-700 border-red-300"
-                                                  : "bg-gray-50 text-gray-600 border-gray-200"
-                                              )}
-                                            />
-                                          </div>
-                                
-                                          <div className="p-3 border rounded-lg bg-muted/10 space-y-3">
-                                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
-                                              <div className="space-y-1.5">
-                                                <Label>نسبة الروضتين (%)</Label>
-                                                <Controller
-                                                  control={periodForm.control}
-                                                  name="alrawdatainSharePercentage"
-                                                  render={({ field }) => (
-                                                    <NumericInput
-                                                      {...field}
-                                                      onValueChange={v => field.onChange(v || 0)}
-                                                      className="h-9 text-center"
-                                                    />
-                                                  )}
-                                                />
-                                              </div>
-                                
-                                              <div className="space-y-1.5">
-                                                <Label>الشريك</Label>
-                                                <Autocomplete
-                                                  options={partnerOptions}
-                                                  value={currentPartnerId}
-                                                  onValueChange={setCurrentPartnerId}
-                                                  placeholder="اختر الشريك..."
-                                                />
-                                              </div>
-                                
-                                              <div className="space-y-1.5">
-                                                <Label>النسبة (%)</Label>
-                                                <div className="relative">
-                                                  <NumericInput
-                                                    value={currentPercentage}
-                                                    onValueChange={setCurrentPercentage}
-                                                    className="h-9 pe-7 text-center"
-                                                  />
-                                                  <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                </div>
-                                              </div>
-                                
-                                              <Button
-                                                type="button"
-                                                onClick={handleAddOrUpdatePartner}
-                                                className="h-9 w-full md:w-auto"
-                                              >
-                                                {editingPartnerIndex !== null ? "تحديث" : "إضافة"}
-                                              </Button>
-                                            </div>
-                                
-                                            <p className="text-xs text-muted-foreground text-end">
-                                              الحصة المحسوبة:
-                                              <span className="font-bold text-blue-600 font-mono ms-1">
-                                                {partnerSharePreview.toFixed(2)}
-                                              </span>
-                                            </p>
-                                          </div>
-                                
-                                          <div className="border rounded-lg overflow-hidden">
-                                            <Table>
-                                              <TableHeader className="bg-muted/30">
-                                                <TableRow>
-                                                  <TableHead>الشريك</TableHead>
-                                                  <TableHead className="text-center">النسبة</TableHead>
-                                                  <TableHead className="w-24 text-center">الإجراءات</TableHead>
-                                                </TableRow>
-                                              </TableHeader>
-                                              <TableBody>
-                                                {partnerFields.length === 0 ? (
-                                                  <TableRow>
-                                                    <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
-                                                      لا يوجد شركاء مضافون بعد
-                                                    </TableCell>
-                                                  </TableRow>
-                                                ) : (
-                                                  partnerFields.map((d, index) => (
-                                                    <TableRow key={d.id}>
-                                                      <TableCell>{d.partnerName}</TableCell>
-                                                      <TableCell className="text-center font-mono">
-                                                        {Number(d.percentage).toFixed(2)}%
-                                                      </TableCell>
-                                                      <TableCell className="text-center">
-                                                        <Button
-                                                          type="button"
-                                                          variant="ghost"
-                                                          size="icon"
-                                                          className="h-8 w-8 text-blue-600"
-                                                          onClick={() => handleEditPartner(index)}
-                                                        >
-                                                          <Pencil className="h-4 w-4" />
-                                                        </Button>
-                                                        <Button
-                                                          type="button"
-                                                          variant="ghost"
-                                                          size="icon"
-                                                          className="h-8 w-8 text-destructive"
-                                                          onClick={() => removePartner(index)}
-                                                        >
-                                                          <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                      </TableCell>
-                                                    </TableRow>
-                                                  ))
-                                                )}
-                                              </TableBody>
-                                            </Table>
-                                          </div>
-                                        </>
-                                      )}
+                        <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
+                            <Collapsible open={true} className="p-4 border rounded-lg space-y-6 bg-background/50">
+                                <CollapsibleTrigger asChild>
+                                    <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</h3>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <FormField control={periodForm.control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
+                                        <FormField control={periodForm.control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
+                                        <FormField control={periodForm.control} name="currency" render={({ field }) => ( <FormItem><FormLabel>العملة</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}</SelectContent></FormItem> )}/>
                                     </div>
-                                  </div>
-                                </div>
-                            </CollapsibleContent>
-                           </Collapsible>
-                            <div className={cn("p-4 border rounded-lg", isDistributionLocked && "opacity-50 pointer-events-none")}>
-                                <h3 className="font-semibold text-base mb-2">إضافة بيانات الشركات</h3>
-                                {isDistributionLocked && <div className="text-center text-destructive font-semibold my-2 p-2 bg-destructive/10 rounded-md">يجب أن يكون مجموع نسب الشركاء 100% للمتابعة.</div>}
-                                 <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions} />
-                                <div className="mt-4"><SummaryList onRemove={removeEntry} onEdit={handleEditEntry} /></div>
-                            </div>
+                                    <div className="pt-4 border-t mt-4">
+                                        <div className="space-y-5">
+                                            <div className="flex items-center justify-between border-b pb-2">
+                                                <FormField
+                                                control={periodForm.control}
+                                                name="hasPartner"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex items-center gap-3">
+                                                    <FormLabel className="font-semibold text-base">
+                                                        هل يوجد شركاء في الربح؟
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                    </FormItem>
+                                                )}
+                                                />
+                                            </div>
+
+                                            {watchedPeriod.hasPartner && (
+                                                <>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                    <SummaryStat
+                                                    title="حصة الروضتين"
+                                                    value={alrawdatainSharePercentage}
+                                                    currency="%"
+                                                    className="bg-green-50 text-green-700 border-green-200"
+                                                    />
+                                                    <SummaryStat
+                                                    title="المتاح للشركاء"
+                                                    value={availableForPartnersPercentage}
+                                                    currency="%"
+                                                    className="bg-blue-50 text-blue-700 border-blue-200"
+                                                    />
+                                                    <SummaryStat
+                                                    title="الموزع للشركاء"
+                                                    value={totalPartnerPercentage}
+                                                    currency="%"
+                                                    className="bg-amber-50 text-amber-700 border-amber-200"
+                                                    />
+                                                    <SummaryStat
+                                                    title="المتبقي للتوزيع"
+                                                    value={100 - totalPartnerPercentage}
+                                                    currency="%"
+                                                    className={cn(
+                                                        "border",
+                                                        Math.abs(100 - totalPartnerPercentage) > 0.01
+                                                        ? "bg-red-50 text-red-700 border-red-300"
+                                                        : "bg-gray-50 text-gray-600 border-gray-200"
+                                                    )}
+                                                    />
+                                                </div>
+
+                                                <div className="p-3 border rounded-lg bg-muted/10 space-y-3">
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
+                                                    <div className="space-y-1.5">
+                                                        <Label>نسبة الروضتين (%)</Label>
+                                                        <Controller
+                                                        control={periodForm.control}
+                                                        name="alrawdatainSharePercentage"
+                                                        render={({ field }) => (
+                                                            <NumericInput
+                                                            {...field}
+                                                            onValueChange={v => field.onChange(v || 0)}
+                                                            className="h-9 text-center"
+                                                            />
+                                                        )}
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-1.5">
+                                                        <Label>الشريك</Label>
+                                                        <Autocomplete
+                                                        options={partnerOptions}
+                                                        value={currentPartnerId}
+                                                        onValueChange={setCurrentPartnerId}
+                                                        placeholder="اختر الشريك..."
+                                                        />
+                                                    </div>
+
+                                                    <div className="space-y-1.5">
+                                                        <Label>النسبة (%)</Label>
+                                                        <div className="relative">
+                                                        <NumericInput
+                                                            value={currentPercentage}
+                                                            onValueChange={setCurrentPercentage}
+                                                            className="h-9 pe-7 text-center"
+                                                        />
+                                                        <Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                        </div>
+                                                    </div>
+
+                                                    <Button
+                                                        type="button"
+                                                        onClick={handleAddOrUpdatePartner}
+                                                        className="h-9 w-full md:w-auto"
+                                                    >
+                                                        {editingPartnerIndex !== null ? "تحديث" : "إضافة"}
+                                                    </Button>
+                                                    </div>
+
+                                                    <p className="text-xs text-muted-foreground text-end">
+                                                    الحصة المحسوبة:
+                                                    <span className="font-bold text-blue-600 font-mono ms-1">
+                                                        {partnerSharePreview.toFixed(2)}
+                                                    </span>
+                                                    </p>
+                                                </div>
+
+                                                <div className="border rounded-lg overflow-hidden">
+                                                    <Table>
+                                                    <TableHeader className="bg-muted/30">
+                                                        <TableRow>
+                                                        <TableHead>الشريك</TableHead>
+                                                        <TableHead className="text-center">النسبة</TableHead>
+                                                        <TableHead className="w-24 text-center">الإجراءات</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {partnerFields.length === 0 ? (
+                                                        <TableRow>
+                                                            <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
+                                                            لا يوجد شركاء مضافون بعد
+                                                            </TableCell>
+                                                        </TableRow>
+                                                        ) : (
+                                                        partnerFields.map((d, index) => (
+                                                            <TableRow key={d.id}>
+                                                            <TableCell>{d.partnerName}</TableCell>
+                                                            <TableCell className="text-center font-mono">
+                                                                {Number(d.percentage).toFixed(2)}%
+                                                            </TableCell>
+                                                            <TableCell className="text-center">
+                                                                <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-blue-600"
+                                                                onClick={() => handleEditPartner(index)}
+                                                                >
+                                                                <Pencil className="h-4 w-4" />
+                                                                </Button>
+                                                                <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-destructive"
+                                                                onClick={() => removePartner(index)}
+                                                                >
+                                                                <Trash2 className="h-4 w-4" />
+                                                                </Button>
+                                                            </TableCell>
+                                                            </TableRow>
+                                                        ))
+                                                        )}
+                                                    </TableBody>
+                                                    </Table>
+                                                </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
+                            <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} />
+                            <SummaryList onRemove={removeEntry} onEdit={handleEditEntry} />
                         </div>
                         <DialogFooter className="pt-4 border-t flex-row items-center justify-between sticky bottom-0 bg-background mt-auto">
                              <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
@@ -704,3 +750,130 @@ export default function AddSegmentPeriodDialog({ clients = [], suppliers = [], o
         </Dialog>
     );
 }
+
+    
+```
+- src/components/segments/segment-settings-dialog.tsx:
+```tsx
+
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription
+} from "@/components/ui/dialog";
+import { Settings, PlusCircle, Trash2, Save, Loader2 } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { updateSettings } from '@/app/settings/actions';
+import type { AppSettings, SegmentSettings as TSegmentSettings } from '@/lib/types';
+import { produce } from 'immer';
+
+interface SegmentSettingsDialogProps {
+    settings: AppSettings | null;
+    onSettingsChanged: () => void;
+    children: React.ReactNode;
+}
+
+const profitTypes = [
+    { value: 'percentage', label: 'نسبة مئوية (%)' },
+    { value: 'fixed', label: 'مبلغ ثابت ($)' }
+];
+
+
+export default function SegmentSettingsDialog({ settings: initialSettings, onSettingsChanged, children }: SegmentSettingsDialogProps) {
+    const [open, setOpen] = useState(false);
+    const [settings, setSettings] = useState<Partial<TSegmentSettings>>(initialSettings?.voucherSettings?.segmentSettings || {});
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if(open) {
+            setSettings(initialSettings?.voucherSettings?.segmentSettings || {});
+        }
+    }, [open, initialSettings]);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const result = await updateSettings({ voucherSettings: { ...initialSettings?.voucherSettings, segmentSettings: settings }});
+            if (result.success) {
+                toast({ title: 'تم حفظ الإعدادات بنجاح' });
+                onSettingsChanged();
+                setOpen(false);
+            } else {
+                 toast({ title: 'خطأ', description: 'لم يتم حفظ الإعدادات', variant: 'destructive' });
+            }
+        } catch (e: any) {
+             toast({ title: 'خطأ غير متوقع', description: e.message, variant: 'destructive' });
+        } finally {
+            setIsSaving(false);
+        }
+    }
+    
+    const handleSettingChange = (key: keyof TSegmentSettings, value: any) => {
+        setSettings(prev => ({ ...prev, [key]: value }));
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogContent className="max-w-2xl">
+                 <DialogHeader>
+                    <DialogTitle>إعدادات السكمنت</DialogTitle>
+                    <DialogDescription>
+                        تحديد نسب الأرباح الافتراضية وحصص الشركاء.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-4">
+                     <Card>
+                        <CardHeader><CardTitle className="text-base">نسب الأرباح الافتراضية من الخدمات</CardTitle></CardHeader>
+                        <CardContent className="grid grid-cols-2 gap-4">
+                             {Object.entries({
+                                ticketProfit: 'التذاكر',
+                                visaProfit: 'الفيزا',
+                                hotelProfit: 'الفنادق',
+                                groupProfit: 'الكروبات',
+                            }).map(([key, label]) => (
+                                <div key={key} className="space-y-2">
+                                     <Label>{label}</Label>
+                                     <div className="flex gap-2">
+                                        <Select value={settings[`${key}Type`] || 'percentage'} onValueChange={(v) => handleSettingChange(`${key}Type`, v)}>
+                                            <SelectTrigger><SelectValue /></SelectTrigger>
+                                            <SelectContent>{profitTypes.map(pt => <SelectItem key={pt.value} value={pt.value}>{pt.label}</SelectItem>)}</SelectContent>
+                                        </Select>
+                                        <Input type="number" value={settings[`${key}Value`] || 0} onChange={(e) => handleSettingChange(`${key}Value`, Number(e.target.value))} />
+                                     </div>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                     <Card>
+                        <CardHeader><CardTitle className="text-base">نسبة حصة الروضتين</CardTitle></CardHeader>
+                        <CardContent>
+                             <div className="flex items-center gap-2">
+                                <Label>النسبة المئوية (%)</Label>
+                                <Input type="number" value={settings.alrawdatainSharePercentage || 50} onChange={(e) => handleSettingChange('alrawdatainSharePercentage', Number(e.target.value))} />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+                 <Button onClick={handleSave} disabled={isSaving}>
+                    {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin"/>}
+                    <Save className="me-2 h-4 w-4"/> حفظ الإعدادات
+                </Button>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
+```
