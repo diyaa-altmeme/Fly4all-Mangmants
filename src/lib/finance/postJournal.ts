@@ -71,7 +71,6 @@ export async function postJournalEntry({
 
   const saleAmount = amount;
   const costAmount = cost || 0;
-  const profitAmount = saleAmount - costAmount;
   
   if (creditEntries && creditEntries.length > 0) {
     // Special compound entry (like segment profit distribution)
@@ -79,11 +78,15 @@ export async function postJournalEntry({
     if (!finalDebitAccount) {
       throw new Error("Missing debit account for compound entry.");
     }
+    // The source company is debited for the full profit amount.
     newVoucher.debitEntries.push({ accountId: finalDebitAccount, amount: saleAmount, description: `دين عن: ${description}` });
+    
+    // The partners and the company's share are credited.
     newVoucher.creditEntries.push(...creditEntries);
 
-  } else if (costAmount > 0 && profitAmount > 0) {
+  } else if (costAmount > 0) {
     // This is a compound entry for Sale, Cost, and Profit
+    const profitAmount = saleAmount - costAmount;
     const finalClientId = clientId || debitAccountId || settings.defaultReceivableAccount;
     const finalSupplierId = supplierId || costAccountId || settings.defaultPayableAccount;
     const finalRevenueAccountId = revenueAccountId || settings.defaultRevenueAccount;
@@ -99,7 +102,12 @@ export async function postJournalEntry({
     newVoucher.creditEntries.push({ accountId: finalSupplierId, amount: costAmount, description: `تكلفة: ${description}` });
     
     // 3. We record the profit as revenue
-    newVoucher.creditEntries.push({ accountId: finalRevenueAccountId, amount: profitAmount, description: `ربح عن: ${description}` });
+    if (profitAmount > 0) {
+        newVoucher.creditEntries.push({ accountId: finalRevenueAccountId, amount: profitAmount, description: `ربح عن: ${description}` });
+    } else if (profitAmount < 0) {
+        // If there's a loss, it's a debit to an expense account
+        newVoucher.debitEntries.push({ accountId: settings.defaultExpenseAccount || 'expense_general', amount: Math.abs(profitAmount), description: `خسارة عن: ${description}` });
+    }
 
   } else {
     // Simple entry (e.g., receipt, payment, expense)
