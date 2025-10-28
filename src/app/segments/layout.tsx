@@ -21,7 +21,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/component
 import { ChevronDown, MoreHorizontal, Pencil } from 'lucide-react';
 import SegmentDetailsTable from '@/components/segments/segment-details-table';
 import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
-import EditSegmentPeriodDialog from './add-segment-period-dialog'; // Re-using the add dialog for editing
+import EditSegmentPeriodDialog from './components/edit-segment-period-dialog'; 
 import ProtectedPage from '@/components/auth/protected-page';
 
 
@@ -64,7 +64,11 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-center p-2">{invoiceNumber}</TableCell>
+                    <TableCell className="font-mono text-xs text-center p-2">
+                        <Button variant="link" className="p-0 h-auto" type="button">
+                            {invoiceNumber}
+                        </Button>
+                    </TableCell>
                     <TableCell className="p-2 text-center">{period.entries.length > 0 ? period.entries.length : '0'}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
@@ -190,7 +194,9 @@ function SegmentsContent() {
                                 <CardDescription>إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
+                                     <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
+                                </AddSegmentPeriodDialog>
                                 <Button onClick={handleSuccess} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث
                                 </Button>
@@ -223,7 +229,7 @@ function SegmentsContent() {
                                     <TableHead className="font-bold text-center p-2">من</TableHead>
                                     <TableHead className="font-bold text-center p-2">إلى</TableHead>
                                     <TableHead className="font-bold text-center p-2">الملاحظات</TableHead>
-                                    <TableHead className="font-bold text-center p-2">تاريخ الإضافة</TableHead>
+                                    <TableHead className="text-center font-bold p-2">تاريخ الإضافة</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح التذاكر</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح أخرى</TableHead>
                                     <TableHead className="text-center font-bold p-2">حصة الروضتين</TableHead>
