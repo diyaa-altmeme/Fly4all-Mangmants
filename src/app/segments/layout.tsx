@@ -50,6 +50,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog as DialogPrimitive } from '@/components/ui/dialog';
 import { buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import AddSegmentPeriodDialog from './add-segment-period-dialog';
 
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
@@ -147,7 +148,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="p-1 text-center">
                         <div className="flex items-center justify-center">
-                            <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
+                             <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600"><Pencil className='h-4 w-4'/></Button>
                             </EditSegmentPeriodDialog>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500" onClick={(e) => { e.stopPropagation(); setIsAuditOpen(true); }}><History className='h-4 w-4'/></Button>
@@ -351,10 +352,12 @@ function SegmentsContent() {
     )
 }
 
-export default function SegmentsPage() {
+export default function SegmentsLayout({ children }: { children: React.ReactNode }) {
   return (
     <ProtectedPage requiredPermission="segments:read">
-      <SegmentsContent />
+        {children}
     </ProtectedPage>
   );
 }
+
+    
