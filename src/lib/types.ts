@@ -358,7 +358,8 @@ export type TreeNode = {
 export type SegmentEntry = {
   id: string;
   periodId: string;
-  invoiceNumber: string;
+  invoiceNumber: string; // The master invoice for the whole period
+  companyInvoiceNumber: string; // The specific invoice for this company's entry
   fromDate: string;
   toDate: string;
   entryDate: string; // The date this entry was added
@@ -405,6 +406,7 @@ export type SegmentEntry = {
   partnerShares?: {
       partnerId: string;
       partnerName: string;
+      partnerInvoiceNumber: string; // Specific invoice for this partner's share
       share: number;
   }[];
 };
@@ -651,14 +653,20 @@ export type ThemeCustomizationSettings = ThemeConfig & {
 }
 
 export interface FinanceAccountsSettings {
-  receivableAccountId: string;
-  payableAccountId: string;
-  revenueAccountId: string;
-  expenseAccountId: string;
-  cashAccountId: string;
-  bankAccountId: string;
-  blockDirectCashRevenue: boolean;
-  revenueMap: Record<string, string>;
+    cashAccountId: string;
+    bankAccountId: string;
+    clientAccountId: string;
+    partnerAccountId: string; // This could be payable account
+    revenueAccountId: string;
+    expenseAccountId: string;
+    alrawdatainAccountId: string;
+}
+
+export interface CustomRevenueAccountsSettings {
+    ticketsRevenueAccountId: string;
+    visaRevenueAccountId: string;
+    subscriptionsRevenueAccountId: string;
+    segmentsRevenueAccountId: string;
 }
 
 export type AppSettings = {
@@ -675,6 +683,8 @@ export type AppSettings = {
     importLogicSettings?: ImportLogicSettings;
     relationSections?: RelationSection[];
     financeAccounts?: FinanceAccountsSettings;
+    customRevenueAccounts?: CustomRevenueAccountsSettings;
+    preventDirectProfitToCash?: boolean;
 };
 
 export type ExchangeRateLog = {
@@ -914,7 +924,7 @@ export type JournalVoucher = {
     invoiceNumber: string;
     date: string; // ISO string
     currency: Currency;
-    exchangeRate: number | null;
+    exchangeRate?: number | null;
     notes: string;
     createdBy: string;
     officer: string;
@@ -1346,3 +1356,4 @@ export interface PostJournalInput {
   sourceId: string;
   sourceRoute?: string;
 }
+
