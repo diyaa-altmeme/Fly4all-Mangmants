@@ -1,5 +1,4 @@
 
-
 import { getDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getSettings } from "@/app/settings/actions";
@@ -43,9 +42,9 @@ export async function postJournalEntry({
   const db = await getDb();
 
   const settingsDoc = await db.collection("settings").doc("app").get();
-  const settings = settingsDoc.data()?.financeAccountsSettings;
+  const settings = settingsDoc.data()?.financeAccounts;
   if (!settings) {
-    throw new Error("Finance settings (financeAccountsSettings) not found in settings/app document!");
+    throw new Error("Finance settings (financeAccounts) not found in settings/app document!");
   }
 
   const voucherRef = db.collection("journal-vouchers").doc();
@@ -76,7 +75,7 @@ export async function postJournalEntry({
     
     newVoucher.debitEntries.push({ accountId: finalDebitAccount, amount: saleAmount, description: `دين عن: ${description}` });
     
-    // Spread the passed credit entries (partner shares)
+    // Spread the passed credit entries (partner shares + alrawdatain share)
     newVoucher.creditEntries.push(...creditEntries);
 
   } else if (costAmount > 0) {
@@ -84,7 +83,11 @@ export async function postJournalEntry({
     const profitAmount = saleAmount - costAmount;
     const finalClientId = clientId || debitAccountId || settings.defaultReceivableAccount;
     const finalSupplierId = supplierId || costAccountId || settings.defaultPayableAccount;
-    const finalRevenueAccountId = revenueAccountId || settings.defaultRevenueAccount;
+    
+    let finalRevenueAccountId = revenueAccountId;
+    if (sourceType === 'booking') finalRevenueAccountId = settings.revenueMap?.['tickets'] || settings.defaultRevenueAccount;
+    if (sourceType === 'visa') finalRevenueAccountId = settings.revenueMap?.['visas'] || settings.defaultRevenueAccount;
+    if (sourceType === 'subscription') finalRevenueAccountId = settings.revenueMap?.['subscriptions'] || settings.defaultRevenueAccount;
 
     if (!finalClientId || !finalSupplierId || !finalRevenueAccountId) {
       throw new Error("Missing default accounts for compound entry in finance settings.");
