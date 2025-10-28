@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { AppSettings, TreeNode } from '@/lib/types';
 import { getSettings, updateSettings } from '@/app/settings/actions';
 import { getChartOfAccounts } from '../accounting/actions';
+import { useVoucherNav } from "@/context/voucher-nav-context";
 
 
 interface Account {
@@ -39,16 +40,22 @@ export default function FinanceControlCenter() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
+  const { data: navData, fetchData, loaded: navDataLoaded } = useVoucherNav();
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       try {
+        if (!navDataLoaded) {
+            await fetchData();
+        }
+        
         const chart = await getChartOfAccounts();
         
         const flatten = (nodes: TreeNode[]): Account[] => {
             let flatList: Account[] = [];
             nodes.forEach(node => {
-                if (node.children.length > 0) {
+                if (node.children?.length > 0) {
+                    flatList.push({ id: node.id, name: node.name, type: node.type as any });
                     flatList = [...flatList, ...flatten(node.children)];
                 } else if(node.type !== 'asset' && node.type !== 'liability') {
                     flatList.push({ id: node.id, name: node.name, type: node.type as any });
@@ -77,8 +84,8 @@ export default function FinanceControlCenter() {
       }
     };
 
-    fetchData();
-  }, [toast]);
+    fetchInitialData();
+  }, [toast, navDataLoaded, fetchData]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -88,6 +95,7 @@ export default function FinanceControlCenter() {
         title: "تم الحفظ بنجاح ✅",
         description: "تم تحديث إعدادات مركز التحكم المالي.",
       });
+      fetchData(true);
     } catch (err: any) {
       console.error("Error saving settings:", err);
       toast({
@@ -114,11 +122,10 @@ export default function FinanceControlCenter() {
     }));
   };
 
-
   const expenseAccounts = useMemo(() => {
-    const fromSettings = (getSettings() as unknown as AppSettings).voucherSettings?.expenseAccounts || [];
+    const fromSettings = navData?.settings?.voucherSettings?.expenseAccounts || [];
     return fromSettings.map(acc => ({ ...acc, type: 'expense' } as Account));
-  }, []);
+  }, [navData]);
 
   const filteredAccounts = useMemo(() => ({
     assets: accounts.filter((a) => a.type === "asset"),
@@ -223,8 +230,8 @@ export default function FinanceControlCenter() {
             <Label htmlFor="prevent-profit-cash">منع تسجيل الأرباح مباشرة في الصندوق</Label>
             <Switch
               id="prevent-profit-cash"
-              checked={settings.preventDirectCashProfit || false}
-              onCheckedChange={(v) => handleChange("preventDirectCashProfit", v)}
+              checked={settings.preventDirectCashRevenue || false}
+              onCheckedChange={(v) => handleChange("preventDirectCashRevenue", v)}
             />
           </div>
         </CardContent>
