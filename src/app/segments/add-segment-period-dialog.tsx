@@ -406,23 +406,10 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
 
     useEffect(() => {
         if (open) {
-            if (isEditing && existingPeriod) {
-                resetForm({
-                    fromDate: parseISO(existingPeriod.fromDate),
-                    toDate: parseISO(existingPeriod.toDate),
-                    entryDate: existingPeriod.entries[0]?.entryDate ? parseISO(existingPeriod.entries[0].entryDate) : new Date(),
-                    currency: existingPeriod.entries[0]?.currency || navData?.settings?.currencySettings?.defaultCurrency || 'USD',
-                    hasPartner: existingPeriod.entries[0]?.hasPartner || false,
-                    alrawdatainSharePercentage: existingPeriod.entries[0]?.alrawdatainSharePercentage || 50,
-                    partners: (existingPeriod.entries[0]?.partnerShares || []).map((p: any) => ({ ...p, id: p.partnerId })),
-                    summaryEntries: existingPeriod.entries.map((e: any) => ({ ...e })),
-                });
-            } else {
-                 resetForm({
-                    fromDate: null, toDate: null, entryDate: new Date(), currency: navData?.settings?.currencySettings?.defaultCurrency || 'USD', hasPartner: false,
-                    alrawdatainSharePercentage: navData?.settings?.segmentSettings?.alrawdatainSharePercentage || 50, partners: [], summaryEntries: []
-                });
-            }
+            resetForm({
+                fromDate: null, toDate: null, entryDate: new Date(), currency: navData?.settings?.currencySettings?.defaultCurrency || 'USD', hasPartner: false,
+                alrawdatainSharePercentage: navData?.settings?.segmentSettings?.alrawdatainSharePercentage || 50, partners: [], summaryEntries: []
+            });
             setEditingEntry(null);
             resetSteps();
         }
@@ -597,11 +584,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                                             <FormItem>
                                                 <FormLabel>العملة</FormLabel>
                                                 <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                    </FormControl>
+                                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                                                     <SelectContent>
                                                         {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
                                                     </SelectContent>
@@ -666,6 +649,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                                             </>
                                         )}
                                         </div>
+                                    </div>
                                </CollapsibleContent>
                             </Collapsible>
                             <div className={cn(isDistributionLocked && "opacity-50 pointer-events-none")}>
@@ -697,5 +681,3 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
     );
 }
 
-
-    
