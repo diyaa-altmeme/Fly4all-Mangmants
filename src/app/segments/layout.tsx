@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, Loader2, RefreshCw, History, GitBranch } from 'lucide-react';
+import { PlusCircle, Search, Filter, Loader2, RefreshCw, History, GitBranch, Trash2 } from 'lucide-react';
 import type { SegmentEntry, Client, Supplier } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
 import AddSegmentPeriodDialog from './add-segment-period-dialog';
@@ -23,6 +23,9 @@ import SegmentDetailsTable from '@/components/segments/segment-details-table';
 import DeleteSegmentPeriodDialog from '@/components/segments/delete-segment-period-dialog';
 import EditSegmentPeriodDialog from './add-segment-period-dialog'; 
 import ProtectedPage from '@/components/auth/protected-page';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogHeader as DialogHeaderPrimitive, DialogTitle as DialogTitlePrimitive, DialogContent as DialogContentPrimitive } from '@/components/ui/dialog';
+import { buttonVariants } from '@/components/ui/button';
 
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
@@ -34,9 +37,50 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
     </div>
 );
 
+const AuditLogDialog = ({ open, onOpenChange, item }: { open: boolean; onOpenChange: (open: boolean) => void; item: any }) => {
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContentPrimitive className="max-w-4xl">
+                <DialogHeaderPrimitive>
+                    <DialogTitlePrimitive>سجل التعديلات — الفاتورة: {item?.invoiceNumber || "-"}</DialogTitlePrimitive>
+                </DialogHeaderPrimitive>
+                <div className="border rounded-md overflow-auto mt-4 max-h-[60vh]">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="text-center">التاريخ</TableHead>
+                                <TableHead className="text-center">الموظف</TableHead>
+                                <TableHead className="text-center">نوع التعديل</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {Array.isArray(item?.auditLog) && item.auditLog.length > 0 ? (
+                                item.auditLog.map((log: any, idx: number) => (
+                                    <TableRow key={idx}>
+                                        <TableCell className="text-center">{log.timestamp ? format(parseISO(log.timestamp), "yyyy-MM-dd HH:mm") : "-"}</TableCell>
+                                        <TableCell className="text-center">{log.userName || "-"}</TableCell>
+                                        <TableCell className="text-center">{log.action || "-"}</TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="text-center text-muted-foreground">لا يوجد سجل تعديلات</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+            </DialogContentPrimitive>
+        </Dialog>
+    );
+};
+
+
 const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period: any, index: number, onDataChange: () => void, clients: Client[], suppliers: Supplier[] }) => {
     const [isOpen, setIsOpen] = useState(false);
     const { toast } = useToast();
+    const [isAuditOpen, setIsAuditOpen] = useState(false);
+
     const entryUser = period.entries[0]?.enteredBy || 'غير معروف';
     const entryDate = period.entries[0]?.createdAt ? format(parseISO(period.entries[0].createdAt), 'yyyy-MM-dd hh:mm a') : 'N/A';
     
@@ -54,6 +98,8 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     };
     
     return (
+        <>
+        <AuditLogDialog open={isAuditOpen} onOpenChange={setIsAuditOpen} item={period} />
         <Collapsible asChild key={period.periodId} open={isOpen} onOpenChange={setIsOpen}>
              <tbody className={cn("border-t font-bold", period.isConfirmed && "bg-green-500/10")}>
                 <TableRow className="cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
@@ -76,9 +122,29 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="p-1 text-center">
-                       <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600"><Pencil className='h-4 w-4'/></Button>
-                       </EditSegmentPeriodDialog>
+                        <div className="flex items-center justify-center">
+                            <EditSegmentPeriodDialog existingPeriod={period} clients={clients} suppliers={suppliers} onSuccess={onDataChange}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600"><Pencil className='h-4 w-4'/></Button>
+                            </EditSegmentPeriodDialog>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500" onClick={(e) => { e.stopPropagation(); setIsAuditOpen(true); }}><History className='h-4 w-4'/></Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={e => e.stopPropagation()}><Trash2 className='h-4 w-4'/></Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            هل أنت متأكد من حذف هذه الفترة؟ سيتم نقلها إلى سجل المحذوفات ويمكن استعادتها لاحقًا.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDeletePeriod} className={cn(buttonVariants({ variant: 'destructive' }))}>نعم، حذف</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </TableCell>
                 </TableRow>
                 <CollapsibleContent asChild>
@@ -93,6 +159,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                 </CollapsibleContent>
             </tbody>
         </Collapsible>
+        </>
     )
 }
 
@@ -140,7 +207,7 @@ function SegmentsContent() {
                 acc[periodId] = {
                     periodId: periodId, fromDate: entry.fromDate, toDate: entry.toDate, entries: [],
                     totalProfit: 0, totalAlrawdatainShare: 0, totalPartnerShare: 0, totalTickets: 0, totalOther: 0,
-                    isConfirmed: entry.isConfirmed, type: 'transaction',
+                    isConfirmed: entry.isConfirmed, type: 'transaction', auditLog: entry.auditLog || [],
                 };
             }
             acc[periodId].entries.push(entry);
@@ -149,8 +216,11 @@ function SegmentsContent() {
             acc[periodId].totalPartnerShare += entry.partnerShare || 0;
             acc[periodId].totalTickets += entry.ticketProfits || 0;
             acc[periodId].totalOther += entry.otherProfits || 0;
+            if(entry.auditLog) {
+                 acc[periodId].auditLog = [...(acc[periodId].auditLog || []), ...entry.auditLog];
+            }
             return acc;
-        }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment' }>);
+        }, {} as Record<string, { periodId: string; fromDate: string; toDate: string; entries: SegmentEntry[], totalProfit: number, totalAlrawdatainShare: number, totalPartnerShare: number, totalTickets: number, totalOther: number, isConfirmed?: boolean, type: 'transaction' | 'payment', auditLog?: any[] }>);
     }, [segments]);
     
     const sortedAndFilteredPeriods = useMemo(() => {
@@ -190,7 +260,9 @@ function SegmentsContent() {
                                 <CardDescription>إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
+                                     <Button><PlusCircle className="me-2 h-4 w-4" />إضافة سجل جديد</Button>
+                                </AddSegmentPeriodDialog>
                                 <Button onClick={handleSuccess} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث
                                 </Button>
@@ -223,6 +295,7 @@ function SegmentsContent() {
                                     <TableHead className="font-bold text-center p-2">من</TableHead>
                                     <TableHead className="font-bold text-center p-2">إلى</TableHead>
                                     <TableHead className="font-bold text-center p-2">الملاحظات</TableHead>
+                                    <TableHead className="text-center font-bold p-2">تاريخ الإضافة</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح التذاكر</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح أخرى</TableHead>
                                     <TableHead className="text-center font-bold p-2">حصة الروضتين</TableHead>
