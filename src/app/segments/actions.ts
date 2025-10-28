@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -71,6 +72,7 @@ export async function addSegmentEntries(
         const mainBatch = db.batch();
         const periodId = periodIdToReplace || db.collection('temp').doc().id;
         
+        // This is now the main invoice number for the whole period.
         const mainInvoiceNumber = await getNextVoucherNumber('SEG');
 
 
@@ -85,6 +87,7 @@ export async function addSegmentEntries(
 
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
+            // Each individual entry now gets its own invoice number
             const segmentInvoiceNumber = await getNextVoucherNumber('BK');
             const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
 
