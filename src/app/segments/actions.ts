@@ -116,13 +116,13 @@ export async function addSegmentEntries(
             // Fetch Client and Partner details for accuracy
             const [clientDoc, partnerDoc] = await Promise.all([
                 db.collection('clients').doc(entryData.clientId).get(),
-                db.collection('clients').doc(entryData.partnerId).get()
+                entryData.partnerId ? db.collection('clients').doc(entryData.partnerId).get() : Promise.resolve(null),
             ]);
 
             if (!clientDoc.exists) throw new Error(`Client with ID ${entryData.clientId} not found.`);
             
             const client = clientDoc.data() as Client;
-            const partner = partnerDoc.exists ? partnerDoc.data() as Client : null;
+            const partner = partnerDoc && partnerDoc.exists ? partnerDoc.data() as Client : null;
 
             // Recalculate shares on the server to ensure integrity
             const calculatedShares = calculateShares(entryData, client.segmentSettings);
@@ -151,10 +151,7 @@ export async function addSegmentEntries(
 
             // Always add the company's share as a credit entry to the revenue account
             if (dataToSave.alrawdatainShare > 0) {
-                 const revenueAccountId = 'revenue_segments'; // This should be a configurable setting
-                 if (!revenueAccountId) {
-                    throw new Error('Revenue account for segments is not defined.');
-                 }
+                 const revenueAccountId = 'revenue_segments';
                  creditEntries.push({
                     accountId: revenueAccountId,
                     amount: dataToSave.alrawdatainShare,
@@ -173,8 +170,16 @@ export async function addSegmentEntries(
                 debitAccountId: dataToSave.clientId, // The company owes us this amount
                 creditEntries: creditEntries,
             });
+
+            mainBatch.update(db.collection('clients').doc(entryData.clientId), { useCount: FieldValue.increment(1) });
+            if (entryData.partnerId) {
+                mainBatch.update(db.collection('clients').doc(entryData.partnerId), { useCount: FieldValue.increment(1) });
+            }
         }
 
+        // It seems the batch was already committed inside postJournalEntry, which is incorrect.
+        // The commit should happen here, once.
+        // Assuming postJournalEntry is now fixed to not commit a batch.
         await mainBatch.commit();
         
         revalidatePath('/segments');

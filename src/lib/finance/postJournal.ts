@@ -104,8 +104,8 @@ export async function postJournalEntry({
     
   } else {
     // Simple entry (e.g., receipt, payment, expense)
-    const finalDebitAccount = debitAccountId || settings.defaultReceivableAccount;
-    const finalCreditAccount = creditAccountId || settings.defaultRevenueAccount;
+    const finalDebitAccount = debitAccountId;
+    const finalCreditAccount = creditAccountId;
     
     if (!finalDebitAccount || !finalCreditAccount) {
       throw new Error(`Could not determine debit/credit accounts for sourceType '${sourceType}'. Check finance settings.`);
