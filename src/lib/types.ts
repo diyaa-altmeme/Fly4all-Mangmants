@@ -294,7 +294,7 @@ export type WhatsappGroupParticipant = {
     name?: string;
 };
 
-export type AccountType = 'group' | 'box' | 'client' | 'supplier' | 'expense' | 'revenue' | 'account' | 'subscription' | 'company' | 'individual' | 'both' | 'exchange' | '';
+export type AccountType = 'asset' | 'liability' | 'revenue' | 'expense' | 'client' | 'supplier' | 'box' | 'exchange';
 
 export type StructuredDescription = {
     title: string;
@@ -365,6 +365,7 @@ export type SegmentEntry = {
   entryDate: string; // The date this entry was added
   companyName: string;
   clientId: string;
+  hasPartner: boolean;
   partnerId: string;
   partnerName: string;
   currency: Currency;
@@ -617,7 +618,6 @@ export type CardThemeSettings = {
   headerClientColorFrom?: string;
   headerClientColorTo?: string;
   headerSupplierColorFrom?: string;
-  headerSupplierColorTo?: string;
   headerBothColorFrom?: string;
   headerBothColorTo?: string;
 };
@@ -663,10 +663,10 @@ export interface FinanceAccountsSettings {
 }
 
 export interface CustomRevenueAccountsSettings {
-    ticketsRevenueAccountId: string;
-    visaRevenueAccountId: string;
-    subscriptionsRevenueAccountId: string;
-    segmentsRevenueAccountId: string;
+    tickets: string;
+    visas: string;
+    subscriptions: string;
+    segments: string;
 }
 
 export type AppSettings = {
@@ -682,8 +682,19 @@ export type AppSettings = {
     importFieldsSettings?: ImportFieldSettings;
     importLogicSettings?: ImportLogicSettings;
     relationSections?: RelationSection[];
-    financeAccounts?: FinanceAccountsSettings;
-    customRevenueAccounts?: CustomRevenueAccountsSettings;
+    accountsMap?: {
+        generalRevenueId: string;
+        generalExpenseId: string;
+        arAccountId: string;
+        apAccountId: string;
+        defaultCashId: string;
+        defaultBankId: string;
+        customRevenues: CustomRevenueAccountsSettings;
+        customExpenses: {
+            staff: string;
+            operations: string;
+        };
+    };
     preventDirectProfitToCash?: boolean;
 };
 
@@ -924,7 +935,7 @@ export type JournalVoucher = {
     invoiceNumber: string;
     date: string; // ISO string
     currency: Currency;
-    exchangeRate?: number | null;
+    exchangeRate: number | null;
     notes: string;
     createdBy: string;
     officer: string;
