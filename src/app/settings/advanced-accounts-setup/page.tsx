@@ -1,21 +1,10 @@
 
-import { getChartOfAccounts, getFinanceAccountsMap } from "./actions";
-import AdvancedAccountsContent from "./components/advanced-accounts-content";
+'use client';
+
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { FinanceAccountsMap } from "@/lib/types";
 import ProtectedPage from "@/components/auth/protected-page";
-
-
-async function AdvancedAccountsData() {
-    const [accounts, financeAccountsMap] = await Promise.all([
-        getChartOfAccounts(),
-        getFinanceAccountsMap()
-    ]);
-
-    return <AdvancedAccountsContent accounts={accounts} financeAccountsMap={financeAccountsMap} />
-}
-
+import AdvancedAccountsData from "./components/advanced-accounts-data";
 
 export default function AdvancedAccountsSetupPage() {
   return (
