@@ -12,10 +12,11 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuPortal,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { PlusCircle, FileDown, GitBranch, FileUp, BookUser, CreditCard, Ticket, Users, Banknote } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
 
 // Dialogs
 import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
@@ -55,17 +56,17 @@ export default function CreateNewMenu() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" dir="rtl">
         
-        {mainItems.map(({ Dialog, label, icon: Icon, onSave, props }) => (
-            <Dialog key={label} modal={false}>
-                <DialogTrigger asChild>
+        {mainItems.map(({ Dialog, label, icon: Icon, onSave, props }) => {
+            const DialogComponent = Dialog as any; // Type assertion
+            return (
+                <DialogComponent key={label} {...props}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between">
                         <span>{label}</span>
                         <Icon className="h-4 w-4" />
                     </DropdownMenuItem>
-                </DialogTrigger>
-                <Dialog><DialogContent><p>placeholder</p></DialogContent></Dialog>
-            </Dialog>
-        ))}
+                </DialogComponent>
+            )
+        })}
 
         <DropdownMenuSeparator />
         
@@ -75,17 +76,17 @@ export default function CreateNewMenu() {
             </DropdownMenuSubTrigger>
             <DropdownMenuPortal>
                 <DropdownMenuSubContent>
-                {voucherItems.map(({ Dialog, label, icon: Icon, onSave }) => (
-                    <Dialog key={label} modal={false}>
-                        <DialogTrigger asChild>
+                {voucherItems.map(({ Dialog, label, icon: Icon, onSave }) => {
+                    const DialogComponent = Dialog as any;
+                    return (
+                        <DialogComponent key={label} onVoucherAdded={onSave}>
                             <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between">
                                 <span>{label}</span>
                                 <Icon className="h-4 w-4" />
                             </DropdownMenuItem>
-                        </DialogTrigger>
-                        <Dialog><DialogContent><p>placeholder</p></DialogContent></Dialog>
-                    </Dialog>
-                ))}
+                        </DialogComponent>
+                    )
+                })}
                 </DropdownMenuSubContent>
             </DropdownMenuPortal>
         </DropdownMenuSub>
@@ -95,4 +96,3 @@ export default function CreateNewMenu() {
   );
 }
 
-    
