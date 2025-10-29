@@ -4,7 +4,7 @@
 import { getDb } from '@/lib/firebase-admin';
 import type { TreeNode, JournalVoucher, Client, Supplier, Box, Exchange } from '@/lib/types';
 import { cache } from 'react';
-import { nanoid } from 'nanoid';
+import { Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 
 const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
@@ -26,7 +26,27 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
                 .map(item => ({ ...item, children: buildTree(items, item.id) }));
         };
         
-        return buildTree(accounts);
+        const tree = buildTree(accounts);
+
+        const sumChildren = (node: TreeNode): {debit: number, credit: number} => {
+            if (!node.children || node.children.length === 0) {
+                return { debit: node.debit || 0, credit: node.credit || 0 };
+            }
+            const totals = node.children.reduce((acc, child) => {
+                const childTotals = sumChildren(child);
+                acc.debit += childTotals.debit;
+                acc.credit += childTotals.credit;
+                return acc;
+            }, { debit: 0, credit: 0 });
+            
+            node.debit = totals.debit;
+            node.credit = totals.credit;
+            return totals;
+        };
+
+        tree.forEach(sumChildren);
+
+        return tree;
 
     } catch (error) {
         console.error("Error getting chart of accounts:", error);
@@ -34,7 +54,8 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
     }
 });
 
-export async function createAccount({ name, type, parentId, isLeaf = true, code, description }: { 
+
+export async function createAccount({ name, type, parentId, isLeaf, code, description }: { 
   name: string;
   type: string;
   parentId: string | null;
@@ -46,7 +67,10 @@ export async function createAccount({ name, type, parentId, isLeaf = true, code,
   if (!db) {
     throw new Error("Database not available.");
   }
-  const id = nanoid();
+  
+  const docRef = db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc();
+  const id = docRef.id;
+
   const doc = {
     id,
     name,
@@ -55,10 +79,18 @@ export async function createAccount({ name, type, parentId, isLeaf = true, code,
     parentId: parentId ?? null,
     isLeaf,
     description: description ?? "",
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
   };
-  await db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(id).set(doc);
+  await docRef.set(doc);
+
+  if (parentId) {
+      await db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(parentId).update({
+          isLeaf: false,
+          updatedAt: Timestamp.now()
+      });
+  }
+
   revalidatePath('/settings/accounting');
   return doc;
 }
@@ -70,22 +102,20 @@ export async function generateAccountCode(parentId?: string): Promise<string> {
         throw new Error("Database not available.");
     }
 
-    if (!parentId) {
-        // Root account
+    if (!parentId || parentId === 'root') {
         const query = await db.collection(CHART_OF_ACCOUNTS_COLLECTION)
             .where("parentId", "==", null)
             .get();
         
         if (query.empty) {
-            return "1000"; // Starting from 1000 for root accounts
+            return "1";
         }
 
         const codes = query.docs.map(doc => parseInt(doc.data().code, 10)).filter(num => !isNaN(num));
-        const maxCode = codes.length > 0 ? Math.max(...codes) : 999;
+        const maxCode = codes.length > 0 ? Math.max(...codes) : 0;
         return String(maxCode + 1);
 
     } else {
-        // Sub-account
         const parentDoc = await db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(parentId).get();
         if (!parentDoc.exists) {
             throw new Error("Parent account not found.");

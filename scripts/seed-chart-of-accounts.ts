@@ -13,6 +13,8 @@ import { getDb } from '@/lib/firebase-admin';
 import { chartOfAccountsData, type ChartAccountSeed } from '@/lib/finance/chart-of-accounts-data';
 import { Timestamp } from 'firebase-admin/firestore';
 
+const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
+
 async function seedChartOfAccounts() {
   const db = await getDb();
   if (!db) {
@@ -20,7 +22,7 @@ async function seedChartOfAccounts() {
     return;
   }
 
-  const coaCollection = db.collection('chart_of_accounts');
+  const coaCollection = db.collection(CHART_OF_ACCOUNTS_COLLECTION);
   console.log("🌱 Starting to seed Chart of Accounts...");
 
   const codeToIdMap = new Map<string, string>();
