@@ -1,4 +1,3 @@
-
 {
   "name": "nextn",
   "version": "0.1.0",
@@ -15,7 +14,8 @@
     "fix:segments": "tsx scripts/fix-segment-descriptions.ts",
     "seed:accounts": "tsx scripts/seed-chart-of-accounts.ts",
     "init:finance-accounts": "tsx scripts/init_finance_accounts_map.ts",
-    "reset:accounts": "tsx scripts/reset-chart-of-accounts.ts"
+    "reset:accounts": "tsx scripts/reset-chart-of-accounts.ts",
+    "scan:pages": "tsx scripts/scan-pages.ts"
   },
   "engines": {
     "node": ">=18.0.0",

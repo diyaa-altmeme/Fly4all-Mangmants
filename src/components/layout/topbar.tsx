@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -15,20 +16,20 @@ export default function TopBar() {
         <div className="flex items-center gap-2">
           <CreateNewMenu />
         </div>
-        <div className="flex-1 max-w-2xl">
-          <GlobalSearch />
+        <div className="flex-1 hidden md:block">
+           <MainNav />
         </div>
         <div className="ms-auto flex items-center gap-2">
+           <div className="hidden sm:block">
+             <GlobalSearch />
+           </div>
           <ThemeToggle />
           <NotificationCenter />
           <UserNav />
         </div>
       </div>
-      <div className="border-t">
-        <div className="container mx-auto px-3 sm:px-4 md:px-6">
-          <MainNav />
-        </div>
-      </div>
     </div>
   );
 }
+
+    

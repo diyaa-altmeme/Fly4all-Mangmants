@@ -1,91 +1,98 @@
+
 "use client";
 
 import React from 'react';
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import {
-    LayoutDashboard,
-    Settings,
-    ChevronDown,
-    BookCopy,
-    ArrowRightLeft,
-    BarChart3,
-    Layers3,
-    Repeat,
-    Users,
-    Boxes,
-    FileUp,
-    ShieldCheck,
-    CreditCard,
-    Ticket,
-    FileCog,
-    Network,
-    Plane,
-    GitBranch,
-    Banknote,
-    BookUser,
-    ListChecks,
-    PlusCircle,
-    Users2,
-    ImageIcon,
-    Contact,
-    Store,
-    ChevronsRightLeft,
-    FileDown,
-    Share2,
-    AreaChart,
-    Calculator,
-    Wand2,
-    Lightbulb,
-    Package,
-    Wallet,
-    MessageSquare,
-    Briefcase,
-    History,
-    FileImage,
-    HelpCircle,
-    Building,
-    FileBarChart,
-    FileSpreadsheet,
-    Menu,
-    AlertTriangle,
-    FileWarning,
-    ScanSearch,
-} from 'lucide-react';
+import { usePathname } from "next/navigation";
+import { ChevronDown } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
+  DropdownMenuSubContent,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { navConfig } from '@/config/nav-config';
 import { useAuth } from '@/lib/auth-context';
-import { NAV_CONFIG } from '@/config/nav-config';
+import type { User } from '@/lib/types';
 import { hasPermission } from '@/lib/permissions';
 
-const NavMenu = ({
-  label,
-  icon: Icon,
-  items,
-}: {
-  label: string;
-  icon: React.ElementType;
-  items: any[];
-}) => {
+type NavItemConfig = {
+  title: string;
+  href: string;
+  icon?: React.ElementType;
+  permission?: any;
+  subItems?: NavItemConfig[];
+};
+
+type NavSectionConfig = {
+  title: string;
+  icon?: React.ElementType;
+  items: NavItemConfig[];
+};
+
+const renderNavItem = (item: NavItemConfig, isSubItem = false) => {
   const pathname = usePathname();
+  const isActive = pathname === item.href;
+  const Icon = item.icon;
   const { user } = useAuth();
 
-  const visibleItems = items.filter(
-    (item) => !item.permission || hasPermission(user, item.permission)
-  );
-
-  if (visibleItems.length === 0) {
+  if (item.permission && !hasPermission(user as User, item.permission)) {
     return null;
   }
 
-  const isActive = visibleItems.some((item) => pathname.startsWith(item.href));
+  if (item.subItems) {
+    const visibleSubItems = item.subItems.filter(sub => !sub.permission || hasPermission(user as User, sub.permission));
+    if (visibleSubItems.length === 0) return null;
+    
+    return (
+      <DropdownMenuSub key={item.title}>
+        <DropdownMenuSubTrigger className={cn(
+          "flex cursor-pointer items-center justify-between w-full",
+          { "font-bold": isActive }
+        )}>
+          <div className="flex items-center gap-2">
+            {Icon && <Icon className="h-4 w-4" />}
+            <span>{item.title}</span>
+          </div>
+          <ChevronDown className="h-4 w-4" />
+        </DropdownMenuSubTrigger>
+        <DropdownMenuPortal>
+          <DropdownMenuSubContent>
+            {visibleSubItems.map((subItem) => renderNavItem(subItem, true))}
+          </DropdownMenuSubContent>
+        </DropdownMenuPortal>
+      </DropdownMenuSub>
+    );
+  }
+
+  return (
+    <DropdownMenuItem key={item.href} asChild>
+      <Link href={item.href} className={cn(
+        "flex items-center justify-between w-full",
+        { "font-bold": isActive }
+      )}>
+        <span>{item.title}</span>
+        {Icon && !isSubItem && <Icon className="h-4 w-4" />}
+      </Link>
+    </DropdownMenuItem>
+  );
+};
+
+const NavMenu = ({ title, icon: SectionIcon, items }: { title: string, icon?: React.ElementType, items: NavItemConfig[]}) => {
+  const pathname = usePathname();
+  const { user } = useAuth();
+  
+  const visibleItems = items.filter(item => !item.permission || hasPermission(user as User, item.permission));
+  if (visibleItems.length === 0) return null;
+
+  const isActive = items.some(item => item.href && pathname.startsWith(item.href));
 
   return (
     <DropdownMenu>
@@ -94,24 +101,18 @@ const NavMenu = ({
           variant={isActive ? "secondary" : "ghost"}
           className="gap-1.5 font-bold"
         >
-          <Icon className="h-4 w-4" />
-          {label}
+          {SectionIcon && <SectionIcon className="h-4 w-4" />}
+          {title}
           <ChevronDown className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" dir="rtl">
-        {visibleItems.map((item) => (
-          <DropdownMenuItem key={item.href} asChild>
-            <Link href={item.href} className="flex justify-between items-center w-full">
-              <span>{item.label}</span>
-              {item.icon && <item.icon className="h-4 w-4" />}
-            </Link>
-          </DropdownMenuItem>
-        ))}
+      <DropdownMenuContent align="start" dir="rtl" className="w-64">
+        {visibleItems.map((item) => renderNavItem(item))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 };
+
 
 export function MainNav() {
   const pathname = usePathname();
@@ -119,23 +120,31 @@ export function MainNav() {
 
   return (
     <nav className="hidden md:flex items-center gap-2">
-      <Link href="/dashboard">
-        <Button
-          variant={pathname === "/dashboard" ? "secondary" : "ghost"}
-          className="font-bold"
-        >
-          <LayoutDashboard className="h-4 w-4 me-2" />
-          الرئيسية
-        </Button>
-      </Link>
-      {NAV_CONFIG.map((section) => (
+      {navConfig.mainNav.map((item) => {
+        if (item.permission && !hasPermission(user as User, item.permission)) return null;
+         const Icon = item.icon;
+        return(
+        <Link key={item.href} href={item.href}>
+          <Button
+            variant={pathname === item.href ? "secondary" : "ghost"}
+            className="font-bold"
+          >
+            {Icon && <Icon className="h-4 w-4 me-2" />}
+            {item.title}
+          </Button>
+        </Link>
+      )})}
+      
+      {Object.values(navConfig).filter(section => typeof section === 'object' && 'title' in section && Array.isArray((section as any).items)).map((section) => (
         <NavMenu
-          key={section.id}
-          label={section.label}
-          icon={section.icon}
-          items={section.items}
+          key={(section as NavSectionConfig).title}
+          title={(section as NavSectionConfig).title}
+          icon={(section as NavSectionConfig).icon}
+          items={(section as NavSectionConfig).items}
         />
       ))}
     </nav>
   );
 }
+
+    

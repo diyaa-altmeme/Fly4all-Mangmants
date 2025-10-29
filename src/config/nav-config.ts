@@ -1,72 +1,169 @@
-import { LayoutDashboard, Plane, Wallet, Briefcase, BarChart3, Users, Settings } from "lucide-react";
 
-export const NAV_CONFIG = [
-  {
-    id: "operations",
-    label: "العمليات",
-    icon: Plane,
-    activeRoutes: ["/bookings", "/visas", "/accounts/remittances"],
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  Plane,
+  CircleDollarSign,
+  FileText,
+  Settings,
+  ShieldCheck,
+  MessageSquare,
+  Bell,
+  CreditCard,
+  Building,
+  ArrowLeftRight,
+  UserPlus,
+  Ticket,
+  Layers,
+  PieChart,
+  BookUser,
+  Landmark,
+  HandCoins,
+  Wallet,
+  ReceiptText,
+  Container,
+  Mail,
+  Bot,
+  FileCheck2,
+  FileTerminal,
+  FileX2,
+  UserCog,
+  Palette,
+  PenSquare,
+  FileCog,
+  Sparkles,
+  UserRoundCog,
+  UserRoundSearch,
+  FileSliders,
+  Printer,
+  Presentation,
+  LayoutList,
+  FolderGit2,
+  Scale,
+  PiggyBank,
+  GanttChartSquare,
+  AreaChart,
+  Contact,
+  Store,
+  FileDown,
+  GitBranch,
+  FileUp,
+  Banknote,
+  ChevronsRightLeft,
+  Boxes,
+  Repeat,
+  History,
+  Wand2,
+  Activity,
+  Waypoints,
+  NotebookText,
+  BarChart3,
+} from "lucide-react";
+
+export const navConfig = {
+  mainNav: [
+    {
+      title: "الرئيسية",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+    },
+  ],
+  operations: {
+    title: "العمليات",
+    icon: Activity,
     items: [
-      { href: "/bookings", label: "حجوزات الطيران", permission: "bookings:read" },
-      { href: "/visas", label: "حجوزات الفيزا", permission: "visas:read" },
-      { href: "/accounts/remittances", label: "الحوالات", permission: "remittances:read" },
+      {
+        title: "حجوزات الطيران",
+        href: "/bookings",
+        icon: Plane,
+      },
+      {
+        title: "طلبات الفيزا",
+        href: "/visas",
+        icon: CreditCard,
+      },
+       {
+        title: "الاشتراكات",
+        href: "/subscriptions",
+        icon: Repeat,
+      },
+       {
+        title: "الحوالات",
+        href: "/accounts/remittances",
+        icon: ArrowLeftRight,
+      },
     ],
   },
-  {
-    id: "accounting",
-    label: "المحاسبة",
+  accounting: {
+    title: "المحاسبة",
     icon: Wallet,
-    activeRoutes: ["/accounts/vouchers", "/boxes", "/settings/advanced-accounts-setup"],
     items: [
-      { href: "/accounts/vouchers/list", label: "سجل السندات", permission: "vouchers:read" },
-      { href: "/boxes", label: "الصناديق", permission: "admin" }, // Assuming admin only
-      { href: "/settings/accounting", label: "الدليل المحاسبي", permission: "admin" },
+       {
+        title: "سجل السندات",
+        href: "/accounts/vouchers/list",
+        icon: ReceiptText,
+      },
+       {
+        title: "الصناديق",
+        href: "/boxes",
+        icon: Wallet,
+      },
+      {
+        title: "البورصات",
+        href: "/exchanges",
+        icon: Waypoints,
+      },
     ],
   },
-  {
-    id: "custom-business",
-    label: "الأعمال المخصصة",
+  customBusiness: {
+    title: "الأعمال المخصصة",
     icon: Briefcase,
-    activeRoutes: ["/subscriptions", "/segments", "/exchanges", "/profit-sharing"],
     items: [
-      { href: "/subscriptions", label: "الاشتراكات", permission: "subscriptions:read" },
-      { href: "/segments", label: "السكمنت", permission: "segments:read" },
-      { href: "/exchanges", label: "البورصات", permission: "admin" },
-      { href: "/profit-sharing", label: "توزيع الحصص", permission: "admin" },
-    ],
+        {
+            title: "السكمنت",
+            href: "/segments",
+            icon: Layers,
+        },
+        {
+            title: "توزيع الحصص",
+            href: "/profit-sharing",
+            icon: PiggyBank,
+        }
+    ]
   },
-  {
-    id: "reports",
-    label: "التقارير",
+  reports: {
+    title: "التقارير",
     icon: BarChart3,
-    activeRoutes: ["/reports"],
     items: [
-      { href: "/reports/account-statement", label: "كشف الحساب", permission: "reports:account_statement" },
-      { href: "/reports/debts", label: "الأرصدة", permission: "reports:debts" },
-      { href: "/reports/profit-loss", label: "الأرباح والخسائر", permission: "reports:profits" },
-      { href: "/reports/cash-flow", label: "التدفق النقدي", permission: "reports:debts" },
+      { title: "تقرير الأرصدة", href: "/reports/debts", icon: BookUser },
+      { title: "كشف حساب", href: "/reports/account-statement", icon: NotebookText },
+      { title: "تحليل الرحلات", href: "/reports/flight-analysis", icon: Plane },
+      { title: "الأرباح والخسائر", href: "/reports/profit-loss", icon: GanttChartSquare, },
+      { title: "تحليل الربحية", href: "/reports/profitability-analysis", icon: PieChart },
+      { title: "التدفق النقدي", href: "/reports/cash-flow", icon: Waypoints },
     ],
   },
-  {
-    id: "relations",
-    label: "العلاقات",
+  relations: {
+    title: "العلاقات",
     icon: Users,
-    activeRoutes: ["/clients", "/suppliers", "/chat"],
     items: [
-      { href: "/clients", label: "العملاء والموردين", permission: "relations:read" },
-      { href: "/chat", label: "المحادثات", permission: "public" }, // Assuming public access for authenticated users
+      { title: "العملاء والموردين", href: "/clients", icon: Contact },
+      { title: "المحادثات", href: "/chat", icon: MessageSquare },
     ],
   },
-  {
-    id: "settings",
-    label: "الإعدادات والأدوات",
+  settings: {
+    title: "الإعدادات والأدوات",
     icon: Settings,
-    activeRoutes: ["/settings", "/system", "/users", "/templates", "/finance-tools"],
     items: [
-      { href: "/settings", label: "الإعدادات العامة", permission: "admin" },
-      { href: "/users", label: "الموظفين والصلاحيات", permission: "users:read" },
-      { href: "/system/activity-log", label: "سجل النشاطات", permission: "admin" },
-      { href: "/finance-tools", label: "الأدوات المالية", permission: "admin" },
+      { title: "الإعدادات العامة", href: "/settings", icon: Settings },
+      { title: "الموظفين والصلاحيات", href: "/users", icon: UserCog },
+      { title: "الأدوات المالية", href: "/finance-tools", icon: Landmark },
+      { title: "قوالب الرسائل", href: "/templates", icon: PenSquare },
+      { title: "سجل النشاطات", href: "/system/activity-log", icon: FileTerminal },
+      { title: "سجل الأخطاء", href: "/system/error-log", icon: FileCog },
+      { title: "تدقيق البيانات", href: "/system/data-audit", icon: FileCheck2 },
+      { title: "سجل المحذوفات", href: "/system/deleted-log", icon: FileX2 },
     ],
   },
-];
+};
