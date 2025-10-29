@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { revalidatePath } from "next/cache";
@@ -28,7 +27,8 @@ export async function getChartOfAccounts() {
   const db = await getDb();
   const col = db.collection("chart_of_accounts");
   const snap = await col.orderBy("code").get();
-  return snap.docs.map(doc => processDocWithDates(doc));
+  const accounts = snap.docs.map(doc => processDocWithDates(doc));
+  return JSON.parse(JSON.stringify(accounts));
 }
 
 export async function getFinanceAccountsMap(): Promise<FinanceAccountsMap> {
