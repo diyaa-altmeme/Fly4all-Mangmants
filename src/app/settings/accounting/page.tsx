@@ -4,13 +4,12 @@
 import React from 'react';
 import { getChartOfAccounts } from './actions';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import ChartOfAccountsTree from '@/components/settings/chart-of-accounts-tree';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import ProtectedPage from '@/components/auth/protected-page';
+import AccountingSettingsContent from './components/accounting-settings-content';
 
-
-async function AccountingSettingsContainer() {
+export default async function AccountingSettingsPage() {
     const [chartData, error] = await getChartOfAccounts()
         .then(data => [data, null])
         .catch(err => [null, err.message]);
@@ -25,10 +24,6 @@ async function AccountingSettingsContainer() {
         );
     }
 
-    return <ChartOfAccountsTree data={chartData || []} />;
-}
-
-export default async function AccountingSettingsPage() {
     return (
         <ProtectedPage permission="settings:finance:manage">
             <Card>
@@ -39,9 +34,7 @@ export default async function AccountingSettingsPage() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <React.Suspense fallback={<p>جاري تحميل شجرة الحسابات...</p>}>
-                        <AccountingSettingsContainer />
-                    </React.Suspense>
+                    <AccountingSettingsContent initialChartData={chartData || []} />
                 </CardContent>
             </Card>
         </ProtectedPage>
