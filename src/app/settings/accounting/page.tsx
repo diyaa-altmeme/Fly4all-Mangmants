@@ -1,3 +1,4 @@
+
 'use server';
 
 import React from 'react';
@@ -27,7 +28,7 @@ async function AccountingSettingsContainer() {
     return <ChartOfAccountsTree data={chartData || []} />;
 }
 
-export default function AccountingSettingsPage() {
+export default async function AccountingSettingsPage() {
     return (
         <ProtectedPage permission="settings:finance:manage">
             <Card>
