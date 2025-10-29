@@ -139,7 +139,7 @@ const MainNavContent = () => {
               { isSeparator: true, permission: 'vouchers:read' },
               { href: "/accounts/vouchers/list", label: "سجل السندات", icon: ListChecks, permission: 'vouchers:read' },
               { href: "/boxes", label: "الصناديق", icon: Boxes, permission: 'boxes:read' },
-              { href: "/dashboard/finance", label: "لوحة القيادة المالية", icon: BarChart3, permission: 'admin' },
+              { href: "/settings/advanced-accounts-setup", label: "مركز التحكم المالي", icon: BarChart3, permission: 'admin' },
               { href: "/finance/overview", label: "المالية الموحدة", icon: FileBarChart, permission: 'admin'},
               { href: "/reconciliation", label: "التدقيق الذكي", icon: HelpCircle, permission: 'admin' },
               { isSeparator: true, permission: 'reports:debts' },
@@ -199,7 +199,7 @@ const MainNavContent = () => {
             items: [
               { 
                 label: 'الإعدادات المالية', icon: DollarSign, permission: 'admin', subItems: [
-                  { href: "/settings/advanced-accounts-setup", label: "مركز التحكم المالي", icon: Settings, permission: 'admin' },
+                  { href: "/settings/advanced-accounts-setup", label: "إعداد الحسابات المتقدمة", icon: Settings, permission: 'admin' },
                   { href: "/settings/accounting", label: "الدليل المحاسبي", icon: GitBranch, permission: 'settings:read' },
                   { href: "/settings/invoice-sequences", label: "تسلسل الفواتير", icon: FileCog, permission: 'admin' },
                 ]
@@ -319,5 +319,3 @@ const MainNavContent = () => {
 export function MainNav() {
     return <MainNavContent />;
 }
-
-    
