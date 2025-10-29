@@ -199,6 +199,7 @@ const MainNavContent = () => {
             items: [
               { 
                 label: 'الإعدادات المالية', icon: DollarSign, permission: 'admin', subItems: [
+                  { href: "/settings/advanced-accounts-setup", label: "إعداد الحسابات المتقدمة", icon: Settings, permission: 'admin' },
                   { href: "/settings/accounting", label: "الدليل المحاسبي", icon: GitBranch, permission: 'settings:read' },
                   { href: "/settings/finance", label: "مركز التحكم المالي", icon: Settings, permission: 'admin' },
                   { href: "/settings/invoice-sequences", label: "تسلسل الفواتير", icon: FileCog, permission: 'admin' },
