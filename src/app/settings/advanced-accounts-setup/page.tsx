@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -152,7 +153,8 @@ export default function AdvancedAccountsSetupPage() {
     }, [accounts]);
     
     useEffect(() => {
-        generateAccountCode(parentId || undefined).then(code => {
+        const finalParentId = parentId === 'root' ? null : parentId;
+        generateAccountCode(finalParentId || undefined).then(code => {
             setSuggestedCode(code);
         });
     }, [parentId]);
@@ -165,10 +167,11 @@ export default function AdvancedAccountsSetupPage() {
       }
       setCreating(true);
       try {
+        const finalParentId = parentId === 'root' ? null : parentId;
         const doc = await createAccount({
           name,
           type,
-          parentId: parentId || null,
+          parentId: finalParentId || null,
           isLeaf,
           description: desc || ''
         });
@@ -224,7 +227,7 @@ export default function AdvancedAccountsSetupPage() {
                 <Select value={parentId} onValueChange={setParentId}>
                   <SelectTrigger><SelectValue placeholder="بدون أب (جذر)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">— بدون أب (جذر) —</SelectItem>
+                    <SelectItem value="root">— بدون أب (جذر) —</SelectItem>
                     {accounts.map(a => (
                       <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
                     ))}
@@ -451,6 +454,20 @@ export default function AdvancedAccountsSetupPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>ملاحظات تطبيقية</CardTitle>
+          <CardDescription>كيف يُستخدم هذا الربط داخل النظام</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm space-y-2">
+          <p>• جميع عمليات الترحيل المحاسبي (postJournal) يجب أن تقرأ من <b>settings/app_settings.financeAccounts</b>.</p>
+          <p>• عند تفعيل خيار <b>منع ترحيل الإيراد مباشرة في الصندوق</b>، يقوم النظام بإنشاء قيدين: الأول يثبت الإيراد على حساب الإيراد المختار، والثاني يحوّل المبلغ إلى الصندوق (إن لزم) بعملية تحصيل منفصلة.</p>
+          <p>• الحسابات “المخصصة” (تذاكر/فيزا/اشتراكات/سكمنت) تُفضَّل على الحساب العام للإيرادات إن كانت معرَّفة.</p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
+
+    
