@@ -2,11 +2,14 @@
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import AdvancedAccountsData from "./components/advanced-accounts-data";
+import ProtectedPage from "@/components/auth/protected-page";
 
 export default async function AdvancedAccountsSetupPage() {
   return (
-    <Suspense fallback={<Skeleton className="h-[500px] w-full" />}>
-      <AdvancedAccountsData />
-    </Suspense>
+    <ProtectedPage permission="settings:finance:manage">
+      <Suspense fallback={<Skeleton className="h-[500px] w-full" />}>
+        <AdvancedAccountsData />
+      </Suspense>
+    </ProtectedPage>
   );
 }

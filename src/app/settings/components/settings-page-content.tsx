@@ -9,7 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import type { AppSettings } from "@/lib/types";
-import { settingSections } from '../sections.config';
+import { appearanceSections, settingSections } from '../sections.config';
 import { cn } from "@/lib/utils";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
@@ -17,18 +17,23 @@ import { useRouter } from "next/navigation";
 
 interface SettingsPageContentProps {
     initialSettings: AppSettings;
-    onSettingsChanged: () => void;
 }
 
-export default function SettingsPageContent({ initialSettings, onSettingsChanged }: SettingsPageContentProps) {
+export default function SettingsPageContent({ initialSettings }: SettingsPageContentProps) {
     const [searchTerm, setSearchTerm] = useState("");
-    const [activeSection, setActiveSection] = useState("appearance_general");
+    const [activeSection, setActiveSection] = useState("themes_general");
     const router = useRouter();
 
-    const filteredSections = useMemo(() => {
-        if (!searchTerm) return settingSections;
+    const handleDataChange = useCallback(() => {
+        router.refresh();
+    }, [router]);
+    
+    const allSections = useMemo(() => [...settingSections, ...appearanceSections], []);
 
-        return settingSections.map(section => {
+    const filteredSections = useMemo(() => {
+        if (!searchTerm) return allSections;
+
+        return allSections.map(section => {
             const filteredSubItems = section.subItems.filter(sub =>
                 sub.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 section.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -36,21 +41,15 @@ export default function SettingsPageContent({ initialSettings, onSettingsChanged
             return { ...section, subItems: filteredSubItems };
         }).filter(section => section.subItems.length > 0);
         
-    }, [searchTerm]);
+    }, [searchTerm, allSections]);
     
     const ActiveComponent = useMemo(() => {
-        for (const section of settingSections) {
+        for (const section of allSections) {
             const subItem = section.subItems.find(sub => sub.id === activeSection);
             if (subItem) return subItem.component;
         }
-        return null; // Default or fallback component
-    }, [activeSection]);
-
-
-    const handleDataChange = useCallback(() => {
-        // This will re-fetch data on the server for the current route
-        router.refresh();
-    }, [router]);
+        return null;
+    }, [activeSection, allSections]);
 
 
     if (!initialSettings) {
@@ -58,7 +57,7 @@ export default function SettingsPageContent({ initialSettings, onSettingsChanged
     }
 
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start">
         <aside className="border-e bg-card p-4 space-y-4 rounded-lg h-full sticky top-20">
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -69,7 +68,7 @@ export default function SettingsPageContent({ initialSettings, onSettingsChanged
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-            <Accordion type="multiple" className="w-full" defaultValue={settingSections.map(s => s.id)}>
+            <Accordion type="multiple" className="w-full" defaultValue={allSections.map(s => s.id)}>
                 {filteredSections.map(section => {
                     const MainIcon = section.icon;
                     return(
@@ -117,4 +116,3 @@ export default function SettingsPageContent({ initialSettings, onSettingsChanged
       </div>
   );
 }
-
