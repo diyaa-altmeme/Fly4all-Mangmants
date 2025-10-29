@@ -1,13 +1,14 @@
-
 "use client";
 
 import { saveFinanceAccountsMap } from "../actions";
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, Save } from "lucide-react";
 import type { FinanceAccountsMap } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
+import React from 'react';
 
 interface AdvancedAccountsContentProps {
     accounts: any[];
@@ -15,6 +16,17 @@ interface AdvancedAccountsContentProps {
 }
 
 export default function AdvancedAccountsContent({ accounts, financeAccountsMap: fa }: AdvancedAccountsContentProps) {
+  const { toast } = useToast();
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  const handleFormSubmit = async (formData: FormData) => {
+    const result = await saveFinanceAccountsMap(formData);
+    if (result.ok) {
+        toast({ title: "تم الحفظ بنجاح" });
+    } else {
+        toast({ title: "خطأ", description: "فشل حفظ البيانات.", variant: "destructive" });
+    }
+  }
   
   const opts = accounts.map((a: any) => ({ id: a.id, label: `${a.code} — ${a.name}` }));
 
@@ -42,7 +54,7 @@ export default function AdvancedAccountsContent({ accounts, financeAccountsMap: 
           <CardDescription>هذا الربط هو “الجسر” بين الدليل ووحدات النظام. لا ينشئ حسابات، بل يربط مصادر الإيراد والمصروف والذمم بالحساب الصحيح.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={saveFinanceAccountsMap} className="space-y-6">
+          <form action={handleFormSubmit} ref={formRef} className="space-y-6">
 
             <div className="space-y-3">
               <div className="text-sm font-bold text-muted-foreground">الذمم</div>
