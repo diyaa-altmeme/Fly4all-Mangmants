@@ -1,36 +1,22 @@
+
 "use client";
 
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { MainNav } from "@/components/layout/main-nav";
-import { useThemeCustomization } from "@/context/theme-customization-context";
-import Image from 'next/image';
-import { cn } from "@/lib/utils";
-import NotificationCenter from "./notification-center";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ThemeToggle } from "@/components/theme-toggle";
+import React, { useEffect } from "react";
 import { useAuth } from '@/lib/auth-context';
 import Preloader from './preloader';
 import { usePathname, useRouter } from 'next/navigation';
-import type { User, Client, LandingPageSettings } from "@/lib/types";
-import { UserNav } from "./user-nav";
-import { LandingPage } from "@/components/landing-page";
-import { defaultSettingsData } from "@/lib/defaults";
-import "@/app/globals.css";
-import TopLoader from '@/components/ui/top-loader';
-import { useTheme } from "next-themes";
-import { getSettings } from "@/app/settings/actions";
 import TopBar from "./topbar";
+import TopLoader from '@/components/ui/top-loader';
+import { useThemeCustomization } from "@/context/theme-customization-context";
+import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
 
-
-const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
-const landingPageRoute = '/';
+const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
+const clientRoutes = ['/clients', '/profile']; // Routes accessible by clients
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { activeTheme } = useThemeCustomization();
-    const { theme: mode, setTheme } = useTheme();
+    const { theme: mode } = useTheme();
 
     React.useEffect(() => {
         if (typeof window === 'undefined' || !activeTheme) return;
@@ -64,10 +50,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
     return (
-        <div className="flex min-h-screen w-full flex-col bg-muted/40">
-            <TopBar />
+        <div dir="rtl" className="flex min-h-screen w-full flex-col bg-muted/40">
+            <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                <TopBar />
+            </header>
             <TopLoader />
-            <main className="flex-1 p-2 sm:p-4 md:p-6">
+            <main className={cn("container mx-auto px-3 sm:px-4 md:px-6 py-4 flex-1")}>
                 {children}
             </main>
         </div>
@@ -81,17 +69,26 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
 
     const isPublicPath = publicRoutes.includes(pathname);
-    const isLandingPage = pathname === landingPageRoute;
+    const isClientPath = user && 'isClient' in user && clientRoutes.some(p => pathname.startsWith(p));
+    const isLandingPage = pathname === '/';
     
     useEffect(() => {
         if (!loading) {
-            if (user && (isPublicPath || isLandingPage)) {
-                router.replace('/dashboard');
-            } else if (!user && !isPublicPath && !isLandingPage) {
+            if (user) {
+                 if ('isClient' in user) { // If it's a client
+                    if (!isClientPath) {
+                        router.replace(`/clients/${user.id}`);
+                    }
+                } else { // If it's an employee/admin
+                    if (isPublicPath || isLandingPage) {
+                        router.replace('/dashboard');
+                    }
+                }
+            } else if (!isPublicPath) {
                 router.replace('/');
             }
         }
-    }, [user, loading, isPublicPath, isLandingPage, router, pathname]);
+    }, [user, loading, isPublicPath, isLandingPage, isClientPath, router, pathname]);
 
     if (loading) {
         return <Preloader />;
@@ -111,3 +108,5 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     
     return <AppLayout>{children}</AppLayout>;
 }
+
+    

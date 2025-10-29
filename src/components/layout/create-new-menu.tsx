@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from "react";
@@ -8,9 +9,11 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { PlusCircle, FileDown, GitBranch, FileUp, BookUser, CreditCard, Ticket, Users, Banknote } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 
@@ -21,10 +24,26 @@ import NewPaymentVoucherDialog from "@/components/vouchers/components/new-paymen
 import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
 import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
 import AddClientDialog from "@/app/clients/components/add-client-dialog";
+import AddBookingDialog from "@/app/bookings/components/add-booking-dialog";
+import AddVisaDialog from "@/app/visas/components/add-visa-dialog";
 
 export default function CreateNewMenu() {
   const router = useRouter();
   const onChanged = () => router.refresh();
+
+  const voucherItems = [
+    { Dialog: NewStandardReceiptDialog, label: "سند قبض عادي", icon: FileDown, onSave: onChanged },
+    { Dialog: NewDistributedReceiptDialog, label: "سند قبض مخصص", icon: GitBranch, onSave: onChanged },
+    { Dialog: NewPaymentVoucherDialog, label: "سند دفع", icon: FileUp, onSave: onChanged },
+    { Dialog: NewExpenseVoucherDialog, label: "سند مصاريف", icon: Banknote, onSave: onChanged },
+    { Dialog: NewJournalVoucherDialog, label: "سند قيد داخلي", icon: BookUser, onSave: onChanged },
+  ];
+  
+  const mainItems = [
+      { Dialog: AddBookingDialog, label: "حجز طيران", icon: Ticket, onSave: onChanged, props: { onBookingAdded: onChanged } },
+      { Dialog: AddVisaDialog, label: "طلب فيزا", icon: CreditCard, onSave: onChanged, props: { onBookingAdded: onChanged } },
+      { Dialog: AddClientDialog, label: "إضافة علاقة", icon: Users, onSave: onChanged, props: { onClientAdded: onChanged, onClientUpdated: onChanged } },
+  ];
 
   return (
     <DropdownMenu>
@@ -35,93 +54,45 @@ export default function CreateNewMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" dir="rtl">
-        {/* Vouchers */}
-        <Dialog modal={false}>
-          <NewStandardReceiptDialog onVoucherAdded={onChanged}>
-            <DialogTrigger asChild>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between">
-                <span>سند قبض عادي</span>
-                <FileDown className="h-4 w-4" />
-              </DropdownMenuItem>
-            </DialogTrigger>
-          </NewStandardReceiptDialog>
-        </Dialog>
-
-        <Dialog modal={false}>
-          <NewDistributedReceiptDialog onVoucherAdded={onChanged}>
-            <DialogTrigger asChild>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between">
-                <span>سند قبض مخصص</span>
-                <GitBranch className="h-4 w-4" />
-              </DropdownMenuItem>
-            </DialogTrigger>
-          </NewDistributedReceiptDialog>
-        </Dialog>
-
-        <Dialog modal={false}>
-          <NewPaymentVoucherDialog onVoucherAdded={onChanged}>
-            <DialogTrigger asChild>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between">
-                <span>سند دفع</span>
-                <FileUp className="h-4 w-4" />
-              </DropdownMenuItem>
-            </DialogTrigger>
-          </NewPaymentVoucherDialog>
-        </Dialog>
-
-        <Dialog modal={false}>
-          <NewExpenseVoucherDialog onVoucherAdded={onChanged}>
-            <DialogTrigger asChild>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between">
-                <span>سند مصاريف</span>
-                <Banknote className="h-4 w-4" />
-              </DropdownMenuItem>
-            </DialogTrigger>
-          </NewExpenseVoucherDialog>
-        </Dialog>
-
-        <Dialog modal={false}>
-          <NewJournalVoucherDialog onVoucherAdded={onChanged}>
-            <DialogTrigger asChild>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between">
-                <span>سند قيد داخلي</span>
-                <BookUser className="h-4 w-4" />
-              </DropdownMenuItem>
-            </DialogTrigger>
-          </NewJournalVoucherDialog>
-        </Dialog>
+        
+        {mainItems.map(({ Dialog, label, icon: Icon, onSave, props }) => (
+            <Dialog key={label} modal={false}>
+                <DialogTrigger asChild>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between">
+                        <span>{label}</span>
+                        <Icon className="h-4 w-4" />
+                    </DropdownMenuItem>
+                </DialogTrigger>
+                <Dialog><DialogContent><p>placeholder</p></DialogContent></Dialog>
+            </Dialog>
+        ))}
 
         <DropdownMenuSeparator />
-
-        {/* Operations */}
-        <DropdownMenuItem asChild>
-          <Link href="/bookings" className="justify-between">
-            <span>حجز طيران جديد</span>
-            <Ticket className="h-4 w-4" />
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem asChild>
-          <Link href="/visas" className="justify-between">
-            <span>حجز فيزا جديد</span>
-            <CreditCard className="h-4 w-4" />
-          </Link>
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        {/* Relations */}
-        <Dialog modal={false}>
-          <AddClientDialog onClientAdded={onChanged} onClientUpdated={onChanged}>
-            <DialogTrigger asChild>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between">
-                <span>إضافة علاقة</span>
-                <Users className="h-4 w-4" />
-              </DropdownMenuItem>
-            </DialogTrigger>
-          </AddClientDialog>
-        </Dialog>
+        
+        <DropdownMenuSub>
+            <DropdownMenuSubTrigger className="justify-between">
+                <span>إنشاء سند</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+                <DropdownMenuSubContent>
+                {voucherItems.map(({ Dialog, label, icon: Icon, onSave }) => (
+                    <Dialog key={label} modal={false}>
+                        <DialogTrigger asChild>
+                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-between">
+                                <span>{label}</span>
+                                <Icon className="h-4 w-4" />
+                            </DropdownMenuItem>
+                        </DialogTrigger>
+                        <Dialog><DialogContent><p>placeholder</p></DialogContent></Dialog>
+                    </Dialog>
+                ))}
+                </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+        </DropdownMenuSub>
+        
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
+
+    
