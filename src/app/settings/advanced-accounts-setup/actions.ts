@@ -4,14 +4,31 @@
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/firebase-admin";
 import type { FinanceAccountsMap, AppSettings } from "@/lib/types";
+import { Timestamp } from 'firebase-admin/firestore';
+
 
 const SETTINGS_DOC_ID = "app_settings";
+
+const processDocWithDates = (doc: FirebaseFirestore.DocumentSnapshot) => {
+    const data = doc.data() as any;
+    if (!data) return null;
+
+    const safeData = { ...data, id: doc.id };
+
+    // Convert Firestore Timestamps to ISO strings
+    for (const key in safeData) {
+        if (safeData[key] instanceof Timestamp) {
+            safeData[key] = safeData[key].toDate().toISOString();
+        }
+    }
+    return safeData;
+}
 
 export async function getChartOfAccounts() {
   const db = await getDb();
   const col = db.collection("chart_of_accounts");
   const snap = await col.orderBy("code").get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snap.docs.map(doc => processDocWithDates(doc));
 }
 
 export async function getFinanceAccountsMap(): Promise<FinanceAccountsMap> {
