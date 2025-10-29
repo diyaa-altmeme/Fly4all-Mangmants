@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useCallback } from "react";
@@ -23,7 +24,7 @@ import {
   GitBranch, HelpCircle, AreaChart, BarChart2, Plane, Milestone,
   Users2, Send, MessageSquare, Network, ShieldCheck, Paintbrush,
   FileImage, DatabaseZap, Brain, ScanSearch, FileUp, History, FileWarning, Trash2,
-  Repeat, Layers3, ChevronsRightLeft,
+  Repeat, Layers3, ChevronsRightLeft, Share2,
   ChevronDown, PlusCircle, FileDown, BookUser, Banknote
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -478,4 +479,6 @@ export function MainNav() {
       ))}
     </nav>
   );
-};
+}
+
+    
