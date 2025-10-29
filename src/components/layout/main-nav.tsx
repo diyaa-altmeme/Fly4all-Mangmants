@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useCallback, useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,6 @@ const NavMenu = ({
           </span>
         </Button>
       </DropdownMenuTrigger>
-      {/* مهم للـ RTL: align=“end” و side=“bottom” والـ SubContent يفتح للـ right */}
       <DropdownMenuContent align="end" side="bottom" dir="rtl">
         {children}
       </DropdownMenuContent>
@@ -81,7 +80,6 @@ const Sub = ({ label, icon: Icon, children }: any) => (
         <span>{label}</span>
       </div>
     </DropdownMenuSubTrigger>
-    {/* يفتح لليمين في RTL */}
     <DropdownMenuSubContent side="right" align="end" dir="rtl">
       {children}
     </DropdownMenuSubContent>
@@ -91,10 +89,10 @@ const Sub = ({ label, icon: Icon, children }: any) => (
 export function MainNav() {
   const pathname = usePathname();
   const { hasPermission } = useAuth();
-
+  
   const getVisibleItems = useCallback((items: any[]) => {
     return items.filter(item => {
-        if (item.permission === undefined) return true; // Default to visible if no permission is set
+        if (!item.permission) return true;
         return hasPermission(item.permission as Permission);
     });
   }, [hasPermission]);
@@ -105,7 +103,6 @@ export function MainNav() {
     const allMenus = [
       {
         id: "home",
-        show: true,
         node: (
           <Link
             key="home"
@@ -237,13 +234,10 @@ export function MainNav() {
     ];
 
     return allMenus
-      .map(menu => {
-        if (!menu.items) return menu;
-        return {
-          ...menu,
-          items: getVisibleItems(menu.items),
-        }
-      })
+      .map(menu => ({
+        ...menu,
+        items: menu.items ? getVisibleItems(menu.items) : [],
+      }))
       .filter(menu => menu.node || (menu.items && menu.items.length > 0));
 
   }, [pathname, hasPermission, getVisibleItems]);
