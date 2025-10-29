@@ -1,10 +1,11 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import { unstable_cache } from 'next/cache';
 import type { BookingEntry } from '@/lib/types';
-import { postJournalEntry } from '@/lib/finance/postJournal';
+import { postRevenue, postCost } from "@/lib/finance/posting";
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
 export const getBookings = unstable_cache(async (options: { 
@@ -67,9 +68,7 @@ export async function addBooking(bookingData: any) {
 
   const totalSale = bookingData.passengers.reduce((acc: number, p: any) => acc + (Number(p.salePrice) || 0), 0);
   const totalPurchase = bookingData.passengers.reduce((acc: number, p: any) => acc + (Number(p.purchasePrice) || 0), 0);
-  
-  // This function should now only be responsible for creating the booking document.
-  // The accounting logic will be handled by the postJournalEntry function.
+  const totalProfit = totalSale - totalPurchase;
   
    const db = await getDb();
    const bookingRef = db.collection('bookings').doc();
@@ -81,18 +80,27 @@ export async function addBooking(bookingData: any) {
        enteredAt: new Date().toISOString(),
    });
 
-   await postJournalEntry({
-      sourceType: "booking",
+   await postRevenue({
+      sourceType: "tickets",
       sourceId: bookingRef.id,
-      description: `حجز تذكرة PNR: ${bookingData.pnr}`,
-      amount: totalSale,
-      cost: totalPurchase,
+      date: bookingData.issueDate,
       currency: bookingData.currency,
-      date: new Date(bookingData.issueDate),
-      userId: user.uid,
-      clientId: bookingData.clientId,
-      supplierId: bookingData.supplierId,
-  });
+      amount: totalProfit,
+      clientId: bookingData.clientId
+    });
+
+    if (totalPurchase > 0) {
+      await postCost({
+        costKey: "cost_tickets",
+        sourceType: "tickets",
+        sourceId: bookingRef.id,
+        date: bookingData.issueDate,
+        currency: bookingData.currency,
+        amount: totalPurchase,
+        supplierId: bookingData.supplierId
+      });
+    }
+
 
   return { success: true, newBooking: { id: bookingRef.id, ...bookingData } };
 }
@@ -107,4 +115,3 @@ export async function addMultipleBookings(bookings: any[]): Promise<{ success: b
 export async function softDeleteBooking(id: string): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
 export async function restoreBooking(id: string): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
 export async function permanentDeleteBooking(id: string): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
-

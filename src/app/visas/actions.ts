@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -10,7 +11,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getSettings } from '@/app/settings/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
-import { postJournalEntry } from '@/lib/finance/postJournal';
+import { postRevenue, postCost } from '@/lib/finance/posting';
 
 export async function getVisaBookings(includeDeleted = false): Promise<VisaBookingEntry[]> {
     const settings = await getSettings();
@@ -57,11 +58,6 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
 
-    const settings = await getSettings();
-    if (settings.financeAccounts?.blockDirectCashRevenue && bookingData.boxId) {
-      throw new Error("❌ غير مسموح بتسجيل الإيرادات مباشرة في الصندوق. استخدم حساب الإيراد أولًا.");
-    }
-
     const bookingRef = db.collection('visaBookings').doc();
 
     try {
@@ -87,22 +83,31 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
         
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
         const totalPurchase = dataToSave.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
+        const totalProfit = totalSale - totalPurchase;
 
         await bookingRef.set(dataToSave);
         
-        await postJournalEntry({
-            sourceType: 'visa',
+        await postRevenue({
+            sourceType: 'visas',
             sourceId: bookingRef.id,
-            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
-            amount: totalSale,
-            cost: totalPurchase,
+            date: dataToSave.submissionDate,
             currency: dataToSave.currency,
-            date: new Date(dataToSave.submissionDate),
-            userId: user.uid,
+            amount: totalProfit,
             clientId: dataToSave.clientId,
-            supplierId: dataToSave.supplierId,
         });
 
+        if (totalPurchase > 0) {
+            await postCost({
+                costKey: 'cost_visas',
+                sourceType: 'visas',
+                sourceId: bookingRef.id,
+                date: dataToSave.submissionDate,
+                currency: dataToSave.currency,
+                amount: totalPurchase,
+                supplierId: dataToSave.supplierId,
+            });
+        }
+        
         const batch = db.batch();
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });
         if (dataToSave.supplierId) {
@@ -163,19 +168,28 @@ export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntr
 
         const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
         const totalPurchase = dataToSave.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
+        const totalProfit = totalSale - totalPurchase;
 
-        await postJournalEntry({
-            sourceType: 'visa',
+        await postRevenue({
+            sourceType: 'visas',
             sourceId: bookingRef.id,
-            description: `إيراد فيزا فاتورة ${newInvoiceNumber}`,
-            amount: totalSale,
-            cost: totalPurchase,
+            date: dataToSave.submissionDate,
             currency: dataToSave.currency,
-            date: new Date(dataToSave.submissionDate),
-            userId: user.uid,
+            amount: totalProfit,
             clientId: dataToSave.clientId,
-            supplierId: dataToSave.supplierId,
         });
+
+         if (totalPurchase > 0) {
+            await postCost({
+                costKey: 'cost_visas',
+                sourceType: 'visas',
+                sourceId: bookingRef.id,
+                date: dataToSave.submissionDate,
+                currency: dataToSave.currency,
+                amount: totalPurchase,
+                supplierId: dataToSave.supplierId,
+            });
+        }
 
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });
         batch.update(db.collection('clients').doc(dataToSave.supplierId), { useCount: FieldValue.increment(1) });

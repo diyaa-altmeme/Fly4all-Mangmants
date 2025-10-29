@@ -1,480 +1,129 @@
 
-'use client';
+import { getChartOfAccounts, getFinanceAccountsMap, updateFinanceAccountsMap } from "./actions";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { AlertCircle, Save } from "lucide-react";
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
+export default async function AdvancedAccountsSetupPage() {
+  const [accounts, fa] = await Promise.all([
+    getChartOfAccounts(),
+    getFinanceAccountsMap()
+  ]);
 
-import { listAccounts, getFinanceSettings, saveFinanceSettings, createAccount, generateAccountCode, type ChartAccount, type FinanceAccountsMap } from './actions';
+  // خيارات منسدلة موحدة
+  const opts = accounts.map((a: any) => ({ id: a.id, label: `${a.code} — ${a.name}` }));
 
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/hooks/use-toast';
+  // Server Action (RSC -> Action)
+  async function save(formData: FormData) {
+    "use server";
+    const payload = {
+      receivableAccountId: formData.get("receivableAccountId") as string,
+      payableAccountId: formData.get("payableAccountId") as string,
+      defaultCashId: formData.get("defaultCashId") as string,
+      defaultBankId: formData.get("defaultBankId") as string,
+      preventDirectCashRevenue: (formData.get("preventDirectCashRevenue") as string) === "on",
 
-import { ShieldCheck, Save, PlusCircle, Loader2 } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context'; // يفترض لديك
-import { cn } from '@/lib/utils';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import ChartOfAccountsTree from '@/components/settings/chart-of-accounts-tree';
-
-
-const linkingSchema = z.object({
-  generalRevenueId: z.string().optional(),
-  generalExpenseId: z.string().optional(),
-  arAccountId: z.string().optional(),
-  apAccountId: z.string().optional(),
-  defaultCashId: z.string().optional(),
-  defaultBankId: z.string().optional(),
-  customRevenues: z.object({
-    tickets: z.string().optional(),
-    visas: z.string().optional(),
-    subscriptions: z.string().optional(),
-    segments: z.string().optional()
-  }).default({}),
-  preventDirectCashRevenue: z.boolean().default(true)
-});
-
-type LinkingForm = z.infer<typeof linkingSchema>;
-
-export default function AdvancedAccountsSetupPage() {
-  const { user, hasPermission } = useAuth();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [accounts, setAccounts] = useState<ChartAccount[]>([]);
-  const [treeData, setTreeData] = useState<any[]>([]);
-  const [openCreate, setOpenCreate] = useState(false);
-
-  const form = useForm<LinkingForm>({
-    resolver: zodResolver(linkingSchema),
-    defaultValues: {
-      customRevenues: {},
-      preventDirectCashRevenue: true
-    }
-  });
-
-  // حماية الوصول
-  useEffect(() => {
-    if (user && !hasPermission?.('admin')) {
-      toast({ title: 'صلاحية غير كافية', description: 'هذه الصفحة متاحة للمدراء فقط', variant: 'destructive' });
-    }
-  }, [user, hasPermission, toast]);
-
-  // تحميل البيانات
-  const fetchData = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const [accs, settings] = await Promise.all([listAccounts(), getFinanceSettings()]);
-      setAccounts(accs);
-      
-      const buildTree = (items: ChartAccount[], parentId: string | null = null): any[] => {
-          return items
-              .filter(item => item.parentId === parentId)
-              .map(item => ({ ...item, children: buildTree(items, item.id) }));
-      };
-      setTreeData(buildTree(accs));
-
-      const defaults: LinkingForm = {
-        generalRevenueId: settings.generalRevenueId || '',
-        generalExpenseId: settings.generalExpenseId || '',
-        arAccountId: settings.arAccountId || '',
-        apAccountId: settings.apAccountId || '',
-        defaultCashId: settings.defaultCashId || '',
-        defaultBankId: settings.defaultBankId || '',
-        customRevenues: {
-          tickets: settings.customRevenues?.tickets || '',
-          visas: settings.customRevenues?.visas || '',
-          subscriptions: settings.customRevenues?.subscriptions || '',
-          segments: settings.customRevenues?.segments || ''
-        },
-        preventDirectCashRevenue: settings.preventDirectCashRevenue ?? true
-      };
-      form.reset(defaults);
-    } catch (e: any) {
-      toast({ title: 'فشل التحميل', description: e?.message || 'خطأ غير معروف', variant: 'destructive' });
-    } finally {
-      setLoading(false);
-    }
-  }, [form, toast]);
-  
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const byType = useMemo(() => {
-    const map: Record<string, ChartAccount[]> = {
-      asset: [],
-      liability: [],
-      equity: [],
-      revenue: [],
-      expense: []
-    };
-    accounts.forEach(a => {
-        if(a.isLeaf && map[a.type]) {
-            map[a.type].push(a);
-        }
-    });
-    return map;
-  }, [accounts]);
-
-  async function onSave(v: LinkingForm) {
-    const payload: FinanceAccountsMap = {
-      generalRevenueId: v.generalRevenueId || undefined,
-      generalExpenseId: v.generalExpenseId || undefined,
-      arAccountId: v.arAccountId || undefined,
-      apAccountId: v.apAccountId || undefined,
-      defaultCashId: v.defaultCashId || undefined,
-      defaultBankId: v.defaultBankId || undefined,
-      customRevenues: {
-        tickets: v.customRevenues?.tickets || undefined,
-        visas: v.customRevenues?.visas || undefined,
-        subscriptions: v.customRevenues?.subscriptions || undefined,
-        segments: v.customRevenues?.segments || undefined
+      revenueMap: {
+        tickets: formData.get("rev_tickets") as string,
+        visas: formData.get("rev_visas") as string,
+        subscriptions: formData.get("rev_subscriptions") as string,
+        segments: formData.get("rev_segments") as string,
+        profit_distribution: formData.get("rev_profit_dist") as string
       },
-      preventDirectCashRevenue: v.preventDirectCashRevenue
+      expenseMap: {
+        cost_tickets: formData.get("exp_cost_tickets") as string,
+        cost_visas: formData.get("exp_cost_visas") as string,
+        operating_salaries: formData.get("exp_oper_salaries") as string,
+        operating_rent: formData.get("exp_oper_rent") as string,
+        operating_utilities: formData.get("exp_oper_util") as string,
+        marketing: formData.get("exp_marketing") as string
+      }
     };
-    try {
-      await saveFinanceSettings(payload);
-      toast({ title: 'تم الحفظ', description: 'تم تحديث ربط الحسابات بنجاح.' });
-    } catch (e: any) {
-      toast({ title: 'فشل الحفظ', description: e?.message || 'خطأ غير معروف', variant: 'destructive' });
-    }
+    await updateFinanceAccountsMap(payload);
   }
 
-  // ========== Dialog إنشاء حساب ==========
-  function CreateAccountDialog() {
-    const [creating, setCreating] = useState(false);
-    const [parentId, setParentId] = useState<string | ''>('root');
-    const [name, setName] = useState('');
-    const [type, setType] = useState<'asset'|'liability'|'equity'|'revenue'|'expense'>('asset');
-    const [isLeaf, setIsLeaf] = useState(true);
-    const [desc, setDesc] = useState('');
-    const [suggestedCode, setSuggestedCode] = useState('');
-    
-    const parentLabel = useMemo(() => {
-      if (!parentId || parentId === 'root') return 'بدون أب (جذر)';
-      const p = accounts.find(a => a.id === parentId);
-      return p ? `${p.code} — ${p.name}` : '—';
-    }, [parentId, accounts]);
-
-    const parentsOptions = useMemo(() => {
-      return accounts.filter(a => !a.isLeaf);
-    }, [accounts]);
-    
-     useEffect(() => {
-        const fetchCode = async () => {
-             const code = await generateAccountCode(parentId === 'root' ? null : parentId);
-             setSuggestedCode(code);
-        }
-        fetchCode();
-    }, [parentId]);
-
-
-    async function handleCreate() {
-      if (!name.trim()) {
-        toast({ title: 'اسم الحساب مطلوب', variant: 'destructive' });
-        return;
-      }
-      setCreating(true);
-      try {
-        const finalParentId = parentId === 'root' ? null : parentId;
-        await createAccount({
-          name,
-          type,
-          parentId: finalParentId,
-          isLeaf,
-          description: desc || '',
-          code: suggestedCode,
-        });
-        toast({ title: 'تم الإنشاء', description: `تم إنشاء الحساب ${suggestedCode} — ${name}` });
-        setOpenCreate(false);
-        fetchData(); // Refresh the list
-        setName(''); setDesc(''); setIsLeaf(true); setParentId('root'); setType('asset');
-      } catch (e: any) {
-        toast({ title: 'فشل الإنشاء', description: e?.message || 'خطأ غير معروف', variant: 'destructive' });
-      } finally {
-        setCreating(false);
-      }
-    }
-
-    return (
-      <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-        <DialogTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
-            <PlusCircle className="h-4 w-4" /> إنشاء حساب جديد
-          </Button>
-        </DialogTrigger>
-        <DialogContent dir="rtl" className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>إنشاء حساب جديد</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label>اسم الحساب</Label>
-                <Input value={name} onChange={e => setName(e.target.value)} placeholder="مثال: إيرادات التذاكر" />
-              </div>
-              <div>
-                <Label>النوع</Label>
-                <Select value={type} onValueChange={(v: any) => setType(v)}>
-                  <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="asset">أصل (Asset)</SelectItem>
-                    <SelectItem value="liability">التزام (Liability)</SelectItem>
-                    <SelectItem value="equity">حقوق ملكية (Equity)</SelectItem>
-                    <SelectItem value="revenue">إيراد (Revenue)</SelectItem>
-                    <SelectItem value="expense">مصروف (Expense)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label>الحساب الأب</Label>
-                <Select value={parentId} onValueChange={setParentId}>
-                  <SelectTrigger><SelectValue placeholder="بدون أب (جذر)" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="root">— بدون أب (جذر) —</SelectItem>
-                    {parentsOptions.map(a => (
-                      <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground mt-1">الأب الحالي: {parentLabel}</p>
-              </div>
-              <div className="space-y-1">
-                 <Label>رقم الحساب (تلقائي)</Label>
-                 <Input value={suggestedCode} readOnly disabled />
-              </div>
-            </div>
-            
-             <div className="flex items-center gap-3">
-                <div className="space-y-1">
-                  <Label className="block">قابل للترحيل مباشرة (Leaf)</Label>
-                  <Switch checked={isLeaf} onCheckedChange={setIsLeaf} />
-                </div>
-              </div>
-
-            <div>
-              <Label>وصف (اختياري)</Label>
-              <Input value={desc} onChange={e => setDesc(e.target.value)} placeholder="وصف مختصر" />
-            </div>
-
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="ghost" onClick={() => setOpenCreate(false)}>إلغاء</Button>
-            <Button onClick={handleCreate} disabled={creating}>
-              {creating ? '...جارٍ الإنشاء' : 'إنشاء'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  function AccountsSelect({
-    value, onChange, placeholder, filterType
-  }: { value?: string; onChange: (v: string) => void; placeholder: string; filterType?: 'revenue'|'expense'|'asset'|'liability'|'equity' }) {
-    const options = filterType ? byType[filterType] : accounts;
-    return (
-        <Select value={value || ''} onValueChange={onChange}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder={placeholder} />
-          </SelectTrigger>
-          <SelectContent>
-            {(options || []).map(a => (
-              <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
-            ))}
+  const SelectRow = ({
+    name, label, defaultValue
+  }: { name: string; label: string; defaultValue?: string; }) => (
+    <div className="grid grid-cols-3 gap-3 items-center">
+      <div className="font-semibold">{label}</div>
+      <div className="col-span-2">
+        <Select name={name} defaultValue={defaultValue || ""}>
+          <SelectTrigger><SelectValue placeholder="اختر حسابًا..." /></SelectTrigger>
+          <SelectContent side="top" align="end">
+            {opts.map(o => <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>)}
           </SelectContent>
         </Select>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div dir="rtl" className="p-6">
-        <Card><CardContent className="py-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></CardContent></Card>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div dir="rtl" className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">إعداد الحسابات المتقدمة</h1>
-          <p className="text-sm text-muted-foreground">ربط جميع الحسابات الرئيسية بالنظام المالي — مصدر الحقيقة الوحيد للربط.</p>
-        </div>
-        <div className="flex items-center gap-2 text-green-600">
-          <ShieldCheck className="h-5 w-5" />
-          <span className="text-sm">للمدراء فقط</span>
-        </div>
-      </div>
+    <div className="space-y-6">
+      {/* ... بقية الصفحة (شجرة الحسابات، إنشاء حساب...) */}
 
-       <Card>
+      <Card className="border-2">
         <CardHeader>
-          <div className="flex justify-between items-center">
-            <CardTitle>شجرة الحسابات</CardTitle>
-            <CreateAccountDialog />
-          </div>
-          <CardDescription>
-            استعراض وتعديل شجرة الحسابات الكاملة.
-          </CardDescription>
+          <CardTitle>ربط الحسابات الرئيسية بالنظام</CardTitle>
+          <CardDescription>هذا الربط هو “الجسر” بين الدليل ووحدات النظام. لا ينشئ حسابات، بل يربط مصادر الإيراد والمصروف والذمم بالحساب الصحيح.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartOfAccountsTree data={treeData} />
-        </CardContent>
-      </Card>
+          <form action={save} className="space-y-6">
 
-      <Card>
-        <CardHeader>
-          <CardTitle>الحسابات الرئيسية</CardTitle>
-          <CardDescription>اربط الحسابات العامة التي يعتمد عليها النظام</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>حساب الإيرادات العامة</Label>
-              <Controller
-                control={form.control}
-                name="generalRevenueId"
-                render={({ field }) => (
-                  <AccountsSelect value={field.value} onChange={field.onChange} placeholder="اختر حساب إيراد..." filterType="revenue" />
-                )}
-              />
-            </div>
-            <div>
-              <Label>حساب المصروفات العامة</Label>
-              <Controller
-                control={form.control}
-                name="generalExpenseId"
-                render={({ field }) => (
-                  <AccountsSelect value={field.value} onChange={field.onChange} placeholder="اختر حساب مصروف..." filterType="expense" />
-                )}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label>حساب الذمم المدينة (AR)</Label>
-              <Controller
-                control={form.control}
-                name="arAccountId"
-                render={({ field }) => (
-                  <AccountsSelect value={field.value} onChange={field.onChange} placeholder="اختر حساب أصل (غالباً أصل)" />
-                )}
-              />
-            </div>
-            <div>
-              <Label>حساب الذمم الدائنة (AP)</Label>
-              <Controller
-                control={form.control}
-                name="apAccountId"
-                render={({ field }) => (
-                  <AccountsSelect value={field.value} onChange={field.onChange} placeholder="اختر حساب التزام (غالباً التزام)" />
-                )}
-              />
-            </div>
-            <div>
-              <Label>حساب الصندوق الافتراضي (Cash)</Label>
-              <Controller
-                control={form.control}
-                name="defaultCashId"
-                render={({ field }) => (
-                  <AccountsSelect value={field.value} onChange={field.onChange} placeholder="اختر حساب صندوق (أصل)" filterType="asset" />
-                )}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <Label>حساب البنك الافتراضي (Bank)</Label>
-              <Controller
-                control={form.control}
-                name="defaultBankId"
-                render={({ field }) => (
-                  <AccountsSelect value={field.value} onChange={field.onChange} placeholder="اختر حساب بنك (أصل)" filterType="asset" />
-                )}
-              />
+            <div className="space-y-3">
+              <div className="text-sm font-bold text-muted-foreground">الذمم</div>
+              <SelectRow name="receivableAccountId" label="الذمم المدينة (العملاء)" defaultValue={fa?.receivableAccountId} />
+              <SelectRow name="payableAccountId" label="الذمم الدائنة (الموردين)" defaultValue={fa?.payableAccountId} />
             </div>
 
-            <div className="col-span-2 flex items-center gap-3 border rounded-md p-3">
-              <Switch
-                checked={form.watch('preventDirectCashRevenue')}
-                onCheckedChange={(v) => form.setValue('preventDirectCashRevenue', v)}
-              />
-              <div>
-                <div className="font-semibold">منع ترحيل الإيراد مباشرة للصندوق</div>
-                <div className="text-xs text-muted-foreground">يفرض مرور الإيراد على حساب الإيرادات أولاً، ثم تحويله للصندوق عبر قيد منفصل.</div>
+            <Separator />
+
+            <div className="space-y-3">
+              <div className="text-sm font-bold text-muted-foreground">النقدية</div>
+              <SelectRow name="defaultCashId" label="الصندوق الافتراضي" defaultValue={fa?.defaultCashId} />
+              <SelectRow name="defaultBankId" label="الحساب البنكي الافتراضي" defaultValue={fa?.defaultBankId} />
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="preventDirectCashRevenue" defaultChecked={!!fa?.preventDirectCashRevenue} />
+                منع تسجيل الإيراد مباشرة في الصندوق
+              </label>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <div className="text-sm font-bold text-muted-foreground">إيرادات حسب الوحدة</div>
+              <SelectRow name="rev_tickets" label="إيرادات التذاكر" defaultValue={fa?.revenueMap?.tickets} />
+              <SelectRow name="rev_visas" label="إيرادات الفيزا" defaultValue={fa?.revenueMap?.visas} />
+              <SelectRow name="rev_subscriptions" label="إيرادات الاشتراكات" defaultValue={fa?.revenueMap?.subscriptions} />
+              <SelectRow name="rev_segments" label="إيرادات السكمنت" defaultValue={fa?.revenueMap?.segments} />
+              <SelectRow name="rev_profit_dist" label="إيرادات توزيع الأرباح" defaultValue={fa?.revenueMap?.profit_distribution} />
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <div className="text-sm font-bold text-muted-foreground">مصاريف</div>
+              <SelectRow name="exp_cost_tickets" label="تكلفة التذاكر" defaultValue={fa?.expenseMap?.cost_tickets} />
+              <SelectRow name="exp_cost_visas" label="تكلفة الفيزا" defaultValue={fa?.expenseMap?.cost_visas} />
+              <SelectRow name="exp_oper_salaries" label="رواتب" defaultValue={fa?.expenseMap?.operating_salaries} />
+              <SelectRow name="exp_oper_rent" label="إيجار" defaultValue={fa?.expenseMap?.operating_rent} />
+              <SelectRow name="exp_oper_util" label="فواتير وخدمات" defaultValue={fa?.expenseMap?.operating_utilities} />
+              <SelectRow name="exp_marketing" label="تسويق" defaultValue={fa?.expenseMap?.marketing} />
+            </div>
+
+            <div className="pt-4 flex items-center gap-2">
+              <Button type="submit" className="font-bold">
+                <Save className="ml-2 h-4 w-4" />
+                حفظ الربط
+              </Button>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <AlertCircle className="h-4 w-4" />
+                سيؤثر هذا الربط على القيود الجديدة فورًا.
               </div>
             </div>
-          </div>
-
-          <Separator className="my-2" />
-
-          <div>
-            <div className="font-semibold mb-2">إيرادات مخصصة حسب نوع العملية</div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <Label>إيرادات التذاكر</Label>
-                <Controller
-                  control={form.control}
-                  name="customRevenues.tickets"
-                  render={({ field }) => (
-                    <AccountsSelect value={field.value} onChange={field.onChange} placeholder="اختر حساب إيراد... (تذاكر)" filterType="revenue" />
-                  )}
-                />
-              </div>
-              <div>
-                <Label>إيرادات الفيزا</Label>
-                <Controller
-                  control={form.control}
-                  name="customRevenues.visas"
-                  render={({ field }) => (
-                    <AccountsSelect value={field.value} onChange={field.onChange} placeholder="اختر حساب إيراد... (فيزا)" filterType="revenue" />
-                  )}
-                />
-              </div>
-              <div>
-                <Label>إيرادات الاشتراكات</Label>
-                <Controller
-                  control={form.control}
-                  name="customRevenues.subscriptions"
-                  render={({ field }) => (
-                    <AccountsSelect value={field.value} onChange={field.onChange} placeholder="اختر حساب إيراد... (اشتراكات)" filterType="revenue" />
-                  )}
-                />
-              </div>
-              <div>
-                <Label>إيرادات السكمنت</Label>
-                <Controller
-                  control={form.control}
-                  name="customRevenues.segments"
-                  render={({ field }) => (
-                    <AccountsSelect value={field.value} onChange={field.onChange} placeholder="اختر حساب إيراد... (سكمنت)" filterType="revenue" />
-                  )}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 flex justify-end gap-2">
-            <Button variant="outline" onClick={() => form.reset()}>
-              إعادة ضبط
-            </Button>
-            <Button onClick={form.handleSubmit(onSave)} className="gap-2">
-              <Save className="h-4 w-4" /> حفظ الربط
-            </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>
