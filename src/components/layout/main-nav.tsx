@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo } from 'react';
@@ -27,7 +28,7 @@ import {
   PlusCircle, Users2, ChevronsRightLeft, FileDown, Share2, AreaChart, Lightbulb, 
   Package, MessageSquare, History, FileImage, HelpCircle, FileBarChart, Menu, FileWarning, 
   ScanSearch, Paintbrush, Send, Trash2, DollarSign, DatabaseZap, Milestone, ShieldCheck, 
-  Home, Activity, Wallet, Briefcase, BarChart3, Users, Brain, BarChart2
+  Home, Activity, Wallet, Briefcase, BarChart3, Users, Brain, BarChart2, Settings2
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -193,9 +194,10 @@ const MainNavContent = () => {
             id: 'settings',
             label: 'الإعدادات والأدوات',
             icon: Settings,
-            activeRoutes: ['/settings', '/users', '/system', '/templates', '/finance-tools'],
+            activeRoutes: ['/settings', '/users', '/system', '/templates', '/finance-tools', '/settings/advanced-accounts-setup'],
             items: [
               { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'admin' },
+              { href: "/settings/advanced-accounts-setup", label: "مركز التحكم المالي", icon: Settings2, permission: 'admin' },
               { 
                 label: 'إدارة النظام', icon: Network, permission: 'admin', subItems: [
                   { href: "/users", label: "الموظفين والصلاحيات", icon: Users, permission: 'users:read' },

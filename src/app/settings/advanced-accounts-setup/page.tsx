@@ -19,7 +19,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
 import { ShieldCheck, Save, PlusCircle } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth-context'; // يفترض لديك
 import { cn } from '@/lib/utils';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 
@@ -152,12 +152,14 @@ export default function AdvancedAccountsSetupPage() {
       return accounts;
     }, [accounts]);
     
+    const { watch: watchParentId } = useForm();
+    const currentParentId = watchParentId('parentId');
+
     useEffect(() => {
-        const finalParentId = parentId === 'root' ? null : parentId;
-        generateAccountCode(finalParentId || undefined).then(code => {
+        generateAccountCode(currentParentId || undefined).then(code => {
             setSuggestedCode(code);
         });
-    }, [parentId]);
+    }, [currentParentId]);
 
 
     async function handleCreate() {
@@ -168,17 +170,18 @@ export default function AdvancedAccountsSetupPage() {
       setCreating(true);
       try {
         const finalParentId = parentId === 'root' ? null : parentId;
-        const doc = await createAccount({
+        const newAccount = await createAccount({
           name,
           type,
-          parentId: finalParentId || null,
+          parentId: finalParentId,
           isLeaf,
-          description: desc || ''
+          description: desc,
+          code: suggestedCode,
         });
         // حدث القائمة فوراً
         const fresh = await listAccounts();
         setAccounts(fresh);
-        toast({ title: 'تم الإنشاء', description: `تم إنشاء الحساب ${doc.code} — ${doc.name}` });
+        toast({ title: 'تم الإنشاء', description: `تم إنشاء الحساب ${newAccount.code} — ${newAccount.name}` });
         setOpenCreate(false);
         // تفريغ النموذج
         setName(''); setDesc(''); setIsLeaf(true); setParentId(''); setType('asset');
@@ -285,6 +288,7 @@ export default function AdvancedAccountsSetupPage() {
             ))}
           </SelectContent>
         </Select>
+        <CreateAccountDialog />
       </div>
     );
   }
@@ -304,7 +308,10 @@ export default function AdvancedAccountsSetupPage() {
           <h1 className="text-xl font-bold">إعداد الحسابات المتقدمة</h1>
           <p className="text-sm text-muted-foreground">ربط جميع الحسابات الرئيسية بالنظام المالي — مصدر الحقيقة الوحيد للربط.</p>
         </div>
-         <CreateAccountDialog />
+        <div className="flex items-center gap-2 text-green-600">
+          <ShieldCheck className="h-5 w-5" />
+          <span className="text-sm">للمدراء فقط</span>
+        </div>
       </div>
 
       <Card>
@@ -462,12 +469,10 @@ export default function AdvancedAccountsSetupPage() {
         </CardHeader>
         <CardContent className="text-sm space-y-2">
           <p>• جميع عمليات الترحيل المحاسبي (postJournal) يجب أن تقرأ من <b>settings/app_settings.financeAccounts</b>.</p>
-          <p>• عند تفعيل خيار <b>منع ترحيل الإيراد مباشرة في الصندوق</b>، يقوم النظام بإنشاء قيدين: الأول يثبت الإيراد على حساب الإيراد المختار، والثاني يحوّل المبلغ إلى الصندوق (إن لزم) بعملية تحصيل منفصلة.</p>
+          <p>• عند تفعيل خيار <b>منع ترحيل الإيراد مباشرة للصندوق</b>، يقوم النظام بإنشاء قيدين: الأول يثبت الإيراد على حساب الإيراد المختار، والثاني يحوّل المبلغ إلى الصندوق (إن لزم) بعملية تحصيل منفصلة.</p>
           <p>• الحسابات “المخصصة” (تذاكر/فيزا/اشتراكات/سكمنت) تُفضَّل على الحساب العام للإيرادات إن كانت معرَّفة.</p>
         </CardContent>
       </Card>
     </div>
   );
 }
-
-    
