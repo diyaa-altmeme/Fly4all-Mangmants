@@ -1,4 +1,3 @@
-
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -32,4 +31,32 @@ export async function updateFinanceAccountsMap(payload: FinanceAccountsMap) {
   revalidatePath("/settings/advanced-accounts-setup");
   revalidatePath("/settings/finance");
   return { ok: true };
+}
+
+
+export async function saveFinanceAccountsMap(formData: FormData) {
+    const payload = {
+      receivableAccountId: formData.get("receivableAccountId") as string,
+      payableAccountId: formData.get("payableAccountId") as string,
+      defaultCashId: formData.get("defaultCashId") as string,
+      defaultBankId: formData.get("defaultBankId") as string,
+      preventDirectCashRevenue: (formData.get("preventDirectCashRevenue") as string) === "on",
+
+      revenueMap: {
+        tickets: formData.get("rev_tickets") as string,
+        visas: formData.get("rev_visas") as string,
+        subscriptions: formData.get("rev_subscriptions") as string,
+        segments: formData.get("rev_segments") as string,
+        profit_distribution: formData.get("rev_profit_dist") as string
+      },
+      expenseMap: {
+        cost_tickets: formData.get("exp_cost_tickets") as string,
+        cost_visas: formData.get("exp_cost_visas") as string,
+        operating_salaries: formData.get("exp_oper_salaries") as string,
+        operating_rent: formData.get("exp_oper_rent") as string,
+        operating_utilities: formData.get("exp_oper_util") as string,
+        marketing: formData.get("exp_marketing") as string
+      }
+    };
+    await updateFinanceAccountsMap(payload);
 }

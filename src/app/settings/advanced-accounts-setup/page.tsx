@@ -1,5 +1,4 @@
-
-import { getChartOfAccounts, getFinanceAccountsMap, updateFinanceAccountsMap } from "./actions";
+import { getChartOfAccounts, getFinanceAccountsMap, updateFinanceAccountsMap, saveFinanceAccountsMap } from "./actions";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
@@ -14,35 +13,6 @@ export default async function AdvancedAccountsSetupPage() {
 
   // خيارات منسدلة موحدة
   const opts = accounts.map((a: any) => ({ id: a.id, label: `${a.code} — ${a.name}` }));
-
-  // Server Action (RSC -> Action)
-  async function save(formData: FormData) {
-    "use server";
-    const payload = {
-      receivableAccountId: formData.get("receivableAccountId") as string,
-      payableAccountId: formData.get("payableAccountId") as string,
-      defaultCashId: formData.get("defaultCashId") as string,
-      defaultBankId: formData.get("defaultBankId") as string,
-      preventDirectCashRevenue: (formData.get("preventDirectCashRevenue") as string) === "on",
-
-      revenueMap: {
-        tickets: formData.get("rev_tickets") as string,
-        visas: formData.get("rev_visas") as string,
-        subscriptions: formData.get("rev_subscriptions") as string,
-        segments: formData.get("rev_segments") as string,
-        profit_distribution: formData.get("rev_profit_dist") as string
-      },
-      expenseMap: {
-        cost_tickets: formData.get("exp_cost_tickets") as string,
-        cost_visas: formData.get("exp_cost_visas") as string,
-        operating_salaries: formData.get("exp_oper_salaries") as string,
-        operating_rent: formData.get("exp_oper_rent") as string,
-        operating_utilities: formData.get("exp_oper_util") as string,
-        marketing: formData.get("exp_marketing") as string
-      }
-    };
-    await updateFinanceAccountsMap(payload);
-  }
 
   const SelectRow = ({
     name, label, defaultValue
@@ -70,7 +40,7 @@ export default async function AdvancedAccountsSetupPage() {
           <CardDescription>هذا الربط هو “الجسر” بين الدليل ووحدات النظام. لا ينشئ حسابات، بل يربط مصادر الإيراد والمصروف والذمم بالحساب الصحيح.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={save} className="space-y-6">
+          <form action={saveFinanceAccountsMap} className="space-y-6">
 
             <div className="space-y-3">
               <div className="text-sm font-bold text-muted-foreground">الذمم</div>
