@@ -14,7 +14,8 @@
     "migrate:finance": "tsx scripts/migrate_finance_accounts.ts",
     "fix:segments": "tsx scripts/fix-segment-descriptions.ts",
     "seed:accounts": "tsx scripts/seed-chart-of-accounts.ts",
-    "init:finance-accounts": "tsx scripts/init_finance_accounts_map.ts"
+    "init:finance-accounts": "tsx scripts/init_finance_accounts_map.ts",
+    "reset:accounts": "tsx scripts/reset-chart-of-accounts.ts"
   },
   "engines": {
     "node": ">=18.0.0",
