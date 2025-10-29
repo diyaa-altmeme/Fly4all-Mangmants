@@ -28,21 +28,27 @@ const ChartOfAccountsTabContent = () => {
     const { toast } = useToast();
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
-        getChartOfAccounts()
-            .then(setData)
-            .catch(err => {
-                console.error(err);
-                setError("فشل تحميل شجرة الحسابات. قد يكون هناك مشكلة في الاتصال بقاعدة البيانات.");
-                toast({
-                    title: "خطأ",
-                    description: "فشل تحميل شجرة الحسابات.",
-                    variant: "destructive"
-                });
-            })
-            .finally(() => setLoading(false));
+        try {
+            const chartData = await getChartOfAccounts();
+            setData(chartData);
+        } catch (err: any) {
+            console.error(err);
+            setError("فشل تحميل شجرة الحسابات. قد يكون هناك مشكلة في الاتصال بقاعدة البيانات.");
+            toast({
+                title: "خطأ",
+                description: "فشل تحميل شجرة الحسابات.",
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
+        }
     }, [toast]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
     
      if (error) {
         return (
