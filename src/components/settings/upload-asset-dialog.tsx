@@ -25,7 +25,7 @@ import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'fire
 import { useAuth } from '@/lib/auth-context';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
-import app from '@/lib/firebase'; // Assuming client-side app is exported from here
+import { app } from '@/lib/firebase'; // Corrected import
 
 const formSchema = z.object({
   name: z.string().min(3, "اسم الأصل مطلوب."),
@@ -138,7 +138,7 @@ export default function UploadAssetDialog({ onUploadSuccess, children }: UploadA
                                         {...getRootProps()}
                                         className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer"
                                     >
-                                        <input {...getInputProps()} />
+                                        <input {...getInputProps()} id="asset-file-upload" />
                                         {watchedFile ? (
                                             <div className="relative w-40 h-40">
                                                 <Image src={URL.createObjectURL(watchedFile)} alt="Preview" layout="fill" objectFit="contain" className="rounded-md" />
@@ -174,4 +174,3 @@ export default function UploadAssetDialog({ onUploadSuccess, children }: UploadA
         </Dialog>
     );
 }
-
