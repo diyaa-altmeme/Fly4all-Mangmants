@@ -34,6 +34,7 @@ export async function updateFinanceAccountsMap(payload: FinanceAccountsMap) {
 }
 
 export async function saveFinanceAccountsMap(formData: FormData) {
+    "use server";
     const payload = {
       receivableAccountId: formData.get("receivableAccountId") as string,
       payableAccountId: formData.get("payableAccountId") as string,
