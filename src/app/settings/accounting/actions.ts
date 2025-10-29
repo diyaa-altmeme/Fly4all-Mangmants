@@ -1,16 +1,16 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import type { TreeNode, JournalVoucher, Client, Supplier, Box, Exchange } from '@/lib/types';
-import { cache } from 'react';
 import { Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 
 const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
 
 // This function builds the entire chart of accounts, including balances.
-export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
+export const getChartOfAccounts = async (): Promise<TreeNode[]> => {
     const db = await getDb();
     if (!db) return [];
 
@@ -48,7 +48,7 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
         console.error("Error getting chart of accounts:", error);
         return [];
     }
-});
+};
 
 
 export async function createAccount({ name, type, parentId, isLeaf, code, description }: { 

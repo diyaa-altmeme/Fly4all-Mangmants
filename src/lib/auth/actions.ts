@@ -4,12 +4,11 @@
 import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
 import type { User, Client, LoginCredentials } from '@/lib/types';
 import { cookies } from 'next/headers';
-import { cache } from 'react';
 import { getRoles } from '@/app/users/actions';
 import { PERMISSIONS } from './permissions';
 import { redirect } from 'next/navigation';
 
-export const getUserById = cache(async (uid: string): Promise<(User & { permissions?: string[] }) | null> => {
+export const getUserById = async (uid: string): Promise<(User & { permissions?: string[] }) | null> => {
     const db = await getDb();
     if (!db) return null;
     
@@ -39,9 +38,9 @@ export const getUserById = cache(async (uid: string): Promise<(User & { permissi
         console.error("Error fetching user by ID:", error);
         return null;
     }
-});
+};
 
-export const getClientById = cache(async (id: string): Promise<Client | null> => {
+export const getClientById = async (id: string): Promise<Client | null> => {
     const db = await getDb();
     if (!db) return null;
 
@@ -67,9 +66,9 @@ export const getClientById = cache(async (id: string): Promise<Client | null> =>
         console.error(`Error getting client by ID ${''}${id}:`, String(error));
         return null;
     }
-});
+};
 
-export const getCurrentUserFromSession = cache(async (): Promise<(User & { permissions?: string[] }) | (Client & { isClient: true }) | null> => {
+export const getCurrentUserFromSession = async (): Promise<(User & { permissions?: string[] }) | (Client & { isClient: true }) | null> => {
     const cookieStore = cookies();
     const sessionCookie = cookieStore.get('session');
 
@@ -101,7 +100,7 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
         cookies().delete('session');
         return null;
     }
-});
+};
 
 
 export async function createSessionCookie(idToken: string): Promise<{ success: boolean; user?: User & { permissions?: string[] }; error?: string }> {
@@ -141,7 +140,7 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 
 export async function createOtpSessionCookie(sessionPayload: any): Promise<void> {
     const expiresIn = 60 * 60 * 24 * 7; // 7 days in seconds
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.set('session', JSON.stringify(sessionPayload), {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -151,7 +150,7 @@ export async function createOtpSessionCookie(sessionPayload: any): Promise<void>
     });
 }
 
-export const getUserByEmail = cache(async (email: string): Promise<(User) | null> => {
+export const getUserByEmail = async (email: string): Promise<(User) | null> => {
     const db = await getDb();
     if (!db) return null;
 
@@ -172,7 +171,7 @@ export const getUserByEmail = cache(async (email: string): Promise<(User) | null
         console.error("Error getting user by email:", error);
         return null;
     }
-});
+};
 
 
 export async function loginUser(idToken: string) {
@@ -192,7 +191,7 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
 
 
 export async function logoutUser() {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     cookieStore.delete('session');
     // The redirect will now be handled client-side in the useAuth hook
     // for a full page reload.
