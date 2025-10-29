@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Source of truth for the initial Chart of Accounts structure.
  * This data is used by a seeding script to populate the 'chart_of_accounts' collection in Firestore.

@@ -142,24 +142,21 @@ export default function AdvancedAccountsSetupPage() {
     const [suggestedCode, setSuggestedCode] = useState('');
 
     const parentLabel = useMemo(() => {
-      if (!parentId) return 'بدون أب (جذر)';
+      if (!parentId || parentId === 'root') return 'بدون أب (جذر)';
       const p = accounts.find(a => a.id === parentId);
       return p ? `${p.code} — ${p.name}` : '—';
     }, [parentId, accounts]);
 
     const parentsOptions = useMemo(() => {
       // يمكن اختيار أي حساب كأب (غالباً غير Leaf)، لكن نسمح للجميع لتسهيل البناء المبكر
-      return accounts;
+      return accounts.filter(a => !a.isLeaf);
     }, [accounts]);
     
-    const { watch: watchParentId } = useForm();
-    const currentParentId = watchParentId('parentId');
-
     useEffect(() => {
-        generateAccountCode(currentParentId || undefined).then(code => {
+        generateAccountCode(parentId || null).then(code => {
             setSuggestedCode(code);
         });
-    }, [currentParentId]);
+    }, [parentId]);
 
 
     async function handleCreate() {
@@ -175,8 +172,7 @@ export default function AdvancedAccountsSetupPage() {
           type,
           parentId: finalParentId,
           isLeaf,
-          description: desc,
-          code: suggestedCode,
+          description: desc || ''
         });
         // حدث القائمة فوراً
         const fresh = await listAccounts();
@@ -231,7 +227,7 @@ export default function AdvancedAccountsSetupPage() {
                   <SelectTrigger><SelectValue placeholder="بدون أب (جذر)" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="root">— بدون أب (جذر) —</SelectItem>
-                    {accounts.map(a => (
+                    {parentsOptions.map(a => (
                       <SelectItem key={a.id} value={a.id}>{a.code} — {a.name}</SelectItem>
                     ))}
                   </SelectContent>

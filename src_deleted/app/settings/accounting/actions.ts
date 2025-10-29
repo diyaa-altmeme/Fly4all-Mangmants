@@ -4,7 +4,6 @@
 import { z } from 'zod';
 import { getDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
-import { revalidatePath } from 'next/cache';
 
 // ===== Types (محلية لتفادي تعديل types.ts الآن) =====
 export type COAType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
@@ -39,7 +38,7 @@ export interface FinanceAccountsMap {
 
 const SETTINGS_COLLECTION = 'settings';
 const SETTINGS_DOC_ID = 'app_settings';
-const COA_COLLECTION = 'chart_of_accounts';
+const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
 
 const accountSchema = z.object({
   name: z.string().min(2, 'اسم الحساب مطلوب'),
@@ -51,7 +50,7 @@ const accountSchema = z.object({
 
 export async function listAccounts(): Promise<ChartAccount[]> {
   const db = await getDb();
-  const snap = await db.collection(COA_COLLECTION).orderBy('code', 'asc').get();
+  const snap = await db.collection(CHART_OF_ACCOUNTS_COLLECTION).orderBy('code', 'asc').get();
   return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as ChartAccount[];
 }
 
@@ -82,13 +81,13 @@ export async function generateAccountCode(parentId?: string | null): Promise<str
   // جلب كود الأب إن وجد
   let parentCode: string | null = null;
   if (parentId && parentId !== 'root') {
-    const parentDoc = await db.collection(COA_COLLECTION).doc(parentId).get();
+    const parentDoc = await db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(parentId).get();
     if (!parentDoc.exists) throw new Error('الحساب الأب غير موجود');
     parentCode = (parentDoc.data() as any).code as string;
   }
 
   // إيجاد أعلى لاحقة للأخوة
-  let siblingsQuery = db.collection(COA_COLLECTION).where('parentId', '==', parentId || null);
+  let siblingsQuery = db.collection(CHART_OF_ACCOUNTS_COLLECTION).where('parentId', '==', parentId || null);
   const siblings = await siblingsQuery.get();
 
   // إذا لا يوجد أخوة -> أول رقم
@@ -116,7 +115,7 @@ export async function createAccount(raw: z.infer<typeof accountSchema>) {
   const code = await generateAccountCode(parsed.parentId || null);
   const now = Timestamp.now();
 
-  const docRef = db.collection(COA_COLLECTION).doc();
+  const docRef = db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc();
   const docData = {
     name: parsed.name,
     code,
@@ -132,14 +131,11 @@ export async function createAccount(raw: z.infer<typeof accountSchema>) {
 
   // جعل الأب (إن وجد) ليس Leaf
   if (parsed.parentId) {
-    await db.collection(COA_COLLECTION).doc(parsed.parentId).set(
+    await db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(parsed.parentId).set(
       { isLeaf: false, updatedAt: now },
       { merge: true }
     );
   }
-
-  revalidatePath('/settings/accounting');
-  revalidatePath('/settings/advanced-accounts-setup');
 
   const newDoc = await docRef.get();
   return { id: newDoc.id, ...(newDoc.data() as any) } as ChartAccount;

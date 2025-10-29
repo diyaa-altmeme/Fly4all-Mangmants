@@ -1,4 +1,3 @@
-
 /**
  * @fileoverview Seeding script to populate the Chart of Accounts in Firestore.
  * This script reads the predefined chart of accounts data and creates the
