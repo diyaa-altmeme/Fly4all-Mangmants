@@ -1,3 +1,4 @@
+
 "use server";
 
 import { revalidatePath } from "next/cache";
@@ -27,12 +28,10 @@ export async function updateFinanceAccountsMap(payload: FinanceAccountsMap) {
 
   await ref.set({ financeAccounts: payload }, { merge: true });
 
-  // انعكاس فوري
   revalidatePath("/settings/advanced-accounts-setup");
   revalidatePath("/settings/finance");
   return { ok: true };
 }
-
 
 export async function saveFinanceAccountsMap(formData: FormData) {
     const payload = {
