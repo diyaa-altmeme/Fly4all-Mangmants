@@ -141,3 +141,4 @@ export async function generateAccountCode(parentId?: string): Promise<string> {
         return `${parentCode}.${maxSubNumber + 1}`;
     }
 }
+

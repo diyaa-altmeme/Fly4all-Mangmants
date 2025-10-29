@@ -24,17 +24,17 @@ export const chartOfAccountsData: ChartAccountSeed[] = [
   { code: "1-1", name: "الأصول المتداولة", type: "asset", parentCode: "1", isLeaf: false, description: "الأصول التي يُتوقع تحويلها إلى نقد خلال عام." },
   { code: "1-1-1", name: "الصناديق والبنوك", type: "asset", parentCode: "1-1", isLeaf: false, description: "النقدية وما في حكمها." },
   { code: "1-1-2", name: "الذمم المدينة", type: "asset", parentCode: "1-1", isLeaf: false, description: "الأموال المستحقة على الآخرين." },
-  { code: "1-1-2-1", name: "العملاء", type: "asset", parentCode: "1-1-2", isLeaf: false, description: "حسابات العملاء الآجلة." },
-  { code: "1-1-2-2", name: "البورصات", type: "asset", parentCode: "1-1-2", isLeaf: false, description: "الأرصدة المستحقة على البورصات." },
-  { code: "1-1-3", name: "حسابات تسوية", type: "asset", parentCode: "1-1", isLeaf: false, description: "حسابات وسيطة للمعاملات المعلقة." },
+  { code: "1-1-2-1", name: "العملاء", type: "asset", parentCode: "1-1-2", isLeaf: true, description: "حسابات العملاء الآجلة." },
+  { code: "1-1-2-2", name: "البورصات", type: "asset", parentCode: "1-1-2", isLeaf: true, description: "الأرصدة المستحقة على البورصات." },
+  { code: "1-1-3", name: "حسابات تسوية", type: "asset", parentCode: "1-1", isLeaf: true, description: "حسابات وسيطة للمعاملات المعلقة." },
   { code: "1-2", name: "الأصول الثابتة", type: "asset", parentCode: "1", isLeaf: false, description: "الأصول طويلة الأجل مثل الممتلكات والمعدات." },
 
   // 2. الالتزامات (Liabilities)
   { code: "2", name: "الالتزامات", type: "liability", parentCode: null, isLeaf: false, description: "الديون والالتزامات المالية على الشركة." },
   { code: "2-1", name: "الالتزامات المتداولة", type: "liability", parentCode: "2", isLeaf: false, description: "الالتزامات التي يجب سدادها خلال عام." },
   { code: "2-1-1", name: "الذمم الدائنة", type: "liability", parentCode: "2-1", isLeaf: false, description: "الأموال المستحقة للآخرين." },
-  { code: "2-1-1-1", name: "الموردين", type: "liability", parentCode: "2-1-1", isLeaf: false, description: "حسابات الموردين الآجلة." },
-  { code: "2-1-1-2", name: "الشركاء الدائنون", type: "liability", parentCode: "2-1-1", isLeaf: false, description: "حصص الشركاء المستحقة للدفع." },
+  { code: "2-1-1-1", name: "الموردين", type: "liability", parentCode: "2-1-1", isLeaf: true, description: "حسابات الموردين الآجلة." },
+  { code: "2-1-1-2", name: "الشركاء الدائنون", type: "liability", parentCode: "2-1-1", isLeaf: true, description: "حصص الشركاء المستحقة للدفع." },
 
   // 3. حقوق الملكية (Equity)
   { code: "3", name: "حقوق الملكية", type: "equity", parentCode: null, isLeaf: false, description: "صافي قيمة الشركة (الأصول - الالتزامات)." },
