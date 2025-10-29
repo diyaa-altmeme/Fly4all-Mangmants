@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -97,7 +96,7 @@ export default function InvoiceSequencesPage() {
                         </TableHeader>
                         <TableBody>
                             {sequences.map(seq => (
-                                <TableRow key={seq.id}>
+                                <TableRow key={seq.prefix}>
                                     <TableCell className="font-semibold">{seq.label}</TableCell>
                                     <TableCell className="font-mono text-primary">{seq.prefix}</TableCell>
                                     <TableCell className="font-mono">{seq.value}</TableCell>
