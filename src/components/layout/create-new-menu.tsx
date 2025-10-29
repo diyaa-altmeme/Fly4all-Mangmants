@@ -14,7 +14,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 
-// === حوارات الإنشاء الموجودة في مشروعك (استنادًا لمساراتك السابقة)
+// Dialogs
 import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
 import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
 import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
@@ -35,7 +35,7 @@ export default function CreateNewMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" dir="rtl">
-        {/* سندات */}
+        {/* Vouchers */}
         <Dialog modal={false}>
           <NewStandardReceiptDialog onVoucherAdded={onChanged}>
             <DialogTrigger asChild>
@@ -93,7 +93,7 @@ export default function CreateNewMenu() {
 
         <DropdownMenuSeparator />
 
-        {/* عمليات */}
+        {/* Operations */}
         <DropdownMenuItem asChild>
           <Link href="/bookings" className="justify-between">
             <span>حجز طيران جديد</span>
@@ -110,7 +110,7 @@ export default function CreateNewMenu() {
 
         <DropdownMenuSeparator />
 
-        {/* علاقات */}
+        {/* Relations */}
         <Dialog modal={false}>
           <AddClientDialog onClientAdded={onChanged} onClientUpdated={onChanged}>
             <DialogTrigger asChild>
