@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useCallback } from "react";
@@ -23,7 +24,8 @@ import {
   Ticket, CreditCard, ArrowRightLeft, Package, Boxes, ListChecks,
   GitBranch, HelpCircle, AreaChart, BarChart2, Plane, Milestone,
   Users2, Send, MessageSquare, Network, ShieldCheck, Paintbrush,
-  FileImage, DatabaseZap, Brain, ScanSearch, FileUp, History, FileWarning, Trash2
+  FileImage, DatabaseZap, Brain, ScanSearch, FileUp, History, FileWarning, Trash2,
+  Repeat 
 } from "lucide-react";
 
 const NavMenu = ({
@@ -80,7 +82,7 @@ const Sub = ({ label, icon: Icon, children }: any) => (
       </div>
     </DropdownMenuSubTrigger>
     {/* يفتح لليمين في RTL */}
-    <DropdownMenuSubContent sideOffset={8} alignOffset={-5} dir="rtl">
+    <DropdownMenuSubContent side="right" align="end" dir="rtl">
       {children}
     </DropdownMenuSubContent>
   </DropdownMenuSub>
@@ -89,6 +91,14 @@ const Sub = ({ label, icon: Icon, children }: any) => (
 export function MainNav() {
   const pathname = usePathname();
   const { hasPermission } = useAuth();
+  
+  const getVisibleItems = useCallback((items: any[]) => {
+    return items.filter(item => {
+        if (item.permission === undefined) return true; // Default to visible if no permission is set
+        return hasPermission(item.permission as Permission);
+    });
+  }, [hasPermission]);
+
 
   const menus = useMemo(() => {
     const can = (p?: Permission) => (!p ? true : hasPermission(p));
@@ -156,12 +166,7 @@ export function MainNav() {
               "/accounts/vouchers",
               "/boxes",
               "/reconciliation",
-              "/reports/debts",
-              "/reports/profit-loss",
-              "/reports/boxes",
-              "/reports/cash-flow",
-              "/reports/profitability-analysis",
-              "/settings/accounting",
+              "/reports",
               "/settings/advanced-accounts-setup",
             ]}
           >
@@ -389,3 +394,5 @@ export function MainNav() {
     </nav>
   );
 }
+
+    
