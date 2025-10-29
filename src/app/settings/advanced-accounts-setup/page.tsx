@@ -1,38 +1,28 @@
 
-"use client";
-
 import { getChartOfAccounts, getFinanceAccountsMap } from "./actions";
 import AdvancedAccountsContent from "./components/advanced-accounts-content";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { FinanceAccountsMap } from "@/lib/types";
+import ProtectedPage from "@/components/auth/protected-page";
 
-export default function AdvancedAccountsSetupPage() {
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [financeAccountsMap, setFinanceAccountsMap] = useState<FinanceAccountsMap>({});
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      const [accountsData, faMapData] = await Promise.all([
+async function AdvancedAccountsData() {
+    const [accounts, financeAccountsMap] = await Promise.all([
         getChartOfAccounts(),
         getFinanceAccountsMap()
-      ]);
-      setAccounts(accountsData);
-      setFinanceAccountsMap(faMapData);
-      setLoading(false);
-    }
-    fetchData();
-  }, []);
+    ]);
 
-  if (loading) {
-      return <Skeleton className="h-[500px] w-full" />
-  }
+    return <AdvancedAccountsContent accounts={accounts} financeAccountsMap={financeAccountsMap} />
+}
 
+
+export default function AdvancedAccountsSetupPage() {
   return (
-    <Suspense fallback={<Skeleton className="h-[500px] w-full" />}>
-      <AdvancedAccountsContent accounts={accounts} financeAccountsMap={financeAccountsMap} />
-    </Suspense>
+    <ProtectedPage permission="settings:finance:manage">
+        <Suspense fallback={<Skeleton className="h-[500px] w-full" />}>
+          <AdvancedAccountsData />
+        </Suspense>
+    </ProtectedPage>
   );
 }
