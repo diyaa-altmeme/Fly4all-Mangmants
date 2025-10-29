@@ -20,7 +20,6 @@ import AssetManagementSettings from '@/app/settings/sections/asset-management';
 import LandingPageSettingsComponent from '@/app/settings/sections/landing-page-settings';
 import InvoiceSequencesPage from '@/app/settings/invoice-sequences/page';
 import ClientPermissionsPage from '@/app/settings/client-permissions/page';
-import FinanceSettingsPage from '@/app/settings/finance/page';
 import AdvancedAccountsSetupPage from '@/app/settings/advanced-accounts-setup/page';
 
 
@@ -31,7 +30,6 @@ export const settingSections = [
         icon: GitBranch,
         subItems: [
             { id: 'advanced_accounts_setup', name: 'إعداد الحسابات المتقدمة', icon: Settings, component: AdvancedAccountsSetupPage },
-            { id: 'accounting_finance', name: 'مركز التحكم المالي', icon: Settings, component: FinanceSettingsPage },
             { id: 'accounting_chart', name: 'الدليل المحاسبي', icon: GitBranch, component: AccountingSettings },
             { id: 'accounting_sequences', name: 'تسلسل الفواتير', icon: FileBarChart, component: InvoiceSequencesPage },
             { id: 'accounting_currencies', name: 'العملات', icon: Banknote, component: CurrencySettings },
@@ -91,3 +89,5 @@ export const appearanceSections = [
         ]
     }
 ];
+
+    
