@@ -18,10 +18,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 
-import { ShieldCheck, Save, PlusCircle } from 'lucide-react';
+import { ShieldCheck, Save, PlusCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context'; // يفترض لديك
 import { cn } from '@/lib/utils';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import ChartOfAccountsTree from '@/components/settings/chart-of-accounts-tree';
+
 
 const linkingSchema = z.object({
   generalRevenueId: z.string().optional(),
@@ -46,6 +48,7 @@ export default function AdvancedAccountsSetupPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<ChartAccount[]>([]);
+  const [treeData, setTreeData] = useState<any[]>([]);
   const [openCreate, setOpenCreate] = useState(false);
 
   const form = useForm<LinkingForm>({
@@ -59,41 +62,50 @@ export default function AdvancedAccountsSetupPage() {
   // حماية الوصول
   useEffect(() => {
     if (user && !hasPermission?.('admin')) {
-      // بإمكانك إعادة توجيه أو عرض رسالة
       toast({ title: 'صلاحية غير كافية', description: 'هذه الصفحة متاحة للمدراء فقط', variant: 'destructive' });
     }
   }, [user, hasPermission, toast]);
 
   // تحميل البيانات
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const [accs, settings] = await Promise.all([listAccounts(), getFinanceSettings()]);
-        setAccounts(accs);
-        const defaults: LinkingForm = {
-          generalRevenueId: settings.generalRevenueId || '',
-          generalExpenseId: settings.generalExpenseId || '',
-          arAccountId: settings.arAccountId || '',
-          apAccountId: settings.apAccountId || '',
-          defaultCashId: settings.defaultCashId || '',
-          defaultBankId: settings.defaultBankId || '',
-          customRevenues: {
-            tickets: settings.customRevenues?.tickets || '',
-            visas: settings.customRevenues?.visas || '',
-            subscriptions: settings.customRevenues?.subscriptions || '',
-            segments: settings.customRevenues?.segments || ''
-          },
-          preventDirectCashRevenue: settings.preventDirectCashRevenue ?? true
-        };
-        form.reset(defaults);
-      } catch (e: any) {
-        toast({ title: 'فشل التحميل', description: e?.message || 'خطأ غير معروف', variant: 'destructive' });
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const fetchData = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const [accs, settings] = await Promise.all([listAccounts(), getFinanceSettings()]);
+      setAccounts(accs);
+      
+      const buildTree = (items: ChartAccount[], parentId: string | null = null): any[] => {
+          return items
+              .filter(item => item.parentId === parentId)
+              .map(item => ({ ...item, children: buildTree(items, item.id) }));
+      };
+      setTreeData(buildTree(accs));
+
+      const defaults: LinkingForm = {
+        generalRevenueId: settings.generalRevenueId || '',
+        generalExpenseId: settings.generalExpenseId || '',
+arAccountId: settings.arAccountId || '',
+        apAccountId: settings.apAccountId || '',
+        defaultCashId: settings.defaultCashId || '',
+        defaultBankId: settings.defaultBankId || '',
+        customRevenues: {
+          tickets: settings.customRevenues?.tickets || '',
+          visas: settings.customRevenues?.visas || '',
+          subscriptions: settings.customRevenues?.subscriptions || '',
+          segments: settings.customRevenues?.segments || ''
+        },
+        preventDirectCashRevenue: settings.preventDirectCashRevenue ?? true
+      };
+      form.reset(defaults);
+    } catch (e: any) {
+      toast({ title: 'فشل التحميل', description: e?.message || 'خطأ غير معروف', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   }, [form, toast]);
+  
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const byType = useMemo(() => {
     const map: Record<string, ChartAccount[]> = {
@@ -103,7 +115,11 @@ export default function AdvancedAccountsSetupPage() {
       revenue: [],
       expense: []
     };
-    accounts.forEach(a => map[a.type]?.push(a));
+    accounts.forEach(a => {
+        if(a.isLeaf && map[a.type]) {
+            map[a.type].push(a);
+        }
+    });
     return map;
   }, [accounts]);
 
@@ -134,13 +150,13 @@ export default function AdvancedAccountsSetupPage() {
   // ========== Dialog إنشاء حساب ==========
   function CreateAccountDialog() {
     const [creating, setCreating] = useState(false);
-    const [parentId, setParentId] = useState<string | ''>('');
+    const [parentId, setParentId] = useState<string | ''>('root');
     const [name, setName] = useState('');
     const [type, setType] = useState<'asset'|'liability'|'equity'|'revenue'|'expense'>('asset');
     const [isLeaf, setIsLeaf] = useState(true);
     const [desc, setDesc] = useState('');
     const [suggestedCode, setSuggestedCode] = useState('');
-
+    
     const parentLabel = useMemo(() => {
       if (!parentId || parentId === 'root') return 'بدون أب (جذر)';
       const p = accounts.find(a => a.id === parentId);
@@ -148,14 +164,15 @@ export default function AdvancedAccountsSetupPage() {
     }, [parentId, accounts]);
 
     const parentsOptions = useMemo(() => {
-      // يمكن اختيار أي حساب كأب (غالباً غير Leaf)، لكن نسمح للجميع لتسهيل البناء المبكر
       return accounts.filter(a => !a.isLeaf);
     }, [accounts]);
     
-    useEffect(() => {
-        generateAccountCode(parentId || null).then(code => {
-            setSuggestedCode(code);
-        });
+     useEffect(() => {
+        const fetchCode = async () => {
+             const code = await generateAccountCode(parentId === 'root' ? null : parentId);
+             setSuggestedCode(code);
+        }
+        fetchCode();
     }, [parentId]);
 
 
@@ -167,20 +184,18 @@ export default function AdvancedAccountsSetupPage() {
       setCreating(true);
       try {
         const finalParentId = parentId === 'root' ? null : parentId;
-        const newAccount = await createAccount({
+        await createAccount({
           name,
           type,
           parentId: finalParentId,
           isLeaf,
-          description: desc || ''
+          description: desc || '',
+          code: suggestedCode,
         });
-        // حدث القائمة فوراً
-        const fresh = await listAccounts();
-        setAccounts(fresh);
-        toast({ title: 'تم الإنشاء', description: `تم إنشاء الحساب ${newAccount.code} — ${newAccount.name}` });
+        toast({ title: 'تم الإنشاء', description: `تم إنشاء الحساب ${suggestedCode} — ${name}` });
         setOpenCreate(false);
-        // تفريغ النموذج
-        setName(''); setDesc(''); setIsLeaf(true); setParentId(''); setType('asset');
+        fetchData(); // Refresh the list
+        setName(''); setDesc(''); setIsLeaf(true); setParentId('root'); setType('asset');
       } catch (e: any) {
         toast({ title: 'فشل الإنشاء', description: e?.message || 'خطأ غير معروف', variant: 'destructive' });
       } finally {
@@ -238,24 +253,20 @@ export default function AdvancedAccountsSetupPage() {
                  <Label>رقم الحساب (تلقائي)</Label>
                  <Input value={suggestedCode} readOnly disabled />
               </div>
-              <div className="flex items-center gap-3">
+            </div>
+            
+             <div className="flex items-center gap-3">
                 <div className="space-y-1">
                   <Label className="block">قابل للترحيل مباشرة (Leaf)</Label>
                   <Switch checked={isLeaf} onCheckedChange={setIsLeaf} />
                 </div>
               </div>
-            </div>
 
             <div>
               <Label>وصف (اختياري)</Label>
               <Input value={desc} onChange={e => setDesc(e.target.value)} placeholder="وصف مختصر" />
             </div>
 
-            <Separator />
-            <div className="text-xs text-muted-foreground leading-6">
-              <div>✅ سيتم <b>توليد رقم الحساب تلقائيًا</b> حسب حساب الأب وتسلسل الأخوة (مثل: 1.2.3).</div>
-              <div>✅ إذا اخترت أبًا، سيتم تعيين الأب تلقائيًا كـ <b>غير Leaf</b> بعد الإنشاء.</div>
-            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="ghost" onClick={() => setOpenCreate(false)}>إلغاء</Button>
@@ -273,7 +284,6 @@ export default function AdvancedAccountsSetupPage() {
   }: { value?: string; onChange: (v: string) => void; placeholder: string; filterType?: 'revenue'|'expense'|'asset'|'liability'|'equity' }) {
     const options = filterType ? byType[filterType] : accounts;
     return (
-      <div className="flex gap-2">
         <Select value={value || ''} onValueChange={onChange}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder={placeholder} />
@@ -284,15 +294,13 @@ export default function AdvancedAccountsSetupPage() {
             ))}
           </SelectContent>
         </Select>
-        <CreateAccountDialog />
-      </div>
     );
   }
 
   if (loading) {
     return (
       <div dir="rtl" className="p-6">
-        <Card><CardContent className="py-10 text-center">...جارٍ التحميل</CardContent></Card>
+        <Card><CardContent className="py-10 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto" /></CardContent></Card>
       </div>
     );
   }
@@ -310,13 +318,27 @@ export default function AdvancedAccountsSetupPage() {
         </div>
       </div>
 
+       <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>شجرة الحسابات</CardTitle>
+            <CreateAccountDialog />
+          </div>
+          <CardDescription>
+            استعراض وتعديل شجرة الحسابات الكاملة.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartOfAccountsTree data={treeData} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>الحسابات الرئيسية</CardTitle>
           <CardDescription>اربط الحسابات العامة التي يعتمد عليها النظام</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* إيراد/مصروف عام */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label>حساب الإيرادات العامة</Label>
@@ -340,7 +362,6 @@ export default function AdvancedAccountsSetupPage() {
             </div>
           </div>
 
-          {/* الذمم، الصندوق، البنك */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label>حساب الذمم المدينة (AR)</Label>
@@ -400,7 +421,6 @@ export default function AdvancedAccountsSetupPage() {
 
           <Separator className="my-2" />
 
-          {/* إيرادات مخصصة */}
           <div>
             <div className="font-semibold mb-2">إيرادات مخصصة حسب نوع العملية</div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -455,18 +475,6 @@ export default function AdvancedAccountsSetupPage() {
               <Save className="h-4 w-4" /> حفظ الربط
             </Button>
           </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>ملاحظات تطبيقية</CardTitle>
-          <CardDescription>كيف يُستخدم هذا الربط داخل النظام</CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm space-y-2">
-          <p>• جميع عمليات الترحيل المحاسبي (postJournal) يجب أن تقرأ من <b>settings/app_settings.financeAccounts</b>.</p>
-          <p>• عند تفعيل خيار <b>منع ترحيل الإيراد مباشرة للصندوق</b>، يقوم النظام بإنشاء قيدين: الأول يثبت الإيراد على حساب الإيراد المختار، والثاني يحوّل المبلغ إلى الصندوق (إن لزم) بعملية تحصيل منفصلة.</p>
-          <p>• الحسابات “المخصصة” (تذاكر/فيزا/اشتراكات/سكمنت) تُفضَّل على الحساب العام للإيرادات إن كانت معرَّفة.</p>
         </CardContent>
       </Card>
     </div>
