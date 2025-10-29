@@ -36,8 +36,6 @@ export default function AdvancedAccountsContent({ accounts, financeAccountsMap: 
 
   return (
     <div className="space-y-6">
-      {/* Chart of accounts component would go here */}
-
       <Card className="border-2">
         <CardHeader>
           <CardTitle>ربط الحسابات الرئيسية بالنظام</CardTitle>

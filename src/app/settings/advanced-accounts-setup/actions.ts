@@ -6,7 +6,6 @@ import { getDb } from "@/lib/firebase-admin";
 import type { FinanceAccountsMap, AppSettings } from "@/lib/types";
 import { Timestamp } from 'firebase-admin/firestore';
 
-
 const SETTINGS_DOC_ID = "app_settings";
 
 const processDocWithDates = (doc: FirebaseFirestore.DocumentSnapshot) => {
@@ -17,7 +16,7 @@ const processDocWithDates = (doc: FirebaseFirestore.DocumentSnapshot) => {
 
     // Convert Firestore Timestamps to ISO strings
     for (const key in safeData) {
-        if (safeData[key] instanceof Timestamp) {
+        if (safeData[key] && (safeData[key] instanceof Timestamp || safeData[key].toDate)) {
             safeData[key] = safeData[key].toDate().toISOString();
         }
     }
