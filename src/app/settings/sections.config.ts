@@ -6,20 +6,19 @@ import {
     Users, GitBranch, SlidersHorizontal, Settings, Upload, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, MessageSquareQuote, Shield, FileText, Terminal as DeveloperIcon, Paintbrush, FileBarChart, Banknote, DollarSign
 } from 'lucide-react';
 
-import AccountingSettings from "@/app/settings/accounting/page";
+// Import client components
 import ApiSettings from "@/app/settings/sections/api-settings";
 import SystemStatusSettings from "@/app/settings/sections/system-status-settings";
 import RelationsSettings from '@/app/relations/settings/components/relations-settings-content';
-import AppearancePage from '@/app/settings/themes/page';
 import CurrencySettings from '@/components/settings/currency-settings';
 import SubscriptionsSettings from '@/components/settings/subscriptions-settings';
-import ExchangeSettings from '@/app/settings/sections/exchange-settings';
 import InvoiceSettings from '@/components/settings/invoice-settings';
 import AssetManagementSettings from '@/app/settings/sections/asset-management';
 import LandingPageSettingsComponent from '@/app/settings/sections/landing-page-settings';
 import InvoiceSequencesPage from '@/app/settings/invoice-sequences/page';
 import ClientPermissionsPage from '@/app/settings/client-permissions/page';
-import AdvancedAccountsSetupPage from '@/app/settings/advanced-accounts-setup/page';
+import AccountingSettingsPage from '@/app/settings/accounting/page';
+import AdvancedAccountsSetupPage from '@/app/settings/advanced-accounts-setup/page'; // Still Server, will be wrapped
 import ThemeSelector from '@/app/settings/themes/components/theme-selector';
 
 
@@ -30,7 +29,7 @@ export const settingSections = [
         icon: GitBranch,
         subItems: [
             { id: 'advanced_accounts_setup', name: 'إعداد الحسابات المتقدمة', icon: Settings, component: AdvancedAccountsSetupPage },
-            { id: 'accounting_chart', name: 'الدليل المحاسبي', icon: GitBranch, component: AccountingSettings },
+            { id: 'accounting_chart', name: 'الدليل المحاسبي', icon: GitBranch, component: AccountingSettingsPage },
             { id: 'accounting_sequences', name: 'تسلسل الفواتير', icon: FileBarChart, component: InvoiceSequencesPage },
             { id: 'accounting_currencies', name: 'العملات', icon: Banknote, component: CurrencySettings },
         ],
@@ -89,5 +88,3 @@ export const appearanceSections = [
         ]
     }
 ];
-
-    
