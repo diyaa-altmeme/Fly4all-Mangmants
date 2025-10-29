@@ -70,7 +70,7 @@ export const appearanceSections = [
         name: 'الثيمات والألوان',
         icon: Palette,
         subItems: [
-            { id: 'themes_general', name: 'الثيمات العامة', icon: Paintbrush, component: AppearancePage },
+            { id: 'themes_general', name: 'الثيمات العامة', icon: Paintbrush, component: ThemeSelector },
         ]
     },
     {
