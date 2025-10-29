@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React from 'react';
@@ -21,6 +20,7 @@ import LandingPageSettingsComponent from '@/app/settings/sections/landing-page-s
 import InvoiceSequencesPage from '@/app/settings/invoice-sequences/page';
 import ClientPermissionsPage from '@/app/settings/client-permissions/page';
 import AdvancedAccountsSetupPage from '@/app/settings/advanced-accounts-setup/page';
+import ThemeSelector from '@/app/settings/themes/components/theme-selector';
 
 
 export const settingSections = [
