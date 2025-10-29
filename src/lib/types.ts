@@ -294,7 +294,7 @@ export type WhatsappGroupParticipant = {
     name?: string;
 };
 
-export type AccountType = 'asset' | 'liability' | 'revenue' | 'expense' | 'client' | 'supplier' | 'box' | 'exchange';
+export type AccountType = 'group' | 'box' | 'client' | 'supplier' | 'expense' | 'revenue' | 'account' | 'subscription' | 'company' | 'individual' | 'both' | 'exchange' | '';
 
 export type StructuredDescription = {
     title: string;
@@ -652,22 +652,35 @@ export type ThemeCustomizationSettings = ThemeConfig & {
   };
 }
 
-export interface FinanceAccountsSettings {
-    cashAccountId: string;
-    bankAccountId: string;
-    clientAccountId: string;
-    partnerAccountId: string; // This could be payable account
-    revenueAccountId: string;
-    expenseAccountId: string;
-    alrawdatainAccountId: string;
-}
+export type FinanceAccountsMap = {
+  // الذمم
+  receivableAccountId?: string; // 1-1-2-1 العملاء (Leaf/Control)
+  payableAccountId?: string;    // 2-1-1-1 الموردين (Leaf/Control)
 
-export interface CustomRevenueAccountsSettings {
-    tickets: string;
-    visas: string;
-    subscriptions: string;
-    segments: string;
-}
+  // النقدية
+  defaultCashId?: string;       // 1-1-1-1 الصندوق الرئيسي
+  defaultBankId?: string;       // حساب بنك افتراضي (اختياري)
+
+  // قيود حماية
+  preventDirectCashRevenue?: boolean; // منع تسجيل الإيراد مباشرة للصندوق
+
+  // خرائط الإيرادات والمصاريف حسب الوحدة/المصدر
+  revenueMap?: {
+    tickets?: string;
+    visas?: string;
+    subscriptions?: string;
+    segments?: string;
+    profit_distribution?: string; // إن وجِد
+  };
+  expenseMap?: {
+    cost_tickets?: string;       // تكلفة تذاكر
+    cost_visas?: string;         // تكلفة فيزا
+    operating_salaries?: string; // رواتب
+    operating_rent?: string;     // إيجار
+    operating_utilities?: string;// فواتير وخدمات
+    marketing?: string;          // تسويق
+  };
+};
 
 export type AppSettings = {
     currencySettings?: CurrencySettings;
@@ -682,20 +695,7 @@ export type AppSettings = {
     importFieldsSettings?: ImportFieldSettings;
     importLogicSettings?: ImportLogicSettings;
     relationSections?: RelationSection[];
-    accountsMap?: {
-        generalRevenueId: string;
-        generalExpenseId: string;
-        arAccountId: string;
-        apAccountId: string;
-        defaultCashId: string;
-        defaultBankId: string;
-        customRevenues: CustomRevenueAccountsSettings;
-        customExpenses: {
-            staff: string;
-            operations: string;
-        };
-    };
-    preventDirectProfitToCash?: boolean;
+    financeAccounts?: FinanceAccountsMap;
 };
 
 export type ExchangeRateLog = {
@@ -1367,4 +1367,3 @@ export interface PostJournalInput {
   sourceId: string;
   sourceRoute?: string;
 }
-
