@@ -73,6 +73,7 @@ export async function saveFinanceSettings(payload: FinanceAccountsMap): Promise<
     },
     { merge: true }
   );
+  revalidatePath('/settings', 'layout'); // Revalidate all settings pages
 }
 
 // ====== توليد كود هرمي تلقائياً بناءً على الأخوة والحساب الأب ======

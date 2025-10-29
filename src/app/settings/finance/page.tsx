@@ -2,19 +2,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-
-import { getFinanceSettings, type FinanceAccountsMap } from '../advanced-accounts-setup/actions';
 import Link from 'next/link';
-
+import { getFinanceSettings, type FinanceAccountsMap } from '../advanced-accounts-setup/actions';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-
-import { Loader2, ArrowLeft } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ArrowLeft } from 'lucide-react';
 
 const InfoRow = ({ label, value }: { label: string, value?: string }) => (
     <div className="flex justify-between items-center p-3 border-b">
@@ -89,4 +83,3 @@ export default function FinanceControlCenterReadOnly() {
     </div>
   );
 }
-
