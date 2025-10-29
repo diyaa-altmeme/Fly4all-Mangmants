@@ -1,10 +1,8 @@
-
 "use client";
 
 import React, { useMemo, useCallback } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { usePathname, useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -25,41 +23,125 @@ import {
   GitBranch, HelpCircle, AreaChart, BarChart2, Plane, Milestone,
   Users2, Send, MessageSquare, Network, ShieldCheck, Paintbrush,
   FileImage, DatabaseZap, Brain, ScanSearch, FileUp, History, FileWarning, Trash2,
-  Repeat 
+  Repeat, Layers3, ChevronsRightLeft,
+  ChevronDown, PlusCircle, FileDown, BookUser, Banknote
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 
-const NavMenu = ({
-  label,
-  icon: Icon,
-  children,
-  activeRoutes,
-}: {
+// Dialogs
+import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
+import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
+import NewPaymentVoucherDialog from "@/components/vouchers/components/new-payment-voucher-dialog";
+import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
+import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
+import AddClientDialog from "@/app/clients/components/add-client-dialog";
+
+
+const NavLink = ({ href, children, active, className }: { href: string; children: React.ReactNode, active: boolean, className?: string }) => (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-all whitespace-nowrap font-bold justify-end",
+        active
+          ? "bg-primary text-primary-foreground"
+          : "hover:bg-muted",
+        className
+      )}
+    >
+        {children}
+    </Link>
+);
+
+const CreateNewOperationMenuItems = () => {
+  const { hasPermission } = useAuth();
+  if (!hasPermission('bookings:create') && !hasPermission('visas:create')) return null;
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger className="justify-between"><span>إضافة عملية</span><PlusCircle className="h-4 w-4 ml-2" /></DropdownMenuSubTrigger>
+      <DropdownMenuSubContent side="right" align="start">
+        {hasPermission('bookings:create') && <DropdownMenuItem asChild><Link href="/bookings" className="justify-between w-full"><span>حجز طيران جديد</span><Ticket className="h-4 w-4 ml-2" /></Link></DropdownMenuItem>}
+        {hasPermission('visas:create') && <DropdownMenuItem asChild><Link href="/visas" className="justify-between w-full"><span>حجز فيزا جديد</span><CreditCard className="h-4 w-4 ml-2" /></Link></DropdownMenuItem>}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
+
+const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) => {
+    const router = useRouter();
+    const onDataChanged = () => router.refresh();
+
+    const menuItems = [
+        { href: "/accounts/vouchers/list", label: "سجل السندات", icon: ListChecks },
+        { href: "/settings", label: "الإعدادات", icon: Settings }
+    ];
+
+    if (isMobile) {
+        return (
+            <div className="flex flex-col gap-1">
+                <Dialog modal={false}><NewStandardReceiptDialog onVoucherAdded={onDataChanged}><DialogTrigger asChild><button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>سند قبض عادي</span><FileDown className="h-4 w-4" /></button></DialogTrigger></NewStandardReceiptDialog></Dialog>
+                <Dialog modal={false}><NewDistributedReceiptDialog onVoucherAdded={onDataChanged}><DialogTrigger asChild><button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>سند قبض مخصص</span><GitBranch className="h-4 w-4" /></button></DialogTrigger></NewDistributedReceiptDialog></Dialog>
+                <Dialog modal={false}><NewPaymentVoucherDialog onVoucherAdded={onDataChanged}><DialogTrigger asChild><button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>سند دفع</span><FileUp className="h-4 w-4" /></button></DialogTrigger></NewPaymentVoucherDialog></Dialog>
+                <Dialog modal={false}><NewExpenseVoucherDialog onVoucherAdded={onDataChanged}><DialogTrigger asChild><button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>سند مصاريف</span><Banknote className="h-4 w-4" /></button></DialogTrigger></NewExpenseVoucherDialog></Dialog>
+                <Dialog modal={false}><NewJournalVoucherDialog onVoucherAdded={onDataChanged}><DialogTrigger asChild><button className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end w-full"><span>سند قيد داخلي</span><BookUser className="h-4 w-4" /></button></DialogTrigger></NewJournalVoucherDialog></Dialog>
+                <DropdownMenuSeparator />
+                 {menuItems.map(item => <MobileSubItem key={item.href} href={item.href} icon={item.icon}>{item.label}</MobileSubItem>)}
+            </div>
+        );
+    }
+    
+
+    return (
+        <div className="flex flex-col gap-1 p-2">
+             <Dialog modal={false}><NewStandardReceiptDialog onVoucherAdded={onDataChanged}><DialogTrigger asChild><Button variant="ghost" className="justify-between gap-2 w-full"><span>سند قبض عادي</span><FileDown className="h-4 w-4" /></Button></DialogTrigger></NewStandardReceiptDialog></Dialog>
+            <Dialog modal={false}><NewDistributedReceiptDialog onVoucherAdded={onDataChanged}><DialogTrigger asChild><Button variant="ghost" className="justify-between gap-2 w-full"><span>سند قبض مخصص</span><GitBranch className="h-4 w-4" /></Button></DialogTrigger></NewDistributedReceiptDialog></Dialog>
+            <Dialog modal={false}><NewPaymentVoucherDialog onVoucherAdded={onDataChanged}><DialogTrigger asChild><Button variant="ghost" className="justify-between gap-2 w-full"><span>سند دفع</span><FileUp className="h-4 w-4" /></Button></DialogTrigger></NewPaymentVoucherDialog></Dialog>
+            <Dialog modal={false}><NewExpenseVoucherDialog onVoucherAdded={onDataChanged}><DialogTrigger asChild><Button variant="ghost" className="justify-between gap-2 w-full"><span>سند مصاريف</span><Banknote className="h-4 w-4" /></Button></DialogTrigger></NewExpenseVoucherDialog></Dialog>
+            <Dialog modal={false}><NewJournalVoucherDialog onVoucherAdded={onDataChanged}><DialogTrigger asChild><Button variant="ghost" className="justify-between gap-2 w-full"><span>سند قيد داخلي</span><BookUser className="h-4 w-4" /></Button></DialogTrigger></NewJournalVoucherDialog></Dialog>
+            <DropdownMenuSeparator />
+            {menuItems.map(item => (
+                    <DropdownMenuItem asChild key={item.href}>
+                        <Link href={item.href} className="justify-between w-full"><span>{item.label}</span><item.icon className="h-4 w-4" /></Link>
+                    </DropdownMenuItem>
+                ))}
+        </div>
+    )
+}
+
+const MobileSubItem = ({ href, icon: Icon, children }: { href: string; icon: React.ElementType; children: React.ReactNode }) => (
+    <Link href={href} className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted justify-end">
+        <span>{children}</span>
+        <Icon className="h-4 w-4" />
+    </Link>
+);
+
+const NavMenu = ({ label, icon: Icon, children, activeRoutes }: {
   label: string;
   icon: React.ElementType;
   children: React.ReactNode;
   activeRoutes: string[];
 }) => {
   const pathname = usePathname();
-  const isActive = activeRoutes.some((r) => pathname.startsWith(r));
+  const isActive = activeRoutes.some(route => pathname.startsWith(route));
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant={isActive ? "secondary" : "ghost"}
-          className={cn(
-            "rounded-lg px-3 py-2 text-sm font-bold whitespace-nowrap"
-          )}
-        >
-          <span className="inline-flex items-center gap-1.5">
-            {label}
-            <Icon className="h-4 w-4" />
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      {/* مهم للـ RTL: align=“end” و side=“bottom” والـ SubContent يفتح للـ right */}
-      <DropdownMenuContent align="end" side="bottom" dir="rtl">
-        {children}
-      </DropdownMenuContent>
+        <DropdownMenuTrigger asChild>
+            <Button variant={isActive ? 'secondary' : 'ghost'} className={cn(
+              "group flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-bold transition-colors whitespace-nowrap w-full justify-end",
+              isActive && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+            )}>
+                <ChevronDown className={cn("h-4 w-4 transition-transform duration-200 group-data-[state=open]:-rotate-180")} />
+                {label}
+                <Icon className="h-4 w-4" />
+            </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" side="bottom" dir="rtl">
+            {children}
+        </DropdownMenuContent>
     </DropdownMenu>
   );
 };
@@ -90,7 +172,11 @@ const Sub = ({ label, icon: Icon, children }: any) => (
 
 export function MainNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const isMobile = useIsMobile();
   const { hasPermission } = useAuth();
+
+  const handleDataChange = () => router.refresh();
   
   const getVisibleItems = useCallback((items: any[]) => {
     return items.filter(item => {
@@ -99,8 +185,7 @@ export function MainNav() {
     });
   }, [hasPermission]);
 
-
-  const menus = useMemo(() => {
+  const menuConfig = useMemo(() => {
     const can = (p?: Permission) => (!p ? true : hasPermission(p));
 
     return [
@@ -112,7 +197,7 @@ export function MainNav() {
             href="/dashboard"
             className={cn(
               "rounded-lg px-3 py-2 text-sm font-bold hover:bg-muted",
-              pathname === "/dashboard" && "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+              pathname === "/dashboard" && "bg-primary text-primary-foreground"
             )}
           >
             <span className="inline-flex items-center gap-1.5">
@@ -131,10 +216,10 @@ export function MainNav() {
             icon={Activity}
             activeRoutes={["/bookings", "/visas", "/accounts/remittances"]}
           >
-            {can("bookings:read") && (
+            {can("bookings:create") && (
               <Item href="/bookings" label="حجوزات الطيران" icon={Ticket} />
             )}
-            {can("visas:read") && (
+            {can("visas:create") && (
               <Item href="/visas" label="حجوزات الفيزا" icon={CreditCard} />
             )}
             {can("remittances:read") && (
@@ -385,14 +470,12 @@ export function MainNav() {
       },
     ].filter((m) => m.show !== false);
   }, [pathname, hasPermission]);
-
+  
   return (
     <nav className="flex items-center gap-1 py-2">
-      {menus.map((m) => (
+      {menuConfig.map((m) => (
         <div key={m.id}>{m.node}</div>
       ))}
     </nav>
   );
-}
-
-    
+};
