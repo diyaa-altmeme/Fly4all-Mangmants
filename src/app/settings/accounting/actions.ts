@@ -17,11 +17,11 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
     try {
         const snapshot = await db.collection(CHART_OF_ACCOUNTS_COLLECTION).orderBy('code').get();
         if (snapshot.empty) {
-             console.warn("Chart of Accounts is empty. Please run the seeding script: `npm run seed:accounts`");
+             console.warn("Chart of Accounts is empty. Please run the seeding script: `npm run reset:accounts`");
             return [];
         }
 
-        const accounts = snapshot.docs.map(doc => ({ ...doc.data(), children: [] }) as TreeNode);
+        const accounts = snapshot.docs.map(doc => ({ ...doc.data(), children: [], debit: 0, credit: 0 }) as TreeNode);
         const accountMap = new Map<string, TreeNode>(accounts.map(acc => [acc.id, acc]));
 
         const tree: TreeNode[] = [];
@@ -39,8 +39,8 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
             }
         });
 
-        // Calculate balances if needed (leaving this out for now for simplicity, can be added back)
-        // ... balance calculation logic ...
+        // Calculate balances (can be added back if needed)
+        // ...
 
         return tree;
 
