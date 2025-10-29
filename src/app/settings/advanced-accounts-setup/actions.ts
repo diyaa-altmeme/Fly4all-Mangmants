@@ -1,5 +1,5 @@
 
-"use server";
+'use server';
 
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/firebase-admin";
