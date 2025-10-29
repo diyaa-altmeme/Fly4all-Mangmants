@@ -25,6 +25,7 @@ async function seedChartOfAccounts() {
   console.log("🌱 Starting to seed Chart of Accounts...");
 
   const codeToIdMap = new Map<string, string>();
+  const batch = db.batch();
 
   // First pass: Create all documents without parentId to get their generated IDs
   for (const account of chartOfAccountsData) {
@@ -40,13 +41,14 @@ async function seedChartOfAccounts() {
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
-    await docRef.set(dataToSet);
+    batch.set(docRef, dataToSet);
     codeToIdMap.set(account.code, docRef.id);
-    console.log(`📄 Created initial doc for: ${account.code} - ${account.name}`);
+    console.log(`📄 Scheduled creation for: ${account.code} - ${account.name}`);
   }
+  await batch.commit();
 
   console.log("\n🔗 Linking parent accounts...");
-  const batch = db.batch();
+  const updateBatch = db.batch();
 
   // Second pass: Update documents with the correct parentId
   for (const account of chartOfAccountsData) {
@@ -56,13 +58,12 @@ async function seedChartOfAccounts() {
     const parentId = account.parentCode ? codeToIdMap.get(account.parentCode) : null;
     const docRef = coaCollection.doc(accountId);
     
-    // Schedule the update in a batch
-    batch.update(docRef, { parentId: parentId || null });
+    updateBatch.update(docRef, { parentId: parentId || null });
     console.log(`🔗 Linking ${account.code} to parent ${account.parentCode || 'ROOT'}`);
   }
 
   // Commit all updates at once
-  await batch.commit();
+  await updateBatch.commit();
 
   console.log("\n✅ Chart of Accounts seeding completed successfully!");
 }
