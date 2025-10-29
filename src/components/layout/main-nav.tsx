@@ -133,13 +133,13 @@ const MainNavContent = () => {
             id: 'accounting',
             label: 'المحاسبة',
             icon: Wallet,
-            activeRoutes: ['/accounts/vouchers', '/boxes', '/reconciliation', '/reports/debts', '/reports/profit-loss', '/reports/boxes', '/reports/cash-flow', '/reports/profitability-analysis'],
+            activeRoutes: ['/accounts/vouchers', '/boxes', '/reconciliation', '/reports/debts', '/reports/profit-loss', '/reports/boxes', '/reports/cash-flow', '/reports/profitability-analysis', '/settings/accounting'],
             items: [
               { component: <CreateVoucherMenuItems /> , permission: 'vouchers:create'},
               { isSeparator: true, permission: 'vouchers:read' },
               { href: "/accounts/vouchers/list", label: "سجل السندات", icon: ListChecks, permission: 'vouchers:read' },
               { href: "/boxes", label: "الصناديق", icon: Boxes, permission: 'boxes:read' },
-              { href: "/settings/advanced-accounts-setup", label: "الدليل المحاسبي", icon: GitBranch, permission: 'admin' },
+              { href: "/settings/accounting", label: "الدليل المحاسبي", icon: GitBranch, permission: 'admin' },
               { href: "/reconciliation", label: "التدقيق الذكي", icon: HelpCircle, permission: 'admin' },
               { isSeparator: true, permission: 'reports:debts' },
               { 
@@ -194,7 +194,7 @@ const MainNavContent = () => {
             id: 'settings',
             label: 'الإعدادات والأدوات',
             icon: Settings,
-            activeRoutes: ['/settings', '/users', '/system', '/templates', '/finance-tools', '/settings/advanced-accounts-setup'],
+            activeRoutes: ['/settings', '/users', '/system', '/templates', '/finance-tools'],
             items: [
               { href: "/settings", label: "الإعدادات العامة", icon: Settings, permission: 'admin' },
               { href: "/settings/advanced-accounts-setup", label: "مركز التحكم المالي", icon: Settings2, permission: 'admin' },
