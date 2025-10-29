@@ -83,7 +83,7 @@ export default function AdvancedAccountsSetupPage() {
       const defaults: LinkingForm = {
         generalRevenueId: settings.generalRevenueId || '',
         generalExpenseId: settings.generalExpenseId || '',
-arAccountId: settings.arAccountId || '',
+        arAccountId: settings.arAccountId || '',
         apAccountId: settings.apAccountId || '',
         defaultCashId: settings.defaultCashId || '',
         defaultBankId: settings.defaultBankId || '',
