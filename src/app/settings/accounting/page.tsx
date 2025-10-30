@@ -1,7 +1,6 @@
 
 import React, { Suspense } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getChartOfAccounts } from '@/app/settings/accounting/actions';
+import { getChartOfAccounts, getFinanceAccountsMap } from '@/app/settings/accounting/actions';
 import { getSettings } from '@/app/settings/actions';
 import AccountingClient from './components/accounting-client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,12 +10,13 @@ import type { AppSettings, FinanceAccountsMap, TreeNode } from '@/lib/types';
 import ProtectedPage from '@/components/auth/protected-page';
 
 async function AccountingDataContainer() {
-    const [chartData, settings, error] = await Promise.all([
+    const [chartData, financeMap, settings, error] = await Promise.all([
         getChartOfAccounts(),
+        getFinanceAccountsMap(),
         getSettings(),
-    ]).then(res => [...res, null]).catch(e => [null, null, e.message]);
+    ]).then(res => [...res, null]).catch(e => [null, null, null, e.message]);
     
-    if (error || !chartData || !settings) {
+    if (error || !chartData || !settings || !financeMap) {
         return (
             <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
@@ -25,8 +25,6 @@ async function AccountingDataContainer() {
             </Alert>
         );
     }
-
-    const financeMap = settings?.financeAccounts || {};
 
     return (
         <AccountingClient 
