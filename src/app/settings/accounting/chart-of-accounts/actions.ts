@@ -1,33 +1,143 @@
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { TreeNode } from '@/lib/types';
+import type { TreeNode, JournalVoucher, Client } from '@/lib/types';
 import { Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 
 const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
 
-// This function builds the entire chart of accounts.
+// This function builds the entire chart of accounts, including balances from relations.
 export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
     const db = await getDb();
     if (!db) return [];
 
     try {
-        const snapshot = await db.collection(CHART_OF_ACCOUNTS_COLLECTION).orderBy('code').get();
-        if (snapshot.empty) {
-            console.warn("Chart of Accounts is empty. Consider seeding initial accounts.");
-            return [];
-        }
+        const [staticAccountsSnap, clientsSnap, vouchersSnap] = await Promise.all([
+            db.collection(CHART_OF_ACCOUNTS_COLLECTION).orderBy('code').get(),
+            db.collection('clients').get(),
+            db.collection('journal-vouchers').get(),
+        ]);
 
-        const accounts = snapshot.docs.map(doc => ({
-          id: doc.id, 
-          ...doc.data(),
-          debit: 0, // Placeholder
-          credit: 0, // Placeholder
+        const accountBalances: Record<string, { debit: number; credit: number }> = {};
+
+        // 1. Calculate balances for all accounts from journal vouchers
+        vouchersSnap.forEach(doc => {
+            const voucher = doc.data() as JournalVoucher;
+            if (voucher.isDeleted) return;
+
+            const processEntries = (entries: any[], type: 'debit' | 'credit') => {
+                 if (!entries) return;
+                 entries.forEach(entry => {
+                    if (!entry.accountId) return;
+                    if (!accountBalances[entry.accountId]) {
+                        accountBalances[entry.accountId] = { debit: 0, credit: 0 };
+                    }
+                    accountBalances[entry.accountId][type] += entry.amount || 0;
+                });
+            };
+
+            processEntries(voucher.debitEntries, 'debit');
+            processEntries(voucher.creditEntries, 'credit');
+        });
+
+        // 2. Initialize static accounts from the chart_of_accounts collection
+        const accounts = staticAccountsSnap.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            debit: 0, 
+            credit: 0,
+            children: [],
         } as TreeNode));
         
-        return JSON.parse(JSON.stringify(accounts)); // Serialize to plain objects
+        const accountMap = new Map<string, TreeNode>(accounts.map(acc => [acc.id, acc]));
+
+        // Find parent nodes for clients and suppliers by their standard codes
+        const accountsReceivableParent = accounts.find(a => a.code === '1-1-2');
+        const accountsPayableParent = accounts.find(a => a.code === '2-1-1');
+
+        // 3. Create dynamic nodes for clients/suppliers
+        clientsSnap.forEach(doc => {
+            const client = doc.data() as Client;
+            const balances = accountBalances[doc.id] || { debit: 0, credit: 0 };
+            
+            const clientNode: TreeNode = {
+                id: doc.id,
+                name: client.name,
+                code: client.code || doc.id.substring(0, 6),
+                type: 'client',
+                debit: balances.debit,
+                credit: balances.credit,
+                children: [],
+                parentId: '' 
+            };
+
+            // Add to Accounts Receivable (الذمم المدينة)
+            if (client.relationType === 'client' || client.relationType === 'both') {
+                if (accountsReceivableParent) {
+                    clientNode.parentId = accountsReceivableParent.id;
+                    if (!accountsReceivableParent.children) accountsReceivableParent.children = [];
+                    accountsReceivableParent.children.push(clientNode);
+                }
+            }
+
+            // Add to Accounts Payable (الذمم الدائنة)
+            if (client.relationType === 'supplier' || client.relationType === 'both') {
+                if (accountsPayableParent) {
+                    // Create a separate node for the supplier side if it's 'both'
+                    const supplierNode: TreeNode = client.relationType === 'both' 
+                        ? { ...clientNode, parentId: accountsPayableParent.id } 
+                        : { ...clientNode, parentId: accountsPayableParent.id };
+                    
+                    if (!accountsPayableParent.children) accountsPayableParent.children = [];
+                    accountsPayableParent.children.push(supplierNode);
+                }
+            }
+        });
+
+
+        // 4. Build the tree structure for static accounts
+        const tree: TreeNode[] = [];
+        accounts.forEach(account => {
+            if (account.parentId && accountMap.has(account.parentId)) {
+                const parent = accountMap.get(account.parentId);
+                if (parent && !parent.children.some(c => c.id === account.id)) {
+                    parent.children.push(account);
+                }
+            } else {
+                if (!roots.some(r => r.id === account.id)) {
+                   tree.push(account);
+                }
+            }
+        });
+
+        // 5. Aggregate balances up the tree
+        const sumChildrenBalances = (node: TreeNode): { debit: number; credit: number } => {
+            if (!node.children || node.children.length === 0) {
+                const balances = accountBalances[node.id] || { debit: 0, credit: 0 };
+                node.debit = balances.debit;
+                node.credit = balances.credit;
+                return balances;
+            }
+
+            let totalDebit = 0;
+            let totalCredit = 0;
+            node.children.forEach(child => {
+                const childTotals = sumChildrenBalances(child);
+                totalDebit += childTotals.debit;
+                totalCredit += childTotals.credit;
+            });
+
+            node.debit = totalDebit;
+            node.credit = totalCredit;
+            return { debit: totalDebit, credit: totalCredit };
+        };
+
+        tree.forEach(sumChildrenBalances);
+
+        return JSON.parse(JSON.stringify(tree));
 
     } catch (error) {
         console.error("Error getting chart of accounts:", error);
@@ -65,7 +175,7 @@ export async function createAccount(data: {
 
   if (data.parentId) {
       await db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(data.parentId).update({
-          isLeaf: false, // This field is deprecated but we update it for compatibility
+          isLeaf: false, 
           updatedAt: Timestamp.now()
       });
   }
@@ -78,7 +188,7 @@ export async function updateAccount(id: string, data: Partial<TreeNode>) {
     const db = await getDb();
     if (!db) throw new Error("Database not available.");
     
-    const { children, ...updateData } = data; // Exclude children from update
+    const { children, ...updateData } = data; 
     
     await db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(id).update({
         ...updateData,
