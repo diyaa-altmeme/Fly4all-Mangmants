@@ -8,12 +8,20 @@ import { GlobalSearch } from "./global-search";
 import NotificationCenter from "./notification-center";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserNav } from "./user-nav";
+import { SidebarTrigger } from "../ui/sidebar";
+import { Button } from "../ui/button";
+import { Menu } from "lucide-react";
 
 export default function TopBar() {
   return (
     <div className="w-full">
       <div className="container mx-auto px-3 sm:px-4 md:px-6 h-14 flex items-center gap-3">
         <div className="flex items-center gap-2">
+            <SidebarTrigger asChild className="md:hidden">
+                <Button variant="ghost" size="icon">
+                    <Menu/>
+                </Button>
+            </SidebarTrigger>
           <CreateNewMenu />
         </div>
         <div className="flex-1 hidden md:block">
@@ -31,5 +39,3 @@ export default function TopBar() {
     </div>
   );
 }
-
-    
