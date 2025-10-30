@@ -1,69 +1,36 @@
-
-"use client";
-
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getChartOfAccounts, getFinanceAccountsMap } from '@/app/settings/accounting/actions';
 import { getSettings } from '@/app/settings/actions';
-import AccountingPage from './components/AccountingPage';
+import AccountingClient from './components/accounting-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import type { AppSettings, FinanceAccountsMap, TreeNode } from '@/lib/types';
 import ProtectedPage from '@/components/auth/protected-page';
 
-function AccountingDataContainer() {
-    const [chartData, setChartData] = React.useState<TreeNode[]>([]);
-    const [financeMap, setFinanceMap] = React.useState<FinanceAccountsMap>({});
-    const [settings, setSettings] = React.useState<AppSettings | null>(null);
-    const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState<string | null>(null);
-
-    React.useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const [chartDataRes, financeMapRes, settingsRes] = await Promise.all([
-                    getChartOfAccounts(),
-                    getFinanceAccountsMap(),
-                    getSettings(),
-                ]);
-                setChartData(chartDataRes);
-                setFinanceMap(financeMapRes);
-                setSettings(settingsRes);
-            } catch (e: any) {
-                setError(e.message || "Failed to load accounting data");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
-    }, []);
-
-    if (loading) {
-        return (
-            <div className="space-y-4">
-                <Skeleton className="h-12 w-1/3" />
-                <Skeleton className="h-96 w-full" />
-            </div>
-        );
-    }
+async function AccountingDataContainer() {
+    const [chartData, financeMap, settings, error] = await Promise.all([
+        getChartOfAccounts(),
+        getFinanceAccountsMap(),
+        getSettings(),
+    ]).then(res => [...res, null]).catch(e => [null, null, null, e.message]);
     
-    if (error) {
+    if (error || !chartData || !financeMap || !settings) {
         return (
             <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
                 <AlertTitle>حدث خطأ!</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
+                <AlertDescription>{error || "فشل تحميل بيانات المحاسبة."}</AlertDescription>
             </Alert>
         );
     }
 
     return (
-        <AccountingPage 
+        <AccountingClient 
             initialChartData={chartData} 
             initialFinanceMap={financeMap}
-            initialSettings={settings!}
+            initialSettings={settings}
         />
     )
 }
@@ -81,7 +48,9 @@ export default function ChartOfAccountsMainPage() {
                 </div>
                  <Card>
                     <CardContent className="pt-6">
-                        <AccountingDataContainer />
+                       <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                         <AccountingDataContainer />
+                       </Suspense>
                     </CardContent>
                 </Card>
             </div>
