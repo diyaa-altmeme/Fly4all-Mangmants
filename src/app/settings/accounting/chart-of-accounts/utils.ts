@@ -23,7 +23,9 @@ export function buildTree(accounts: TreeNode[]): TreeNode[] {
             }
         } else {
             // This is a root node
-            roots.push(map[acc.id]);
+             if (!roots.some(r => r.id === acc.id)) {
+               roots.push(map[acc.id]);
+            }
         }
     });
     
