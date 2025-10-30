@@ -6,28 +6,26 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
-import type { AppSettings } from "@/lib/types";
-import { appearanceSections, settingSections } from '../sections.config';
-import { cn } from "@/lib/utils";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import type { AppSettings, TreeNode, FinanceAccountsMap, User, Box, Client, Supplier, Exchange } from "@/lib/types";
+import { settingSections, appearanceSections } from '../sections.config';
+import SettingsSidebar from "./settings-sidebar";
 
 interface SettingsPageContentProps {
     initialSettings: AppSettings;
+    chartOfAccounts: TreeNode[];
+    financeMap: FinanceAccountsMap;
+    users: User[];
+    boxes: Box[];
+    clients: Client[];
+    suppliers: Supplier[];
+    exchanges: Exchange[];
 }
 
-export default function SettingsPageContent({ initialSettings }: SettingsPageContentProps) {
+export default function SettingsPageContent(props: SettingsPageContentProps) {
     const [searchTerm, setSearchTerm] = useState("");
-    const [activeSection, setActiveSection] = useState("themes_general");
-    const router = useRouter();
-
-    const handleDataChange = useCallback(() => {
-        router.refresh();
-    }, [router]);
+    const [activeSection, setActiveSection] = useState("accounting_chart"); // Default to chart of accounts
     
+    // Consolidate all sections for filtering
     const allSections = useMemo(() => [...settingSections, ...appearanceSections], []);
 
     const filteredSections = useMemo(() => {
@@ -51,63 +49,19 @@ export default function SettingsPageContent({ initialSettings }: SettingsPageCon
         return null;
     }, [activeSection, allSections]);
 
-
-    if (!initialSettings) {
-        return null;
-    }
-
     return (
       <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start">
-        <aside className="border-e bg-card p-4 space-y-4 rounded-lg h-full sticky top-20">
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    placeholder="بحث في الإعدادات..." 
-                    className="ps-10" 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-            </div>
-            <Accordion type="multiple" className="w-full" defaultValue={allSections.map(s => s.id)}>
-                {filteredSections.map(section => {
-                    const MainIcon = section.icon;
-                    return(
-                    <AccordionItem value={section.id} key={section.id} className="border-b-0">
-                        <AccordionTrigger className="py-3 px-2 font-bold text-base hover:no-underline rounded-md data-[state=open]:text-primary justify-between">
-                             <div className="flex items-center gap-3 justify-start w-full">
-                                <MainIcon className="h-5 w-5" />
-                                <span>{section.name}</span>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="pr-4 border-r-2 border-primary/50 mr-4">
-                            <nav dir="rtl" className="flex flex-col gap-1 mt-2">
-                                {section.subItems.map(subItem => {
-                                    const SubIcon = subItem.icon;
-                                    return (
-                                        <Button
-                                            key={subItem.id}
-                                            variant="ghost"
-                                            onClick={() => setActiveSection(subItem.id)}
-                                            className={cn(
-                                                "justify-start gap-3 font-semibold",
-                                                activeSection === subItem.id && "bg-primary/10 text-primary"
-                                            )}
-                                        >
-                                            <SubIcon className="h-4 w-4"/>
-                                            {subItem.name}
-                                        </Button>
-                                    )
-                                })}
-                           </nav>
-                        </AccordionContent>
-                    </AccordionItem>
-                )})}
-            </Accordion>
-        </aside>
+        <SettingsSidebar 
+            sections={filteredSections} 
+            activeSection={activeSection} 
+            setActiveSection={setActiveSection} 
+            searchTerm={searchTerm} 
+            setSearchTerm={setSearchTerm} 
+        />
         <main className="space-y-6">
             <Card>
                 <CardContent className="pt-6">
-                     {ActiveComponent ? <ActiveComponent settings={initialSettings} onSettingsChanged={handleDataChange} /> : (
+                     {ActiveComponent ? <ActiveComponent {...props} /> : (
                         <div>الرجاء اختيار قسم من القائمة.</div>
                      )}
                 </CardContent>

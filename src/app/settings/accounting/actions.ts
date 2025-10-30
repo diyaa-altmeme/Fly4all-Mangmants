@@ -1,16 +1,16 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { TreeNode, JournalVoucher, Client, Supplier, Box, Exchange } from '@/lib/types';
+import type { TreeNode } from '@/lib/types';
 import { Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
+import { cache } from 'react';
 
 const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
 
 // This function builds the entire chart of accounts, including balances.
-export const getChartOfAccounts = async (): Promise<TreeNode[]> => {
+export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
     const db = await getDb();
     if (!db) return [];
 
@@ -21,7 +21,7 @@ export const getChartOfAccounts = async (): Promise<TreeNode[]> => {
             return [];
         }
 
-        const accounts = snapshot.docs.map(doc => ({ ...doc.data(), children: [], debit: 0, credit: 0 }) as TreeNode);
+        const accounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), children: [], debit: 0, credit: 0 }) as TreeNode);
         const accountMap = new Map<string, TreeNode>(accounts.map(acc => [acc.id, acc]));
 
         const tree: TreeNode[] = [];
@@ -39,16 +39,15 @@ export const getChartOfAccounts = async (): Promise<TreeNode[]> => {
             }
         });
 
-        // Calculate balances (can be added back if needed)
-        // ...
+        // Balance calculation can be added later if needed, for now we keep it simple.
 
-        return tree;
+        return JSON.parse(JSON.stringify(tree)); // Serialize to plain objects
 
     } catch (error) {
         console.error("Error getting chart of accounts:", error);
         return [];
     }
-};
+});
 
 
 export async function createAccount({ name, type, parentId, isLeaf, code, description }: { 
@@ -87,7 +86,7 @@ export async function createAccount({ name, type, parentId, isLeaf, code, descri
       });
   }
 
-  revalidatePath('/settings/accounting');
+  revalidatePath('/settings');
   return doc;
 }
 
@@ -123,12 +122,12 @@ export async function generateAccountCode(parentId?: string): Promise<string> {
             .get();
 
         if (childrenQuery.empty) {
-            return `${parentCode}-1`; // Changed from . to -
+            return `${parentCode}-1`;
         }
 
         const childCodes = childrenQuery.docs.map(doc => doc.data().code as string);
         const subNumbers = childCodes
-            .map(code => code.split('-').pop()) // Changed from . to -
+            .map(code => code.split('-').pop())
             .map(numStr => parseInt(numStr || '0', 10))
             .filter(num => !isNaN(num));
             
@@ -137,3 +136,5 @@ export async function generateAccountCode(parentId?: string): Promise<string> {
         return `${parentCode}-${maxSubNumber + 1}`;
     }
 }
+
+export { getFinanceAccountsMap, updateFinanceAccountsMap } from '../advanced-accounts-setup/actions';
