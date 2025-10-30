@@ -11,14 +11,19 @@ import { UserNav } from "./user-nav";
 import { SidebarTrigger } from "../ui/sidebar";
 import { Button } from "../ui/button";
 import { Menu } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function TopBar() {
+    const isMobile = useIsMobile();
   return (
-    <div className="container mx-auto px-0 w-full h-14 flex items-center gap-3">
+    <div className="container mx-auto px-4 w-full h-14 flex items-center gap-3">
         <div className="flex items-center gap-2">
-            <SidebarTrigger>
-                <Menu />
-            </SidebarTrigger>
+            {isMobile && (
+                 <SidebarTrigger>
+                    <Menu />
+                </SidebarTrigger>
+            )}
+            <CreateNewMenu />
         </div>
         <div className="flex-1 hidden md:block">
            <MainNav />
