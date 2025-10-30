@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -33,6 +34,8 @@ export default function AccountNode({ node, depth, onActionSuccess, allAccounts 
   const hasChildren = node.children && node.children.length > 0;
 
   const balance = (node.debit || 0) - (node.credit || 0);
+  
+  const TypeInfo = node.type ? typeConfig[node.type] : null;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
@@ -46,10 +49,10 @@ export default function AccountNode({ node, depth, onActionSuccess, allAccounts 
                 )}
                 <span className="font-mono text-xs text-muted-foreground w-28 text-right">{node.code}</span>
                 <span className="font-semibold">{node.name}</span>
-                 {node.type && typeConfig[node.type] && (
+                 {TypeInfo && (
                     <Badge variant="outline" className="text-xs">
-                        <typeConfig[node.type].icon className={cn("h-3 w-3 me-1", typeConfig[node.type].color)} />
-                        {typeConfig[node.type].label}
+                        <TypeInfo.icon className={cn("h-3 w-3 me-1", TypeInfo.color)} />
+                        {TypeInfo.label}
                     </Badge>
                 )}
             </div>
