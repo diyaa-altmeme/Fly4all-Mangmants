@@ -37,21 +37,23 @@ export default function AccountNode({ node, depth, onActionSuccess, allAccounts 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="w-full">
       <div className="flex items-center group/node hover:bg-muted/50 rounded-md">
-        <div className="flex items-center gap-1 cursor-pointer select-none py-1.5 flex-grow" style={{ paddingRight: `${depth * 1.25}rem`}} onClick={() => hasChildren && setIsOpen(!isOpen)}>
-            {hasChildren ? (
-                <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && 'rotate-90')} />
-            ) : (
-                <div className="w-4" />
-            )}
-            <span className="font-mono text-xs text-muted-foreground w-28 text-right truncate">{node.code}</span>
-            <span className="font-semibold">{node.name}</span>
-             {TypeInfo && (
-                <Badge variant="outline" className="text-xs">
-                    <TypeInfo.icon className={cn("h-3 w-3 me-1", TypeInfo.color)} />
-                    {TypeInfo.label}
-                </Badge>
-            )}
-        </div>
+        <CollapsibleTrigger asChild>
+            <div className="flex items-center gap-1 cursor-pointer select-none py-1.5 flex-grow" style={{ paddingRight: `${depth * 1.25}rem`}}>
+                {hasChildren ? (
+                    <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && 'rotate-90')} />
+                ) : (
+                    <div className="w-4" />
+                )}
+                <span className="font-mono text-xs text-muted-foreground w-28 text-right truncate">{node.code}</span>
+                <span className="font-semibold">{node.name}</span>
+                {TypeInfo && (
+                    <Badge variant="outline" className="text-xs">
+                        <TypeInfo.icon className={cn("h-3 w-3 me-1", TypeInfo.color)} />
+                        {TypeInfo.label}
+                    </Badge>
+                )}
+            </div>
+        </CollapsibleTrigger>
         <div className="pe-2">
             <AccountActions node={node} onActionSuccess={onActionSuccess} allAccounts={allAccounts} />
         </div>
