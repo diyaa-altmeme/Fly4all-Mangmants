@@ -71,9 +71,25 @@ export const navConfig = {
       icon: LayoutDashboard,
     },
   ],
+  relations: {
+    title: "العلاقات",
+    icon: Contact,
+    items: [
+      {
+        title: "العملاء والموردين",
+        href: "/clients",
+        icon: Users2,
+      },
+      {
+        title: "الحملات",
+        href: "/campaigns",
+        icon: MessageSquare,
+      },
+    ],
+  },
   operations: {
-    title: "العمليات",
-    icon: Activity,
+    title: "العمليات المحاسبية",
+    icon: Calculator,
     items: [
       {
         title: "حجوزات الطيران",
@@ -97,15 +113,46 @@ export const navConfig = {
       },
     ],
   },
-  accounting: {
-    title: "المحاسبة",
-    icon: Wallet,
+  vouchers: {
+    title: "السندات",
+    icon: FileText,
     items: [
        {
         title: "سجل السندات",
         href: "/accounts/vouchers/list",
         icon: ReceiptText,
       },
+      {
+        title: "إنشاء سند قبض عادي",
+        href: "#",
+        icon: FileDown,
+      },
+      {
+        title: "إنشاء سند قبض مخصص",
+        href: "#",
+        icon: GitBranch,
+      },
+      {
+        title: "إنشاء سند دفع",
+        href: "#",
+        icon: FileUp,
+      },
+      {
+        title: "إنشاء سند مصاريف",
+        href: "#",
+        icon: Banknote,
+      },
+       {
+        title: "إنشاء قيد محاسبي",
+        href: "#",
+        icon: BookUser,
+      },
+    ],
+  },
+  accounting: {
+    title: "المحاسبة",
+    icon: Wallet,
+    items: [
        {
         title: "الصناديق",
         href: "/boxes",
@@ -135,7 +182,7 @@ export const navConfig = {
     ]
   },
   reports: {
-    title: "التقارير",
+    title: "التقارير والأدوات",
     icon: BarChart3,
     items: [
       { title: "تقرير الأرصدة", href: "/reports/debts", icon: BookUser },
@@ -144,19 +191,12 @@ export const navConfig = {
       { title: "الأرباح والخسائر", href: "/reports/profit-loss", icon: GanttChartSquare, },
       { title: "تحليل الربحية", href: "/reports/profitability-analysis", icon: PieChart },
       { title: "التدفق النقدي", href: "/reports/cash-flow", icon: Waypoints },
+      { title: "التدقيق الذكي", href: "/reconciliation", icon: Wand2 },
     ],
   },
-  relations: {
-    title: "العلاقات",
-    icon: Users2,
-    items: [
-      { title: "العملاء والموردين", href: "/clients", icon: Contact },
-      { title: "المحادثات", href: "/chat", icon: MessageSquare },
-    ],
-  },
-  settingsAndTools: {
-    title: "الإعدادات والأدوات",
-    icon: Settings,
+  system: {
+    title: "النظام",
+    icon: Network,
     items: [
       { title: "الإعدادات العامة", href: "/settings", icon: Settings },
       { title: "الموظفين والصلاحيات", href: "/users", icon: UserCog },

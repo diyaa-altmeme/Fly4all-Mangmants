@@ -24,9 +24,11 @@ import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-sta
 import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
 import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-payment-voucher-dialog";
 import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
-import NewJournalVoucherDialog from "@/app/accounts/vouchers/components/new-journal-voucher-dialog";
+import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
 import AddClientDialog from "@/app/clients/components/add-client-dialog";
 import { useVoucherNav } from "@/context/voucher-nav-context";
+import { ChevronDown } from "lucide-react";
+
 
 const NavLink = ({ href, children, active, className }: { href: string; children: React.ReactNode, active: boolean, className?: string }) => (
     <Link
@@ -60,6 +62,7 @@ const NavMenu = ({ menuConfig, activeRoutes }: {
             )}>
                 {menuConfig.title}
                 <menuConfig.icon className="h-4 w-4" />
+                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
             </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
