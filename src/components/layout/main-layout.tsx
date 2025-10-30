@@ -10,6 +10,10 @@ import TopLoader from '@/components/ui/top-loader';
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { Sidebar, SidebarContent, SidebarGroup, SidebarHeader, SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { MainNav } from "./main-nav";
+import { Button } from "../ui/button";
+import { Menu } from "lucide-react";
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
 const clientRoutes = ['/clients', '/profile']; // Routes accessible by clients
@@ -51,13 +55,34 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
     return (
         <div dir="rtl" className="flex min-h-screen w-full flex-col bg-muted/40">
-            <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                <TopBar />
-            </header>
-            <TopLoader />
-            <main className={cn("container mx-auto px-3 sm:px-4 md:px-6 py-4 flex-1")}>
-                {children}
-            </main>
+            <SidebarProvider>
+                <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                    <TopBar />
+                </header>
+                 <Sidebar>
+                    <SidebarHeader>
+                        <div className="flex items-center justify-between p-2">
+                            <h2 className="font-bold text-lg">القائمة الرئيسية</h2>
+                            <SidebarTrigger asChild>
+                                <Button variant="ghost" size="icon" className="md:hidden">
+                                    <Menu />
+                                </Button>
+                            </SidebarTrigger>
+                        </div>
+                    </SidebarHeader>
+                    <SidebarContent>
+                        <SidebarGroup>
+                            <MainNav />
+                        </SidebarGroup>
+                    </SidebarContent>
+                </Sidebar>
+                <SidebarInset>
+                    <TopLoader />
+                    <main className={"px-3 sm:px-4 md:px-6 py-4 flex-1"}>
+                        {children}
+                    </main>
+                </SidebarInset>
+            </SidebarProvider>
         </div>
     );
 };
@@ -108,5 +133,3 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     
     return <AppLayout>{children}</AppLayout>;
 }
-
-    
