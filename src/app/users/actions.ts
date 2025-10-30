@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getAuth } from 'firebase-admin/auth';
@@ -41,7 +40,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
         return { ...userData, uid: userDoc.id };
 
     } catch (error) {
-        console.error("Error getting user by email:", error);
+        console.error("Error getting user by email:", String(error));
         return null;
     }
 }
@@ -118,8 +117,8 @@ export async function getUsers({ includeHrData = false, all = false, from, to }:
         }
         return users;
     } catch (error) {
-        console.error("Error fetching users:", error);
-        return []; // Return empty array on error
+        console.error("Error fetching users:", String(error));
+        return [];
     }
 }
 
@@ -132,10 +131,8 @@ export async function addUser(data: Omit<User, 'uid' | 'id'>) {
 
     const finalPassword = password && password.length >= 6 ? password : randomBytes(16).toString('hex');
     
-    // Ensure phone number is in E.164 format
     let formattedPhone = phone;
     if (formattedPhone && !formattedPhone.startsWith('+')) {
-        // Assuming Iraqi numbers if no country code is provided
         if (formattedPhone.startsWith('0')) {
             formattedPhone = `+964${phone.substring(1)}`;
         } else {
@@ -248,7 +245,7 @@ export async function listAllAuthUsers(): Promise<{
     }));
     return { success: true, users };
   } catch (error: any) {
-    console.error("Error listing all auth users:", error);
+    console.error("Error listing all auth users:", String(error));
     return { success: false, error: error.message };
   }
 }

@@ -1,27 +1,25 @@
 
-
 'use server'
 
-import { App, cert, getApp, getApps, initializeApp, ServiceAccount } from 'firebase-admin/app';
+import { App, cert, getApp, getApps, initializeApp } from 'firebase-admin/app';
 import { Auth, getAuth } from 'firebase-admin/auth';
 import { Firestore, getFirestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { serviceAccount } from './firebase-service-account';
 
-// Holds the single initialized Firebase app instance.
 let firebaseAdminApp: App | null = null;
 let firebaseInitializationError: Error | null = null;
 
 async function initializeFirebaseAdminApp(): Promise<App> {
-    // If an app is already initialized, use it.
     if (getApps().length > 0) {
         firebaseAdminApp = getApp();
         return firebaseAdminApp;
     }
     
     if (!serviceAccount || !serviceAccount.projectId || !serviceAccount.privateKey || !serviceAccount.clientEmail) {
+        const errorMessage = "Default Firebase service account is not valid in firebase-service-account.ts.";
         console.error("Firebase Admin SDK Service Account object is not valid.");
-        firebaseInitializationError = new Error("Default Firebase service account is not valid in firebase-service-account.ts.");
+        firebaseInitializationError = new Error(errorMessage);
         throw firebaseInitializationError;
     }
 
@@ -35,9 +33,9 @@ async function initializeFirebaseAdminApp(): Promise<App> {
         console.log("Firebase Admin SDK initialized successfully.");
         return app;
     } catch (error: any) {
-        console.error(`Failed to initialize Firebase Admin SDK: ${error.message}`);
-        firebaseInitializationError = error;
-        throw error; // Re-throw the error to be caught by callers
+        console.error("Failed to initialize Firebase Admin SDK:", String(error));
+        firebaseInitializationError = error instanceof Error ? error : new Error(String(error));
+        throw firebaseInitializationError;
     }
 }
 

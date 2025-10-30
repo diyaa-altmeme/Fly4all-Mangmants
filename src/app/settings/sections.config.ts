@@ -3,7 +3,7 @@
 
 import React from 'react';
 import {
-    Users, GitBranch, SlidersHorizontal, Settings, Upload, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, MessageSquareQuote, Shield, FileText, Terminal as DeveloperIcon, Paintbrush, FileBarChart, Banknote, DollarSign
+    Users, GitBranch, SlidersHorizontal, Settings, Upload, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, MessageSquareQuote, Shield, FileText, Terminal as DeveloperIcon, Paintbrush, FileBarChart, Banknote, DollarSign, WalletCards
 } from 'lucide-react';
 
 // Import client components
@@ -17,8 +17,7 @@ import AssetManagementSettings from '@/app/settings/sections/asset-management';
 import LandingPageSettingsComponent from '@/app/settings/sections/landing-page-settings';
 import InvoiceSequencesPage from '@/app/settings/invoice-sequences/page';
 import ClientPermissionsPage from '@/app/settings/client-permissions/page';
-import AccountingSettingsPage from '@/app/settings/accounting/page';
-import AdvancedAccountsSetupPage from '@/app/settings/advanced-accounts-setup/page'; // Still Server, will be wrapped
+import FinanceAccountSettings from '@/app/settings/accounting/components/FinanceAccountSettings';
 import ThemeSelector from '@/app/settings/themes/components/theme-selector';
 
 
@@ -28,8 +27,7 @@ export const settingSections = [
         name: 'الإعدادات المحاسبية والمالية', 
         icon: GitBranch,
         subItems: [
-            { id: 'advanced_accounts_setup', name: 'إعداد الحسابات المتقدمة', icon: Settings, component: AdvancedAccountsSetupPage },
-            { id: 'accounting_chart', name: 'الدليل المحاسبي', icon: GitBranch, component: AccountingSettingsPage },
+            { id: 'accounting_linking', name: 'ربط الحسابات المالية', icon: WalletCards, component: FinanceAccountSettings },
             { id: 'accounting_sequences', name: 'تسلسل الفواتير', icon: FileBarChart, component: InvoiceSequencesPage },
             { id: 'accounting_currencies', name: 'العملات', icon: Banknote, component: CurrencySettings },
         ],

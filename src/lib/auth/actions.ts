@@ -2,11 +2,26 @@
 'use server';
 
 import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
-import type { User, Client, LoginCredentials } from '@/lib/types';
+import type { User, Client, Permission } from '@/lib/types';
 import { cookies } from 'next/headers';
 import { getRoles } from '@/app/users/actions';
 import { PERMISSIONS } from './permissions';
-import { redirect } from 'next/navigation';
+
+// Get the current user session and permissions
+export async function getCurrentUser() {
+    const user = await getCurrentUserFromSession();
+  
+    if (!user || 'isClient' in user) {
+      return { user: null, hasPermission: () => false };
+    }
+  
+    const hasPermission = (permission: Permission) => {
+      if (user.role === 'admin') return true;
+      return user.permissions?.includes(permission) ?? false;
+    };
+  
+    return { user, hasPermission };
+}
 
 export const getUserById = async (uid: string): Promise<(User & { permissions?: string[] }) | null> => {
     const db = await getDb();
@@ -23,8 +38,7 @@ export const getUserById = async (uid: string): Promise<(User & { permissions?: 
 
         if (userData.role) {
             if(userData.role === 'admin') {
-                // Admin gets all permissions implicitly from the defined roles list.
-                 permissions = Object.keys(PERMISSIONS);
+                permissions = Object.keys(PERMISSIONS);
             } else {
                 const userRole = allRoles.find(r => r.id === userData.role);
                 if (userRole) {
@@ -35,7 +49,7 @@ export const getUserById = async (uid: string): Promise<(User & { permissions?: 
         
         return { ...userData, uid, permissions: [...new Set(permissions)] };
     } catch (error) {
-        console.error("Error fetching user by ID:", error);
+        console.error("Error fetching user by ID:", String(error));
         return null;
     }
 };
@@ -63,7 +77,7 @@ export const getClientById = async (id: string): Promise<Client | null> => {
             ...safeData,
         } as Client;
     } catch (error) {
-        console.error(`Error getting client by ID ${''}${id}:`, String(error));
+        console.error(`Error getting client by ID ${id}:`, String(error));
         return null;
     }
 };
@@ -83,8 +97,6 @@ export const getCurrentUserFromSession = async (): Promise<(User & { permissions
             return fullUser;
         }
         
-        // This part is for potential client-side login which is not fully implemented.
-        // It checks if the decoded token has an `isClient` flag.
         if (decodedClaims.isClient) {
              const client = await getClientById(decodedClaims.uid);
              if (client) return { ...client, isClient: true };
@@ -95,8 +107,7 @@ export const getCurrentUserFromSession = async (): Promise<(User & { permissions
         return null;
 
     } catch (error) {
-        // This will catch verification errors (expired, invalid)
-        console.warn("Session verification failed, session is likely invalid. Clearing cookie.", error);
+        console.warn("Session verification failed, session is likely invalid. Clearing cookie.", String(error));
         cookies().delete('session');
         return null;
     }
@@ -108,7 +119,7 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
     const authAdmin = await getAuthAdmin();
     
     try {
-        const decodedToken = await authAdmin.verifyIdToken(idToken, true); // Check if revoked
+        const decodedToken = await authAdmin.verifyIdToken(idToken, true);
         
         const userInDb = await getUserById(decodedToken.uid);
         if (!userInDb) {
@@ -126,14 +137,14 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
         cookieStore.set('session', sessionCookie, {
             maxAge: expiresIn / 1000,
             httpOnly: true,
-            secure: true, // Always true for SameSite=None
+            secure: true, 
             path: '/',
             sameSite: 'none', 
         });
 
         return { success: true, user: userInDb };
     } catch (error: any) {
-        console.error("Error creating session cookie:", error);
+        console.error("Error creating session cookie:", String(error));
         return { success: false, error: error.message };
     }
 }
@@ -168,7 +179,7 @@ export const getUserByEmail = async (email: string): Promise<(User) | null> => {
         return { ...userData, uid: userDoc.id };
 
     } catch (error) {
-        console.error("Error getting user by email:", error);
+        console.error("Error getting user by email:", String(error));
         return null;
     }
 };
@@ -184,7 +195,7 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
         const customToken = await authAdmin.createCustomToken(userId);
         return { success: true, customToken };
     } catch (error: any) {
-        console.error("Error creating custom token for user:", error);
+        console.error("Error creating custom token for user:", String(error));
         return { success: false, error: error.message };
     }
 }
@@ -193,6 +204,4 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
 export async function logoutUser() {
     const cookieStore = await cookies();
     cookieStore.delete('session');
-    // The redirect will now be handled client-side in the useAuth hook
-    // for a full page reload.
 }

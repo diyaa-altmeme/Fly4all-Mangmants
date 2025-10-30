@@ -1,81 +1,86 @@
 
 import React from 'react';
+import { Metadata } from 'next';
+import { getSettings } from '@/app/settings/actions';
+import { getChartOfAccounts } from '@/app/settings/accounting/actions';
+import { getUsers } from '@/app/users/actions';
+import { getBoxes } from '@/app/boxes/actions';
+import { getClients } from '@/app/clients/actions';
+import { getSuppliers } from '@/app/suppliers/actions';
+import { getExchanges } from '@/app/exchanges/actions';
 import ProtectedPage from '@/components/auth/protected-page';
 import SettingsPageContent from './components/settings-page-content';
-import { getSettings } from './actions';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
-import { getChartOfAccounts, getFinanceAccountsMap } from './accounting/actions';
-import { getUsers } from '../users/actions';
-import { getBoxes } from '../boxes/actions';
-import { getSuppliers } from '../suppliers/actions';
-import { getClients } from '../relations/actions';
-import { getExchanges } from '../exchanges/actions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-// This is the main Server Component for the settings page.
-// It fetches ALL necessary data for all sub-settings pages.
-async function SettingsDataContainer() {
-    // Fetch all data in parallel
-    const [
-        settings, 
-        chartOfAccounts, 
-        financeMap, 
-        users, 
-        boxes,
-        clientsRes,
-        suppliers,
-        exchangesRes,
-        error
-    ] = await Promise.all([
-        getSettings(),
-        getChartOfAccounts(),
-        getFinanceAccountsMap(),
-        getUsers({ all: true }),
-        getBoxes(),
-        getClients({ all: true }),
-        getSuppliers(),
-        getExchanges(),
-    ]).then(res => [...res, null]).catch(e => [null, null, null, null, null, null, null, null, e.message]);
-    
-    if (error || !settings) {
-        return (
-            <Alert variant="destructive">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>حدث خطأ!</AlertTitle>
-                <AlertDescription>{error || "فشل تحميل الإعدادات الرئيسية."}</AlertDescription>
-            </Alert>
-        );
-    }
-    
-    // Pass all fetched data down to the client component.
+export const metadata: Metadata = {
+  title: 'الإعدادات العامة',
+};
+
+async function SettingsPage() {
+  let initialSettings, chartOfAccounts, users, boxes, clients, suppliers, exchanges;
+
+  try {
+    const data = await Promise.all([
+      getSettings(),
+      getChartOfAccounts(),
+      getUsers(),
+      getBoxes(),
+      getClients(),
+      getSuppliers(),
+      getExchanges(),
+    ]);
+
+    [
+      initialSettings,
+      chartOfAccounts,
+      users,
+      boxes,
+      clients,
+      suppliers,
+      exchanges,
+    ] = data;
+
+  } catch (error) {
+    // Corrected error logging to show the full error object
+    console.error('Error loading settings page data:', error);
     return (
-        <SettingsPageContent 
-            initialSettings={settings}
-            chartOfAccounts={chartOfAccounts || []}
-            financeMap={financeMap || {}}
-            users={users || []}
-            boxes={boxes || []}
-            clients={clientsRes?.clients || []}
-            suppliers={suppliers || []}
-            exchanges={exchangesRes?.accounts || []}
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Alert variant="destructive" className="max-w-md">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>فشل تحميل البيانات!</AlertTitle>
+          <AlertDescription>
+            حدث خطأ غير متوقع أثناء محاولة تحميل بيانات الإعدادات. يرجى مراجعة سجلات الخادم أو المحاولة مرة أخرى لاحقًا.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const financeMap = initialSettings?.finance;
+
+  return (
+    <ProtectedPage requiredPermission="settings:read">
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">الإعدادات العامة</h1>
+          <p className="text-muted-foreground">
+            تحكم في جميع جوانب النظام من هذه الواجهة المركزية.
+          </p>
+        </div>
+        <SettingsPageContent
+          initialSettings={initialSettings}
+          chartOfAccounts={chartOfAccounts}
+          financeMap={financeMap}
+          users={users}
+          boxes={boxes}
+          clients={clients}
+          suppliers={suppliers}
+          exchanges={exchanges}
         />
-    );
+      </div>
+    </ProtectedPage>
+  );
 }
 
-export default function SettingsPage() {
-    return (
-        <ProtectedPage requiredPermission="settings:read">
-            <div className="space-y-6">
-                 <div className="px-0 sm:px-6">
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">الإعدادات العامة</h1>
-                    <p className="text-muted-foreground">
-                        تحكم في جميع جوانب النظام من هذه الواجهة المركزية.
-                    </p>
-                </div>
-                <React.Suspense fallback={<div>جاري تحميل إعدادات النظام...</div>}>
-                    <SettingsDataContainer />
-                </React.Suspense>
-            </div>
-        </ProtectedPage>
-    );
-}
+export default SettingsPage;
