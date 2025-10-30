@@ -1,9 +1,7 @@
-
 "use client";
 
 import React from "react";
 import { MainNav } from "./main-nav";
-import CreateNewMenu from "./create-new-menu";
 import { GlobalSearch } from "./global-search";
 import NotificationCenter from "./notification-center";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -23,7 +21,6 @@ export default function TopBar() {
                     <Menu />
                 </SidebarTrigger>
             )}
-            <CreateNewMenu />
         </div>
         <div className="flex-1 hidden md:block">
            <MainNav />
