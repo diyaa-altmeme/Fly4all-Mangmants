@@ -96,7 +96,7 @@ export default function AccountingClient(props: AccountingClientProps) {
                         </div>
                     </CardHeader>
                     <CardContent>
-                         {loading ? <Skeleton className="h-[400px]" /> : <AccountsTree accounts={chartData} onActionSuccess={refreshChartData} />}
+                         {loading ? <Skeleton className="h-[400px]" /> : <ChartOfAccountsTree accounts={chartData} onActionSuccess={refreshChartData} />}
                     </CardContent>
                 </Card>
             )}
