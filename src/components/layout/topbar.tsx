@@ -18,7 +18,7 @@ export default function TopBar() {
       <div className="container mx-auto px-3 sm:px-4 md:px-6 h-14 flex items-center gap-3">
         <div className="flex items-center gap-2">
             <SidebarTrigger className="md:hidden">
-                <Menu/>
+                <Menu />
             </SidebarTrigger>
           <CreateNewMenu />
         </div>
