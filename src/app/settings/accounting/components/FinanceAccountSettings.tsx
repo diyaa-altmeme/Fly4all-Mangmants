@@ -18,15 +18,18 @@ interface FinanceAccountSettingsProps {
 }
 
 // Helper function to flatten the tree structure for the select options
-const flattenNodes = (nodes: TreeNode[]): { id: string; label: string }[] => {
+const flattenNodes = (nodes: TreeNode[], prefix = ""): { id: string; label: string }[] => {
     let flatList: { id: string; label: string }[] = [];
     for (const node of nodes) {
-        // Only include leaf nodes in the selection
-        if (node.isLeaf) {
-            flatList.push({ id: node.id, label: `${node.code} — ${node.name}` });
+        const nodeLabel = `${prefix}${node.code} — ${node.name}`;
+        // A leaf node is one that does not have children.
+        if (!node.children || node.children.length === 0) {
+            flatList.push({ id: node.id, label: nodeLabel });
         }
         if (node.children && node.children.length > 0) {
-            flatList = flatList.concat(flattenNodes(node.children));
+            // It's a parent, so we can list it, but also recurse.
+            // For this specific use case, we only want to select leaf nodes.
+            flatList = flatList.concat(flattenNodes(node.children, prefix + "  "));
         }
     }
     return flatList;
@@ -65,13 +68,13 @@ export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccou
           }
         };
 
-        const result = await updateSettings({ finance: financePayload });
+        const result = await updateSettings({ financeAccounts: financePayload });
 
         if (result.success) {
             toast({ title: "تم الحفظ بنجاح" });
             // No need for onSaveSuccess, revalidatePath in the action handles data refresh
         } else {
-            toast({ title: "خطأ", description: result.message || "فشل حفظ البيانات.", variant: "destructive" });
+            toast({ title: "خطأ", description: "فشل حفظ البيانات.", variant: "destructive" });
         }
     });
   }
