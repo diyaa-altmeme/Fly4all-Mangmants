@@ -1,24 +1,33 @@
-
 "use client";
 
 import React, { useState, useCallback, useMemo } from 'react';
 import type { AppSettings, FinanceAccountsMap, TreeNode } from '@/lib/types';
-import { getChartOfAccounts } from '../actions';
-import ChartOfAccountsTree from './chart-of-accounts-tree';
-import AddAccountDialog from './add-account-dialog';
-import FinanceAccountSettings from './FinanceAccountSettings';
+import ChartOfAccountsTree from '@/app/settings/accounting/chart-of-accounts/components/accounts-tree';
+import AddAccountDialog from '@/app/settings/accounting/chart-of-accounts/components/add-account-dialog';
+import FinanceAccountSettings from '@/app/settings/accounting/components/FinanceAccountSettings';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, RefreshCw, GitBranch, WalletCards } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { getChartOfAccounts } from '@/app/settings/accounting/chart-of-accounts/actions';
 
 interface AccountingClientProps {
   initialChartData: TreeNode[];
   initialFinanceMap: FinanceAccountsMap;
   initialSettings: AppSettings;
 }
+
+const NavButton = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <Button 
+        variant={active ? "secondary" : "ghost"}
+        className="w-full justify-start gap-2 font-semibold"
+        onClick={onClick}
+    >
+        {children}
+    </Button>
+);
 
 export default function AccountingClient(props: AccountingClientProps) {
   const [chartData, setChartData] = useState<TreeNode[]>(props.initialChartData);
@@ -40,21 +49,9 @@ export default function AccountingClient(props: AccountingClientProps) {
   }, [toast]);
   
   const handleSettingsSaved = () => {
-    // This could potentially trigger a refresh of financeMap if needed
     toast({ title: "تم حفظ إعدادات الربط بنجاح" });
-    // No need to call a fetch function here as the server action handles revalidation
+    // Re-fetch might be needed if settings affect chart data display
   };
-
-  const NavButton = ({ view, label, icon: Icon }: { view: 'chart' | 'linking', label: string, icon: React.ElementType }) => (
-      <Button 
-          variant={activeView === view ? "secondary" : "ghost"}
-          className="w-full justify-start gap-2"
-          onClick={() => setActiveView(view)}
-      >
-          <Icon className="h-5 w-5" />
-          {label}
-      </Button>
-  );
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[250px,1fr] gap-6 items-start">
@@ -64,8 +61,14 @@ export default function AccountingClient(props: AccountingClientProps) {
                     <CardTitle className="text-base">أقسام المحاسبة</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-1 p-2">
-                    <NavButton view="chart" label="الدليل المحاسبي" icon={GitBranch} />
-                    <NavButton view="linking" label="ربط الحسابات" icon={WalletCards} />
+                    <NavButton active={activeView === 'chart'} onClick={() => setActiveView('chart')}>
+                        <GitBranch className="h-5 w-5" />
+                        الدليل المحاسبي
+                    </NavButton>
+                    <NavButton active={activeView === 'linking'} onClick={() => setActiveView('linking')}>
+                         <WalletCards className="h-5 w-5" />
+                        ربط الحسابات
+                    </NavButton>
                 </CardContent>
             </Card>
         </aside>
@@ -92,7 +95,7 @@ export default function AccountingClient(props: AccountingClientProps) {
                         </div>
                     </CardHeader>
                     <CardContent>
-                         {loading ? <Skeleton className="h-[400px]" /> : <ChartOfAccountsTree data={chartData} />}
+                         {loading ? <Skeleton className="h-[400px]" /> : <AccountsTree accounts={chartData} onActionSuccess={refreshChartData} />}
                     </CardContent>
                 </Card>
             )}
