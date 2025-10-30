@@ -6,6 +6,9 @@ import type { TreeNode } from '@/lib/types';
 import { Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
+import { getFinanceAccountsMap as getFinanceAccountsMapFromAdvanced, updateFinanceAccountsMap as updateFinanceAccountsMapFromAdvanced } from '../advanced-accounts-setup/actions';
+import type { FinanceAccountsMap } from '@/lib/types';
+
 
 const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
 
@@ -137,4 +140,10 @@ export async function generateAccountCode(parentId?: string): Promise<string> {
     }
 }
 
-export { getFinanceAccountsMap, updateFinanceAccountsMap } from '../advanced-accounts-setup/actions';
+export async function getFinanceAccountsMap(): Promise<FinanceAccountsMap> {
+    return await getFinanceAccountsMapFromAdvanced();
+}
+
+export async function updateFinanceAccountsMap(payload: FinanceAccountsMap) {
+    return await updateFinanceAccountsMapFromAdvanced(payload);
+}
