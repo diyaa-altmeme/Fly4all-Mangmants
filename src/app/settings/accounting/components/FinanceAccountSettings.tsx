@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useTransition, useMemo, useState } from 'react';
+import React, { useTransition, useMemo, useState, useEffect } from 'react';
 import { updateSettings } from "@/app/settings/actions";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const formSchema = z.object({
     receivableAccountId: z.string().optional(),
@@ -46,7 +47,7 @@ const flattenNodes = (nodes: TreeNode[], prefix = ""): { id: string; label: stri
     let flatList: { id: string; label: string }[] = [];
     for (const node of nodes) {
         const nodeLabel = `${prefix}${node.code} — ${node.name}`;
-        // A leaf node is one that does not have children.
+        // Only include leaf nodes in the selectable list
         if (!node.children || node.children.length === 0) {
             flatList.push({ id: node.id, label: nodeLabel });
         }
@@ -60,28 +61,34 @@ const flattenNodes = (nodes: TreeNode[], prefix = ""): { id: string; label: stri
 
 export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccounts, onSaveSuccess }: FinanceAccountSettingsProps) {
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
   
   const form = useForm<FormValues>({
       resolver: zodResolver(formSchema),
-      defaultValues: {
-          receivableAccountId: initialFinanceMap?.receivableAccountId || '',
-          payableAccountId: initialFinanceMap?.payableAccountId || '',
-          defaultCashId: initialFinanceMap?.defaultCashId || '',
-          defaultBankId: initialFinanceMap?.defaultBankId || '',
-          preventDirectCashRevenue: initialFinanceMap?.preventDirectCashRevenue || false,
-          rev_tickets: initialFinanceMap?.revenueMap?.tickets || '',
-          rev_visas: initialFinanceMap?.revenueMap?.visas || '',
-          rev_subscriptions: initialFinanceMap?.revenueMap?.subscriptions || '',
-          rev_segments: initialFinanceMap?.revenueMap?.segments || '',
-          rev_profit_dist: initialFinanceMap?.revenueMap?.profit_distribution || '',
-          exp_cost_tickets: initialFinanceMap?.expenseMap?.cost_tickets || '',
-          exp_cost_visas: initialFinanceMap?.expenseMap?.cost_visas || '',
-          exp_oper_salaries: initialFinanceMap?.expenseMap?.operating_salaries || '',
-          exp_oper_rent: initialFinanceMap?.expenseMap?.operating_rent || '',
-          exp_oper_util: initialFinanceMap?.expenseMap?.operating_utilities || '',
-          exp_marketing: initialFinanceMap?.expenseMap?.marketing || '',
-      }
   });
+
+  useEffect(() => {
+    setLoading(true);
+    form.reset({
+        receivableAccountId: initialFinanceMap?.receivableAccountId || '',
+        payableAccountId: initialFinanceMap?.payableAccountId || '',
+        defaultCashId: initialFinanceMap?.defaultCashId || '',
+        defaultBankId: initialFinanceMap?.defaultBankId || '',
+        preventDirectCashRevenue: initialFinanceMap?.preventDirectCashRevenue || false,
+        rev_tickets: initialFinanceMap?.revenueMap?.tickets || '',
+        rev_visas: initialFinanceMap?.revenueMap?.visas || '',
+        rev_subscriptions: initialFinanceMap?.revenueMap?.subscriptions || '',
+        rev_segments: initialFinanceMap?.revenueMap?.segments || '',
+        rev_profit_dist: initialFinanceMap?.revenueMap?.profit_distribution || '',
+        exp_cost_tickets: initialFinanceMap?.expenseMap?.cost_tickets || '',
+        exp_cost_visas: initialFinanceMap?.expenseMap?.cost_visas || '',
+        exp_oper_salaries: initialFinanceMap?.expenseMap?.operating_salaries || '',
+        exp_oper_rent: initialFinanceMap?.expenseMap?.operating_rent || '',
+        exp_oper_util: initialFinanceMap?.expenseMap?.operating_utilities || '',
+        exp_marketing: initialFinanceMap?.expenseMap?.marketing || '',
+    });
+    setLoading(false);
+  }, [initialFinanceMap, form]);
 
   const accountOptions = useMemo(() => flattenNodes(chartOfAccounts), [chartOfAccounts]);
 
@@ -142,6 +149,22 @@ export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccou
     </div>
   );
 
+  if (loading) {
+    return (
+        <div className="space-y-6">
+            {[...Array(3)].map((_, i) => (
+                <div key={i}>
+                    <Skeleton className="h-6 w-1/4 mb-4" />
+                    <div className="space-y-3">
+                         <Skeleton className="h-10 w-full" />
+                         <Skeleton className="h-10 w-full" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    )
+  }
+
   return (
     <Form {...form}>
     <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
@@ -161,7 +184,7 @@ export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccou
             control={form.control}
             name="preventDirectCashRevenue"
             render={({ field }) => (
-                <FormItem className="flex items-center gap-2 text-sm">
+                <FormItem className="flex items-center gap-2 text-sm pt-2">
                     <FormControl>
                         <input type="checkbox" checked={field.value} onChange={field.onChange} />
                     </FormControl>
