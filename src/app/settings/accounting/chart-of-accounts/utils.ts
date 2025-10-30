@@ -1,3 +1,4 @@
+
 import type { TreeNode } from '@/lib/types';
 
 export function buildTree(accounts: TreeNode[]): TreeNode[] {
@@ -8,32 +9,40 @@ export function buildTree(accounts: TreeNode[]): TreeNode[] {
     const map: { [key: string]: TreeNode } = {};
     const roots: TreeNode[] = [];
 
-    // First pass: create a map of all nodes
+    // First pass: create a map of all nodes and initialize children
     accounts.forEach(acc => {
         map[acc.id] = { ...acc, children: [] };
     });
 
-    // Second pass: build the tree
+    // Second pass: build the tree structure
     accounts.forEach(acc => {
         if (acc.parentId && map[acc.parentId]) {
-            map[acc.parentId].children.push(map[acc.id]);
+            // Check to avoid duplicates if data is messy
+            if (!map[acc.parentId].children.some(child => child.id === acc.id)) {
+                 map[acc.parentId].children.push(map[acc.id]);
+            }
         } else {
+            // This is a root node
             roots.push(map[acc.id]);
         }
     });
     
-    // Sort children by code at each level
-    const sortChildren = (nodes: TreeNode[]) => {
+    // Recursive sort function
+    const sortChildrenByCode = (nodes: TreeNode[]) => {
         nodes.forEach(node => {
             if (node.children && node.children.length > 0) {
+                // Sort children by code numerically
                 node.children.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
-                sortChildren(node.children);
+                // Recursively sort grandchildren
+                sortChildrenByCode(node.children);
             }
         });
     };
     
-    roots.sort((a,b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
-    sortChildren(roots);
+    // Sort root nodes first
+    roots.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }));
+    // Then sort all descendants
+    sortChildrenByCode(roots);
 
     return roots;
 }
