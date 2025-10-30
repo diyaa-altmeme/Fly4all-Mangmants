@@ -1,9 +1,10 @@
+
 "use client";
 
 import React, { useState, useCallback, useMemo } from 'react';
 import type { AppSettings, FinanceAccountsMap, TreeNode } from '@/lib/types';
 import ChartOfAccountsTree from '@/app/settings/accounting/chart-of-accounts/components/accounts-tree';
-import AddAccountDialog from '@/app/settings/accounting/chart-of-accounts/components/add-account-dialog';
+import AccountFormDialog from '@/app/settings/accounting/chart-of-accounts/components/account-form';
 import FinanceAccountSettings from '@/app/settings/accounting/components/FinanceAccountSettings';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, RefreshCw, GitBranch, WalletCards } from 'lucide-react';
@@ -82,12 +83,12 @@ export default function AccountingClient(props: AccountingClientProps) {
                             <CardDescription>عرض وتعديل هيكل الدليل المحاسبي.</CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
-                            <AddAccountDialog allAccounts={chartData} onAccountAdded={refreshChartData}>
+                            <AccountFormDialog allAccounts={chartData} onAccountAdded={refreshChartData}>
                                 <Button variant="outline" size="sm" disabled={loading}>
                                     <PlusCircle className="me-2 h-4 w-4" />
                                     إضافة حساب
                                 </Button>
-                            </AddAccountDialog>
+                            </AccountFormDialog>
                             <Button variant="outline" size="sm" onClick={refreshChartData} disabled={loading}>
                                 <RefreshCw className="me-2 h-4 w-4" />
                                 تحديث
