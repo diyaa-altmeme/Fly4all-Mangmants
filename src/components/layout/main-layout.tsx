@@ -63,10 +63,8 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     <SidebarHeader>
                         <div className="flex items-center justify-between p-2">
                             <h2 className="font-bold text-lg">القائمة الرئيسية</h2>
-                            <SidebarTrigger asChild>
-                                <Button variant="ghost" size="icon" className="md:hidden">
-                                    <Menu />
-                                </Button>
+                            <SidebarTrigger>
+                                <Menu />
                             </SidebarTrigger>
                         </div>
                     </SidebarHeader>
