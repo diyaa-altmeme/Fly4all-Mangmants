@@ -1,6 +1,7 @@
 
 import React, { Suspense } from 'react';
-import { getChartOfAccounts, getFinanceAccountsMap } from './chart-of-accounts/actions';
+import { getChartOfAccounts } from './chart-of-accounts/actions';
+import { getFinanceAccountsMap } from './actions';
 import { getSettings } from '@/app/settings/actions';
 import AccountingClient from './components/accounting-client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,7 +24,7 @@ async function AccountingDataContainer() {
                 <AlertTitle>حدث خطأ!</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
             </Alert>
-        );
+        )
     }
 
     return (
@@ -46,7 +47,7 @@ export default function ChartOfAccountsMainPage() {
                         إدارة شجرة الحسابات وربط الحسابات المحاسبية الرئيسية بالعمليات التلقائية في النظام.
                     </p>
                 </div>
-                <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
                     <AccountingDataContainer />
                 </Suspense>
             </div>
