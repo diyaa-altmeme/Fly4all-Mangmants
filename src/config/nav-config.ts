@@ -31,7 +31,7 @@ import {
   UserCog,
   Palette,
   PenSquare,
-  FileCog,
+  FileCog as FileCogIcon,
   Sparkles,
   UserRoundCog,
   UserRoundSearch,
@@ -60,7 +60,8 @@ import {
   NotebookText,
   BarChart3,
   Users2,
-  Network
+  Network,
+  Calculator,
 } from "lucide-react";
 
 export const navConfig = {
@@ -122,31 +123,6 @@ export const navConfig = {
         href: "/accounts/vouchers/list",
         icon: ReceiptText,
       },
-      {
-        title: "إنشاء سند قبض عادي",
-        href: "#",
-        icon: FileDown,
-      },
-      {
-        title: "إنشاء سند قبض مخصص",
-        href: "#",
-        icon: GitBranch,
-      },
-      {
-        title: "إنشاء سند دفع",
-        href: "#",
-        icon: FileUp,
-      },
-      {
-        title: "إنشاء سند مصاريف",
-        href: "#",
-        icon: Banknote,
-      },
-       {
-        title: "إنشاء قيد محاسبي",
-        href: "#",
-        icon: BookUser,
-      },
     ],
   },
   accounting: {
@@ -203,7 +179,7 @@ export const navConfig = {
       { title: "الأدوات المالية", href: "/finance-tools", icon: Landmark },
       { title: "قوالب الرسائل", href: "/templates", icon: PenSquare },
       { title: "سجل النشاطات", href: "/system/activity-log", icon: FileTerminal },
-      { title: "سجل الأخطاء", href: "/system/error-log", icon: FileCog },
+      { title: "سجل الأخطاء", href: "/system/error-log", icon: FileCogIcon },
       { title: "تدقيق البيانات", href: "/system/data-audit", icon: FileCheck2 },
       { title: "سجل المحذوفات", href: "/system/deleted-log", icon: FileX2 },
     ],
