@@ -4,7 +4,7 @@
 // This is kept as a redirect for any old bookmarks.
 import { redirect } from 'next/navigation';
 
-export default function DeprecatedAdvancedAccountsSetupPage() {
+export default function DeprecatedFinanceToolsPage() {
     redirect('/settings');
     return null;
 }

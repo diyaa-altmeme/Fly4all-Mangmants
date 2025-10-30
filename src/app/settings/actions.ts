@@ -2,19 +2,16 @@
 'use server';
 
 import { getDb, getStorageAdmin } from '@/lib/firebase-admin';
-import type { ExchangeRateLog, AppSettings, HealthCheckResult, DatabaseStatusSettings, InvoiceSequenceSettings, VoucherSettings, ThemeCustomizationSettings, TreeNode, AccountType, Client, ImportFieldSettings, ImportLogicSettings, CustomRelationField, RelationSection, LandingPageSettings, CurrencySettings } from '@/lib/types';
+import type { AppSettings, HealthCheckResult, DatabaseStatusSettings } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
-import { COUNTRIES_DATA } from '@/lib/countries-data';
-import { parseISO } from 'date-fns';
 import { defaultSettingsData } from '@/lib/defaults';
 import { cache } from 'react';
 
 // Mock function until google drive is implemented
 async function testGoogleDriveConnection(): Promise<HealthCheckResult> {
     try {
-        // A simple read operation to test the connection and credentials
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate check
         return { service: 'Google Drive', success: true, message: "الاتصال ناجح" };
     } catch (error: any) {
@@ -24,7 +21,8 @@ async function testGoogleDriveConnection(): Promise<HealthCheckResult> {
 
 const SETTINGS_DOC_ID = 'app_settings';
 
-
+// This function is now the single source of truth for fetching settings.
+// It's cached to improve performance across server components.
 export const getSettings = cache(async (): Promise<AppSettings> => {
     const db = await getDb();
     if (!db) {
@@ -36,14 +34,15 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
         const settingsDoc = await db.collection('settings').doc(SETTINGS_DOC_ID).get();
         if (!settingsDoc.exists) {
             console.log("No settings found in database, seeding with default settings.");
-            // Set database connection to true by default on initial seed.
             const initialSettings = { ...defaultSettingsData, databaseStatus: { isDatabaseConnected: true } };
             await db.collection('settings').doc(SETTINGS_DOC_ID).set(initialSettings);
             return initialSettings;
         }
         
         const settingsData = settingsDoc.data() as AppSettings;
-        // Ensure database connection is enabled.
+        
+        // Always ensure the DB connection status in the app is 'true' to avoid accidental lockout.
+        // The actual connection status is managed by server environment variables.
         if (settingsData.databaseStatus?.isDatabaseConnected !== true) {
              return { ...settingsData, databaseStatus: { isDatabaseConnected: true } };
         }
@@ -52,12 +51,12 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
 
     } catch (error: any) {
         console.error("Error getting settings:", String(error));
-        // Return default settings but assume DB is connected after re-init
         return { ...defaultSettingsData, databaseStatus: { isDatabaseConnected: true } };
     }
 });
 
-export async function updateSettings(settingsData: Partial<AppSettings>) {
+
+export async function updateSettings(settingsData: Partial<AppSettings>): Promise<{ success: boolean; error?: string }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
@@ -68,52 +67,11 @@ export async function updateSettings(settingsData: Partial<AppSettings>) {
     try {
         const oldSettings = await getSettings();
         
-        if ('exchangeRateUSD_IQD' in settingsData && (settingsData as any).exchangeRateUSD_IQD !== (oldSettings as any).exchangeRateUSD_IQD) {
-            const logRef = db.collection('exchange_rate_logs').doc();
-            const logData: Omit<ExchangeRateLog, 'id'> = {
-                rate: (settingsData as any).exchangeRateUSD_IQD!,
-                changedAt: new Date().toISOString(),
-            };
-            await logRef.set(logData);
-        }
-
-        // Deep merge the new settings with the existing ones
-        const newSettings: AppSettings = {
-          ...oldSettings,
-          ...settingsData,
-          currencySettings: {
-            ...(oldSettings.currencySettings || defaultSettingsData.currencySettings),
-            ...(settingsData.currencySettings || {}),
-          },
-          theme: {
-            ...(oldSettings.theme || {}),
-            ...(settingsData.theme || {}),
-            landingPage: {
-                 ...(oldSettings.theme?.landingPage || {}),
-                 ...(settingsData.theme?.landingPage || {})
-            }
-          },
-          voucherSettings: {
-            ...(oldSettings.voucherSettings || {}),
-            ...(settingsData.voucherSettings || {}),
-             distributed: {
-                ...(oldSettings.voucherSettings?.distributed || {}),
-                ...(settingsData.voucherSettings?.distributed || {}),
-            }
-          },
-          importFieldsSettings: {
-              ...(oldSettings.importFieldsSettings || {}),
-              ...(settingsData.importFieldsSettings || {})
-          },
-          importLogicSettings: {
-              ...(oldSettings.importLogicSettings || {}),
-              ...(settingsData.importLogicSettings || {})
-          }
-        };
+        const newSettings: AppSettings = { ...oldSettings, ...settingsData };
 
         await settingsRef.set(newSettings, { merge: true });
         
-         await createAuditLog({
+        await createAuditLog({
             userId: user.uid,
             userName: user.name,
             action: 'UPDATE',
@@ -121,8 +79,8 @@ export async function updateSettings(settingsData: Partial<AppSettings>) {
             description: `قام بتحديث إعدادات النظام.`,
         });
 
+        // Revalidate all relevant paths that might depend on settings
         revalidatePath('/settings', 'layout');
-        revalidatePath('/relations/settings', 'layout');
         revalidatePath('/', 'layout');
 
         return { success: true };
@@ -131,6 +89,7 @@ export async function updateSettings(settingsData: Partial<AppSettings>) {
         return { success: false, error: "Failed to update settings." };
     }
 }
+
 
 async function testFirebaseConnection(): Promise<HealthCheckResult> {
     const db = await getDb();
@@ -152,7 +111,6 @@ async function testFirebaseConnection(): Promise<HealthCheckResult> {
         return { service: 'Firebase', success: false, message: message };
     }
 }
-
 
 export async function checkSystemHealth(): Promise<HealthCheckResult[]> {
     const results = await Promise.all([
