@@ -17,10 +17,8 @@ export default function TopBar() {
     <div className="w-full">
       <div className="container mx-auto px-3 sm:px-4 md:px-6 h-14 flex items-center gap-3">
         <div className="flex items-center gap-2">
-            <SidebarTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon">
-                    <Menu/>
-                </Button>
+            <SidebarTrigger className="md:hidden">
+                <Menu/>
             </SidebarTrigger>
           <CreateNewMenu />
         </div>
