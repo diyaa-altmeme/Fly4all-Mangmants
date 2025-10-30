@@ -10,7 +10,7 @@ import TopLoader from '@/components/ui/top-loader';
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { Sidebar, SidebarContent, SidebarGroup, SidebarHeader, SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarGroup, SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { MainNav } from "./main-nav";
 import { Button } from "../ui/button";
 import { Menu } from "lucide-react";

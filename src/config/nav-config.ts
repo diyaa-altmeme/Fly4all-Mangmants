@@ -59,6 +59,8 @@ import {
   Waypoints,
   NotebookText,
   BarChart3,
+  Users2,
+  Network
 } from "lucide-react";
 
 export const navConfig = {
@@ -146,13 +148,13 @@ export const navConfig = {
   },
   relations: {
     title: "العلاقات",
-    icon: Users,
+    icon: Users2,
     items: [
       { title: "العملاء والموردين", href: "/clients", icon: Contact },
       { title: "المحادثات", href: "/chat", icon: MessageSquare },
     ],
   },
-  settings: {
+  settingsAndTools: {
     title: "الإعدادات والأدوات",
     icon: Settings,
     items: [
