@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -40,10 +41,10 @@ export default function AccountsTree({ accounts, onActionSuccess }: AccountsTree
         <div className="relative flex-grow">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-            placeholder="بحث عن حساب بالاسم أو الكود..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pr-10"
+                placeholder="بحث عن حساب بالاسم أو الكود..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pr-10"
             />
         </div>
         <AccountFormDialog allAccounts={accounts} onAccountAdded={onActionSuccess}>
