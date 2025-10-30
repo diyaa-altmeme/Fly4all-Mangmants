@@ -14,8 +14,7 @@ import { Menu } from "lucide-react";
 
 export default function TopBar() {
   return (
-    <div className="w-full">
-      <div className="container mx-auto px-3 sm:px-4 md:px-6 h-14 flex items-center gap-3">
+    <div className="w-full h-14 flex items-center gap-3">
         <div className="flex items-center gap-2">
             <SidebarTrigger className="md:hidden">
                 <Menu />
@@ -34,6 +33,5 @@ export default function TopBar() {
           <UserNav />
         </div>
       </div>
-    </div>
   );
 }

@@ -60,9 +60,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                     <SidebarHeader>
                         <div className="flex items-center justify-between p-2">
                             <h2 className="font-bold text-lg">القائمة الرئيسية</h2>
-                             <SidebarTrigger>
-                                <Menu />
-                            </SidebarTrigger>
                         </div>
                     </SidebarHeader>
                     <SidebarContent>
@@ -73,10 +70,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 </Sidebar>
                 <SidebarInset>
                     <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                        <TopBar />
+                        <div className="container mx-auto px-3 sm:px-4 md:px-6">
+                            <TopBar />
+                        </div>
                     </header>
                     <TopLoader />
-                    <main className={"px-3 sm:px-4 md:px-6 py-4 flex-1"}>
+                    <main className={"container mx-auto px-3 sm:px-4 md:px-6 py-4 flex-1"}>
                         {children}
                     </main>
                 </SidebarInset>

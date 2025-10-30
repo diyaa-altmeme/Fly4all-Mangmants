@@ -200,7 +200,6 @@ const Sidebar = React.forwardRef<
             }
             side={side}
           >
-             {/* Adding a visually hidden title for accessibility, as required by Radix. */}
             <SheetTitle className="sr-only">Main Menu</SheetTitle>
             <div className="flex h-full w-full flex-col">{children}</div>
           </SheetContent>
