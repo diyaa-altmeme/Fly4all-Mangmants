@@ -56,7 +56,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     return (
         <div dir="rtl" className="flex min-h-screen w-full flex-col bg-muted/40">
             <SidebarProvider>
-                 <Sidebar>
+                <Sidebar>
                     <SidebarHeader>
                         <div className="flex items-center justify-between p-2">
                             <h2 className="font-bold text-lg">القائمة الرئيسية</h2>
@@ -68,17 +68,15 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                         </SidebarGroup>
                     </SidebarContent>
                 </Sidebar>
-                <SidebarInset>
-                    <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                        <div className="container mx-auto px-3 sm:px-4 md:px-6">
-                            <TopBar />
-                        </div>
+                <div className="flex flex-col">
+                    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+                         <TopBar />
                     </header>
                     <TopLoader />
-                    <main className={"container mx-auto px-3 sm:px-4 md:px-6 py-4 flex-1"}>
+                    <main className={"p-4 sm:px-6 sm:py-4 flex-1"}>
                         {children}
                     </main>
-                </SidebarInset>
+                </div>
             </SidebarProvider>
         </div>
     );
