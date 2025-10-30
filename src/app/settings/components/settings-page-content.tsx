@@ -23,7 +23,7 @@ interface SettingsPageContentProps {
 
 export default function SettingsPageContent(props: SettingsPageContentProps) {
     const [searchTerm, setSearchTerm] = useState("");
-    const [activeSection, setActiveSection] = useState("accounting_chart"); // Default to chart of accounts
+    const [activeSection, setActiveSection] = useState("themes_general"); // Default to themes
     
     // Consolidate all sections for filtering
     const allSections = useMemo(() => [...settingSections, ...appearanceSections], []);
@@ -46,7 +46,8 @@ export default function SettingsPageContent(props: SettingsPageContentProps) {
             const subItem = section.subItems.find(sub => sub.id === activeSection);
             if (subItem) return subItem.component;
         }
-        return null;
+        const defaultSection = appearanceSections[0]?.subItems[0]?.component;
+        return defaultSection || null;
     }, [activeSection, allSections]);
 
     return (
