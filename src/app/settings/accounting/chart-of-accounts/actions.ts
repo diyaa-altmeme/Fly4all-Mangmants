@@ -3,8 +3,6 @@
 
 import { getDb } from '@/lib/firebase-admin';
 import type { TreeNode, JournalVoucher, Client, Supplier, Box, Exchange } from '@/lib/types';
-import { Timestamp } from 'firebase-admin/firestore';
-import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 
 const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
@@ -55,45 +53,35 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
         const accountMap = new Map<string, TreeNode>(accounts.map(acc => [acc.id, acc]));
 
         // Find parent nodes for clients and suppliers by their standard codes
-        const accountsReceivableParent = accounts.find(a => a.code === '1-1-2');
-        const accountsPayableParent = accounts.find(a => a.code === '2-1-1');
+        const accountsReceivableParent = accounts.find(a => a.code === '1-1-2-1');
+        const accountsPayableParent = accounts.find(a => a.code === '2-1-1-1');
 
         // 3. Create dynamic nodes for clients/suppliers
         clientsSnap.forEach(doc => {
             const client = doc.data() as Client;
             const balances = accountBalances[doc.id] || { debit: 0, credit: 0 };
             
-            const clientNode: TreeNode = {
+            const baseNode = {
                 id: doc.id,
                 name: client.name,
                 code: client.code || doc.id.substring(0, 6),
-                type: 'client',
                 debit: balances.debit,
                 credit: balances.credit,
                 children: [],
-                parentId: '' 
             };
 
             // Add to Accounts Receivable (الذمم المدينة)
-            if (client.relationType === 'client' || client.relationType === 'both') {
-                if (accountsReceivableParent) {
-                    clientNode.parentId = accountsReceivableParent.id;
-                    if (!accountsReceivableParent.children) accountsReceivableParent.children = [];
-                    accountsReceivableParent.children.push(clientNode);
-                }
+            if ((client.relationType === 'client' || client.relationType === 'both') && accountsReceivableParent) {
+                const clientNode: TreeNode = { ...baseNode, type: 'client', parentId: accountsReceivableParent.id };
+                if (!accountsReceivableParent.children) accountsReceivableParent.children = [];
+                accountsReceivableParent.children.push(clientNode);
             }
 
             // Add to Accounts Payable (الذمم الدائنة)
-            if (client.relationType === 'supplier' || client.relationType === 'both') {
-                if (accountsPayableParent) {
-                    // Create a separate node for the supplier side if it's 'both'
-                    const supplierNode: TreeNode = client.relationType === 'both' 
-                        ? { ...clientNode, parentId: accountsPayableParent.id } 
-                        : { ...clientNode, parentId: accountsPayableParent.id };
-                    
-                    if (!accountsPayableParent.children) accountsPayableParent.children = [];
-                    accountsPayableParent.children.push(supplierNode);
-                }
+            if ((client.relationType === 'supplier' || client.relationType === 'both') && accountsPayableParent) {
+                const supplierNode: TreeNode = { ...baseNode, type: 'supplier', parentId: accountsPayableParent.id };
+                if (!accountsPayableParent.children) accountsPayableParent.children = [];
+                accountsPayableParent.children.push(supplierNode);
             }
         });
 
@@ -167,16 +155,17 @@ export async function createAccount(data: {
     code: data.code,
     type: data.type,
     parentId: data.parentId ?? null,
+    isLeaf: true, // New accounts are always leaves initially
     description: data.description ?? "",
-    createdAt: Timestamp.now(),
-    updatedAt: Timestamp.now(),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
   await docRef.set(doc);
 
   if (data.parentId) {
       await db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(data.parentId).update({
           isLeaf: false, 
-          updatedAt: Timestamp.now()
+          updatedAt: new Date().toISOString()
       });
   }
 
@@ -188,11 +177,11 @@ export async function updateAccount(id: string, data: Partial<TreeNode>) {
     const db = await getDb();
     if (!db) throw new Error("Database not available.");
     
-    const { children, ...updateData } = data; 
+    const { children, debit, credit, ...updateData } = data; // Don't save balance fields
     
     await db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(id).update({
         ...updateData,
-        updatedAt: Timestamp.now(),
+        updatedAt: new Date().toISOString(),
     });
     revalidatePath('/settings/accounting/chart-of-accounts');
     return { success: true };
@@ -208,6 +197,9 @@ export async function deleteAccount(id: string) {
         throw new Error("لا يمكن حذف حساب رئيسي يحتوي على حسابات فرعية.");
     }
     
+    // You might want to check if there are any journal entries associated with this account before deleting.
+    // For now, we proceed with deletion.
+
     await db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(id).delete();
     revalidatePath('/settings/accounting/chart-of-accounts');
     return { success: true };
@@ -250,8 +242,10 @@ export async function generateAccountCode(parentId?: string | null): Promise<str
 
         const childCodes = childrenQuery.docs.map(doc => doc.data().code as string);
         const subNumbers = childCodes
-            .map(code => code.split('-').pop())
-            .map(numStr => parseInt(numStr || '0', 10))
+            .map(code => {
+                const parts = code.split('-');
+                return parts.length > 1 ? parseInt(parts.pop() || '0', 10) : 0;
+            })
             .filter(num => !isNaN(num));
             
         const maxSubNumber = subNumbers.length > 0 ? Math.max(...subNumbers) : 0;
