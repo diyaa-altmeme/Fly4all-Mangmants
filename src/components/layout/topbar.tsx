@@ -19,7 +19,6 @@ export default function TopBar() {
             <SidebarTrigger>
                 <Menu />
             </SidebarTrigger>
-          <CreateNewMenu />
         </div>
         <div className="flex-1 hidden md:block">
            <MainNav />
