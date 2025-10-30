@@ -1,6 +1,6 @@
 
 import React, { Suspense } from 'react';
-import { getChartOfAccounts, getFinanceAccountsMap } from '@/app/settings/accounting/actions';
+import { getChartOfAccounts, getFinanceAccountsMap } from './chart-of-accounts/actions';
 import { getSettings } from '@/app/settings/actions';
 import AccountingClient from './components/accounting-client';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,14 +14,14 @@ async function AccountingDataContainer() {
         getChartOfAccounts(),
         getFinanceAccountsMap(),
         getSettings(),
-    ]).then(res => [...res, null]).catch(e => [null, null, null, e.message]);
+    ]).then(res => [...res, null]).catch(e => [null, null, null, e.message || "Failed to load data"]);
     
     if (error || !chartData || !settings || !financeMap) {
         return (
             <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
                 <AlertTitle>حدث خطأ!</AlertTitle>
-                <AlertDescription>{error || "فشل تحميل بيانات المحاسبة."}</AlertDescription>
+                <AlertDescription>{error}</AlertDescription>
             </Alert>
         );
     }
