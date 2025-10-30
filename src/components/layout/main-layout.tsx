@@ -14,6 +14,8 @@ import { Sidebar, SidebarContent, SidebarGroup, SidebarHeader, SidebarInset, Sid
 import { MainNav } from "./main-nav";
 import { Button } from "../ui/button";
 import { Menu } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
+
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
 const clientRoutes = ['/clients', '/profile']; // Routes accessible by clients
@@ -21,6 +23,7 @@ const clientRoutes = ['/clients', '/profile']; // Routes accessible by clients
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { activeTheme } = useThemeCustomization();
     const { theme: mode } = useTheme();
+    const isMobile = useIsMobile();
 
     React.useEffect(() => {
         if (typeof window === 'undefined' || !activeTheme) return;
@@ -56,21 +59,23 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     return (
         <div dir="rtl" className="flex min-h-screen w-full flex-col bg-muted/40">
             <SidebarProvider>
-                <Sidebar>
-                    <SidebarHeader>
-                        <div className="flex items-center justify-between p-2">
-                            <h2 className="font-bold text-lg">القائمة الرئيسية</h2>
-                        </div>
-                    </SidebarHeader>
-                    <SidebarContent>
-                        <SidebarGroup>
-                            <MainNav />
-                        </SidebarGroup>
-                    </SidebarContent>
-                </Sidebar>
-                <div className="flex flex-col">
+                {isMobile && (
+                    <Sidebar>
+                        <SidebarHeader>
+                            <div className="flex items-center justify-between p-2">
+                                <h2 className="font-bold text-lg">القائمة الرئيسية</h2>
+                            </div>
+                        </SidebarHeader>
+                        <SidebarContent>
+                            <SidebarGroup>
+                                <MainNav />
+                            </SidebarGroup>
+                        </SidebarContent>
+                    </Sidebar>
+                )}
+                <div className="flex flex-col flex-1">
                     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-                         <TopBar />
+                        <TopBar />
                     </header>
                     <TopLoader />
                     <main className={"p-4 sm:px-6 sm:py-4 flex-1"}>
