@@ -2,7 +2,7 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { TreeNode, JournalVoucher, Client } from '@/lib/types';
+import type { TreeNode, JournalVoucher, Client, Supplier, Box, Exchange } from '@/lib/types';
 import { Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
@@ -107,7 +107,7 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
                     parent.children.push(account);
                 }
             } else {
-                if (!roots.some(r => r.id === account.id)) {
+                if (!tree.some(r => r.id === account.id)) {
                    tree.push(account);
                 }
             }
