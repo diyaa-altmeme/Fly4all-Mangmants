@@ -1,85 +1,44 @@
 "use server";
 
-import { getDb } from '../../../lib/firebase-admin';
+import { getDb } from "@/lib/firebase-admin";
+import type { FinanceAccountsMap, ChartAccount } from "@/lib/types";
 
-export async function getAccountsLite(): Promise<any[]> {
+const SETTINGS_COLL = "settings";
+const SETTINGS_DOC  = "app_settings";
+
+export async function getChartOfAccounts(): Promise<ChartAccount[]> {
   const db = await getDb();
-  const snap = await db.collection('chart_of_accounts').orderBy('code', 'asc').get();
+  const snap = await db.collection("chart_of_accounts").orderBy("code").get();
+  // حوّل Timestamps إلى أرقام/تواريخ بدائية لتجنب أخطاء RSC
   return snap.docs.map(d => {
     const data = d.data();
+    const toMs = (t: any) => (t?.toDate ? t.toDate().getTime() : (typeof t === "number" ? t : Date.now()));
     return {
       id: d.id,
       code: data.code,
       name: data.name,
       type: data.type,
-      parentId: data.parentId || null,
-    };
+      parentId: data.parentId ?? null,
+      parentCode: data.parentCode ?? null,
+      isLeaf: !!data.isLeaf,
+      description: data.description ?? "",
+      createdAt: toMs(data.createdAt),
+      updatedAt: toMs(data.updatedAt),
+    } as ChartAccount;
   });
 }
 
-export async function getFinanceAccounts(): Promise<any> {
+export async function getFinanceAccounts(): Promise<FinanceAccountsMap | null> {
   const db = await getDb();
-  const doc = await db.collection('settings').doc('app_settings').get();
-  const data = doc.exists ? doc.data() : {};
-  return {
-    financeAccounts: data?.financeAccounts || {
-      arAccountId: null,
-      apAccountId: null,
-      defaultCashId: null,
-      defaultBankId: null,
-      preventDirectCashRevenue: true,
-      revenueMap: { tickets: null, visas: null, subscriptions: null, segments: null },
-      expenseMap: { tickets: null, visas: null, subscriptions: null },
-    }
-  };
+  const doc = await db.collection(SETTINGS_COLL).doc(SETTINGS_DOC).get();
+  const s = doc.data() || {};
+  return (s.financeAccounts ?? null) as FinanceAccountsMap | null;
 }
 
-export async function saveFinanceAccounts(input: any): Promise<void> {
+export async function saveFinanceAccounts(payload: FinanceAccountsMap): Promise<void> {
   const db = await getDb();
-  // Basic validation: ensure referenced IDs exist if provided
-  const validateId = async (id?: string | null) => {
-    if (!id) return true;
-    const doc = await db.collection('chart_of_accounts').doc(id).get();
-    return doc.exists;
-  };
-
-  const promises: Promise<boolean>[] = [];
-  const fa = input.financeAccounts || input;
-  ['arAccountId','apAccountId','defaultCashId','defaultBankId'].forEach(k => {
-    promises.push(validateId(fa?.[k]));
-  });
-
-  const results = await Promise.all(promises);
-  if (results.some(r => r === false)) throw new Error('One or more account IDs are invalid');
-
-  await db.collection('settings').doc('app_settings').set({ financeAccounts: fa }, { merge: true });
-}
-
-'use server';
-
-import { revalidatePath } from "next/cache";
-import { getDb } from "@/lib/firebase-admin";
-import type { FinanceAccountsMap, AppSettings } from "@/lib/types";
-
-const SETTINGS_DOC_ID = "app_settings";
-
-export async function getFinanceAccountsMap(): Promise<FinanceAccountsMap> {
-  const db = await getDb();
-  const ref = db.collection("settings").doc(SETTINGS_DOC_ID);
-  const snap = await ref.get();
-  const data = snap.exists ? (snap.data() as AppSettings) : {};
-  return data?.financeAccounts || {};
-}
-
-export async function updateFinanceAccountsMap(payload: FinanceAccountsMap) {
-  const db = await getDb();
-  const ref = db.collection("settings").doc(SETTINGS_DOC_ID);
-
-  try {
-    await ref.set({ financeAccounts: payload }, { merge: true });
-    revalidatePath("/settings"); // Revalidate the main settings page
-    return { success: true };
-  } catch(e: any) {
-    return { success: false, error: e.message };
-  }
+  await db.collection(SETTINGS_COLL).doc(SETTINGS_DOC).set(
+    { financeAccounts: payload },
+    { merge: true }
+  );
 }

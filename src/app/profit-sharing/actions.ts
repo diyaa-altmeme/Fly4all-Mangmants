@@ -1,16 +1,12 @@
 "use server";
 
-import { getFinanceAccounts } from '../settings/advanced-accounts-setup/actions';
-import { postJournalEntries } from '@/lib/finance/posting';
+import { getFinanceMap, postJournalEntries } from '@/lib/finance/posting';
 
 export async function recordProfitShare(payoutId: string, partnerAccountId: string, amount: number) {
-  const finance = await getFinanceAccounts();
-  const fa = finance.financeAccounts;
-  if (!fa) throw new Error('Finance accounts not configured');
-
-  // Example: debit retained earnings (equity) or profit account, credit partner payable
-  const retainedEarnings = fa.defaultBankId || null; // placeholder - adapt to your chart
-  if (!retainedEarnings) throw new Error('No retained earnings account configured');
+  if (amount <= 0) return;
+  const fm = await getFinanceMap();
+  const retainedEarnings = fm.defaultBankId || fm.defaultCashId || null; // fallback
+  if (!retainedEarnings) throw new Error('No retained earnings (or cash/bank) account configured');
 
   const entries = [
     { accountId: retainedEarnings, debit: amount, credit: 0, description: 'تسوية ربح/أرباح مرحلة' },

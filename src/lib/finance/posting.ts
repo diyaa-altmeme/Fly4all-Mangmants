@@ -1,22 +1,27 @@
 "use server";
 
-import { getDb } from '../firebase-admin';
+import { getDb } from '@/lib/firebase-admin';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import type { FinanceAccountsMap } from '@/lib/types';
 import { Timestamp } from 'firebase-admin/firestore';
 
-type JournalEntry = {
+export type JournalEntry = {
   accountId: string;
-  debit: number;
-  credit: number;
-  currency?: string;
-  description?: string;
+  debit: number;       // >= 0
+  credit: number;      // >= 0
+  currency: "USD" | "IQD";
+  exchangeRate?: number;
+  relationId?: string;     // NEW: علاقة مرتبطة بالقيد
+  companyId?: string;
+  note?: string;
 };
 
-type PostPayload = {
-  sourceType: string;
+export type PostJournalPayload = {
+  sourceType: string;          // "tickets" | "visas" | "subscriptions" | "segments" | "exchanges" | "profit-sharing" | ...
   sourceId: string;
-  date?: any;
+  date: number;                // ms
   entries: JournalEntry[];
-  meta?: any;
+  meta?: Record<string, any>;
 };
 
 async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
@@ -35,37 +40,63 @@ function isBalanced(entries: JournalEntry[]) {
   return Math.abs(totalDebit - totalCredit) < 0.0001;
 }
 
-export async function postJournalEntries(payload: PostPayload) {
+export async function postJournalEntries(payload: PostJournalPayload, fa?: FinanceAccountsMap) {
   const db = await getDb();
 
   if (!payload.entries || !Array.isArray(payload.entries) || payload.entries.length === 0) {
     throw new Error('No entries provided');
   }
 
-  // Validation: balanced
+  // Permission check: unless caller set meta.system === true, require user has vouchers:create
+  if (!payload.meta || !payload.meta.system) {
+    const user = await getCurrentUserFromSession();
+    if (!user) throw new Error('Authentication required to post journal entries');
+    // deny clients
+    if ('isClient' in user && user.isClient) throw new Error('Insufficient permissions');
+    const allowed = user.role === 'admin' || (user.permissions && user.permissions.includes('vouchers:create'));
+    if (!allowed) throw new Error('User lacks vouchers:create permission');
+  }
+
+  // Validation and checks
+  // 1) balanced
   if (!isBalanced(payload.entries)) {
     throw new Error('Entries are not balanced (debit != credit)');
   }
 
-  // Validation: accounts exist
+  // 2) accounts exist
   await ensureAccountsExist(db, payload.entries);
 
+  // 3) optional finance map checks
+  if (!fa) {
+    try { fa = await getFinanceMap(); } catch (e) { /* ignore */ }
+  }
+
+  if (fa?.preventDirectCashRevenue) {
+    // guard: prevent direct cash posting when flagged (caller should pass fa if needed)
+    const cashId = fa.defaultCashId;
+    if (cashId) {
+      for (const e of payload.entries) {
+        if (e.accountId === cashId) throw new Error('Direct cash posting is disabled by finance settings');
+      }
+    }
+  }
+
   const now = Timestamp.now();
-  const doc = {
+  const ref = db.collection('journal_vouchers').doc();
+  await ref.set({
+    id: ref.id,
     sourceType: payload.sourceType,
     sourceId: payload.sourceId,
-    date: payload.date || now,
-    entries: payload.entries.map(e => ({ ...e })),
+    date: payload.date,
+    entries: payload.entries,
     meta: payload.meta || null,
     createdAt: now,
-  };
+  } as any);
 
-  const ref = await db.collection('journal_vouchers').add(doc as any);
-  return { id: ref.id };
+  return ref.id;
 }
 
-import { getDb } from "@/lib/firebase-admin";
-import type { FinanceAccountsMap } from "@/lib/types";
+// (imports consolidated at top)
 
 // جلب خريطة الربط من الإعدادات (كاش بسيط اختياري)
 let _cache: { at: number; map: FinanceAccountsMap | null } = { at: 0, map: null };
@@ -99,7 +130,7 @@ export async function postRevenue({
   const db = await getDb();
   const fm = await getFinanceMap();
 
-  const revenueAccountId = fm.revenueMap?.[sourceType];
+  const revenueAccountId = (fm.revenueMap as any)?.[sourceType];
   const arId = fm.receivableAccountId;
   if (!revenueAccountId || !arId) {
     throw new Error(`Missing mapping: revenue=${revenueAccountId} or AR=${arId}`);

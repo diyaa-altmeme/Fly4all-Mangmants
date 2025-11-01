@@ -1,4 +1,3 @@
-
 #!/usr/bin/env tsx
 import { getDb } from "@/lib/firebase-admin";
 
