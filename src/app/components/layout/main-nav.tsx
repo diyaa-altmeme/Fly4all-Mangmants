@@ -270,6 +270,25 @@ const MainNavContent = () => {
             ))}
           </>
       )},
+      { id: 'accounts', label: 'إدارة الحسابات', icon: Wallet, activeRoutes: ['/accounts', '/accounts/remittances', '/accounts/vouchers', '/finance', '/settings/accounting'], children: (
+           <>
+                <DropdownMenuItem asChild>
+                    <Link href="/accounts" className="justify-between w-full"><span>مركز إدارة الحسابات</span><Wallet className="h-4 w-4" /></Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link href="/accounts/remittances" className="justify-between w-full"><span>الحوالات</span><ArrowRightLeft className="h-4 w-4" /></Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link href="/accounts/vouchers/list" className="justify-between w-full"><span>سجل السندات</span><FileText className="h-4 w-4" /></Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link href="/finance/overview" className="justify-between w-full"><span>النظرة المالية</span><BarChart3 className="h-4 w-4" /></Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                    <Link href="/settings/accounting" className="justify-between w-full"><span>إعدادات محاسبية</span><Settings className="h-4 w-4" /></Link>
+                </DropdownMenuItem>
+           </>
+      )},
       { id: 'vouchers', label: 'السندات', icon: FileText, activeRoutes: ['/accounts/vouchers'], children: <CreateVoucherMenuItems /> },
       { id: 'reports', label: 'التقارير والأدوات', icon: BarChart3, activeRoutes: ['/reports', '/profits', '/profit-sharing', '/reconciliation'], children: (
            <>
@@ -313,7 +332,19 @@ const MainNavContent = () => {
             </div>
         )
       }
-      
+
+      if (menu.id === 'accounts') {
+          return (
+            <div className="flex flex-col gap-1">
+                <MobileSubItem href="/accounts" icon={Wallet}>مركز إدارة الحسابات</MobileSubItem>
+                <MobileSubItem href="/accounts/remittances" icon={ArrowRightLeft}>الحوالات</MobileSubItem>
+                <MobileSubItem href="/accounts/vouchers/list" icon={FileText}>سجل السندات</MobileSubItem>
+                <MobileSubItem href="/finance/overview" icon={BarChart3}>النظرة المالية</MobileSubItem>
+                <MobileSubItem href="/settings/accounting" icon={Settings}>إعدادات محاسبية</MobileSubItem>
+            </div>
+          )
+      }
+
       if (menu.id === 'system') {
            return (
              <div className="flex flex-col gap-1">

@@ -1,9 +1,11 @@
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { TreeNode, JournalVoucher, Client, Supplier, Box, Exchange } from '@/lib/types';
+import type { TreeNode, JournalVoucher } from '@/lib/types';
 import { cache } from 'react';
+import { revalidatePath } from 'next/cache';
+
+const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
 
 // This function builds the entire chart of accounts, including balances from relations.
 export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
