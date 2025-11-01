@@ -1,47 +1,43 @@
 "use server";
 
-import { getFinanceAccounts } from '../settings/advanced-accounts-setup/actions';
-import { postJournalEntries } from '@/lib/finance/posting';
+import { postRevenue, postCost, getFinanceMap } from '@/lib/finance/posting';
 
 type CreateSegmentInput = {
-  id: string;
-  total: number;
-  currency?: string;
-  description?: string;
+    id: string;
+    total: number;
+    currency?: string;
+    description?: string;
 };
 
 export async function createSegmentRevenue(input: CreateSegmentInput) {
-  const finance = await getFinanceAccounts();
-  const fa = finance.financeAccounts;
-  if (!fa) throw new Error('Finance accounts not configured');
-
-  const revenueAccount = fa.revenueMap?.segments;
-  const arAccount = fa.arAccountId;
-  if (!revenueAccount || !arAccount) throw new Error('Missing revenue or AR account mapping for segments');
-
-  const entries = [
-    { accountId: arAccount, debit: input.total, credit: 0, currency: input.currency, description: 'ذمم مدينة - سكمنت' },
-    { accountId: revenueAccount, debit: 0, credit: input.total, currency: input.currency, description: 'إيراد سكمنت' },
-  ];
-
-  await postJournalEntries({ sourceType: 'segments', sourceId: input.id, entries });
+    if (input.total <= 0) return;
+    // postRevenue handles mapping and preventDirectCashRevenue logic
+    await postRevenue({
+        sourceType: 'segments',
+        sourceId: input.id,
+        date: input.description || new Date(),
+        currency: input.currency || 'USD',
+        amount: input.total,
+        clientId: undefined,
+    });
 }
 
 export async function distributeSegmentShare(segmentId: string, partnerAccountId: string, amount: number) {
-  const finance = await getFinanceAccounts();
-  const fa = finance.financeAccounts;
-  if (!fa) throw new Error('Finance accounts not configured');
+    if (amount <= 0) return;
+    const fm = await getFinanceMap();
+    // try to find a suitable expense account; prefer a specific key if present
+    const distributionExpense = fm.expenseMap?.cost_tickets || Object.values(fm.expenseMap || {})[0];
+    if (!distributionExpense) throw new Error('No distribution expense account configured');
 
-  // Example mapping: use expenseMap.segments or a dedicated distribution expense account
-  const distributionExpense = fa.expenseMap?.tickets || null; // fallback example
-  if (!distributionExpense) throw new Error('No distribution expense account configured');
-
-  const entries = [
-    { accountId: distributionExpense, debit: amount, credit: 0, description: 'مصروف توزيع سكمنت' },
-    { accountId: partnerAccountId, debit: 0, credit: amount, description: 'ذمم دائنة - شريك' },
-  ];
-
-  await postJournalEntries({ sourceType: 'segments', sourceId: segmentId, entries });
+    await postCost({
+        costKey: 'cost_tickets',
+        sourceType: 'segments',
+        sourceId: segmentId,
+        date: new Date(),
+        currency: 'USD',
+        amount,
+        supplierId: partnerAccountId,
+    });
 }
 
 
