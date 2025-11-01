@@ -5,9 +5,28 @@ import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, ArrowRightLeft, PieChart } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Pie, PieChart as RChart, Cell } from "recharts";
+import { normalizeFinanceAccounts } from "@/lib/finance/finance-accounts";
+import { enrichVoucherEntries } from "@/lib/finance/account-categories";
+
+const parseVoucherDate = (value: any): Date => {
+  if (!value) return new Date();
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === "function") {
+    const date = value.toDate();
+    return date instanceof Date ? date : new Date();
+  }
+  if (typeof value.seconds === "number") {
+    return new Date(value.seconds * 1000);
+  }
+  return new Date();
+};
 
 export default function CashFlowReportPage() {
   const [data, setData] = useState<any[]>([]);
@@ -19,8 +38,12 @@ export default function CashFlowReportPage() {
 
   useEffect(() => {
     async function loadCashFlow() {
-      const vouchersRef = collection(db, "journal-vouchers");
-      const vouchersSnap = await getDocs(vouchersRef);
+      const [settingsSnap, vouchersSnap] = await Promise.all([
+        getDoc(doc(db, "settings", "app_settings")),
+        getDocs(collection(db, "journal-vouchers")),
+      ]);
+
+      const finance = normalizeFinanceAccounts(settingsSnap.data()?.financeAccounts);
 
       const monthly: Record<string, { inflow: number; outflow: number }> = {};
       let inflow = 0;
@@ -28,17 +51,22 @@ export default function CashFlowReportPage() {
 
       vouchersSnap.forEach((doc) => {
         const v = doc.data();
-        const entries = v.entries || [];
-        const month = format(new Date(v.date?.seconds * 1000 || Date.now()), "MMM yyyy");
+        const entries = enrichVoucherEntries(v, finance);
+        const month = format(parseVoucherDate(v.date), "MMM yyyy");
 
         if (!monthly[month]) monthly[month] = { inflow: 0, outflow: 0 };
 
         entries.forEach((e: any) => {
-          if (e.debit && e.accountType === "cash") inflow += e.debit;
-          if (e.credit && e.accountType === "cash") outflow += e.credit;
-
-          if (e.debit && e.accountType === "cash") monthly[month].inflow += e.debit;
-          if (e.credit && e.accountType === "cash") monthly[month].outflow += e.credit;
+          if (e.accountType === "cash" || e.accountType === "bank") {
+            if (e.debit) {
+              inflow += e.debit;
+              monthly[month].inflow += e.debit;
+            }
+            if (e.credit) {
+              outflow += e.credit;
+              monthly[month].outflow += e.credit;
+            }
+          }
         });
       });
 
