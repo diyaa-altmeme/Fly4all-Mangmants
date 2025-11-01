@@ -1,15 +1,12 @@
 
 "use client";
 
-import React, { useState, useCallback, useMemo } from 'react';
-import type { AppSettings, FinanceAccountsMap, TreeNode, User, Box, Client, Supplier, Exchange } from '@/lib/types';
-import AccountFormDialog from '@/app/settings/accounting/chart-of-accounts/components/account-form';
+import React, { useState, useCallback } from 'react';
+import type { FinanceAccountsMap, TreeNode } from '@/lib/types';
 import FinanceAccountSettings from '@/app/settings/accounting/components/FinanceAccountSettings';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, RefreshCw, GitBranch, WalletCards } from 'lucide-react';
+import { RefreshCw, GitBranch, WalletCards } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { getChartOfAccounts } from '@/app/settings/accounting/chart-of-accounts/actions';
 import AccountsTreeClient from '../chart-of-accounts/components/accounts-tree-client';
@@ -17,7 +14,6 @@ import AccountsTreeClient from '../chart-of-accounts/components/accounts-tree-cl
 interface AccountingClientProps {
   initialChartData: TreeNode[];
   initialFinanceMap: FinanceAccountsMap;
-  initialSettings: AppSettings;
 }
 
 const NavButton = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
@@ -70,13 +66,23 @@ export default function AccountingClient(props: AccountingClientProps) {
                          <WalletCards className="h-5 w-5" />
                         ربط الحسابات
                     </NavButton>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start gap-2"
+                        onClick={refreshChartData}
+                        disabled={loading}
+                    >
+                        <RefreshCw className="h-4 w-4" />
+                        تحديث البيانات
+                    </Button>
                 </CardContent>
             </Card>
         </aside>
-        
+
         <main>
             {activeView === 'chart' && (
-                <AccountsTreeClient initialAccounts={chartData} />
+                <AccountsTreeClient initialAccounts={chartData} onAccountsUpdated={setChartData} />
             )}
 
             {activeView === 'linking' && (
@@ -88,10 +94,9 @@ export default function AccountingClient(props: AccountingClientProps) {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <FinanceAccountSettings 
-                            initialFinanceMap={props.initialFinanceMap} 
-                            chartOfAccounts={chartData} 
-                            initialSettings={props.initialSettings}
+                        <FinanceAccountSettings
+                            initialFinanceMap={props.initialFinanceMap}
+                            chartOfAccounts={chartData}
                             onSaveSuccess={handleSettingsSaved}
                         />
                     </CardContent>
