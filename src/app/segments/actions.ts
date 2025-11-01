@@ -26,11 +26,11 @@ export async function distributeSegmentShare(segmentId: string, partnerAccountId
     if (amount <= 0) return;
     const fm = await getFinanceMap();
     // try to find a suitable expense account; prefer a specific key if present
-    const distributionExpense = fm.expenseMap?.cost_tickets || Object.values(fm.expenseMap || {})[0];
+    const distributionExpense = fm.expenseMap?.partners || fm.expenseMap?.cost_tickets || Object.values(fm.expenseMap || {})[0];
     if (!distributionExpense) throw new Error('No distribution expense account configured');
 
     await postCost({
-        costKey: 'cost_tickets',
+        costKey: fm.expenseMap?.partners ? 'partners' : 'cost_tickets',
         sourceType: 'segments',
         sourceId: segmentId,
         date: new Date(),
