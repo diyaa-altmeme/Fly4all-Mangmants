@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Landmark, TrendingDown, TrendingUp } from "lucide-react";
+import { ChevronRight, Landmark, TrendingDown, TrendingUp, User, Users, Store, Wallet, Building } from "lucide-react";
 import { cn } from "@/lib/utils";
 import AccountActions from "./account-actions";
 import type { TreeNode } from "@/lib/types";
@@ -19,10 +19,10 @@ const typeConfig: Record<string, { label: string; icon: React.ElementType; color
   equity: { label: 'حقوق ملكية', icon: Landmark, color: 'text-blue-600' },
   revenue: { label: 'إيراد', icon: TrendingUp, color: 'text-emerald-600' },
   expense: { label: 'مصروف', icon: TrendingDown, color: 'text-purple-600' },
-  client: { label: 'عميل', icon: Landmark, color: 'text-green-600' },
-  supplier: { label: 'مورد', icon: Landmark, color: 'text-red-600' },
-  box: { label: 'صندوق', icon: Landmark, color: 'text-green-600' },
-  exchange: { label: 'بورصة', icon: Landmark, color: 'text-green-600' },
+  client: { label: 'عميل', icon: User, color: 'text-green-600' },
+  supplier: { label: 'مورد', icon: Store, color: 'text-red-600' },
+  box: { label: 'صندوق', icon: Wallet, color: 'text-green-600' },
+  exchange: { label: 'بورصة', icon: Building, color: 'text-green-600' },
 };
 
 

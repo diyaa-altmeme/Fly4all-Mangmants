@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import type { AppSettings, FinanceAccountsMap, TreeNode } from '@/lib/types';
 import ProtectedPage from '@/components/auth/protected-page';
+import { useVoucherNav } from '@/context/voucher-nav-context';
 
 async function AccountingDataContainer() {
     const [chartData, financeMap, settings, error] = await Promise.all([
@@ -26,6 +27,8 @@ async function AccountingDataContainer() {
             </Alert>
         )
     }
+    
+    const { data } = useVoucherNav();
 
     return (
         <AccountingClient 
@@ -42,7 +45,7 @@ export default function ChartOfAccountsMainPage() {
         <ProtectedPage requiredPermission="settings:read">
              <div className="space-y-6">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">الدليل المحاسبي والربط المالي</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">📘 الدليل المحاسبي والربط المالي</h1>
                     <p className="text-muted-foreground">
                         إدارة شجرة الحسابات وربط الحسابات المحاسبية الرئيسية بالعمليات التلقائية في النظام.
                     </p>

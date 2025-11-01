@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo } from 'react';
-import type { AppSettings, FinanceAccountsMap, TreeNode } from '@/lib/types';
+import type { AppSettings, FinanceAccountsMap, TreeNode, User, Box, Client, Supplier, Exchange } from '@/lib/types';
 import ChartOfAccountsTree from '@/app/settings/accounting/chart-of-accounts/components/accounts-tree';
 import AccountFormDialog from '@/app/settings/accounting/chart-of-accounts/components/account-form';
 import FinanceAccountSettings from '@/app/settings/accounting/components/FinanceAccountSettings';
@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { getChartOfAccounts } from '@/app/settings/accounting/chart-of-accounts/actions';
+import AccountsTreeClient from '../chart-of-accounts/components/accounts-tree-client';
 
 interface AccountingClientProps {
   initialChartData: TreeNode[];
@@ -76,29 +77,7 @@ export default function AccountingClient(props: AccountingClientProps) {
         
         <main>
             {activeView === 'chart' && (
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                         <div>
-                            <CardTitle>شجرة الحسابات</CardTitle>
-                            <CardDescription>عرض وتعديل هيكل الدليل المحاسبي.</CardDescription>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <AccountFormDialog allAccounts={chartData} onAccountAdded={refreshChartData}>
-                                <Button variant="outline" size="sm" disabled={loading}>
-                                    <PlusCircle className="me-2 h-4 w-4" />
-                                    إضافة حساب
-                                </Button>
-                            </AccountFormDialog>
-                            <Button variant="outline" size="sm" onClick={refreshChartData} disabled={loading}>
-                                <RefreshCw className="me-2 h-4 w-4" />
-                                تحديث
-                            </Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                         {loading ? <Skeleton className="h-[400px]" /> : <ChartOfAccountsTree accounts={chartData} onActionSuccess={refreshChartData} />}
-                    </CardContent>
-                </Card>
+                <AccountsTreeClient initialAccounts={chartData} />
             )}
 
             {activeView === 'linking' && (
