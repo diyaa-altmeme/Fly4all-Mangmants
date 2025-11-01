@@ -104,6 +104,27 @@ export interface JournalVoucher {
   entries?: JournalEntry[];   // تمثيل الإدخالات الحديث (debit/credit)
 }
 
+// === نوع العلاقة ===
+export type RelationKind = "client" | "supplier" | "both";
+
+// === إعدادات حسابات النظام ===
+export interface FinanceAccountsMap {}
+
+// === القيود المحاسبية ===
+export type JournalEntry = {
+  accountId: string;            // معرف الحساب
+  debit: number;               // المدين
+  credit: number;             // الدائن
+  description?: string;       // الوصف
+  currency: Currency;         // العملة
+  relationId?: string;        // معرف العلاقة (عميل/مورد)
+  companyId?: string;        // معرف الشركة
+  sourceType?: string;       // نوع المصدر (تذاكر، تأشيرات، الخ)
+  sourceId?: string;         // معرف المصدر
+  boxId?: string;           // الصندوق المستخدم
+  createDate?: Date;        // تاريخ الإنشاء
+};
+
 // === الصناديق ===
 export interface Box {
   id: string;

@@ -1,6 +1,13 @@
-"use server";
+'use server';
 
 import { getFinanceMap, postJournalEntries } from '@/lib/finance/posting';
+import { getDb } from '@/lib/firebase-admin';
+import type { Client, Supplier, Currency, MonthlyProfit, ProfitShare, JournalEntry } from '@/lib/types';
+import { revalidatePath } from 'next/cache';
+import { cache } from 'react';
+import { format, parseISO } from 'date-fns';
+import { getNextVoucherNumber } from '@/lib/sequences';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
 export async function recordProfitShare(payoutId: string, partnerAccountId: string, amount: number) {
   if (amount <= 0) return;
@@ -15,16 +22,6 @@ export async function recordProfitShare(payoutId: string, partnerAccountId: stri
 
   await postJournalEntries({ sourceType: 'profit_sharing', sourceId: payoutId, entries });
 }
-
-'use server';
-
-import { getDb } from '@/lib/firebase-admin';
-import type { Client, Supplier, Currency, MonthlyProfit, ProfitShare, JournalEntry } from '@/lib/types';
-import { revalidatePath } from 'next/cache';
-import { cache } from 'react';
-import { format, parseISO } from 'date-fns';
-import { getNextVoucherNumber } from '@/lib/sequences';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
 export async function getMonthlyProfits(): Promise<MonthlyProfit[]> {
   const db = await getDb();
