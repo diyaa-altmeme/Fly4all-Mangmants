@@ -5,17 +5,18 @@ import { getDb } from '@/lib/firebase-admin';
 import type { TreeNode, JournalVoucher, Client, Supplier, Box, Exchange } from '@/lib/types';
 import { cache } from 'react';
 
-const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
-
 // This function builds the entire chart of accounts, including balances from relations.
 export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
     const db = await getDb();
     if (!db) return [];
 
     try {
-        const [staticAccountsSnap, clientsSnap, vouchersSnap] = await Promise.all([
-            db.collection(CHART_OF_ACCOUNTS_COLLECTION).orderBy('code').get(),
-            db.collection('clients').get(),
+        const [staticAccountsSnap, clientsSnap, suppliersSnap, boxesSnap, exchangesSnap, vouchersSnap] = await Promise.all([
+            db.collection('chart_of_accounts').orderBy('code').get(),
+            db.collection('clients').where('relationType', 'in', ['client', 'both']).get(),
+            db.collection('clients').where('relationType', 'in', ['supplier', 'both']).get(),
+            db.collection('boxes').get(),
+            db.collection('exchanges').get(),
             db.collection('journal-vouchers').get(),
         ]);
 
@@ -42,7 +43,7 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
         });
 
         // 2. Initialize static accounts from the chart_of_accounts collection
-        const accounts = staticAccountsSnap.docs.map(doc => ({
+        const staticAccounts = staticAccountsSnap.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
             debit: 0, 
@@ -50,82 +51,37 @@ export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
             children: [],
         } as TreeNode));
         
-        const accountMap = new Map<string, TreeNode>(accounts.map(acc => [acc.id, acc]));
-
-        // Find parent nodes for clients and suppliers by their standard codes
-        const accountsReceivableParent = accounts.find(a => a.code === '1-1-2-1');
-        const accountsPayableParent = accounts.find(a => a.code === '2-1-1-1');
-
-        // 3. Create dynamic nodes for clients/suppliers
-        clientsSnap.forEach(doc => {
-            const client = doc.data() as Client;
+        // 3. Create dynamic nodes for clients, suppliers, etc.
+        const dynamicNodes: TreeNode[] = [];
+        
+        const createNode = (doc: FirebaseFirestore.DocumentSnapshot, type: 'client' | 'supplier' | 'box' | 'exchange', parentCode: string): TreeNode => {
+            const data = doc.data() as any;
             const balances = accountBalances[doc.id] || { debit: 0, credit: 0 };
-            
-            const baseNode = {
+            const parent = staticAccounts.find(a => a.code === parentCode);
+            if (!parent) {
+                console.warn(`Parent with code ${parentCode} not found for ${data.name}.`);
+            }
+            return {
                 id: doc.id,
-                name: client.name,
-                code: client.code || doc.id.substring(0, 6),
+                name: data.name,
+                code: data.code || doc.id.substring(0, 6),
+                type: type,
+                parentId: parent ? parent.id : null,
                 debit: balances.debit,
                 credit: balances.credit,
                 children: [],
+                isLeaf: true,
             };
-
-            // Add to Accounts Receivable (الذمم المدينة)
-            if ((client.relationType === 'client' || client.relationType === 'both') && accountsReceivableParent) {
-                const clientNode: TreeNode = { ...baseNode, type: 'client', parentId: accountsReceivableParent.id };
-                if (!accountsReceivableParent.children) accountsReceivableParent.children = [];
-                accountsReceivableParent.children.push(clientNode);
-            }
-
-            // Add to Accounts Payable (الذمم الدائنة)
-            if ((client.relationType === 'supplier' || client.relationType === 'both') && accountsPayableParent) {
-                const supplierNode: TreeNode = { ...baseNode, type: 'supplier', parentId: accountsPayableParent.id };
-                if (!accountsPayableParent.children) accountsPayableParent.children = [];
-                accountsPayableParent.children.push(supplierNode);
-            }
-        });
-
-
-        // 4. Build the tree structure for static accounts
-        const tree: TreeNode[] = [];
-        accounts.forEach(account => {
-            if (account.parentId && accountMap.has(account.parentId)) {
-                const parent = accountMap.get(account.parentId);
-                if (parent && !parent.children.some(c => c.id === account.id)) {
-                    parent.children.push(account);
-                }
-            } else {
-                if (!tree.some(r => r.id === account.id)) {
-                   tree.push(account);
-                }
-            }
-        });
-
-        // 5. Aggregate balances up the tree
-        const sumChildrenBalances = (node: TreeNode): { debit: number; credit: number } => {
-            if (!node.children || node.children.length === 0) {
-                const balances = accountBalances[node.id] || { debit: 0, credit: 0 };
-                node.debit = balances.debit;
-                node.credit = balances.credit;
-                return balances;
-            }
-
-            let totalDebit = 0;
-            let totalCredit = 0;
-            node.children.forEach(child => {
-                const childTotals = sumChildrenBalances(child);
-                totalDebit += childTotals.debit;
-                totalCredit += childTotals.credit;
-            });
-
-            node.debit = totalDebit;
-            node.credit = totalCredit;
-            return { debit: totalDebit, credit: totalCredit };
         };
 
-        tree.forEach(sumChildrenBalances);
-
-        return JSON.parse(JSON.stringify(tree));
+        clientsSnap.forEach(doc => dynamicNodes.push(createNode(doc, 'client', '1-1-2-1')));
+        suppliersSnap.forEach(doc => dynamicNodes.push(createNode(doc, 'supplier', '2-1-1-1')));
+        boxesSnap.forEach(doc => dynamicNodes.push(createNode(doc, 'box', '1-1-1')));
+        exchangesSnap.forEach(doc => dynamicNodes.push(createNode(doc, 'exchange', '1-1-2-2')));
+        
+        const allAccounts = [...staticAccounts, ...dynamicNodes];
+        
+        return JSON.parse(JSON.stringify(allAccounts));
 
     } catch (error) {
         console.error("Error getting chart of accounts:", error);
