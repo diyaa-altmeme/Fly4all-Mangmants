@@ -1,4 +1,5 @@
-"use server";
+
+'use server';
 
 import { postRevenue, postCost } from '@/lib/finance/posting';
 
@@ -29,22 +30,20 @@ export async function receiveSubscriptionPayment(subscriptionId: string, amount:
             accountId: cash, 
             debit: amount, 
             credit: 0,
-            currency: 'USD',
+            currency: 'USD' as const,
             description: `استلام دفعة اشتراك`
         },
         { 
             accountId: ar, 
             debit: 0, 
             credit: amount,
-            currency: 'USD',
+            currency: 'USD' as const,
             description: `استلام دفعة اشتراك`
         }
     ];
 
-    await postJournalEntries({ sourceType: 'subscriptions', sourceId: subscriptionId, entries });
+    await postJournalEntries({ sourceType: 'subscriptions', sourceId: subscriptionId, entries, date: Date.now() });
 }
-
-'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import type { Subscription, SubscriptionInstallment, Payment, SubscriptionStatus, JournalEntry, Client, Supplier } from '@/lib/types';
@@ -153,7 +152,8 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     if (!user) return { success: false, error: "User not authenticated" };
     
     const settings = await getSettings();
-    if (settings.financeAccounts?.blockDirectCashRevenue && subscriptionData.boxId) {
+    const financeSettings = settings.financeAccounts;
+    if (financeSettings?.preventDirectCashRevenue && subscriptionData.boxId) {
       throw new Error("❌ غير مسموح بتسجيل الإيرادات مباشرة في الصندوق. استخدم حساب الإيراد أولًا.");
     }
     
