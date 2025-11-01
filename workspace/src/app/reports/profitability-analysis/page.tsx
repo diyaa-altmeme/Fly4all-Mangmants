@@ -38,7 +38,7 @@ export default function ProfitabilityAnalysisPage() {
           };
         }
 
-        voucher.entries.forEach((entry: any) => {
+        (voucher.entries || []).forEach((entry: any) => {
           if (entry.accountType === 'revenue') {
             analysis[clientId].revenue += entry.credit || 0;
           } else if (entry.accountType === 'expense') {

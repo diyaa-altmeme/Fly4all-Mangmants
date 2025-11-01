@@ -10,6 +10,7 @@ import {
 } from '@/lib/finance/finance-accounts';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getNextVoucherNumber } from '@/lib/sequences';
+import { inferAccountCategory } from '@/lib/finance/account-categories';
 
 export type JournalEntry = {
   accountId: string;
@@ -20,6 +21,7 @@ export type JournalEntry = {
   relationId?: string;     // NEW: علاقة مرتبطة بالقيد
   companyId?: string;
   note?: string;
+  accountType?: string;
 };
 
 export type PostJournalPayload = {
@@ -47,7 +49,13 @@ function isBalanced(entries: JournalEntry[]) {
   return Math.abs(totalDebit - totalCredit) < 0.0001;
 }
 
-function splitEntries(entries: JournalEntry[]): {
+type StoredEntry = JournalEntry & {
+  amount: number;
+  description?: string;
+  accountType?: string;
+};
+
+function splitEntries(entries: StoredEntry[]): {
   debitEntries: LegacyJournalEntry[];
   creditEntries: LegacyJournalEntry[];
 } {
@@ -59,10 +67,11 @@ function splitEntries(entries: JournalEntry[]): {
       debitEntries.push({
         accountId: entry.accountId,
         amount: entry.debit,
-        description: entry.note,
+        description: entry.description ?? entry.note,
         currency: entry.currency,
         relationId: entry.relationId,
         companyId: entry.companyId,
+        accountType: entry.accountType,
       });
     }
 
@@ -70,10 +79,11 @@ function splitEntries(entries: JournalEntry[]): {
       creditEntries.push({
         accountId: entry.accountId,
         amount: entry.credit,
-        description: entry.note,
+        description: entry.description ?? entry.note,
         currency: entry.currency,
         relationId: entry.relationId,
         companyId: entry.companyId,
+        accountType: entry.accountType,
       });
     }
   }
@@ -119,9 +129,11 @@ export async function postJournalEntries(payload: PostJournalPayload, fa?: Norma
     try { fa = await getFinanceMap(); } catch (e) { /* ignore */ }
   }
 
-  if (fa?.preventDirectCashRevenue) {
+  const finance = fa;
+
+  if (finance?.preventDirectCashRevenue) {
     // guard: prevent direct cash posting when flagged (caller should pass fa if needed)
-    const cashId = fa.defaultCashId;
+    const cashId = finance.defaultCashId;
     if (cashId) {
       for (const e of payload.entries) {
         if (e.accountId === cashId) throw new Error('Direct cash posting is disabled by finance settings');
@@ -132,7 +144,27 @@ export async function postJournalEntries(payload: PostJournalPayload, fa?: Norma
   const now = Timestamp.now();
   const voucherRef = db.collection('journal-vouchers').doc();
   const voucherNumber = await getNextVoucherNumber(payload.sourceType.toUpperCase());
-  const { debitEntries, creditEntries } = splitEntries(payload.entries);
+  const voucherCurrency = resolveCurrency(payload.entries);
+
+  const storedEntries: StoredEntry[] = payload.entries.map((entry) => {
+    const debit = Number(entry.debit) || 0;
+    const credit = Number(entry.credit) || 0;
+    const amount = debit > 0 ? debit : credit;
+    const description = entry.note ?? (entry as any).description;
+    const accountType = inferAccountCategory(entry.accountId, finance || null);
+
+    return {
+      ...entry,
+      debit,
+      credit,
+      amount,
+      currency: entry.currency || voucherCurrency,
+      description,
+      accountType,
+    };
+  });
+
+  const { debitEntries, creditEntries } = splitEntries(storedEntries);
   const voucherDate = payload.date instanceof Date
     ? payload.date.toISOString()
     : payload.date
@@ -160,7 +192,18 @@ export async function postJournalEntries(payload: PostJournalPayload, fa?: Norma
     isAudited: false,
     isConfirmed: true,
     meta: payload.meta || null,
-    entries: payload.entries,
+    entries: storedEntries.map(entry => ({
+      accountId: entry.accountId,
+      debit: entry.debit,
+      credit: entry.credit,
+      amount: entry.amount,
+      description: entry.description ?? entry.note,
+      currency: entry.currency,
+      relationId: entry.relationId,
+      companyId: entry.companyId,
+      accountType: entry.accountType,
+      type: entry.debit > 0 ? 'debit' : 'credit',
+    })),
     originalData: {
       sourceType: payload.sourceType,
       sourceId: payload.sourceId,

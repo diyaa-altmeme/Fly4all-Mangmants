@@ -8,6 +8,24 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, BarChart, Bar } from "recharts";
 import { format } from "date-fns";
+import { enrichVoucherEntries } from "@/lib/finance/account-categories";
+
+const parseVoucherDate = (value: any): Date => {
+  if (!value) return new Date();
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === "function") {
+    const date = value.toDate();
+    return date instanceof Date ? date : new Date();
+  }
+  if (typeof value.seconds === "number") {
+    return new Date(value.seconds * 1000);
+  }
+  return new Date();
+};
 
 export default function AIAuditAssistantPage() {
   const [audit, setAudit] = useState<any[]>([]);
@@ -30,11 +48,11 @@ export default function AIAuditAssistantPage() {
 
       vouchersSnap.forEach((doc) => {
         const v = doc.data();
-        const entries = v.entries || [];
+        const entries = enrichVoucherEntries(v);
         const totalDebit = entries.reduce((sum, e) => sum + (e.debit || 0), 0);
         const totalCredit = entries.reduce((sum, e) => sum + (e.credit || 0), 0);
         const diff = Math.abs(totalDebit - totalCredit);
-        const date = v.date?.seconds ? new Date(v.date.seconds * 1000) : new Date();
+        const date = parseVoucherDate(v.date);
 
         let status = "balanced";
         let risk = 0;

@@ -5,19 +5,24 @@ import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users, BarChart2, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { DataTable } from "@/components/ui/data-table";
 import { columns } from "./columns";
+import { normalizeFinanceAccounts } from "@/lib/finance/finance-accounts";
+import { enrichVoucherEntries } from "@/lib/finance/account-categories";
 
 export default function ProfitabilityAnalysisPage() {
   const [data, setData] = useState<any[]>([]);
 
   useEffect(() => {
     async function analyzeProfitability() {
-      const vouchersRef = collection(db, "journal-vouchers");
-      const vouchersSnap = await getDocs(vouchersRef);
-      const clientsRef = collection(db, "clients");
-      const clientsSnap = await getDocs(clientsRef);
+      const [settingsSnap, vouchersSnap, clientsSnap] = await Promise.all([
+        getDoc(doc(db, "settings", "app_settings")),
+        getDocs(collection(db, "journal-vouchers")),
+        getDocs(collection(db, "clients")),
+      ]);
+
+      const finance = normalizeFinanceAccounts(settingsSnap.data()?.financeAccounts);
 
       const clientsMap = new Map(clientsSnap.docs.map(doc => [doc.id, doc.data().name]));
 
@@ -30,15 +35,16 @@ export default function ProfitabilityAnalysisPage() {
         if (!clientId) return;
 
         if (!analysis[clientId]) {
-          analysis[clientId] = { 
-            revenue: 0, 
-            expense: 0, 
-            profit: 0, 
+          analysis[clientId] = {
+            revenue: 0,
+            expense: 0,
+            profit: 0,
             clientName: clientsMap.get(clientId) || "غير معروف"
           };
         }
 
-        voucher.entries.forEach((entry: any) => {
+        const entries = enrichVoucherEntries(voucher, finance);
+        entries.forEach((entry: any) => {
           if (entry.accountType === 'revenue') {
             analysis[clientId].revenue += entry.credit || 0;
           } else if (entry.accountType === 'expense') {

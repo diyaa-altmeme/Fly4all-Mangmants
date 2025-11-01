@@ -72,6 +72,9 @@ export interface JournalEntry {
   sourceRoute?: string;         // رابط المصدر (للتنقل)
   boxId?: string;               // الصندوق المستخدم
   createDate?: Date | string;   // تاريخ الإنشاء
+  accountType?: string;         // نوع الحساب (عميل، مورد، نقدي، إيراد، مصروف...)
+  type?: 'debit' | 'credit';    // اتجاه الحركة
+  note?: string;                // وصف مختصر بديل
 }
 
 export interface JournalVoucher {

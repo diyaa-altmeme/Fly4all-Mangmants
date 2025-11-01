@@ -5,6 +5,7 @@ import { getSettings } from "@/app/settings/actions";
 import { getNextVoucherNumber } from "@/lib/sequences";
 import type { JournalVoucher, JournalEntry, FinanceAccountsMap } from "../types";
 import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
+import { inferAccountCategory } from '@/lib/finance/account-categories';
 
 interface PostJournalParams {
   sourceType: string;
@@ -137,6 +138,32 @@ export async function postJournalEntry({
 
   await voucherRef.set({
       ...newVoucher,
+      entries: [
+        ...newVoucher.debitEntries.map(entry => ({
+          accountId: entry.accountId,
+          debit: entry.amount,
+          credit: 0,
+          amount: entry.amount,
+          description: entry.description,
+          currency: newVoucher.currency,
+          relationId: entry.relationId,
+          companyId: entry.companyId,
+          accountType: inferAccountCategory(entry.accountId, financeSettings),
+          type: 'debit' as const,
+        })),
+        ...newVoucher.creditEntries.map(entry => ({
+          accountId: entry.accountId,
+          debit: 0,
+          credit: entry.amount,
+          amount: entry.amount,
+          description: entry.description,
+          currency: newVoucher.currency,
+          relationId: entry.relationId,
+          companyId: entry.companyId,
+          accountType: inferAccountCategory(entry.accountId, financeSettings),
+          type: 'credit' as const,
+        })),
+      ],
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
   });
