@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
