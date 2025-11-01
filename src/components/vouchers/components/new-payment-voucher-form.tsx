@@ -57,7 +57,8 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
 
 export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency, onVoucherUpdated, isEditing, initialData }: NewPaymentVoucherFormProps) {
   const { data: navData } = useVoucherNav();
-  const { user: currentUser } = useAuth();
+  const { user } = useAuth();
+  const currentUser = user as CurrentUser | null;
   const { toast } = useToast();
   
   const form = useForm<FormValues>({
