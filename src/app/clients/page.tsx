@@ -79,7 +79,7 @@ function ClientsDataContainer() {
 
 export default function ClientsPage() {
     return (
-        <ProtectedPage permission="relations:read">
+        <ProtectedPage requiredPermission="relations:read">
             <div className="space-y-6">
                  <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
                     <ClientsDataContainer />

@@ -8,9 +8,8 @@ import AccountingClient from './components/accounting-client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
-import type { AppSettings, FinanceAccountsMap, TreeNode } from '@/lib/types';
+import type { AppSettings, FinanceAccountsMap, TreeNode, User, Box, Client, Supplier, Exchange } from '@/lib/types';
 import ProtectedPage from '@/components/auth/protected-page';
-
 
 function AccountingDataContainer() {
     const [chartData, setChartData] = useState<TreeNode[]>([]);
@@ -84,4 +83,3 @@ export default function ChartOfAccountsMainPage() {
         </ProtectedPage>
     );
 }
-
