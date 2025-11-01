@@ -2,6 +2,7 @@
 
 import { getDb } from "@/lib/firebase-admin";
 import type { FinanceAccountsMap, ChartAccount } from "@/lib/types";
+import { normalizeFinanceAccounts, serializeFinanceAccounts, type NormalizedFinanceAccounts, type FinanceAccountsInput } from '@/lib/finance/finance-accounts';
 
 const SETTINGS_COLL = "settings";
 const SETTINGS_DOC  = "app_settings";
@@ -28,17 +29,24 @@ export async function getChartOfAccounts(): Promise<ChartAccount[]> {
   });
 }
 
-export async function getFinanceAccounts(): Promise<FinanceAccountsMap | null> {
+export async function getFinanceAccounts(): Promise<NormalizedFinanceAccounts | null> {
   const db = await getDb();
   const doc = await db.collection(SETTINGS_COLL).doc(SETTINGS_DOC).get();
   const s = doc.data() || {};
-  return (s.financeAccounts ?? null) as FinanceAccountsMap | null;
+  const raw = (s.financeAccounts ?? null) as FinanceAccountsMap | null;
+  if (!raw) return null;
+  return normalizeFinanceAccounts(raw);
 }
 
-export async function saveFinanceAccounts(payload: FinanceAccountsMap): Promise<void> {
+export async function saveFinanceAccounts(payload: FinanceAccountsInput): Promise<void> {
   const db = await getDb();
+  const serialized = serializeFinanceAccounts(payload);
   await db.collection(SETTINGS_COLL).doc(SETTINGS_DOC).set(
-    { financeAccounts: payload },
+    { financeAccounts: serialized },
     { merge: true }
   );
+}
+
+export async function getFinanceSettings(): Promise<NormalizedFinanceAccounts | null> {
+  return await getFinanceAccounts();
 }

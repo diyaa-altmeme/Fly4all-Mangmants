@@ -2,6 +2,7 @@
 import { getDb } from "@/lib/firebase-admin";
 import { getSettings } from "@/app/settings/actions";
 import { NextResponse } from 'next/server';
+import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
 
 export async function GET() {
   try {
@@ -10,8 +11,8 @@ export async function GET() {
         return NextResponse.json({ error: "Database not available" }, { status: 500 });
     }
     const settings = await getSettings();
-    const finance = settings.financeAccounts;
-    if (!finance) {
+    const finance = normalizeFinanceAccounts(settings.financeAccounts);
+    if (!finance.receivableAccountId || !finance.generalRevenueId) {
          return NextResponse.json({ error: "Finance settings not configured" }, { status: 500 });
     }
 
@@ -24,7 +25,7 @@ export async function GET() {
     journalsSnap.forEach((doc) => {
       const j = doc.data();
       j.entries.forEach((e: any) => {
-        if (e.type === "credit" && e.accountId.startsWith(finance.revenueAccountId)) {
+        if (e.type === "credit" && e.accountId.startsWith(finance.generalRevenueId)) {
           totalRevenue += e.amount;
           entries.push({
             ...e,
@@ -33,7 +34,7 @@ export async function GET() {
             description: j.description,
           });
         }
-        else if (e.type === "debit" && e.accountId.startsWith(finance.expenseAccountId)) {
+        else if (e.type === "debit" && e.accountId.startsWith(finance.generalExpenseId)) {
           totalExpense += e.amount;
           entries.push({
             ...e,
