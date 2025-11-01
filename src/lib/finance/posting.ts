@@ -4,6 +4,10 @@
 import { getDb } from '@/lib/firebase-admin';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import type { FinanceAccountsMap } from '@/lib/types';
+import {
+  normalizeFinanceAccounts,
+  type NormalizedFinanceAccounts,
+} from '@/lib/finance/finance-accounts';
 import { Timestamp } from 'firebase-admin/firestore';
 
 export type JournalEntry = {
@@ -41,7 +45,7 @@ function isBalanced(entries: JournalEntry[]) {
   return Math.abs(totalDebit - totalCredit) < 0.0001;
 }
 
-export async function postJournalEntries(payload: PostJournalPayload, fa?: FinanceAccountsMap) {
+export async function postJournalEntries(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts) {
   const db = await getDb();
 
   if (!payload.entries || !Array.isArray(payload.entries) || payload.entries.length === 0) {
@@ -99,16 +103,17 @@ export async function postJournalEntries(payload: PostJournalPayload, fa?: Finan
 
 
 // جلب خريطة الربط من الإعدادات (كاش بسيط اختياري)
-let _cache: { at: number; map: FinanceAccountsMap | null } = { at: 0, map: null };
+let _cache: { at: number; map: NormalizedFinanceAccounts | null } = { at: 0, map: null };
 
-export async function getFinanceMap(): Promise<FinanceAccountsMap> {
+export async function getFinanceMap(): Promise<NormalizedFinanceAccounts> {
   const now = Date.now();
   if (_cache.map && now - _cache.at < 15_000) return _cache.map; // cache 15s
 
   const db = await getDb();
   const ref = db.collection("settings").doc("app_settings");
   const snap = await ref.get();
-  const fm = (snap.data()?.financeAccounts || {}) as FinanceAccountsMap;
+  const fmRaw = (snap.data()?.financeAccounts || {}) as FinanceAccountsMap;
+  const fm = normalizeFinanceAccounts(fmRaw);
   _cache = { at: now, map: fm };
   return fm;
 }
@@ -130,42 +135,27 @@ export async function postRevenue({
   const db = await getDb();
   const fm = await getFinanceMap();
 
-  const revenueAccountId = (fm.revenueMap as any)?.[sourceType];
+  const revenueAccountId = fm.revenueMap?.[sourceType] || fm.generalRevenueId;
   const arId = fm.receivableAccountId;
   if (!revenueAccountId || !arId) {
     throw new Error(`Missing mapping: revenue=${revenueAccountId} or AR=${arId}`);
   }
 
-  if (fm.preventDirectCashRevenue && fm.defaultCashId) {
-    // إيراد آجل (مدين: الذمم / دائن: الإيراد)
-    return db.collection("journal-vouchers").add({
-      date,
-      currency,
-      sourceType,
-      sourceId,
-      lines: [
-        { accountId: arId, debit: amount, credit: 0 },
-        { accountId: revenueAccountId, debit: 0, credit: amount },
-      ],
-      meta: { clientId },
-      createdAt: new Date(),
-    });
-  } else {
-    // إيراد نقدي مباشرة (مدين: الصندوق / دائن: الإيراد)
-    const cashId = fm.defaultCashId || arId; // fallback سيئ؛ الأفضل إجبار الربط
-    return db.collection("journal-vouchers").add({
-      date,
-      currency,
-      sourceType,
-      sourceId,
-      lines: [
-        { accountId: cashId, debit: amount, credit: 0 },
-        { accountId: revenueAccountId, debit: 0, credit: amount },
-      ],
-      meta: { clientId, directCash: true },
-      createdAt: new Date(),
-    });
-  }
+  const shouldDefer = fm.preventDirectCashRevenue && fm.defaultCashId;
+  const debitAccountId = shouldDefer ? arId : (fm.defaultCashId || arId);
+
+  return db.collection("journal-vouchers").add({
+    date,
+    currency,
+    sourceType,
+    sourceId,
+    lines: [
+      { accountId: debitAccountId, debit: amount, credit: 0 },
+      { accountId: revenueAccountId, debit: 0, credit: amount },
+    ],
+    meta: { clientId, directCash: !shouldDefer },
+    createdAt: new Date(),
+  });
 }
 
 // مثال: تسجيل تكلفة
@@ -181,7 +171,7 @@ export async function postCost({
   if (amount <= 0) return;
   const db = await getDb();
   const fm = await getFinanceMap();
-  const expId = fm.expenseMap?.[costKey];
+  const expId = fm.expenseMap?.[costKey] || fm.generalExpenseId;
   const apId = fm.payableAccountId;
   if (!expId || !apId) throw new Error(`Missing mapping: expense=${expId} or AP=${apId}`);
 

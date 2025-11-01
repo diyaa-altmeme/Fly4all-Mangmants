@@ -6,7 +6,7 @@ import { updateSettings } from "@/app/settings/actions";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, Save, Loader2 } from "lucide-react";
-import type { FinanceAccountsMap, TreeNode } from "@/lib/types";
+import type { TreeNode } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,6 +16,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { Switch } from '@/components/ui/switch';
 import { buildTree } from '../chart-of-accounts/utils';
+import {
+    normalizeFinanceAccounts,
+    serializeFinanceAccounts,
+    type NormalizedFinanceAccounts,
+} from '@/lib/finance/finance-accounts';
 
 const formSchema = z.object({
     receivableAccountId: z.string().optional(),
@@ -25,6 +30,8 @@ const formSchema = z.object({
     defaultCashId: z.string().optional(),
     defaultBankId: z.string().optional(),
     preventDirectCashRevenue: z.boolean().default(false),
+    generalRevenueId: z.string().optional(),
+    generalExpenseId: z.string().optional(),
     rev_tickets: z.string().optional(),
     rev_visas: z.string().optional(),
     rev_subscriptions: z.string().optional(),
@@ -40,7 +47,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface FinanceAccountSettingsProps {
-    initialFinanceMap: FinanceAccountsMap;
+    initialFinanceMap: NormalizedFinanceAccounts;
     chartOfAccounts: TreeNode[];
     onSaveSuccess: () => void;
 }
@@ -76,24 +83,27 @@ export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccou
 
   useEffect(() => {
     setLoading(true);
+    const normalized = normalizeFinanceAccounts(initialFinanceMap);
     form.reset({
-        receivableAccountId: initialFinanceMap?.receivableAccountId || '',
-        payableAccountId: initialFinanceMap?.payableAccountId || '',
-        hybridRelationAccountId: initialFinanceMap?.hybridRelationAccountId || '',
-        clearingAccountId: initialFinanceMap?.clearingAccountId || '',
-        defaultCashId: initialFinanceMap?.defaultCashId || '',
-        defaultBankId: initialFinanceMap?.defaultBankId || '',
-        preventDirectCashRevenue: initialFinanceMap?.preventDirectCashRevenue || false,
-        rev_tickets: initialFinanceMap?.revenueMap?.tickets || '',
-        rev_visas: initialFinanceMap?.revenueMap?.visas || '',
-        rev_subscriptions: initialFinanceMap?.revenueMap?.subscriptions || '',
-        rev_segments: initialFinanceMap?.revenueMap?.segments || '',
-        rev_other: initialFinanceMap?.revenueMap?.other || '',
-        exp_tickets: initialFinanceMap?.expenseMap?.tickets || '',
-        exp_visas: initialFinanceMap?.expenseMap?.visas || '',
-        exp_subscriptions: initialFinanceMap?.expenseMap?.subscriptions || '',
-        exp_partners: initialFinanceMap?.expenseMap?.partners || '',
-        exp_operating: initialFinanceMap?.expenseMap?.operating || '',
+        receivableAccountId: normalized.receivableAccountId || '',
+        payableAccountId: normalized.payableAccountId || '',
+        hybridRelationAccountId: normalized.hybridRelationAccountId || '',
+        clearingAccountId: normalized.clearingAccountId || '',
+        defaultCashId: normalized.defaultCashId || '',
+        defaultBankId: normalized.defaultBankId || '',
+        generalRevenueId: normalized.generalRevenueId || '',
+        generalExpenseId: normalized.generalExpenseId || '',
+        preventDirectCashRevenue: normalized.preventDirectCashRevenue || false,
+        rev_tickets: normalized.revenueMap?.tickets || '',
+        rev_visas: normalized.revenueMap?.visas || '',
+        rev_subscriptions: normalized.revenueMap?.subscriptions || '',
+        rev_segments: normalized.revenueMap?.segments || '',
+        rev_other: normalized.revenueMap?.other || '',
+        exp_tickets: normalized.expenseMap?.tickets || '',
+        exp_visas: normalized.expenseMap?.visas || '',
+        exp_subscriptions: normalized.expenseMap?.subscriptions || '',
+        exp_partners: normalized.expenseMap?.partners || '',
+        exp_operating: normalized.expenseMap?.operating || '',
     });
     setLoading(false);
   }, [initialFinanceMap, form]);
@@ -105,30 +115,31 @@ export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccou
 
   const handleFormSubmit = async (data: FormValues) => {
     try {
-        const financePayload: FinanceAccountsMap = {
-            receivableAccountId: data.receivableAccountId || '',
-            payableAccountId: data.payableAccountId || '',
-            hybridRelationAccountId: data.hybridRelationAccountId || '',
-            clearingAccountId: data.clearingAccountId || '',
-            defaultCashId: data.defaultCashId || '',
-            defaultBankId: data.defaultBankId || '',
+        const financePayload = serializeFinanceAccounts({
+            receivableAccountId: data.receivableAccountId,
+            payableAccountId: data.payableAccountId,
+            hybridRelationAccountId: data.hybridRelationAccountId,
+            clearingAccountId: data.clearingAccountId,
+            defaultCashId: data.defaultCashId,
+            defaultBankId: data.defaultBankId,
+            generalRevenueId: data.generalRevenueId,
+            generalExpenseId: data.generalExpenseId,
             preventDirectCashRevenue: data.preventDirectCashRevenue,
-
             revenueMap: {
-                tickets: data.rev_tickets || '',
-                visas: data.rev_visas || '',
-                subscriptions: data.rev_subscriptions || '',
-                segments: data.rev_segments || '',
-                other: data.rev_other || '',
+                tickets: data.rev_tickets,
+                visas: data.rev_visas,
+                subscriptions: data.rev_subscriptions,
+                segments: data.rev_segments,
+                other: data.rev_other,
             },
             expenseMap: {
-                tickets: data.exp_tickets || '',
-                visas: data.exp_visas || '',
-                subscriptions: data.exp_subscriptions || '',
-                partners: data.exp_partners || '',
-                operating: data.exp_operating || '',
-            }
-        };
+                tickets: data.exp_tickets,
+                visas: data.exp_visas,
+                subscriptions: data.exp_subscriptions,
+                partners: data.exp_partners,
+                operating: data.exp_operating,
+            },
+        });
 
         const result = await updateSettings({ financeAccounts: financePayload });
         if (result.success) {
@@ -190,6 +201,12 @@ export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccou
             <SelectRow name="defaultCashId" label="الصندوق الافتراضي" options={accountOptions} />
             <SelectRow name="defaultBankId" label="الحساب البنكي الافتراضي" options={accountOptions} />
             <SelectRow name="clearingAccountId" label="حساب التسوية (Clearing)" options={accountOptions} />
+        </div>
+        <Separator />
+        <div className="space-y-3">
+            <div className="text-sm font-bold text-muted-foreground">حسابات رئيسية</div>
+            <SelectRow name="generalRevenueId" label="الإيرادات العامة" options={accountOptions} />
+            <SelectRow name="generalExpenseId" label="المصروفات العامة" options={accountOptions} />
         </div>
         <Separator />
         <div className="space-y-3">
