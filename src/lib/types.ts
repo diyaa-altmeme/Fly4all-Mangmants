@@ -39,58 +39,52 @@ export interface Relation {
 };
 
 // === إعدادات حسابات النظام ===
-export type FinanceAccountsMap = {
-  receivableAccountId: string;          // الذمم المدينة (العملاء)
-  payableAccountId: string;             // الذمم الدائنة (الموردون)
-  hybridRelationAccountId?: string;     // العملاء/الموردون (علاقات مزدوجة)
-  clearingAccountId?: string;           // حساب تسوية أساسي
-  defaultCashId?: string;               // الصندوق الافتراضي
-  defaultBankId?: string;               // البنك الافتراضي
-  preventDirectCashRevenue: boolean;    // منع الإيراد المباشر للصندوق
-  revenueMap: {                        // خريطة الإيرادات
-    tickets: string;                   // إيرادات التذاكر
-    visas: string;                    // إيرادات التأشيرات
-    subscriptions: string;            // إيرادات الاشتراكات
-    segments: string;                 // إيرادات القطاعات
-    other?: string;                   // إيرادات أخرى
-  };
-  expenseMap: {                       // خريطة المصروفات
-    tickets: string;                  // مصروفات التذاكر
-    visas: string;                   // مصروفات التأشيرات
-    subscriptions: string;           // مصروفات الاشتراكات
-    partners?: string;               // مصروفات الشركاء/التوزيع
-    operating?: string;              // مصروفات تشغيلية
-  };
-};
+export interface FinanceAccountsMap {
+  receivableAccountId?: string;          // الذمم المدينة (العملاء)
+  payableAccountId?: string;             // الذمم الدائنة (الموردون)
+  hybridRelationAccountId?: string;      // العملاء/الموردون (علاقات مزدوجة)
+  clearingAccountId?: string;            // حساب تسوية أساسي
+  defaultCashId?: string;                // الصندوق الافتراضي
+  defaultBankId?: string;                // البنك الافتراضي
+  preventDirectCashRevenue?: boolean;    // منع الإيراد المباشر للصندوق
+  generalRevenueId?: string;             // حساب الإيرادات العامة
+  generalExpenseId?: string;             // حساب المصروفات العامة
+  arAccountId?: string;                  // مرادف لحساب الذمم المدينة
+  apAccountId?: string;                  // مرادف لحساب الذمم الدائنة
+  revenueMap?: Record<string, string>;   // خريطة الإيرادات التفصيلية
+  customRevenues?: Record<string, string>; // توافق مع الإصدارات السابقة
+  expenseMap?: Record<string, string>;   // خريطة المصروفات التفصيلية
+  customExpenses?: Record<string, string>; // توافق مع الإصدارات السابقة
+}
 
 // === القيود المحاسبية ===
-export type JournalEntry = {
+export interface JournalEntry {
   accountId: string;            // معرف الحساب
-  debit: number;               // المدين
-  credit: number;             // الدائن
-  description?: string;       // الوصف
-  currency: Currency;         // العملة
-  relationId?: string;        // معرف العلاقة (عميل/مورد)
-  companyId?: string;        // معرف الشركة
-  sourceType?: string;       // نوع المصدر (تذاكر، تأشيرات، الخ)
-  sourceId?: string;         // معرف المصدر
-  sourceRoute?: string;      // رابط المصدر (للتنقل)
-  boxId?: string;           // الصندوق المستخدم
-  createDate?: Date;        // تاريخ الإنشاء
-  amount?: number;          // المبلغ (للسندات الموزعة)
-};
+  amount?: number;              // القيمة المستخدمة في debitEntries/creditEntries
+  debit?: number;               // المدين
+  credit?: number;              // الدائن
+  description?: string;         // الوصف
+  currency?: Currency;          // العملة
+  relationId?: string;          // معرف العلاقة (عميل/مورد)
+  companyId?: string;           // معرف الشركة
+  sourceType?: string;          // نوع المصدر (تذاكر، تأشيرات، الخ)
+  sourceId?: string;            // معرف المصدر
+  sourceRoute?: string;         // رابط المصدر (للتنقل)
+  boxId?: string;               // الصندوق المستخدم
+  createDate?: Date | string;   // تاريخ الإنشاء
+}
 
-export type JournalVoucher = {
-  id: string;
+export interface JournalVoucher {
+  id?: string;
   invoiceNumber: string;
   date: string;              // تاريخ القيد ISO string
   currency: Currency;        // العملة
-  exchangeRate: number;      // سعر الصرف
-  notes: string;            // ملاحظات
-  createdBy: string;        // منشئ القيد
-  officer: string;          // المسؤول
-  createdAt: string;        // تاريخ الإنشاء ISO string
-  updatedAt: string;        // تاريخ التحديث ISO string
+  exchangeRate?: number;     // سعر الصرف
+  notes?: string;            // ملاحظات
+  createdBy?: string;        // منشئ القيد
+  officer?: string;          // المسؤول
+  createdAt: string | Date | FirebaseFirestore.Timestamp;        // تاريخ الإنشاء
+  updatedAt: string | Date | FirebaseFirestore.Timestamp;        // تاريخ التحديث
   voucherType: string;      // نوع السند
   voucherTypeLabel?: string;// تسمية نوع السند
   debitEntries: JournalEntry[];  // قيود المدين
@@ -103,111 +97,21 @@ export type JournalVoucher = {
   sourceType?: string;        // نوع المصدر
   sourceId?: string;          // معرف المصدر
   sourceRoute?: string;       // رابط المصدر
-};
-
-// === الصناديق ===
-export type Box = {
-  id: string;
-  name: string;
-  openingBalanceUSD: number;
-  openingBalanceIQD: number;
-};
-
-// === الديون ===
-
-// === أنواع الحسابات والقيود المحاسبية ===
-export type AccountType = "asset" | "liability" | "equity" | "revenue" | "expense" | "clearing";
-
-export interface ChartAccount {
-  id: string;
-  code: string;                 // مثل: "1-1-2-2"
-  name: string;                 // مثل: "العملاء/الموردين (مزدوج)"
-  type: AccountType;
-  parentId: string | null;
-  parentCode?: string | null;
-  isLeaf: boolean;
-  description?: string;
-  createdAt: FirebaseFirestore.Timestamp | number | Date;
-  updatedAt: FirebaseFirestore.Timestamp | number | Date;
-  children?: ChartAccount[];
+  meta?: Record<string, any> | null;
+  entries?: JournalEntry[];   // تمثيل الإدخالات الحديث (debit/credit)
 }
 
-// === نوع العلاقة ===
-export type RelationKind = "client" | "supplier" | "both";
-
-// === إعدادات حسابات النظام ===
-export type FinanceAccountsMap = {
-  receivableAccountId: string;          // الذمم المدينة (العملاء)
-  payableAccountId: string;             // الذمم الدائنة (الموردون)
-  hybridRelationAccountId?: string;     // العملاء/الموردون (علاقات مزدوجة)
-  clearingAccountId?: string;           // حساب تسوية أساسي
-  defaultCashId?: string;               // الصندوق الافتراضي
-  defaultBankId?: string;               // البنك الافتراضي
-  preventDirectCashRevenue: boolean;    // منع الإيراد المباشر للصندوق
-  revenueMap: {                        // خريطة الإيرادات
-    tickets: string;                   // إيرادات التذاكر
-    visas: string;                    // إيرادات التأشيرات
-    subscriptions: string;            // إيرادات الاشتراكات
-    segments: string;                 // إيرادات القطاعات
-    other?: string;                   // إيرادات أخرى
-  };
-  expenseMap: {                       // خريطة المصروفات
-    tickets: string;                  // مصروفات التذاكر
-    visas: string;                   // مصروفات التأشيرات
-    subscriptions: string;           // مصروفات الاشتراكات
-    partners?: string;               // مصروفات الشركاء/التوزيع
-    operating?: string;              // مصروفات تشغيلية
-  };
-};
-
-// === القيود المحاسبية ===
-export type JournalEntry = {
-  accountId: string;            // معرف الحساب
-  debit: number;               // المدين
-  credit: number;             // الدائن
-  description?: string;       // الوصف
-  currency: Currency;         // العملة
-  relationId?: string;        // معرف العلاقة (عميل/مورد)
-  companyId?: string;        // معرف الشركة
-  sourceType?: string;       // نوع المصدر (تذاكر، تأشيرات، الخ)
-  sourceId?: string;         // معرف المصدر
-  boxId?: string;           // الصندوق المستخدم
-  createDate?: Date;        // تاريخ الإنشاء
-};
-
 // === الصناديق ===
-export type Box = {
+export interface Box {
   id: string;
   name: string;
   openingBalanceUSD: number;
   openingBalanceIQD: number;
-};
+}
 
-export type Debt = {
-
-export type JournalEntry = {
-  accountId: string;
-  debit: number;
-  credit: number;
-  description?: string;
-  currency: Currency;
-  relationId?: string;         // معرف العلاقة (عميل/مورد)
-  companyId?: string;         // معرف الشركة
-  sourceType?: string;        // نوع المصدر (تذاكر، تأشيرات، الخ)
-  sourceId?: string;          // معرف المصدر
-  boxId?: string;            // الصندوق المستخدم
-  createDate?: Date;         // تاريخ الإنشاء
-};
-
-export type Box = {
+// === الديون ===
+export interface Debt {
   id: string;
-  name: string;
-  openingBalanceUSD: number;
-  openingBalanceIQD: number;
-};
-
-export type Debt = {
-  id:string;
   clientId: string;
   clientName: string;
   amount: number;
@@ -216,7 +120,7 @@ export type Debt = {
   dueDate: string;
   notes: string;
   status: PaymentStatus;
-};
+}
 
 export type CompanyPaymentType = 'cash' | 'credit';
 
@@ -224,7 +128,7 @@ export type SegmentProfitType = 'fixed' | 'percentage';
 
 export type SegmentServiceSetting = {
     type: SegmentProfitType;
-    value: number; // Can be a fixed amount or a percentage
+    value: number; // Can be a fixed amount أو قيمة ثابتة
 };
 
 export type SegmentSettings = {
@@ -844,29 +748,7 @@ export type ThemeCustomizationSettings = ThemeConfig & {
   };
 }
 
-export type FinanceAccountsMap = {
-  receivableAccountId: string;          // الذمم المدينة (العملاء)
-  payableAccountId: string;             // الذمم الدائنة (الموردون)
-  hybridRelationAccountId?: string;     // العملاء/الموردون (علاقات مزدوجة) NEW
-  clearingAccountId?: string;           // حساب تسوية أساسي NEW
-  defaultCashId?: string;
-  defaultBankId?: string;
-  preventDirectCashRevenue?: boolean;   // منع الإيراد المباشر للصندوق
-  revenueMap: {
-    tickets: string;
-    visas: string;
-    subscriptions: string;
-    segments: string;
-    other?: string;
-  };
-  expenseMap: {
-    tickets: string;
-    visas: string;
-    subscriptions: string;
-    partners?: string; // مصروفات الشركاء/التوزيع
-    operating?: string;
-  };
-};
+export interface FinanceAccountsMap {}
 
 // === Chart of Accounts ===
 export interface ChartAccount {

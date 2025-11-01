@@ -1,6 +1,7 @@
 
 
 import type { AppSettings, RelationSection, LandingPageSettings, CurrencySettings, VoucherSettings, InvoiceSequenceSettings, ImportFieldSettings, ImportLogicSettings, CustomRelationField, SegmentSettings, PartnerShareSetting, FinanceAccountsSettings, CustomRevenueAccountsSettings } from './types';
+import { serializeFinanceAccounts } from '@/lib/finance/finance-accounts';
 import { COUNTRIES_DATA } from './countries-data';
 import { parseISO } from 'date-fns';
 
@@ -195,6 +196,8 @@ const defaultFinanceAccountsSettings: FinanceAccountsSettings = {
     alrawdatainAccountId: ""
 };
 
+const defaultFinanceAccounts = serializeFinanceAccounts({ preventDirectCashRevenue: false });
+
 const defaultCustomRevenueAccountsSettings: CustomRevenueAccountsSettings = {
     ticketsRevenueAccountId: "",
     visaRevenueAccountId: "",
@@ -237,7 +240,7 @@ export const defaultSettingsData: AppSettings = {
     importFieldsSettings: defaultImportFieldsSettings,
     importLogicSettings: defaultImportLogicSettings,
     relationSections: defaultRelationSections,
-    financeAccounts: defaultFinanceAccountsSettings,
+    financeAccounts: defaultFinanceAccounts,
     customRevenueAccounts: defaultCustomRevenueAccountsSettings,
     preventDirectProfitToCash: true,
 };

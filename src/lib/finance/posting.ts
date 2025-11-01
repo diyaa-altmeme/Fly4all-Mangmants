@@ -3,14 +3,19 @@
 
 import { getDb } from '@/lib/firebase-admin';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
-import type { FinanceAccountsMap } from '@/lib/types';
+import type { Currency, FinanceAccountsMap, JournalEntry as LegacyJournalEntry } from '@/lib/types';
+import {
+  normalizeFinanceAccounts,
+  type NormalizedFinanceAccounts,
+} from '@/lib/finance/finance-accounts';
 import { Timestamp } from 'firebase-admin/firestore';
+import { getNextVoucherNumber } from '@/lib/sequences';
 
 export type JournalEntry = {
   accountId: string;
   debit: number;       // >= 0
   credit: number;      // >= 0
-  currency: "USD" | "IQD";
+  currency: Currency;
   exchangeRate?: number;
   relationId?: string;     // NEW: علاقة مرتبطة بالقيد
   companyId?: string;
@@ -20,9 +25,10 @@ export type JournalEntry = {
 export type PostJournalPayload = {
   sourceType: string;          // "tickets" | "visas" | "subscriptions" | "segments" | "exchanges" | "profit-sharing" | ...
   sourceId: string;
-  date: number;                // ms
+  date?: number | Date;        // ms | Date
   entries: JournalEntry[];
   meta?: Record<string, any>;
+  description?: string;
 };
 
 async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
@@ -41,7 +47,46 @@ function isBalanced(entries: JournalEntry[]) {
   return Math.abs(totalDebit - totalCredit) < 0.0001;
 }
 
-export async function postJournalEntries(payload: PostJournalPayload, fa?: FinanceAccountsMap) {
+function splitEntries(entries: JournalEntry[]): {
+  debitEntries: LegacyJournalEntry[];
+  creditEntries: LegacyJournalEntry[];
+} {
+  const debitEntries: LegacyJournalEntry[] = [];
+  const creditEntries: LegacyJournalEntry[] = [];
+
+  for (const entry of entries) {
+    if (entry.debit > 0) {
+      debitEntries.push({
+        accountId: entry.accountId,
+        amount: entry.debit,
+        description: entry.note,
+        currency: entry.currency,
+        relationId: entry.relationId,
+        companyId: entry.companyId,
+      });
+    }
+
+    if (entry.credit > 0) {
+      creditEntries.push({
+        accountId: entry.accountId,
+        amount: entry.credit,
+        description: entry.note,
+        currency: entry.currency,
+        relationId: entry.relationId,
+        companyId: entry.companyId,
+      });
+    }
+  }
+
+  return { debitEntries, creditEntries };
+}
+
+function resolveCurrency(entries: JournalEntry[]): Currency {
+  const first = entries.find(e => !!e.currency);
+  return (first?.currency as Currency) || 'USD';
+}
+
+export async function postJournalEntries(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts) {
   const db = await getDb();
 
   if (!payload.entries || !Array.isArray(payload.entries) || payload.entries.length === 0) {
@@ -49,6 +94,7 @@ export async function postJournalEntries(payload: PostJournalPayload, fa?: Finan
   }
 
   // Permission check: unless caller set meta.system === true, require user has vouchers:create
+  let postingUser: { uid: string; name?: string } | null = null;
   if (!payload.meta || !payload.meta.system) {
     const user = await getCurrentUserFromSession();
     if (!user) throw new Error('Authentication required to post journal entries');
@@ -56,6 +102,7 @@ export async function postJournalEntries(payload: PostJournalPayload, fa?: Finan
     if ('isClient' in user && user.isClient) throw new Error('Insufficient permissions');
     const allowed = user.role === 'admin' || (user.permissions && user.permissions.includes('vouchers:create'));
     if (!allowed) throw new Error('User lacks vouchers:create permission');
+    postingUser = { uid: user.uid, name: user.name };
   }
 
   // Validation and checks
@@ -83,32 +130,60 @@ export async function postJournalEntries(payload: PostJournalPayload, fa?: Finan
   }
 
   const now = Timestamp.now();
-  const ref = db.collection('journal_vouchers').doc();
-  await ref.set({
-    id: ref.id,
+  const voucherRef = db.collection('journal-vouchers').doc();
+  const voucherNumber = await getNextVoucherNumber(payload.sourceType.toUpperCase());
+  const { debitEntries, creditEntries } = splitEntries(payload.entries);
+  const voucherDate = payload.date instanceof Date
+    ? payload.date.toISOString()
+    : payload.date
+      ? new Date(payload.date).toISOString()
+      : new Date().toISOString();
+
+  const createdBy = payload.meta?.createdBy || postingUser?.uid || 'system';
+  const officer = payload.meta?.officer || postingUser?.name || 'system';
+
+  await voucherRef.set({
+    id: voucherRef.id,
+    invoiceNumber: voucherNumber,
+    date: voucherDate,
+    currency: resolveCurrency(payload.entries),
+    notes: payload.description || '',
+    createdBy,
+    officer,
+    createdAt: now,
+    updatedAt: now,
+    voucherType: `journal_from_${payload.sourceType}`,
     sourceType: payload.sourceType,
     sourceId: payload.sourceId,
-    date: payload.date,
-    entries: payload.entries,
+    debitEntries,
+    creditEntries,
+    isAudited: false,
+    isConfirmed: true,
     meta: payload.meta || null,
-    createdAt: now,
+    entries: payload.entries,
+    originalData: {
+      sourceType: payload.sourceType,
+      sourceId: payload.sourceId,
+      meta: payload.meta || null,
+    },
   } as any);
 
-  return ref.id;
+  return voucherRef.id;
 }
 
 
 // جلب خريطة الربط من الإعدادات (كاش بسيط اختياري)
-let _cache: { at: number; map: FinanceAccountsMap | null } = { at: 0, map: null };
+let _cache: { at: number; map: NormalizedFinanceAccounts | null } = { at: 0, map: null };
 
-export async function getFinanceMap(): Promise<FinanceAccountsMap> {
+export async function getFinanceMap(): Promise<NormalizedFinanceAccounts> {
   const now = Date.now();
   if (_cache.map && now - _cache.at < 15_000) return _cache.map; // cache 15s
 
   const db = await getDb();
   const ref = db.collection("settings").doc("app_settings");
   const snap = await ref.get();
-  const fm = (snap.data()?.financeAccounts || {}) as FinanceAccountsMap;
+  const fmRaw = (snap.data()?.financeAccounts || {}) as FinanceAccountsMap;
+  const fm = normalizeFinanceAccounts(fmRaw);
   _cache = { at: now, map: fm };
   return fm;
 }
@@ -127,45 +202,44 @@ export async function postRevenue({
 }) {
   if (amount <= 0) return;
 
-  const db = await getDb();
   const fm = await getFinanceMap();
 
-  const revenueAccountId = (fm.revenueMap as any)?.[sourceType];
+  const revenueAccountId = fm.revenueMap?.[sourceType] || fm.generalRevenueId;
   const arId = fm.receivableAccountId;
   if (!revenueAccountId || !arId) {
     throw new Error(`Missing mapping: revenue=${revenueAccountId} or AR=${arId}`);
   }
 
-  if (fm.preventDirectCashRevenue && fm.defaultCashId) {
-    // إيراد آجل (مدين: الذمم / دائن: الإيراد)
-    return db.collection("journal-vouchers").add({
-      date,
-      currency,
-      sourceType,
-      sourceId,
-      lines: [
-        { accountId: arId, debit: amount, credit: 0 },
-        { accountId: revenueAccountId, debit: 0, credit: amount },
-      ],
-      meta: { clientId },
-      createdAt: new Date(),
-    });
-  } else {
-    // إيراد نقدي مباشرة (مدين: الصندوق / دائن: الإيراد)
-    const cashId = fm.defaultCashId || arId; // fallback سيئ؛ الأفضل إجبار الربط
-    return db.collection("journal-vouchers").add({
-      date,
-      currency,
-      sourceType,
-      sourceId,
-      lines: [
-        { accountId: cashId, debit: amount, credit: 0 },
-        { accountId: revenueAccountId, debit: 0, credit: amount },
-      ],
-      meta: { clientId, directCash: true },
-      createdAt: new Date(),
-    });
-  }
+  const shouldDefer = fm.preventDirectCashRevenue && fm.defaultCashId;
+  const debitAccountId = shouldDefer ? arId : (fm.defaultCashId || arId);
+
+  const entries: JournalEntry[] = [
+    {
+      accountId: debitAccountId,
+      debit: amount,
+      credit: 0,
+      currency: currency as Currency,
+      note: shouldDefer ? 'إثبات إيراد آجل' : 'إثبات إيراد نقدي',
+      relationId: clientId,
+    },
+    {
+      accountId: revenueAccountId,
+      debit: 0,
+      credit: amount,
+      currency: currency as Currency,
+      note: 'قيد الإيراد',
+      relationId: clientId,
+    },
+  ];
+
+  return postJournalEntries({
+    sourceType,
+    sourceId,
+    date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
+    entries,
+    meta: { clientId, directCash: !shouldDefer },
+    description: shouldDefer ? 'قيد إيراد آجل' : 'قيد إيراد نقدي',
+  }, fm);
 }
 
 // مثال: تسجيل تكلفة
@@ -179,19 +253,36 @@ export async function postCost({
   supplierId?: string;
 }) {
   if (amount <= 0) return;
-  const db = await getDb();
   const fm = await getFinanceMap();
-  const expId = fm.expenseMap?.[costKey];
+  const expId = fm.expenseMap?.[costKey] || fm.generalExpenseId;
   const apId = fm.payableAccountId;
   if (!expId || !apId) throw new Error(`Missing mapping: expense=${expId} or AP=${apId}`);
 
-  return db.collection("journal-vouchers").add({
-    date, currency, sourceType, sourceId,
-    lines: [
-      { accountId: expId, debit: amount, credit: 0 },
-      { accountId: apId, debit: 0, credit: amount },
-    ],
+  const entries: JournalEntry[] = [
+    {
+      accountId: expId,
+      debit: amount,
+      credit: 0,
+      currency: currency as Currency,
+      note: 'تسجيل مصروف',
+      relationId: supplierId,
+    },
+    {
+      accountId: apId,
+      debit: 0,
+      credit: amount,
+      currency: currency as Currency,
+      note: 'تسجيل ذمم دائنة للمورد',
+      relationId: supplierId,
+    },
+  ];
+
+  return postJournalEntries({
+    sourceType,
+    sourceId,
+    date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
+    entries,
     meta: { supplierId },
-    createdAt: new Date(),
-  });
+    description: 'قيد مصروف',
+  }, fm);
 }

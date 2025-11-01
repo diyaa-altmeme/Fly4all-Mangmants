@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
-import type { FinanceAccountsMap, TreeNode } from '@/lib/types';
+import type { TreeNode } from '@/lib/types';
 import FinanceAccountSettings from '@/app/settings/accounting/components/FinanceAccountSettings';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, GitBranch, WalletCards } from 'lucide-react';
@@ -10,10 +10,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { getChartOfAccounts } from '@/app/settings/accounting/chart-of-accounts/actions';
 import AccountsTreeClient from '../chart-of-accounts/components/accounts-tree-client';
+import type { NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 
 interface AccountingClientProps {
   initialChartData: TreeNode[];
-  initialFinanceMap: FinanceAccountsMap;
+  initialFinanceMap: NormalizedFinanceAccounts;
 }
 
 const NavButton = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (

@@ -1,20 +1,15 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
-import type { TreeNode, FinanceAccountsMap } from '@/lib/types';
-import { Timestamp } from 'firebase-admin/firestore';
-import { revalidatePath } from 'next/cache';
-import { cache } from 'react';
 import { getFinanceAccounts as getFinanceAccountsMapFromAdvanced, saveFinanceAccounts as updateFinanceAccountsMapFromAdvanced } from '../advanced-accounts-setup/actions';
+import { normalizeFinanceAccounts, serializeFinanceAccounts, type NormalizedFinanceAccounts, type FinanceAccountsInput } from '@/lib/finance/finance-accounts';
 
-
-const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
-
-export async function getFinanceAccountsMap(): Promise<FinanceAccountsMap | null> {
-    return await getFinanceAccountsMapFromAdvanced();
+export async function getFinanceAccountsMap(): Promise<NormalizedFinanceAccounts | null> {
+    const raw = await getFinanceAccountsMapFromAdvanced();
+    if (!raw) return null;
+    return normalizeFinanceAccounts(raw);
 }
 
-export async function updateFinanceAccountsMap(payload: FinanceAccountsMap) {
-    return await updateFinanceAccountsMapFromAdvanced(payload);
+export async function updateFinanceAccountsMap(payload: FinanceAccountsInput) {
+    return await updateFinanceAccountsMapFromAdvanced(serializeFinanceAccounts(payload));
 }
