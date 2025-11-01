@@ -31,6 +31,7 @@ export async function GET() {
     const settings = await getSettings();
     const finance = normalizeFinanceAccounts(settings.financeAccounts);
     if (!finance.generalRevenueId || !finance.generalExpenseId) {
+    if (!finance.receivableAccountId || !finance.generalRevenueId) {
          return NextResponse.json({ error: "Finance settings not configured" }, { status: 500 });
     }
 
@@ -77,6 +78,28 @@ export async function GET() {
                 });
             }
         });
+    journalsSnap.forEach((doc) => {
+      const j = doc.data();
+      j.entries.forEach((e: any) => {
+        if (e.type === "credit" && e.accountId.startsWith(finance.generalRevenueId)) {
+          totalRevenue += e.amount;
+          entries.push({
+            ...e,
+            type: "revenue",
+            date: j.date.toDate(),
+            description: j.description,
+          });
+        }
+        else if (e.type === "debit" && e.accountId.startsWith(finance.generalExpenseId)) {
+          totalExpense += e.amount;
+          entries.push({
+            ...e,
+            type: "expense",
+            date: j.date.toDate(),
+            description: j.description,
+          });
+        }
+      });
     });
 
     // Include legacy journals collection for backward compatibility

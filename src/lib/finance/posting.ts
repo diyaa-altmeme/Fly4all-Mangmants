@@ -4,6 +4,7 @@
 import { getDb } from '@/lib/firebase-admin';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import type { Currency, FinanceAccountsMap, JournalEntry as LegacyJournalEntry } from '@/lib/types';
+import type { FinanceAccountsMap } from '@/lib/types';
 import {
   normalizeFinanceAccounts,
   type NormalizedFinanceAccounts,
@@ -283,6 +284,18 @@ export async function postRevenue({
     meta: { clientId, directCash: !shouldDefer },
     description: shouldDefer ? 'قيد إيراد آجل' : 'قيد إيراد نقدي',
   }, fm);
+  return db.collection("journal-vouchers").add({
+    date,
+    currency,
+    sourceType,
+    sourceId,
+    lines: [
+      { accountId: debitAccountId, debit: amount, credit: 0 },
+      { accountId: revenueAccountId, debit: 0, credit: amount },
+    ],
+    meta: { clientId, directCash: !shouldDefer },
+    createdAt: new Date(),
+  });
 }
 
 // مثال: تسجيل تكلفة

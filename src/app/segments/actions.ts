@@ -1,49 +1,8 @@
-"use server";
-
-import { postRevenue, postCost, getFinanceMap } from '@/lib/finance/posting';
-
-type CreateSegmentInput = {
-    id: string;
-    total: number;
-    currency?: string;
-    description?: string;
-};
-
-export async function createSegmentRevenue(input: CreateSegmentInput) {
-    if (input.total <= 0) return;
-    // postRevenue handles mapping and preventDirectCashRevenue logic
-    await postRevenue({
-        sourceType: 'segments',
-        sourceId: input.id,
-        date: input.description || new Date(),
-        currency: input.currency || 'USD',
-        amount: input.total,
-        clientId: undefined,
-    });
-}
-
-export async function distributeSegmentShare(segmentId: string, partnerAccountId: string, amount: number) {
-    if (amount <= 0) return;
-    const fm = await getFinanceMap();
-    // try to find a suitable expense account; prefer a specific key if present
-    const distributionExpense = fm.expenseMap?.partners || fm.expenseMap?.cost_tickets || Object.values(fm.expenseMap || {})[0];
-    if (!distributionExpense) throw new Error('No distribution expense account configured');
-
-    await postCost({
-        costKey: fm.expenseMap?.partners ? 'partners' : 'cost_tickets',
-        sourceType: 'segments',
-        sourceId: segmentId,
-        date: new Date(),
-        currency: 'USD',
-        amount,
-        supplierId: partnerAccountId,
-    });
-}
-
 
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
+import { postJournalEntry } from '@/lib/finance/postJournal';
 import type { SegmentEntry, SegmentSettings, JournalEntry, Client } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
@@ -51,7 +10,6 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
 import { FieldValue } from 'firebase-admin/firestore';
-import { postJournalEntry } from '@/lib/finance/postJournal';
 
 // Helper to check for segment access permissions
 const checkSegmentPermission = async () => {
