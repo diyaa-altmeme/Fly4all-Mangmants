@@ -221,9 +221,9 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                             </p>
                         </div>
                         <div className="grid md:grid-cols-3 gap-8">
-                           <StepCard number={1} title="رفع المستندات" description="قم برفع ملفات PDF الخاصة بالتذاكر، الفيزا، والفواتير إلى النظام." imageUrl="https://images.unsplash.com/photo-1547658719-da2b51169166?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1064&q=80" />
-                           <StepCard number={2} title="المعالجة الذكية" description="يقوم النظام بمعالجة المستندات واستخراج البيانات المالية تلقائيًا." imageUrl="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1085&q=80" />
-                           <StepCard number={3} title="إدارة وتقارير" description="تصفح البيانات المالية، أنشئ التقارير، واتخذ القرارات بكل ثقة." imageUrl="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1085&q=80" />
+                           <StepCard number={1} title="رفع المستندات" description="قم برفع ملفات PDF الخاصة بالتذاكر، الفيزا، والفواتير إلى النظام." imageUrl="https://images.unsplash.com/photo-1547658719-da2b51169166?q=80&w=1064&auto=format&fit=crop" />
+                           <StepCard number={2} title="المعالجة الذكية" description="يقوم النظام بمعالجة المستندات واستخراج البيانات المالية تلقائيًا." imageUrl="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1085&auto=format&fit=crop" />
+                           <StepCard number={3} title="إدارة وتقارير" description="تصفح البيانات المالية، أنشئ التقارير، واتخذ القرارات بكل ثقة." imageUrl="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1085&auto=format&fit=crop" />
                         </div>
                     </div>
                 </section>
