@@ -1,3 +1,71 @@
+export type AccountType = 'asset'|'liability'|'equity'|'revenue'|'expense';
+
+export interface Account {
+  id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  parentId: string | null;
+  parentCode?: string | null;
+  isLeaf: boolean;
+  description?: string;
+  createdAt: number; // epoch ms
+  updatedAt: number; // epoch ms
+}
+
+export interface FinanceAccountsSettings {
+  arAccountId: string | null;
+  apAccountId: string | null;
+  defaultCashId: string | null;
+  defaultBankId: string | null;
+  preventDirectCashRevenue: boolean;
+
+  revenueMap: Record<'tickets'|'visas'|'subscriptions'|'segments', string | null>;
+  expenseMap: Record<'tickets'|'visas'|'subscriptions', string | null>;
+}
+
+export interface AppSettings {
+  financeAccounts?: FinanceAccountsSettings;
+}
+export type AccountType = 'asset'|'liability'|'equity'|'revenue'|'expense';
+
+export interface Account {
+  id: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  parentId: string | null;
+  parentCode?: string | null;
+  isLeaf: boolean;
+  description?: string | null;
+  createdAt: number; // epoch ms
+  updatedAt: number; // epoch ms
+}
+
+export interface FinanceAccountsSettings {
+  arAccountId: string | null;
+  apAccountId: string | null;
+  defaultCashId: string | null;
+  defaultBankId: string | null;
+  preventDirectCashRevenue: boolean;
+
+  revenueMap: Record<'tickets'|'visas'|'subscriptions'|'segments', string | null>;
+  expenseMap: Record<'tickets'|'visas'|'subscriptions', string | null>;
+}
+
+export interface AppSettings {
+  // other settings omitted
+  financeAccounts?: FinanceAccountsSettings | null;
+}
+
+// Helper to convert Firestore Timestamp -> number safely
+export function tsToNumber(ts: any): number {
+  if (!ts) return 0;
+  if (typeof ts === 'number') return ts;
+  if (ts.toMillis && typeof ts.toMillis === 'function') return ts.toMillis();
+  if (ts.seconds) return (ts.seconds || 0) * 1000 + (ts.nanoseconds || 0) / 1e6;
+  return Date.now();
+}
 
 
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
