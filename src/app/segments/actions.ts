@@ -1,3 +1,48 @@
+"use server";
+
+import { getFinanceAccounts } from '../settings/advanced-accounts-setup/actions';
+import { postJournalEntries } from '@/lib/finance/posting';
+
+type CreateSegmentInput = {
+  id: string;
+  total: number;
+  currency?: string;
+  description?: string;
+};
+
+export async function createSegmentRevenue(input: CreateSegmentInput) {
+  const finance = await getFinanceAccounts();
+  const fa = finance.financeAccounts;
+  if (!fa) throw new Error('Finance accounts not configured');
+
+  const revenueAccount = fa.revenueMap?.segments;
+  const arAccount = fa.arAccountId;
+  if (!revenueAccount || !arAccount) throw new Error('Missing revenue or AR account mapping for segments');
+
+  const entries = [
+    { accountId: arAccount, debit: input.total, credit: 0, currency: input.currency, description: 'ذمم مدينة - سكمنت' },
+    { accountId: revenueAccount, debit: 0, credit: input.total, currency: input.currency, description: 'إيراد سكمنت' },
+  ];
+
+  await postJournalEntries({ sourceType: 'segments', sourceId: input.id, entries });
+}
+
+export async function distributeSegmentShare(segmentId: string, partnerAccountId: string, amount: number) {
+  const finance = await getFinanceAccounts();
+  const fa = finance.financeAccounts;
+  if (!fa) throw new Error('Finance accounts not configured');
+
+  // Example mapping: use expenseMap.segments or a dedicated distribution expense account
+  const distributionExpense = fa.expenseMap?.tickets || null; // fallback example
+  if (!distributionExpense) throw new Error('No distribution expense account configured');
+
+  const entries = [
+    { accountId: distributionExpense, debit: amount, credit: 0, description: 'مصروف توزيع سكمنت' },
+    { accountId: partnerAccountId, debit: 0, credit: amount, description: 'ذمم دائنة - شريك' },
+  ];
+
+  await postJournalEntries({ sourceType: 'segments', sourceId: segmentId, entries });
+}
 
 
 'use server';

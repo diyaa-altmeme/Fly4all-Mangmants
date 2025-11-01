@@ -1,3 +1,43 @@
+"use server";
+
+import { getFinanceAccounts } from '../settings/advanced-accounts-setup/actions';
+import { postJournalEntries } from '@/lib/finance/posting';
+
+type SubscriptionInvoice = { id: string; total: number; currency?: string };
+
+export async function createSubscriptionInvoice(inv: SubscriptionInvoice) {
+  const finance = await getFinanceAccounts();
+  const fa = finance.financeAccounts;
+  if (!fa) throw new Error('Finance accounts not configured');
+
+  const ar = fa.arAccountId;
+  const revenue = fa.revenueMap?.subscriptions;
+  if (!ar || !revenue) throw new Error('AR or subscriptions revenue account not configured');
+
+  const entries = [
+    { accountId: ar, debit: inv.total, credit: 0, currency: inv.currency, description: 'ذمم مدينة - اشتراك' },
+    { accountId: revenue, debit: 0, credit: inv.total, currency: inv.currency, description: 'إيراد اشتراك' },
+  ];
+
+  await postJournalEntries({ sourceType: 'subscriptions', sourceId: inv.id, entries });
+}
+
+export async function receiveSubscriptionPayment(subscriptionId: string, amount: number, cashAccountId?: string) {
+  const finance = await getFinanceAccounts();
+  const fa = finance.financeAccounts;
+  if (!fa) throw new Error('Finance accounts not configured');
+
+  const ar = fa.arAccountId;
+  const cash = cashAccountId || fa.defaultCashId;
+  if (!ar || !cash) throw new Error('AR or cash account not configured');
+
+  const entries = [
+    { accountId: cash, debit: amount, credit: 0, description: 'تحصيل اشتراك - صندوق' },
+    { accountId: ar, debit: 0, credit: amount, description: 'تحصيل اشتراك - قيد على ذمم' },
+  ];
+
+  await postJournalEntries({ sourceType: 'subscriptions', sourceId: subscriptionId, entries });
+}
 
 'use server';
 
