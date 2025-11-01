@@ -6,7 +6,7 @@ import type { Subscription, SubscriptionInstallment, Payment, Currency, Subscrip
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Settings, History, MessageSquare, Trash2, Loader2, WalletCards, CheckCircle, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import SubscriptionsSettingsDialog from '@/components/settings/subscriptions-settings-dialog';
+import SubscriptionsSettingsDialog from '@/app/campaigns/components/subscriptions-settings-dialog';
 import { softDeleteSubscription } from '@/app/subscriptions/actions';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -25,22 +25,22 @@ import { format, parseISO, isPast } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import ReceiveInstallmentPaymentDialog from '@/app/subscriptions/components/receive-installment-payment-dialog';
+import ReceiveInstallmentPaymentDialog from './receive-installment-payment-dialog';
 import { getInstallmentPayments, deletePayment } from '@/app/subscriptions/actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { sendInstallmentReminder } from '@/ai/flows/send-installment-reminder';
-import EditPaymentDialog from '@/app/subscriptions/components/edit-payment-dialog';
+import EditPaymentDialog from './edit-payment-dialog';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { produce } from 'immer';
-import InvoiceDialog from '@/app/subscriptions/components/invoice-dialog';
+import InvoiceDialog from './invoice-dialog';
 import UpdateSubscriptionStatusDialog from './update-subscription-status-dialog';
 import { ChevronDown, Edit, MoreHorizontal, FileText as InvoiceIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search } from 'lucide-react';
-import ManageInstallmentsDialog from '@/components/subscriptions/manage-installments-dialog';
+import ManageInstallmentsDialog from './manage-installments-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 
@@ -237,14 +237,16 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
         }
     };
     
+    const totalPaid = subscription.paidAmount || 0;
+    const remainingAmount = subscription.salePrice - totalPaid;
+    const dynamicStatus: SubscriptionStatus = remainingAmount <= 0.01 && subscription.status !== 'Cancelled' && subscription.status !== 'Suspended' ? 'Paid' : subscription.status;
+
     const subscriptionInstallments = useMemo(() => 
         Array.isArray(allInstallments) ? allInstallments.filter(inst => inst.subscriptionId === subscription.id).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()) : [],
     [allInstallments, subscription.id]);
     
-    const totalPaid = subscription.paidAmount || 0;
     const totalDiscount = subscriptionInstallments.reduce((sum, inst) => sum + (inst.discount || 0), 0);
-    const remainingAmount = subscription.salePrice - totalPaid;
-    const dynamicStatus: SubscriptionStatus = remainingAmount <= 0.01 && subscription.status !== 'Cancelled' && subscription.status !== 'Suspended' ? 'Paid' : subscription.status;
+
 
     return (
       <Collapsible asChild>
@@ -276,7 +278,7 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
                   <ManageInstallmentsDialog subscription={subscription} onSuccess={onDataChange}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}><WalletCards className="me-2 h-4 w-4" />إدارة الأقساط</DropdownMenuItem>
                   </ManageInstallmentsDialog>
-                  <InvoiceDialog subscription={subscription} installments={subscriptionInstallments} />
+                  <InvoiceDialog subscription={subscription} />
                   <UpdateSubscriptionStatusDialog subscription={subscription} onStatusChange={onDataChange}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}><ShieldCheck className="me-2 h-4 w-4" />تغيير الحالة</DropdownMenuItem>
                   </UpdateSubscriptionStatusDialog>
@@ -301,20 +303,11 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
             </TableCell>
           </TableRow>
           <CollapsibleContent asChild>
-            <TableRow>
-              <TableCell colSpan={12} className="p-0">
-                <div className="p-4 bg-muted/50 space-y-4">
-                  <div className="flex items-center gap-x-6 text-xs p-2">
-                    <span className="font-semibold">تاريخ الشراء: <span className="font-normal">{format(parseISO(subscription.purchaseDate), 'yyyy-MM-dd')}</span></span>
-                    <Separator orientation="vertical" className="h-4" />
-                    <span className="font-semibold">تاريخ البدء: <span className="font-normal">{format(parseISO(subscription.startDate), 'yyyy-MM-dd')}</span></span>
-                    <Separator orientation="vertical" className="h-4" />
-                    <span className="font-semibold">الكمية: <span className="font-normal">{subscription.quantity}</span></span>
-                    <Separator orientation="vertical" className="h-4" />
-                    <span className="font-semibold">سعر بيع الوحدة: <span className="font-normal font-mono">{formatCurrency(subscription.unitPrice, subscription.currency)}</span></span>
-                    {subscription.notes && <><Separator orientation="vertical" className="h-4" /><span className="font-semibold col-span-full">ملاحظات: <span className="font-normal">{subscription.notes}</span></span></>}
-                  </div>
-                  <div className="border rounded-md overflow-hidden bg-background">
+             <TableRow>
+              <TableCell colSpan={12} className="p-2 bg-muted/50">
+                <div className="p-4 bg-background rounded-md">
+                <h4 className="font-semibold mb-2">جدول الأقساط</h4>
+                 <div className="border rounded-lg overflow-hidden">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -359,12 +352,11 @@ export default function SubscriptionsListView({ subscriptions, allInstallments, 
             const matchesSearch = searchTerm ? 
                 sub.serviceName.toLowerCase().includes(searchTermLower) || 
                 sub.clientName.toLowerCase().includes(searchTermLower) || 
-                sub.supplierName.toLowerCase().includes(searchTermLower) ||
+                (sub.supplierName || '').toLowerCase().includes(searchTermLower) ||
                 (sub.invoiceNumber || '').toLowerCase().includes(searchTermLower)
                 : true;
             
-            const totalPaid = sub.paidAmount || 0;
-            const remainingAmount = sub.salePrice - totalPaid;
+            const remainingAmount = sub.salePrice - (sub.paidAmount || 0);
             const dynamicStatus: SubscriptionStatus = remainingAmount <= 0.01 && sub.status !== 'Cancelled' && sub.status !== 'Suspended' ? 'Paid' : sub.status;
             const matchesStatus = statusFilter === 'all' ? true : dynamicStatus === statusFilter;
 

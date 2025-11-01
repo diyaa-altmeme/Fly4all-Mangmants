@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -30,7 +29,7 @@ function UsersPageContainer() {
                 getBoxes(),
                 getRoles(),
             ]);
-            setUsers(usersData);
+            setUsers(usersData as HrData[]);
             setBoxes(boxesData);
             setRoles(rolesData);
         } catch (e: any) {

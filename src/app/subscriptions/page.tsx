@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { Suspense, useState, useEffect, useCallback } from 'react';
@@ -12,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import type { Subscription, SubscriptionInstallment } from '@/lib/types';
 
 
-function SubscriptionsData() {
+function SubscriptionsDataContainer() {
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
     const [installments, setInstallments] = useState<SubscriptionInstallment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -72,11 +71,10 @@ export default function SubscriptionsPage() {
             <Card>
                 <CardContent className="pt-6">
                     <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-                        <SubscriptionsData />
+                        <SubscriptionsDataContainer />
                     </Suspense>
                 </CardContent>
             </Card>
         </div>
     );
 }
-

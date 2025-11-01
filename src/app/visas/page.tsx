@@ -1,40 +1,40 @@
 
 "use client";
 
-import * as React from "react";
-import VisasContent from "./components/visas-content";
-import { getVisaBookings } from "./actions";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal, Loader2 } from "lucide-react";
-import type { VisaBookingEntry, Client, Supplier, Box } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import React, { Suspense, useState, useEffect, useCallback } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, Terminal } from 'lucide-react';
+import { getVisaBookings } from './actions';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import SubscriptionsContent from '@/app/subscriptions/components/subscriptions-content';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { VisaBookingEntry } from '@/lib/types';
+import VisasContent from './components/visas-content-wrapper';
 
-export default function VisasPage() {
-    const [bookings, setBookings] = React.useState<VisaBookingEntry[]>([]);
-    const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState<string | null>(null);
 
-    React.useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                const data = await getVisaBookings();
-                setBookings(data);
-            } catch (e: any) {
-                setError(e.message || "فشل تحميل البيانات الضرورية لهذه الصفحة.");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
+function VisasDataContainer() {
+    const [bookings, setBookings] = useState<VisaBookingEntry[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+     const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await getVisaBookings();
+            setBookings(data);
+        } catch (e: any) {
+            setError(e.message || "فشل تحميل البيانات الضرورية لهذه الصفحة.");
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        )
+        return <Skeleton className="h-96 w-full" />;
     }
 
     if (error) {
@@ -48,16 +48,23 @@ export default function VisasPage() {
     }
     
   return (
-      <div className="space-y-6">
+    <VisasContent initialData={bookings} />
+  );
+}
+
+
+export default function VisasPage() {
+    return (
+        <div className="space-y-6">
             <CardHeader className="px-0 sm:px-6">
                 <CardTitle>إدارة طلبات الفيزا</CardTitle>
                 <CardDescription>
                     نظام متكامل لتسجيل ومتابعة جميع طلبات الفيزا وحالاتها.
                 </CardDescription>
             </CardHeader>
-            <VisasContent
-                initialData={bookings}
-            />
+             <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+                <VisasDataContainer />
+            </Suspense>
         </div>
-  );
+    );
 }
