@@ -38,6 +38,10 @@ import {
   FileX2,
   PenSquare,
   Landmark,
+  Bell,
+  Box,
+  User,
+  BellRing
 } from "lucide-react";
 
 export const navConfig = {
@@ -46,6 +50,11 @@ export const navConfig = {
       title: "الرئيسية",
       href: "/dashboard",
       icon: LayoutDashboard,
+    },
+    {
+      title: "مركز الحسابات",
+      href: "/accounts",
+      icon: Wallet,
     },
   ],
   relations: {
@@ -138,6 +147,47 @@ export const navConfig = {
       { title: "تحليل الربحية", href: "/reports/profitability-analysis", icon: PieChart },
       { title: "التدفق النقدي", href: "/reports/cash-flow", icon: Waypoints },
       { title: "التدقيق الذكي", href: "/reconciliation", icon: Wand2 },
+    ],
+  },
+    additionalFeatures: {
+    title: "الميزات الإضافية",
+    icon: Briefcase,
+    items: [
+      {
+        title: "الصناديق",
+        href: "/boxes",
+        icon: Box,
+      },
+      {
+        title: "الموردين",
+        href: "/suppliers",
+        icon: Building,
+      },
+      {
+        title: "الملف الشخصي",
+        href: "/profile",
+        icon: User,
+      },
+      {
+        title: "الأرباح",
+        href: "/profits",
+        icon: AreaChart,
+      },
+      {
+        title: "الإشعارات",
+        href: "/notifications",
+        icon: BellRing,
+      },
+      {
+        title: "إعدادات متقدمة للحسابات",
+        href: "/settings/advanced-accounts-setup",
+        icon: GitBranch
+      },
+      {
+        title: "إدارة الأصول",
+        href: "/settings/assets",
+        icon: Wallet,
+      }
     ],
   },
   system: {
