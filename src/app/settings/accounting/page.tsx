@@ -57,10 +57,9 @@ function AccountingDataContainer() {
     }
 
     return (
-        <AccountingClient 
-            initialChartData={chartData} 
+        <AccountingClient
+            initialChartData={chartData}
             initialFinanceMap={financeMap}
-            initialSettings={settings}
         />
     )
 }
