@@ -39,29 +39,23 @@ export interface Relation {
 };
 
 // === إعدادات حسابات النظام ===
-export type FinanceAccountsMap = {
-  receivableAccountId: string;          // الذمم المدينة (العملاء)
-  payableAccountId: string;             // الذمم الدائنة (الموردون)
-  hybridRelationAccountId?: string;     // العملاء/الموردون (علاقات مزدوجة)
-  clearingAccountId?: string;           // حساب تسوية أساسي
-  defaultCashId?: string;               // الصندوق الافتراضي
-  defaultBankId?: string;               // البنك الافتراضي
-  preventDirectCashRevenue: boolean;    // منع الإيراد المباشر للصندوق
-  revenueMap: {                        // خريطة الإيرادات
-    tickets: string;                   // إيرادات التذاكر
-    visas: string;                    // إيرادات التأشيرات
-    subscriptions: string;            // إيرادات الاشتراكات
-    segments: string;                 // إيرادات القطاعات
-    other?: string;                   // إيرادات أخرى
-  };
-  expenseMap: {                       // خريطة المصروفات
-    tickets: string;                  // مصروفات التذاكر
-    visas: string;                   // مصروفات التأشيرات
-    subscriptions: string;           // مصروفات الاشتراكات
-    partners?: string;               // مصروفات الشركاء/التوزيع
-    operating?: string;              // مصروفات تشغيلية
-  };
-};
+export interface FinanceAccountsMap {
+  receivableAccountId?: string;          // الذمم المدينة (العملاء)
+  payableAccountId?: string;             // الذمم الدائنة (الموردون)
+  hybridRelationAccountId?: string;      // العملاء/الموردون (علاقات مزدوجة)
+  clearingAccountId?: string;            // حساب تسوية أساسي
+  defaultCashId?: string;                // الصندوق الافتراضي
+  defaultBankId?: string;                // البنك الافتراضي
+  preventDirectCashRevenue?: boolean;    // منع الإيراد المباشر للصندوق
+  generalRevenueId?: string;             // حساب الإيرادات العامة
+  generalExpenseId?: string;             // حساب المصروفات العامة
+  arAccountId?: string;                  // مرادف لحساب الذمم المدينة
+  apAccountId?: string;                  // مرادف لحساب الذمم الدائنة
+  revenueMap?: Record<string, string>;   // خريطة الإيرادات التفصيلية
+  customRevenues?: Record<string, string>; // توافق مع الإصدارات السابقة
+  expenseMap?: Record<string, string>;   // خريطة المصروفات التفصيلية
+  customExpenses?: Record<string, string>; // توافق مع الإصدارات السابقة
+}
 
 // === القيود المحاسبية ===
 export type JournalEntry = {
@@ -136,29 +130,7 @@ export interface ChartAccount {
 export type RelationKind = "client" | "supplier" | "both";
 
 // === إعدادات حسابات النظام ===
-export type FinanceAccountsMap = {
-  receivableAccountId: string;          // الذمم المدينة (العملاء)
-  payableAccountId: string;             // الذمم الدائنة (الموردون)
-  hybridRelationAccountId?: string;     // العملاء/الموردون (علاقات مزدوجة)
-  clearingAccountId?: string;           // حساب تسوية أساسي
-  defaultCashId?: string;               // الصندوق الافتراضي
-  defaultBankId?: string;               // البنك الافتراضي
-  preventDirectCashRevenue: boolean;    // منع الإيراد المباشر للصندوق
-  revenueMap: {                        // خريطة الإيرادات
-    tickets: string;                   // إيرادات التذاكر
-    visas: string;                    // إيرادات التأشيرات
-    subscriptions: string;            // إيرادات الاشتراكات
-    segments: string;                 // إيرادات القطاعات
-    other?: string;                   // إيرادات أخرى
-  };
-  expenseMap: {                       // خريطة المصروفات
-    tickets: string;                  // مصروفات التذاكر
-    visas: string;                   // مصروفات التأشيرات
-    subscriptions: string;           // مصروفات الاشتراكات
-    partners?: string;               // مصروفات الشركاء/التوزيع
-    operating?: string;              // مصروفات تشغيلية
-  };
-};
+export interface FinanceAccountsMap {}
 
 // === القيود المحاسبية ===
 export type JournalEntry = {
@@ -844,29 +816,7 @@ export type ThemeCustomizationSettings = ThemeConfig & {
   };
 }
 
-export type FinanceAccountsMap = {
-  receivableAccountId: string;          // الذمم المدينة (العملاء)
-  payableAccountId: string;             // الذمم الدائنة (الموردون)
-  hybridRelationAccountId?: string;     // العملاء/الموردون (علاقات مزدوجة) NEW
-  clearingAccountId?: string;           // حساب تسوية أساسي NEW
-  defaultCashId?: string;
-  defaultBankId?: string;
-  preventDirectCashRevenue?: boolean;   // منع الإيراد المباشر للصندوق
-  revenueMap: {
-    tickets: string;
-    visas: string;
-    subscriptions: string;
-    segments: string;
-    other?: string;
-  };
-  expenseMap: {
-    tickets: string;
-    visas: string;
-    subscriptions: string;
-    partners?: string; // مصروفات الشركاء/التوزيع
-    operating?: string;
-  };
-};
+export interface FinanceAccountsMap {}
 
 // === Chart of Accounts ===
 export interface ChartAccount {

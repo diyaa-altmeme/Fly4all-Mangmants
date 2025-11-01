@@ -13,7 +13,8 @@ import SettingsPageContent from './components/settings-page-content';
 import { Terminal, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { AppSettings, FinanceAccountsMap, TreeNode, User, Box, Client, Supplier, Exchange } from '@/lib/types';
+import type { AppSettings, TreeNode, User, Box, Client, Supplier, Exchange } from '@/lib/types';
+import { normalizeFinanceAccounts, type NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 
 function SettingsDataContainer() {
     const [initialSettings, setInitialSettings] = useState<AppSettings | null>(null);
@@ -87,13 +88,13 @@ function SettingsDataContainer() {
         );
     }
   
-    const financeMap = initialSettings?.financeAccounts;
-  
+    const financeMap = initialSettings?.financeAccounts ? normalizeFinanceAccounts(initialSettings.financeAccounts) : null;
+
     return (
         <SettingsPageContent
             initialSettings={initialSettings}
             chartOfAccounts={chartOfAccounts}
-            financeMap={financeMap as FinanceAccountsMap}
+            financeMap={(financeMap as NormalizedFinanceAccounts) ?? normalizeFinanceAccounts(null)}
             users={users}
             boxes={boxes}
             clients={clients}

@@ -4,15 +4,17 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import type { ChartAccount, FinanceAccountsMap } from "@/lib/types";
+import type { ChartAccount } from "@/lib/types";
 import { getChartOfAccounts, getFinanceAccounts, saveFinanceAccounts } from "./actions";
+import type { NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 
 export default function AdvancedAccountsSetupPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [accounts, setAccounts] = useState<ChartAccount[]>([]);
-  const [model, setModel] = useState<FinanceAccountsMap | null>(null);
+  const [model, setModel] = useState<NormalizedFinanceAccounts | null>(null);
 
   // جلب البيانات بعد التحميل
   useEffect(() => {
@@ -32,9 +34,13 @@ export default function AdvancedAccountsSetupPage() {
           clearingAccountId: "",
           defaultCashId: "",
           defaultBankId: "",
-          preventDirectCashRevenue: true,
-          revenueMap: { tickets: "", visas: "", subscriptions: "", segments: "", other: "" },
-          expenseMap: { tickets: "", visas: "", subscriptions: "", partners: "", operating: "" }
+          preventDirectCashRevenue: false,
+          generalRevenueId: "",
+          generalExpenseId: "",
+          arAccountId: "",
+          apAccountId: "",
+          revenueMap: { tickets: "", visas: "", subscriptions: "", segments: "", profit_distribution: "", other: "" },
+          expenseMap: { tickets: "", visas: "", subscriptions: "", partners: "", operating: "", cost_tickets: "", cost_visas: "", operating_salaries: "", operating_rent: "", operating_utilities: "", marketing: "" },
         });
       } catch (e: any) {
         toast({ title: "فشل جلب البيانات", description: e?.message, variant: "destructive" });
@@ -109,6 +115,22 @@ export default function AdvancedAccountsSetupPage() {
             {Sel(model.defaultBankId ?? "", v => setModel({ ...model, defaultBankId: v }), byType.asset)}
           </div>
 
+          <div className="md:col-span-2 flex items-center justify-between border rounded-lg p-3">
+            <div>
+              <div className="font-semibold">منع ترحيل الإيراد مباشرة للصندوق</div>
+              <p className="text-sm text-muted-foreground">عند التفعيل سيتم استخدام حسابات الإيراد بدلاً من الصندوق النقدي في القيود التلقائية.</p>
+            </div>
+            <Switch checked={!!model.preventDirectCashRevenue} onCheckedChange={v => setModel({ ...model, preventDirectCashRevenue: v })} />
+          </div>
+
+          <div className="md:col-span-2">
+            <div className="mb-2 font-semibold">حسابات عامة</div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>{Sel(model.generalRevenueId ?? "", v => setModel({ ...model, generalRevenueId: v }), byType.revenue)}</div>
+              <div>{Sel(model.generalExpenseId ?? "", v => setModel({ ...model, generalExpenseId: v }), byType.expense)}</div>
+            </div>
+          </div>
+
           <div className="md:col-span-2 pt-2 border-t">
             <div className="mb-2 font-semibold">خريطة الإيرادات</div>
             <div className="grid md:grid-cols-2 gap-4">
@@ -116,6 +138,7 @@ export default function AdvancedAccountsSetupPage() {
               <div>{Sel(model.revenueMap.visas, v => setModel({ ...model, revenueMap: { ...model.revenueMap, visas: v }}), byType.revenue)}</div>
               <div>{Sel(model.revenueMap.subscriptions, v => setModel({ ...model, revenueMap: { ...model.revenueMap, subscriptions: v }}), byType.revenue)}</div>
               <div>{Sel(model.revenueMap.segments, v => setModel({ ...model, revenueMap: { ...model.revenueMap, segments: v }}), byType.revenue)}</div>
+              <div>{Sel(model.revenueMap.profit_distribution ?? "", v => setModel({ ...model, revenueMap: { ...model.revenueMap, profit_distribution: v }}), byType.revenue)}</div>
               <div>{Sel(model.revenueMap.other ?? "", v => setModel({ ...model, revenueMap: { ...model.revenueMap, other: v }}), byType.revenue)}</div>
             </div>
           </div>
@@ -128,6 +151,12 @@ export default function AdvancedAccountsSetupPage() {
               <div>{Sel(model.expenseMap.subscriptions, v => setModel({ ...model, expenseMap: { ...model.expenseMap, subscriptions: v }}), byType.expense)}</div>
               <div>{Sel(model.expenseMap.partners ?? "", v => setModel({ ...model, expenseMap: { ...model.expenseMap, partners: v }}), byType.expense)}</div>
               <div>{Sel(model.expenseMap.operating ?? "", v => setModel({ ...model, expenseMap: { ...model.expenseMap, operating: v }}), byType.expense)}</div>
+              <div>{Sel(model.expenseMap.cost_tickets ?? "", v => setModel({ ...model, expenseMap: { ...model.expenseMap, cost_tickets: v }}), byType.expense)}</div>
+              <div>{Sel(model.expenseMap.cost_visas ?? "", v => setModel({ ...model, expenseMap: { ...model.expenseMap, cost_visas: v }}), byType.expense)}</div>
+              <div>{Sel(model.expenseMap.operating_salaries ?? "", v => setModel({ ...model, expenseMap: { ...model.expenseMap, operating_salaries: v }}), byType.expense)}</div>
+              <div>{Sel(model.expenseMap.operating_rent ?? "", v => setModel({ ...model, expenseMap: { ...model.expenseMap, operating_rent: v }}), byType.expense)}</div>
+              <div>{Sel(model.expenseMap.operating_utilities ?? "", v => setModel({ ...model, expenseMap: { ...model.expenseMap, operating_utilities: v }}), byType.expense)}</div>
+              <div>{Sel(model.expenseMap.marketing ?? "", v => setModel({ ...model, expenseMap: { ...model.expenseMap, marketing: v }}), byType.expense)}</div>
             </div>
           </div>
         </CardContent>

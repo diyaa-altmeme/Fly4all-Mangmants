@@ -3,12 +3,13 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getFinanceSettings, type FinanceAccountsMap } from '../advanced-accounts-setup/actions';
+import { getFinanceSettings } from '../advanced-accounts-setup/actions';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft } from 'lucide-react';
+import type { NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 
 const InfoRow = ({ label, value }: { label: string, value?: string }) => (
     <div className="flex justify-between items-center p-3 border-b">
@@ -20,7 +21,7 @@ const InfoRow = ({ label, value }: { label: string, value?: string }) => (
 export default function FinanceControlCenterReadOnly() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState<FinanceAccountsMap | null>(null);
+  const [settings, setSettings] = useState<NormalizedFinanceAccounts | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -68,14 +69,14 @@ export default function FinanceControlCenterReadOnly() {
             <div className="border rounded-lg">
                 <InfoRow label="حساب الإيرادات العامة" value={settings?.generalRevenueId} />
                 <InfoRow label="حساب المصروفات العامة" value={settings?.generalExpenseId} />
-                <InfoRow label="حساب الذمم المدينة (AR)" value={settings?.arAccountId} />
-                <InfoRow label="حساب الذمم الدائنة (AP)" value={settings?.apAccountId} />
+                <InfoRow label="حساب الذمم المدينة (AR)" value={settings?.receivableAccountId} />
+                <InfoRow label="حساب الذمم الدائنة (AP)" value={settings?.payableAccountId} />
                 <InfoRow label="الصندوق الافتراضي" value={settings?.defaultCashId} />
                 <InfoRow label="البنك الافتراضي" value={settings?.defaultBankId} />
-                <InfoRow label="إيرادات التذاكر" value={settings?.customRevenues?.tickets} />
-                <InfoRow label="إيرادات الفيزا" value={settings?.customRevenues?.visas} />
-                <InfoRow label="إيرادات الاشتراكات" value={settings?.customRevenues?.subscriptions} />
-                <InfoRow label="إيرادات السكمنت" value={settings?.customRevenues?.segments} />
+                <InfoRow label="إيرادات التذاكر" value={settings?.revenueMap?.tickets} />
+                <InfoRow label="إيرادات الفيزا" value={settings?.revenueMap?.visas} />
+                <InfoRow label="إيرادات الاشتراكات" value={settings?.revenueMap?.subscriptions} />
+                <InfoRow label="إيرادات السكمنت" value={settings?.revenueMap?.segments} />
                 <InfoRow label="منع ترحيل الإيراد للصندوق" value={settings?.preventDirectCashRevenue ? 'مفعل' : 'غير مفعل'} />
             </div>
         </CardContent>
