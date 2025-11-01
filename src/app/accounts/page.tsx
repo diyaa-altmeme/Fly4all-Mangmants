@@ -128,7 +128,7 @@ const quickLinks = [
 
 export default function AccountsManagementPage() {
   return (
-    <div className="space-y-8 p-4">
+    <div className="space-y-8">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <p className="text-sm font-semibold text-primary/80">الحسابات</p>
