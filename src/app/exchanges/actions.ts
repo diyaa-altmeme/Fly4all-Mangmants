@@ -1,3 +1,16 @@
+"use server";
+
+import { postJournalEntries } from '@/lib/finance/posting';
+
+export async function exchangeBetweenAccounts(sourceId: string, fromAccountId: string, toAccountId: string, amount: number, desc?: string) {
+  if (!fromAccountId || !toAccountId) throw new Error('Both account ids are required');
+  const entries = [
+    { accountId: toAccountId, debit: amount, credit: 0, description: desc || 'تحويل إلى' },
+    { accountId: fromAccountId, debit: 0, credit: amount, description: desc || 'تحويل من' },
+  ];
+
+  await postJournalEntries({ sourceType: 'exchanges', sourceId, entries });
+}
 
 'use server';
 

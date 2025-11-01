@@ -1,3 +1,68 @@
+"use server";
+
+import { getDb } from '../firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
+
+type JournalEntry = {
+  accountId: string;
+  debit: number;
+  credit: number;
+  currency?: string;
+  description?: string;
+};
+
+type PostPayload = {
+  sourceType: string;
+  sourceId: string;
+  date?: any;
+  entries: JournalEntry[];
+  meta?: any;
+};
+
+async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
+  const accountIds = Array.from(new Set(entries.map(e => e.accountId).filter(Boolean)));
+  if (accountIds.length === 0) return;
+  const refs = accountIds.map((id: string) => db.collection('chart_of_accounts').doc(id));
+  const snaps = await Promise.all(refs.map((r: any) => r.get()));
+  const missing = snaps.map((s: any, i: number) => (!s.exists ? accountIds[i] : null)).filter(Boolean);
+  if (missing.length) throw new Error('Accounts not found: ' + missing.join(', '));
+}
+
+function isBalanced(entries: JournalEntry[]) {
+  const totalDebit = entries.reduce((s, e) => s + (e.debit || 0), 0);
+  const totalCredit = entries.reduce((s, e) => s + (e.credit || 0), 0);
+  // allow tiny float rounding
+  return Math.abs(totalDebit - totalCredit) < 0.0001;
+}
+
+export async function postJournalEntries(payload: PostPayload) {
+  const db = await getDb();
+
+  if (!payload.entries || !Array.isArray(payload.entries) || payload.entries.length === 0) {
+    throw new Error('No entries provided');
+  }
+
+  // Validation: balanced
+  if (!isBalanced(payload.entries)) {
+    throw new Error('Entries are not balanced (debit != credit)');
+  }
+
+  // Validation: accounts exist
+  await ensureAccountsExist(db, payload.entries);
+
+  const now = Timestamp.now();
+  const doc = {
+    sourceType: payload.sourceType,
+    sourceId: payload.sourceId,
+    date: payload.date || now,
+    entries: payload.entries.map(e => ({ ...e })),
+    meta: payload.meta || null,
+    createdAt: now,
+  };
+
+  const ref = await db.collection('journal_vouchers').add(doc as any);
+  return { id: ref.id };
+}
 
 import { getDb } from "@/lib/firebase-admin";
 import type { FinanceAccountsMap } from "@/lib/types";
