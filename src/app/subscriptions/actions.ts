@@ -57,6 +57,7 @@ import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { cache } from 'react';
 import { postJournalEntry } from '@/lib/finance/postJournal';
+import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
 
 const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
@@ -152,8 +153,8 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     if (!user) return { success: false, error: "User not authenticated" };
     
     const settings = await getSettings();
-    const financeSettings = settings.financeAccounts;
-    if (financeSettings?.preventDirectCashRevenue && subscriptionData.boxId) {
+    const financeSettings = normalizeFinanceAccounts(settings.financeAccounts);
+    if (financeSettings.preventDirectCashRevenue && subscriptionData.boxId) {
       throw new Error("❌ غير مسموح بتسجيل الإيرادات مباشرة في الصندوق. استخدم حساب الإيراد أولًا.");
     }
     
