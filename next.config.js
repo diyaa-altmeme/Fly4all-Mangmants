@@ -6,7 +6,9 @@ const nextConfig = {
   },
   // تمكين Server Actions صراحةً لضمان أن بيئة التطوير تدعمها
   experimental: {
-    serverActions: true,
+    serverActions: {
+      bodySizeLimit: '2mb', // Using a default object configuration
+    },
   },
   eslint: {
     ignoreDuringBuilds: true,
