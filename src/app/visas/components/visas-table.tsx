@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -51,12 +50,15 @@ const VisaRow = ({ booking, suppliers, clients, onBookingUpdated, onBookingDelet
                 <TableCell className="font-mono text-center whitespace-nowrap">{totalSale.toLocaleString()} {booking.currency}</TableCell>
                 <TableCell className={cn("font-mono text-center font-bold whitespace-nowrap", profit >= 0 ? "text-green-600" : "text-red-600")}>{profit.toLocaleString()} {booking.currency}</TableCell>
                 <TableCell className="text-center space-x-1 rtl:space-x-reverse whitespace-nowrap">
-                    <EditVisaDialog booking={booking} onBookingUpdated={onBookingUpdated} />
+                    <EditVisaDialog 
+                        booking={booking}
+                        onBookingUpdated={onBookingUpdated}
+                    />
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4"/></Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent>
+                         <AlertDialogContent>
                             <AlertDialogHeader>
                                 <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
                                 <AlertDialogDescription>
@@ -156,4 +158,3 @@ export default function VisasTable({ bookings, clients, suppliers, boxes, onBook
         </div>
     );
 }
-

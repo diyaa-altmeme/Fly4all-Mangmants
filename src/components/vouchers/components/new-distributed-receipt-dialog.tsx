@@ -36,17 +36,17 @@ export default function NewDistributedReceiptDialog({
   const { toast } = useToast();
   const { data: navData, loaded: isDataLoaded, fetchData } = useVoucherNav();
   
-  const voucherSettings = navData?.settings.voucherSettings?.distributed;
+  const voucherSettings = navData?.settings?.voucherSettings?.distributed;
   const [dialogDimensions, setDialogDimensions] = useState<{ width?: string, height?: string }>({
     width: voucherSettings?.dialogWidth || '1200px',
     height: voucherSettings?.dialogHeight || '700px',
   });
   
-  const defaultCurrency = navData?.settings.currencySettings?.defaultCurrency || 'IQD';
+  const defaultCurrency = navData?.settings?.currencySettings?.defaultCurrency || 'IQD';
   const [currency, setCurrency] = useState<Currency>(defaultCurrency);
 
   useEffect(() => {
-    if(navData?.settings.currencySettings?.defaultCurrency) {
+    if(navData?.settings?.currencySettings?.defaultCurrency) {
         setCurrency(navData.settings.currencySettings.defaultCurrency);
     }
   }, [navData]);
@@ -150,5 +150,3 @@ export default function NewDistributedReceiptDialog({
     </Dialog>
   );
 }
-
-    

@@ -3,7 +3,6 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import type { AppSettings, FinanceAccountsMap, TreeNode, User, Box, Client, Supplier, Exchange } from '@/lib/types';
-import ChartOfAccountsTree from '@/app/settings/accounting/chart-of-accounts/components/accounts-tree';
 import AccountFormDialog from '@/app/settings/accounting/chart-of-accounts/components/account-form';
 import FinanceAccountSettings from '@/app/settings/accounting/components/FinanceAccountSettings';
 import { Button } from '@/components/ui/button';
@@ -102,3 +101,4 @@ export default function AccountingClient(props: AccountingClientProps) {
     </div>
   );
 }
+
