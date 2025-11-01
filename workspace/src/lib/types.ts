@@ -903,7 +903,14 @@ export type DistributedReceiptInput = any;
 export type JournalEntry = {
     accountId: string;
     amount: number;
-    description: string;
+    description?: string;
+    debit?: number;
+    credit?: number;
+    currency?: Currency;
+    relationId?: string;
+    companyId?: string;
+    accountType?: string;
+    type?: 'debit' | 'credit';
 }
 
 export type JournalVoucher = {
