@@ -9,7 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import type { AppSettings, FinanceAccountsMap, TreeNode } from '@/lib/types';
 import ProtectedPage from '@/components/auth/protected-page';
-import { useVoucherNav } from '@/context/voucher-nav-context';
 
 async function AccountingDataContainer() {
     const [chartData, financeMap, settings, error] = await Promise.all([
@@ -27,8 +26,6 @@ async function AccountingDataContainer() {
             </Alert>
         )
     }
-    
-    const { data } = useVoucherNav();
 
     return (
         <AccountingClient 
