@@ -8,7 +8,7 @@ import {
   getIdToken,
   signInWithCustomToken,
 } from 'firebase/auth';
-import { collection, query, where, onSnapshot, doc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, writeBatch, increment } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
 import { getCurrentUserFromSession, loginUser, logoutUser, signInAsUser as signInAsUserAction } from '@/lib/auth/actions';
@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
   
   return (
-      <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser, revalidateUser, unreadChatCount }}>
+      <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser, revalidateUser, unreadChatCount, error }}>
       {children}
       </AuthContext.Provider>
   );

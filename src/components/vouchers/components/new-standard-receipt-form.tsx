@@ -54,7 +54,8 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
 
 export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrency, isEditing, initialData, onVoucherUpdated }: NewStandardReceiptFormProps) {
   const { data: navData } = useVoucherNav();
-  const { user: currentUser } = useAuth();
+  const { user } = useAuth();
+  const currentUser = user as CurrentUser | null;
   const { toast } = useToast();
   
   const form = useForm<FormValues>({
@@ -128,7 +129,7 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
         <div className="grid md:grid-cols-2 gap-6 items-start">
             <div className="space-y-1.5">
                 <Label htmlFor="date">التاريخ</Label>
-                <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )} />
+                <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
                 {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
             </div>
              <div className="space-y-1.5">
@@ -185,5 +186,3 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
     </form>
   );
 }
-
-    
