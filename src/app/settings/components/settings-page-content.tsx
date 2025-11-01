@@ -6,14 +6,15 @@ import {
   Card,
   CardContent,
 } from "@/components/ui/card";
-import type { AppSettings, TreeNode, FinanceAccountsMap, User, Box, Client, Supplier, Exchange } from "@/lib/types";
+import type { AppSettings, TreeNode, User, Box, Client, Supplier, Exchange } from "@/lib/types";
+import type { NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 import { settingSections, appearanceSections } from '../sections.config';
 import SettingsSidebar from "./settings-sidebar";
 
 interface SettingsPageContentProps {
     initialSettings: AppSettings;
     chartOfAccounts: TreeNode[];
-    financeMap: FinanceAccountsMap;
+    financeMap: NormalizedFinanceAccounts;
     users: User[];
     boxes: Box[];
     clients: Client[];
