@@ -1,3 +1,20 @@
+import React from 'react';
+import { getAccountsTree } from './actions';
+import AccountTreeClient from './components/account-tree';
+
+export default async function Page() {
+  const accounts = await getAccountsTree();
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h1>الدليل المحاسبي</h1>
+      <p>عرض شجرة الحسابات وإدارتها (عرض تجريبي).</p>
+      {/* Client component receives plain objects */}
+      {/* @ts-ignore */}
+      <AccountTreeClient accounts={accounts} />
+    </div>
+  );
+}
 
 import React, { Suspense } from 'react';
 import { getChartOfAccounts } from './chart-of-accounts/actions';

@@ -1,5 +1,153 @@
 "use server";
 
+import { getDb } from '../../../lib/firebase-admin';
+import { DocumentData } from 'firebase-admin/firestore';
+
+type AccountInput = {
+  code?: string;
+  name: string;
+  type: string;
+  parentId?: string | null;
+  description?: string;
+  isLeaf?: boolean;
+};
+
+function tsToNumber(ts: any): number {
+  if (!ts) return Date.now();
+  if (typeof ts === 'number') return ts;
+  if (ts.toMillis && typeof ts.toMillis === 'function') return ts.toMillis();
+  if (ts.seconds) return (ts.seconds || 0) * 1000 + (ts.nanoseconds || 0) / 1e6;
+  return Date.now();
+}
+
+export async function getAccountsTree(): Promise<any[]> {
+  const db = await getDb();
+  const snap = await db.collection('chart_of_accounts').orderBy('code', 'asc').get();
+  const accounts = snap.docs.map(d => {
+    const data = d.data() as DocumentData;
+    return {
+      id: d.id,
+      code: data.code,
+      name: data.name,
+      type: data.type,
+      parentId: data.parentId || null,
+      parentCode: data.parentCode || null,
+      isLeaf: !!data.isLeaf,
+      description: data.description || null,
+      createdAt: tsToNumber(data.createdAt),
+      updatedAt: tsToNumber(data.updatedAt),
+    };
+  });
+  return accounts;
+}
+
+export async function generateChildCode(parentId: string | null): Promise<string> {
+  const db = await getDb();
+  if (!parentId) {
+    // top level — find last top-level code
+    const snap = await db.collection('chart_of_accounts').where('parentId', '==', null).orderBy('code', 'desc').limit(1).get();
+    const last = snap.docs[0]?.data()?.code as string | undefined;
+    if (!last) return '1';
+    const parts = last.split('-').map(p => parseInt(p, 10));
+    const next = (parts[parts.length - 1] || 0) + 1;
+    return `${next}`;
+  }
+
+  const parentDoc = await db.collection('chart_of_accounts').doc(parentId).get();
+  if (!parentDoc.exists) throw new Error('Parent not found');
+  const parentCode = parentDoc.data()?.code as string;
+
+  const childrenSnap = await db.collection('chart_of_accounts').where('parentId', '==', parentId).orderBy('code', 'desc').limit(1).get();
+  const lastChildCode = childrenSnap.docs[0]?.data()?.code as string | undefined;
+  if (!lastChildCode) return `${parentCode}-1`;
+  const lastSegment = lastChildCode.split('-').pop() || '0';
+  const nextNum = parseInt(lastSegment, 10) + 1;
+  return `${parentCode}-${nextNum}`;
+}
+
+export async function createAccount(input: AccountInput): Promise<any> {
+  const db = await getDb();
+  const now = new Date();
+  let code = input.code;
+  if (!code) {
+    code = await generateChildCode(input.parentId ?? null);
+  }
+
+  const parentCode = input.parentId ? (await db.collection('chart_of_accounts').doc(input.parentId).get()).data()?.code : null;
+
+  const docRef = await db.collection('chart_of_accounts').add({
+    code,
+    name: input.name,
+    type: input.type,
+    parentId: input.parentId || null,
+    parentCode: parentCode || null,
+    isLeaf: !!input.isLeaf,
+    description: input.description || null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return {
+    id: docRef.id,
+    code,
+    name: input.name,
+    type: input.type,
+    parentId: input.parentId || null,
+    parentCode: parentCode || null,
+    isLeaf: !!input.isLeaf,
+    description: input.description || null,
+    createdAt: now.getTime(),
+    updatedAt: now.getTime(),
+  };
+}
+
+export async function updateAccount(id: string, input: Partial<AccountInput> & { type?: string }): Promise<void> {
+  const db = await getDb();
+  const docRef = db.collection('chart_of_accounts').doc(id);
+  const doc = await docRef.get();
+  if (!doc.exists) throw new Error('Account not found');
+
+  // Prevent changing type if has children
+  if (input.type && input.type !== doc.data()?.type) {
+    const childrenSnap = await db.collection('chart_of_accounts').where('parentId', '==', id).limit(1).get();
+    if (!childrenSnap.empty) throw new Error('Cannot change type of an account that has children');
+    // TODO: also check links in settings and other systems
+  }
+
+  await docRef.update({
+    ...input,
+    updatedAt: new Date(),
+  });
+}
+
+export async function deleteAccount(id: string): Promise<void> {
+  const db = await getDb();
+  const docRef = db.collection('chart_of_accounts').doc(id);
+  const doc = await docRef.get();
+  if (!doc.exists) throw new Error('Account not found');
+
+  const childrenSnap = await db.collection('chart_of_accounts').where('parentId', '==', id).limit(1).get();
+  if (!childrenSnap.empty) throw new Error('Cannot delete account that has children');
+
+  // check settings links
+  const settingsDoc = await db.collection('settings').doc('app_settings').get();
+  const financeAccounts = settingsDoc.exists ? settingsDoc.data()?.financeAccounts : null;
+  function idIsLinked(obj: any, targetId: string): boolean {
+    if (!obj) return false;
+    if (typeof obj === 'string') return obj === targetId;
+    if (typeof obj === 'object') {
+      return Object.values(obj).some(v => idIsLinked(v, targetId));
+    }
+    return false;
+  }
+  if (financeAccounts && idIsLinked(financeAccounts, id)) {
+    throw new Error('Cannot delete account that is linked in finance settings');
+  }
+
+  await docRef.delete();
+}
+"use server";
+
 import { getDb } from '@/lib/firebase-admin';
 import type { Account, FinanceAccountsSettings } from '@/lib/types';
 import { tsToNumber } from '@/lib/types';

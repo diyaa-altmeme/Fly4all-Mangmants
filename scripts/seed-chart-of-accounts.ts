@@ -1,3 +1,37 @@
+import { getDb } from '../src/lib/firebase-admin';
+import { SEED_ACCOUNTS } from '../src/lib/finance/chart-of-accounts-data';
+
+async function seed() {
+  const db = await getDb();
+  console.log('Seeding chart_of_accounts with', SEED_ACCOUNTS.length, 'items');
+  for (const a of SEED_ACCOUNTS) {
+    // Ensure uniqueness by code
+    const exists = await db.collection('chart_of_accounts').where('code', '==', a.code).limit(1).get();
+    if (!exists.empty) {
+      console.log('Skipping existing code', a.code);
+      continue;
+    }
+    const now = new Date();
+    await db.collection('chart_of_accounts').add({
+      code: a.code,
+      name: a.name,
+      type: a.type,
+      parentId: a.parentId || null,
+      parentCode: a.parentCode || null,
+      isLeaf: !!a.isLeaf,
+      description: a.description || null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    console.log('Inserted', a.code);
+  }
+  console.log('Done seeding');
+}
+
+seed().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
 /**
  * @fileoverview Seeding script to populate the Chart of Accounts in Firestore.
  * This script reads the predefined chart of accounts data and creates the

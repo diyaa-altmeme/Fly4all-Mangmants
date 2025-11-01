@@ -1,3 +1,51 @@
+// Minimal seed data. يمكن توسيع هذه القائمة بحسب الخريطة المحاسبية للمؤسسة
+export const SEED_ACCOUNTS: any[] = [
+  {
+    id: '1-assets',
+    code: '1',
+    name: 'الأصول',
+    type: 'asset',
+    parentId: null,
+    parentCode: null,
+    isLeaf: false,
+    description: 'جذر الأصول',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  },
+  {
+    id: '1-1-cash',
+    code: '1-1',
+    name: 'الصناديق والبنوك',
+    type: 'asset',
+    parentId: '1-assets',
+    parentCode: '1',
+    isLeaf: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  },
+  {
+    id: '1-1-1-cash',
+    code: '1-1-1',
+    name: 'صندوق نقدي افتراضي',
+    type: 'asset',
+    parentId: '1-1-cash',
+    parentCode: '1-1',
+    isLeaf: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  },
+  {
+    id: '4-revenue',
+    code: '4',
+    name: 'الإيرادات',
+    type: 'revenue',
+    parentId: null,
+    parentCode: null,
+    isLeaf: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }
+];
 /**
  * @fileoverview Source of truth for the initial Chart of Accounts structure.
  * This data is used by a seeding script to populate the 'chart_of_accounts' collection in Firestore.
