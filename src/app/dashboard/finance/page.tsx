@@ -4,10 +4,29 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, TrendingDown, Wallet, DollarSign } from "lucide-react";
-import { getFirestore, collection, getDocs, query, where } from "firebase/firestore";
+import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 import { format } from "date-fns";
+import { normalizeFinanceAccounts } from "@/lib/finance/finance-accounts";
+import { enrichVoucherEntries } from "@/lib/finance/account-categories";
+
+const parseVoucherDate = (value: any): Date => {
+  if (!value) return new Date();
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+  if (value instanceof Date) return value;
+  if (typeof value.toDate === "function") {
+    const date = value.toDate();
+    return date instanceof Date ? date : new Date();
+  }
+  if (typeof value.seconds === "number") {
+    return new Date(value.seconds * 1000);
+  }
+  return new Date();
+};
 
 export default function FinanceDashboardPage() {
   const [summary, setSummary] = useState({
@@ -22,8 +41,12 @@ export default function FinanceDashboardPage() {
 
   useEffect(() => {
     async function loadFinanceData() {
-      const vouchersRef = collection(db, "journal-vouchers");
-      const vouchersSnap = await getDocs(vouchersRef);
+      const [settingsSnap, vouchersSnap] = await Promise.all([
+        getDoc(doc(db, "settings", "app_settings")),
+        getDocs(collection(db, "journal-vouchers")),
+      ]);
+
+      const finance = normalizeFinanceAccounts(settingsSnap.data()?.financeAccounts);
 
       let totalRevenue = 0;
       let totalExpense = 0;
@@ -32,17 +55,19 @@ export default function FinanceDashboardPage() {
 
       vouchersSnap.forEach((doc) => {
         const data = doc.data();
-        const date = data.date || data.createdAt;
-        const monthKey = format(new Date(date?.seconds * 1000 || Date.now()), "MMM");
+        const entries = enrichVoucherEntries(data, finance);
+        const monthKey = format(parseVoucherDate(data.date || data.createdAt), "MMM");
 
-        const entries = data.entries || [];
-        entries.forEach((e: any) => {
-          if (e.accountType === "revenue") totalRevenue += e.credit || 0;
-          if (e.accountType === "expense") totalExpense += e.debit || 0;
-          if (e.accountType === "cash") totalCash += (e.debit || 0) - (e.credit || 0);
+        entries.forEach((entry) => {
+          if (entry.accountType === "revenue") totalRevenue += entry.credit || 0;
+          if (entry.accountType === "expense") totalExpense += entry.debit || 0;
+          if (entry.accountType === "cash" || entry.accountType === "bank") {
+            totalCash += (entry.debit || 0) - (entry.credit || 0);
+          }
         });
 
-        chartMap[monthKey] = (chartMap[monthKey] || 0) + (data.totalAmount || 0);
+        const voucherTotal = entries.reduce((sum, entry) => sum + entry.amount, 0);
+        chartMap[monthKey] = (chartMap[monthKey] || 0) + voucherTotal;
       });
 
       const chartArray = Object.entries(chartMap).map(([month, value]) => ({

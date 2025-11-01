@@ -7,10 +7,29 @@ import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/com
 import { Loader2, ArrowLeft, TrendingUp, TrendingDown, Scale, BarChart, CalendarDays } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, Bar, ComposedChart } from 'recharts';
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, getDoc } from "firebase/firestore";
 import { format } from 'date-fns';
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { normalizeFinanceAccounts } from "@/lib/finance/finance-accounts";
+import { enrichVoucherEntries } from "@/lib/finance/account-categories";
+
+const parseVoucherDate = (value: any): number => {
+  if (!value) return Date.now();
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? Date.now() : parsed.getTime();
+  }
+  if (value instanceof Date) return value.getTime();
+  if (typeof value.toDate === 'function') {
+    const date = value.toDate();
+    return date instanceof Date ? date.getTime() : Date.now();
+  }
+  if (typeof value.seconds === 'number') {
+    return value.seconds * 1000;
+  }
+  return Date.now();
+};
 
 export default function AccountStatementDashboard() {
   const searchParams = useSearchParams();
@@ -39,20 +58,26 @@ export default function AccountStatementDashboard() {
 
       const vouchersRef = collection(db, "journal-vouchers");
       const q = query(vouchersRef, orderBy("date", "asc"));
-      const snapshot = await getDocs(q);
+      const [settingsSnap, snapshot] = await Promise.all([
+        getDoc(doc(db, "settings", "app_settings")),
+        getDocs(q),
+      ]);
+
+      const finance = normalizeFinanceAccounts(settingsSnap.data()?.financeAccounts);
 
       const results: any[] = [];
       let runningBalance = 0;
 
       snapshot.forEach(doc => {
         const v = doc.data();
-        v.entries?.forEach((e: any) => {
-          if (e.accountId === accountId && e.accountType === accountType) {
+        const entries = enrichVoucherEntries(v, finance);
+        entries.forEach((e: any) => {
+          if (e.accountId === accountId && (!accountType || e.accountType === accountType)) {
             const debit = e.debit || 0;
             const credit = e.credit || 0;
             runningBalance += debit - credit;
             results.push({
-              date: v.date.seconds * 1000,
+              date: parseVoucherDate(v.date),
               debit,
               credit,
               balance: runningBalance

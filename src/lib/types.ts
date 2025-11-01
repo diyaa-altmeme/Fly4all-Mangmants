@@ -58,33 +58,36 @@ export interface FinanceAccountsMap {
 }
 
 // === القيود المحاسبية ===
-export type JournalEntry = {
+export interface JournalEntry {
   accountId: string;            // معرف الحساب
-  debit: number;               // المدين
-  credit: number;             // الدائن
-  description?: string;       // الوصف
-  currency: Currency;         // العملة
-  relationId?: string;        // معرف العلاقة (عميل/مورد)
-  companyId?: string;        // معرف الشركة
-  sourceType?: string;       // نوع المصدر (تذاكر، تأشيرات، الخ)
-  sourceId?: string;         // معرف المصدر
-  sourceRoute?: string;      // رابط المصدر (للتنقل)
-  boxId?: string;           // الصندوق المستخدم
-  createDate?: Date;        // تاريخ الإنشاء
-  amount?: number;          // المبلغ (للسندات الموزعة)
-};
+  amount?: number;              // القيمة المستخدمة في debitEntries/creditEntries
+  debit?: number;               // المدين
+  credit?: number;              // الدائن
+  description?: string;         // الوصف
+  currency?: Currency;          // العملة
+  relationId?: string;          // معرف العلاقة (عميل/مورد)
+  companyId?: string;           // معرف الشركة
+  sourceType?: string;          // نوع المصدر (تذاكر، تأشيرات، الخ)
+  sourceId?: string;            // معرف المصدر
+  sourceRoute?: string;         // رابط المصدر (للتنقل)
+  boxId?: string;               // الصندوق المستخدم
+  createDate?: Date | string;   // تاريخ الإنشاء
+  accountType?: string;         // نوع الحساب (عميل، مورد، نقدي، إيراد، مصروف...)
+  type?: 'debit' | 'credit';    // اتجاه الحركة
+  note?: string;                // وصف مختصر بديل
+}
 
-export type JournalVoucher = {
-  id: string;
+export interface JournalVoucher {
+  id?: string;
   invoiceNumber: string;
   date: string;              // تاريخ القيد ISO string
   currency: Currency;        // العملة
-  exchangeRate: number;      // سعر الصرف
-  notes: string;            // ملاحظات
-  createdBy: string;        // منشئ القيد
-  officer: string;          // المسؤول
-  createdAt: string;        // تاريخ الإنشاء ISO string
-  updatedAt: string;        // تاريخ التحديث ISO string
+  exchangeRate?: number;     // سعر الصرف
+  notes?: string;            // ملاحظات
+  createdBy?: string;        // منشئ القيد
+  officer?: string;          // المسؤول
+  createdAt: string | Date | FirebaseFirestore.Timestamp;        // تاريخ الإنشاء
+  updatedAt: string | Date | FirebaseFirestore.Timestamp;        // تاريخ التحديث
   voucherType: string;      // نوع السند
   voucherTypeLabel?: string;// تسمية نوع السند
   debitEntries: JournalEntry[];  // قيود المدين
@@ -97,33 +100,8 @@ export type JournalVoucher = {
   sourceType?: string;        // نوع المصدر
   sourceId?: string;          // معرف المصدر
   sourceRoute?: string;       // رابط المصدر
-};
-
-// === الصناديق ===
-export type Box = {
-  id: string;
-  name: string;
-  openingBalanceUSD: number;
-  openingBalanceIQD: number;
-};
-
-// === الديون ===
-
-// === أنواع الحسابات والقيود المحاسبية ===
-export type AccountType = "asset" | "liability" | "equity" | "revenue" | "expense" | "clearing";
-
-export interface ChartAccount {
-  id: string;
-  code: string;                 // مثل: "1-1-2-2"
-  name: string;                 // مثل: "العملاء/الموردين (مزدوج)"
-  type: AccountType;
-  parentId: string | null;
-  parentCode?: string | null;
-  isLeaf: boolean;
-  description?: string;
-  createdAt: FirebaseFirestore.Timestamp | number | Date;
-  updatedAt: FirebaseFirestore.Timestamp | number | Date;
-  children?: ChartAccount[];
+  meta?: Record<string, any> | null;
+  entries?: JournalEntry[];   // تمثيل الإدخالات الحديث (debit/credit)
 }
 
 // === نوع العلاقة ===
@@ -148,38 +126,16 @@ export type JournalEntry = {
 };
 
 // === الصناديق ===
-export type Box = {
+export interface Box {
   id: string;
   name: string;
   openingBalanceUSD: number;
   openingBalanceIQD: number;
-};
+}
 
-export type Debt = {
-
-export type JournalEntry = {
-  accountId: string;
-  debit: number;
-  credit: number;
-  description?: string;
-  currency: Currency;
-  relationId?: string;         // معرف العلاقة (عميل/مورد)
-  companyId?: string;         // معرف الشركة
-  sourceType?: string;        // نوع المصدر (تذاكر، تأشيرات، الخ)
-  sourceId?: string;          // معرف المصدر
-  boxId?: string;            // الصندوق المستخدم
-  createDate?: Date;         // تاريخ الإنشاء
-};
-
-export type Box = {
+// === الديون ===
+export interface Debt {
   id: string;
-  name: string;
-  openingBalanceUSD: number;
-  openingBalanceIQD: number;
-};
-
-export type Debt = {
-  id:string;
   clientId: string;
   clientName: string;
   amount: number;
@@ -188,7 +144,7 @@ export type Debt = {
   dueDate: string;
   notes: string;
   status: PaymentStatus;
-};
+}
 
 export type CompanyPaymentType = 'cash' | 'credit';
 
@@ -196,7 +152,7 @@ export type SegmentProfitType = 'fixed' | 'percentage';
 
 export type SegmentServiceSetting = {
     type: SegmentProfitType;
-    value: number; // Can be a fixed amount or a percentage
+    value: number; // Can be a fixed amount أو قيمة ثابتة
 };
 
 export type SegmentSettings = {
