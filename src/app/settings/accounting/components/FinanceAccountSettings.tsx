@@ -1,21 +1,21 @@
 
 "use client";
 
-import React, { useTransition, useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { updateSettings } from "@/app/settings/actions";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, Save, Loader2 } from "lucide-react";
-import type { FinanceAccountsMap, TreeNode, AppSettings } from "@/lib/types";
+import type { FinanceAccountsMap, TreeNode } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Autocomplete } from '@/components/ui/autocomplete';
+import { Switch } from '@/components/ui/switch';
+import { buildTree } from '../chart-of-accounts/utils';
 
 const formSchema = z.object({
     receivableAccountId: z.string().optional(),
@@ -42,28 +42,36 @@ type FormValues = z.infer<typeof formSchema>;
 interface FinanceAccountSettingsProps {
     initialFinanceMap: FinanceAccountsMap;
     chartOfAccounts: TreeNode[];
-    initialSettings: AppSettings;
     onSaveSuccess: () => void;
 }
 
-const flattenNodes = (nodes: TreeNode[]): { id: string; label: string }[] => {
-    let flatList: { id: string; label: string }[] = [];
-    for (const node of nodes) {
-        flatList.push({ id: node.id, label: `${node.code} — ${node.name}` });
-        if (node.children && node.children.length > 0) {
-            flatList = flatList.concat(flattenNodes(node.children));
-        }
-    }
-    return flatList;
+type AccountOption = { value: string; label: string; type?: string };
+
+const flattenNodes = (nodes: TreeNode[], level = 0): AccountOption[] => {
+    const prefix = level > 0 ? `${'—'.repeat(level)} ` : '';
+    return nodes.flatMap(node => {
+        const current: AccountOption = {
+            value: node.id,
+            label: `${prefix}${node.code} — ${node.name}`,
+            type: node.type,
+        };
+        const children = node.children && node.children.length > 0
+            ? flattenNodes(node.children, level + 1)
+            : [];
+        return [current, ...children];
+    });
 };
 
 
 export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccounts, onSaveSuccess }: FinanceAccountSettingsProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
-  
+
   const form = useForm<FormValues>({
       resolver: zodResolver(formSchema),
+      defaultValues: {
+          preventDirectCashRevenue: initialFinanceMap?.preventDirectCashRevenue ?? false,
+      },
   });
 
   useEffect(() => {
@@ -90,44 +98,51 @@ export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccou
     setLoading(false);
   }, [initialFinanceMap, form]);
 
-  const accountOptions = useMemo(() => flattenNodes(chartOfAccounts), [chartOfAccounts]);
+  const accountOptions = useMemo(() => {
+      const tree = buildTree(chartOfAccounts);
+      return flattenNodes(tree);
+  }, [chartOfAccounts]);
 
   const handleFormSubmit = async (data: FormValues) => {
-    const financePayload: FinanceAccountsMap = {
-        receivableAccountId: data.receivableAccountId,
-        payableAccountId: data.payableAccountId,
-        hybridRelationAccountId: data.hybridRelationAccountId,
-        clearingAccountId: data.clearingAccountId,
-        defaultCashId: data.defaultCashId,
-        defaultBankId: data.defaultBankId,
-        preventDirectCashRevenue: data.preventDirectCashRevenue,
-    
-        revenueMap: {
-            tickets: data.rev_tickets,
-            visas: data.rev_visas,
-            subscriptions: data.rev_subscriptions,
-            segments: data.rev_segments,
-            other: data.rev_other,
-        },
-        expenseMap: {
-            tickets: data.exp_tickets,
-            visas: data.exp_visas,
-            subscriptions: data.exp_subscriptions,
-            partners: data.exp_partners,
-            operating: data.exp_operating,
+    try {
+        const financePayload: FinanceAccountsMap = {
+            receivableAccountId: data.receivableAccountId || '',
+            payableAccountId: data.payableAccountId || '',
+            hybridRelationAccountId: data.hybridRelationAccountId || '',
+            clearingAccountId: data.clearingAccountId || '',
+            defaultCashId: data.defaultCashId || '',
+            defaultBankId: data.defaultBankId || '',
+            preventDirectCashRevenue: data.preventDirectCashRevenue,
+
+            revenueMap: {
+                tickets: data.rev_tickets || '',
+                visas: data.rev_visas || '',
+                subscriptions: data.rev_subscriptions || '',
+                segments: data.rev_segments || '',
+                other: data.rev_other || '',
+            },
+            expenseMap: {
+                tickets: data.exp_tickets || '',
+                visas: data.exp_visas || '',
+                subscriptions: data.exp_subscriptions || '',
+                partners: data.exp_partners || '',
+                operating: data.exp_operating || '',
+            }
+        };
+
+        const result = await updateSettings({ financeAccounts: financePayload });
+        if (result.success) {
+            toast({ title: "تم الحفظ بنجاح" });
+            onSaveSuccess();
+        } else {
+            toast({ title: "خطأ", description: result.error || "فشل حفظ البيانات.", variant: "destructive" });
         }
-    };
-    
-    const result = await updateSettings({ financeAccounts: financePayload });
-    if (result.success) {
-        toast({ title: "تم الحفظ بنجاح" });
-        onSaveSuccess();
-    } else {
-        toast({ title: "خطأ", description: "فشل حفظ البيانات.", variant: "destructive" });
+    } catch (error: any) {
+        toast({ title: "خطأ", description: error.message || 'تعذر حفظ البيانات.', variant: 'destructive' });
     }
   }
-  
-  const SelectRow = ({ name, label, options }: { name: keyof FormValues; label: string; options: {id: string, label: string}[] }) => (
+
+  const SelectRow = ({ name, label, options }: { name: keyof FormValues; label: string; options: AccountOption[] }) => (
     <div className="grid grid-cols-3 gap-3 items-center">
       <div className="font-semibold">{label}</div>
       <div className="col-span-2">
@@ -175,6 +190,27 @@ export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccou
             <SelectRow name="defaultCashId" label="الصندوق الافتراضي" options={accountOptions} />
             <SelectRow name="defaultBankId" label="الحساب البنكي الافتراضي" options={accountOptions} />
             <SelectRow name="clearingAccountId" label="حساب التسوية (Clearing)" options={accountOptions} />
+        </div>
+        <Separator />
+        <div className="space-y-3">
+            <div className="text-sm font-bold text-muted-foreground">السياسات</div>
+            <FormField
+                control={form.control}
+                name="preventDirectCashRevenue"
+                render={({ field }) => (
+                    <FormItem className="flex items-center justify-between rounded-md border p-3">
+                        <div className="space-y-1">
+                            <FormLabel className="text-base">منع ترحيل الإيرادات مباشرة للصندوق</FormLabel>
+                            <FormDescription>
+                                عند التفعيل سيتم إجبار النظام على استخدام حسابات الإيراد المحددة بدلاً من الصندوق النقدي في قيود الإيراد.
+                            </FormDescription>
+                        </div>
+                        <FormControl>
+                            <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
+                        </FormControl>
+                    </FormItem>
+                )}
+            />
         </div>
         <Separator />
         <div className="space-y-3">

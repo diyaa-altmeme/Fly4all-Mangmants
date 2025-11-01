@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -14,30 +14,36 @@ import { getChartOfAccounts } from '../actions';
 
 interface AccountsTreeClientProps {
   initialAccounts: TreeNode[];
+  onAccountsUpdated?: (accounts: TreeNode[]) => void;
 }
 
-export default function AccountsTreeClient({ initialAccounts }: AccountsTreeClientProps) {
+export default function AccountsTreeClient({ initialAccounts, onAccountsUpdated }: AccountsTreeClientProps) {
     const [accounts, setAccounts] = useState<TreeNode[]>(initialAccounts);
     const [loading, setLoading] = useState(false);
     const { toast } = useToast();
+
+    useEffect(() => {
+        setAccounts(initialAccounts);
+    }, [initialAccounts]);
 
     const refreshData = useCallback(async () => {
         setLoading(true);
         try {
             const data = await getChartOfAccounts();
             setAccounts(data);
+            onAccountsUpdated?.(data);
             toast({ title: 'تم تحديث شجرة الحسابات' });
         } catch (error: any) {
             toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
         } finally {
             setLoading(false);
         }
-    }, [toast]);
-    
+    }, [toast, onAccountsUpdated]);
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-                 <div>
+                <div>
                     <CardTitle>الدليل المحاسبي</CardTitle>
                     <CardDescription>عرض وتعديل هيكل الدليل المحاسبي.</CardDescription>
                 </div>
@@ -55,7 +61,11 @@ export default function AccountsTreeClient({ initialAccounts }: AccountsTreeClie
                 </div>
             </CardHeader>
             <CardContent>
-                 {loading ? <Skeleton className="h-[400px]" /> : <AccountsTree accounts={accounts} onActionSuccess={refreshData} />}
+                {loading ? (
+                    <Skeleton className="h-[400px]" />
+                ) : (
+                    <AccountsTree accounts={accounts} onActionSuccess={refreshData} />
+                )}
             </CardContent>
         </Card>
     );
