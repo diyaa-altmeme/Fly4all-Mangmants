@@ -1,4 +1,5 @@
-"use server";
+
+'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
@@ -96,7 +97,6 @@ export async function postJournalEntries(payload: PostJournalPayload, fa?: Finan
   return ref.id;
 }
 
-// (imports consolidated at top)
 
 // جلب خريطة الربط من الإعدادات (كاش بسيط اختياري)
 let _cache: { at: number; map: FinanceAccountsMap | null } = { at: 0, map: null };
