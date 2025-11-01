@@ -1,21 +1,9 @@
 "use server";
 
 import { postJournalEntries } from '@/lib/finance/posting';
-
-export async function exchangeBetweenAccounts(sourceId: string, fromAccountId: string, toAccountId: string, amount: number, desc?: string) {
-  if (!fromAccountId || !toAccountId) throw new Error('Both account ids are required');
-  const entries = [
-    { accountId: toAccountId, debit: amount, credit: 0, description: desc || 'تحويل إلى' },
-    { accountId: fromAccountId, debit: 0, credit: amount, description: desc || 'تحويل من' },
-  ];
-
-  await postJournalEntries({ sourceType: 'exchanges', sourceId, entries });
-}
-
-'use server';
-
 import { getDb } from '@/lib/firebase-admin';
 import type { Exchange, ExchangeTransaction, ExchangePayment, Currency, Notification, UnifiedLedgerEntry } from '@/lib/types';
+import type { JournalEntry as PostingJournalEntry } from '@/lib/finance/posting';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
@@ -24,6 +12,46 @@ import { format, subDays, startOfDay, endOfDay, parseISO, isWithinInterval } fro
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createNotification } from '../notifications/actions';
 
+/**
+ * تنفيذ عملية تحويل بين حسابين
+ * @param sourceId معرف المصدر
+ * @param fromAccountId معرف الحساب المحول منه
+ * @param toAccountId معرف الحساب المحول إليه
+ * @param amount المبلغ المراد تحويله
+ * @param currency نوع العملة
+ * @param desc وصف العملية (اختياري)
+ */
+export async function exchangeBetweenAccounts(
+    sourceId: string,
+    fromAccountId: string,
+    toAccountId: string,
+    amount: number,
+    currency: PostingJournalEntry['currency'],
+    desc?: string
+) {
+  if (!fromAccountId || !toAccountId) throw new Error('Both account ids are required');
+        const entries: PostingJournalEntry[] = [
+        {
+            accountId: toAccountId,
+            debit: amount,
+            credit: 0,
+            currency,
+            note: desc || 'تحويل إلى'
+        },
+        {
+            accountId: fromAccountId,
+            debit: 0,
+            credit: amount,
+            currency,
+            note: desc || 'تحويل من'
+        }
+    ];
+
+    await postJournalEntries({ sourceType: 'exchanges', sourceId, date: Date.now(), entries });
+}
+
+
+ 
 const EXCHANGES_COLLECTION = 'exchanges';
 
 // Helper function to safely convert Firestore Timestamps

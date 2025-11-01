@@ -25,8 +25,20 @@ export async function receiveSubscriptionPayment(subscriptionId: string, amount:
     if (!ar || !cash) throw new Error('AR or cash account not configured');
 
     const entries = [
-        { accountId: cash, debit: amount, credit: 0 },
-        { accountId: ar, debit: 0, credit: amount },
+        { 
+            accountId: cash, 
+            debit: amount, 
+            credit: 0,
+            currency: 'USD',
+            description: `استلام دفعة اشتراك`
+        },
+        { 
+            accountId: ar, 
+            debit: 0, 
+            credit: amount,
+            currency: 'USD',
+            description: `استلام دفعة اشتراك`
+        }
     ];
 
     await postJournalEntries({ sourceType: 'subscriptions', sourceId: subscriptionId, entries });

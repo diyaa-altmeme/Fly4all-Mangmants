@@ -5,33 +5,237 @@ import { DocumentData } from 'firebase-admin/firestore';
 
 type AccountInput = {
   code?: string;
-  name: string;
-  type: string;
-  parentId?: string | null;
-  description?: string;
-  isLeaf?: boolean;
-};
-
-function tsToNumber(ts: any): number {
-  if (!ts) return Date.now();
-  if (typeof ts === 'number') return ts;
-  if (ts.toMillis && typeof ts.toMillis === 'function') return ts.toMillis();
-  if (ts.seconds) return (ts.seconds || 0) * 1000 + (ts.nanoseconds || 0) / 1e6;
-  return Date.now();
-}
-
-export async function getAccountsTree(): Promise<any[]> {
-  const db = await getDb();
-  const snap = await db.collection('chart_of_accounts').orderBy('code', 'asc').get();
-  const accounts = snap.docs.map(d => {
-    const data = d.data() as DocumentData;
-    return {
+  "use server";
       id: d.id,
+  import { ChartAccount, TreeNode, FinanceAccountsMap } from '@/lib/types';
+  import { getDb } from '@/lib/firebase-admin';
+  import { Timestamp, DocumentData } from 'firebase-admin/firestore';
+  import { revalidatePath } from 'next/cache';
+  import { cache } from 'react';
       code: data.code,
+  const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
       name: data.name,
+  // === التوابع المساعدة ===
+  function tsToNumber(ts: any): number {
+    if (!ts) return Date.now();
+    if (typeof ts === 'number') return ts;
+    if (ts.toMillis && typeof ts.toMillis === 'function') return ts.toMillis();
+    if (ts.seconds) return (ts.seconds || 0) * 1000 + (ts.nanoseconds || 0) / 1e6;
+    return Date.now();
+  }
       type: data.type,
+  // === القراءة والجلب ===
+  export const getChartOfAccounts = cache(async (): Promise<TreeNode[]> => {
+    const db = await getDb();
+    if (!db) return [];
+
+    try {
+      const snapshot = await db.collection(CHART_OF_ACCOUNTS_COLLECTION).orderBy('code').get();
+      if (snapshot.empty) {
+        console.warn("Chart of Accounts is empty. Please run: npm run seed:accounts");
+        return [];
+      }
+
+      const accounts = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        children: [],
+        debit: 0,
+        credit: 0
+      }) as TreeNode);
+
+      const accountMap = new Map<string, TreeNode>(accounts.map(acc => [acc.id, acc]));
+      const tree: TreeNode[] = [];
+
+      accounts.forEach(account => {
+        if (account.parentId) {
+          const parent = accountMap.get(account.parentId);
+          if (parent) {
+            parent.children.push(account);
+          } else {
+            tree.push(account);
+          }
+        } else {
+          tree.push(account);
+        }
+      });
+
+      return JSON.parse(JSON.stringify(tree));
+
+    } catch (error) {
+      console.error("Error getting chart of accounts:", error);
+      return [];
+    }
+  });
       parentId: data.parentId || null,
+  // === توليد الأكواد ===
+  export async function generateAccountCode(parentId?: string): Promise<string> {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+
+    if (!parentId || parentId === 'root') {
+      const query = await db.collection(CHART_OF_ACCOUNTS_COLLECTION)
+        .where("parentId", "==", null)
+        .get();
+    
+      if (query.empty) return "1";
+
+      const codes = query.docs
+        .map(doc => parseInt(doc.data().code, 10))
+        .filter(num => !isNaN(num));
+
+      const maxCode = codes.length > 0 ? Math.max(...codes) : 0;
+      return String(maxCode + 1);
+
+    } else {
+      const parentDoc = await db.collection(CHART_OF_ACCOUNTS_COLLECTION)
+        .doc(parentId)
+        .get();
+
+      if (!parentDoc.exists) throw new Error("Parent account not found");
+      const parentCode: string = parentDoc.data()?.code;
+
+      const childrenQuery = await db.collection(CHART_OF_ACCOUNTS_COLLECTION)
+        .where("parentId", "==", parentId)
+        .get();
+
+      if (childrenQuery.empty) return `${parentCode}-1`;
+
+      const childCodes = childrenQuery.docs
+        .map(doc => doc.data().code as string);
+
+      const subNumbers = childCodes
+        .map(code => code.split('-').pop())
+        .map(numStr => parseInt(numStr || '0', 10))
+        .filter(num => !isNaN(num));
+        
+      const maxSubNumber = subNumbers.length > 0 ? Math.max(...subNumbers) : 0;
+      return `${parentCode}-${maxSubNumber + 1}`;
+    }
+  }
+
+  // === العمليات على الحسابات ===
+  export async function createAccount({ 
+    name,
+    type,
+    parentId,
+    isLeaf = true,
+    code,
+    description = ""
+  }: { 
+    name: string;
+    type: string;
+    parentId: string | null;
+    isLeaf?: boolean;
+    code: string;
+    description?: string;
+  }) {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available");
+  
+    const docRef = db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc();
+    const id = docRef.id;
+
+    const doc = {
+      id,
+      name,
+      code,
+      type,
+      parentId: parentId ?? null,
+      isLeaf,
+      description,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+
+    await docRef.set(doc);
+
+    if (parentId) {
+      await db.collection(CHART_OF_ACCOUNTS_COLLECTION)
+        .doc(parentId)
+        .update({
+          isLeaf: false,
+          updatedAt: Timestamp.now()
+        });
+    }
+
+    revalidatePath('/settings');
+    return doc;
+  }
       parentCode: data.parentCode || null,
+  export async function updateAccount(
+    id: string,
+    input: Partial<{
+      name: string;
+      type: string;
+      description: string;
+      isLeaf: boolean;
+    }>
+  ): Promise<void> {
+    const db = await getDb();
+    const docRef = db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(id);
+    const doc = await docRef.get();
+    if (!doc.exists) throw new Error('Account not found');
+
+    // التحقق من وجود حسابات فرعية عند تغيير النوع
+    if (input.type && input.type !== doc.data()?.type) {
+      const childrenSnap = await db.collection(CHART_OF_ACCOUNTS_COLLECTION)
+        .where('parentId', '==', id)
+        .limit(1)
+        .get();
+
+      if (!childrenSnap.empty) {
+        throw new Error('Cannot change type of an account that has children');
+      }
+    }
+
+    await docRef.update({
+      ...input,
+      updatedAt: Timestamp.now()
+    });
+
+    revalidatePath('/settings');
+  }
+
+  export async function deleteAccount(id: string): Promise<void> {
+    const db = await getDb();
+    const docRef = db.collection(CHART_OF_ACCOUNTS_COLLECTION).doc(id);
+    const doc = await docRef.get();
+    if (!doc.exists) throw new Error('Account not found');
+
+    // التحقق من وجود حسابات فرعية
+    const childrenSnap = await db.collection(CHART_OF_ACCOUNTS_COLLECTION)
+      .where('parentId', '==', id)
+      .limit(1)
+      .get();
+
+    if (!childrenSnap.empty) {
+      throw new Error('Cannot delete account that has children');
+    }
+
+    // التحقق من استخدام الحساب في الإعدادات
+    const settingsDoc = await db.collection('settings').doc('app_settings').get();
+    const financeAccounts = settingsDoc.exists ? settingsDoc.data()?.financeAccounts : null;
+  
+    function idIsLinked(obj: any, targetId: string): boolean {
+      if (!obj) return false;
+      if (typeof obj === 'string') return obj === targetId;
+      if (typeof obj === 'object') {
+        return Object.values(obj).some(v => idIsLinked(v, targetId));
+      }
+      return false;
+    }
+
+    if (financeAccounts && idIsLinked(financeAccounts, id)) {
+      throw new Error('Cannot delete account that is linked in finance settings');
+    }
+
+    await docRef.delete();
+    revalidatePath('/settings');
+  }
+
+  // === تصدير وظائف إضافية ===
+  export { getFinanceAccounts, saveFinanceAccounts } from "../advanced-accounts-setup/actions";
       isLeaf: !!data.isLeaf,
       description: data.description || null,
       createdAt: tsToNumber(data.createdAt),
