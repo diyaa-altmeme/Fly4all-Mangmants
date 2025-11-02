@@ -96,7 +96,7 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
         setIsEditOpen(true);
     };
 
-    const label = mapVoucherLabel(transaction.sourceType || transaction.voucherType);
+    const label = mapVoucherLabel(transaction.sourceType || transaction.voucherType || transaction.type);
     const direction = transaction.direction
         || (transaction.debit && transaction.debit > 0 ? 'debit'
         : transaction.credit && transaction.credit > 0 ? 'credit'
@@ -144,21 +144,6 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                 </TableCell>
                 <TableCell className="px-3 py-2 text-xs text-center">{transaction.officer}</TableCell>
                 <TableCell className="px-3 py-2 text-center">
-                </td>
-                <td className="p-2 font-mono font-bold text-red-600 text-center">
-                    {transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}
-                </td>
-                <td className="p-2 font-mono font-bold text-green-600 text-center">
-                    {transaction.credit > 0 ? formatCurrency(transaction.credit, transaction.currency) : '-'}
-                </td>
-                <td className={cn("p-2 font-mono font-bold text-center", (transaction.balancesByCurrency?.[transaction.currency] ?? transaction.balance ?? 0) < 0 ? 'text-red-600' : 'text-green-600')}>
-                    {formatCurrency(transaction.balancesByCurrency?.[transaction.currency] ?? transaction.balance ?? 0, transaction.currency)}
-                </td>
-                <td className="p-2 text-center">
-                    <Badge variant="outline" className="text-[11px] px-2 py-1">{transaction.currency}</Badge>
-                </td>
-                <td className="p-2 text-xs text-center">{transaction.officer}</td>
-                <td className="p-2 text-center">
                     <div className="flex items-center gap-1 justify-center">
                         {transaction.sourceRoute && (
                             <Tooltip>
@@ -307,53 +292,5 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
                 )}
             </div>
         </TooltipProvider>
-        <Table className="w-full text-xs">
-            <TableHeader>
-                <TableRow className="bg-muted/80">
-                    <TableHead className="p-2 font-bold text-center w-32">التاريخ</TableHead>
-                    <TableHead className="p-2 font-bold text-center">رقم الفاتورة</TableHead>
-                    <TableHead className="p-2 font-bold text-center">النوع</TableHead>
-                    <TableHead className="p-2 text-right font-bold w-[25%]">البيان</TableHead>
-                    <TableHead className="p-2 text-right font-bold w-[15%]">ملاحظات</TableHead>
-                    <TableHead className="p-2 text-center font-bold text-red-700 bg-red-100/50">مدين</TableHead>
-                    <TableHead className="p-2 text-center font-bold text-green-700 bg-green-100/50">دائن</TableHead>
-                    <TableHead className="p-2 text-center font-bold bg-blue-100/50">الرصيد</TableHead>
-                    <TableHead className="p-2 font-bold text-center">العملة</TableHead>
-                    <TableHead className="p-2 font-bold text-center">الموظف</TableHead>
-                    <TableHead className="p-2 font-bold text-center">الإجراءات</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Array.isArray(transactions) && transactions.length > 0 ? (
-                transactions.map((tx) => (
-                  <TransactionRow
-                    key={tx.id}
-                    transaction={tx}
-                    onRefresh={onRefresh}
-                  />
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={11} className="h-48 text-center text-gray-500">
-                    لا توجد بيانات متاحة لعرضها
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-            {totalsByCurrency.length > 0 && (
-                <TableFooter>
-                    {totalsByCurrency.map(([currency, totals]) => (
-                        <TableRow key={currency} className="bg-muted/50">
-                            <TableCell colSpan={5} className="p-2 text-center font-bold">إجمالي {currency}</TableCell>
-                            <TableCell className="p-2 font-mono text-red-600 text-center font-bold">{formatCurrency(totals.debit, currency)}</TableCell>
-                            <TableCell className="p-2 font-mono text-green-600 text-center font-bold">{formatCurrency(totals.credit, currency)}</TableCell>
-                            <TableCell className="p-2 font-mono text-center font-bold">{formatCurrency(totals.balance, currency)}</TableCell>
-                            <TableCell className="p-2 text-center"><Badge variant="outline" className="text-[11px] px-2 py-1">{currency}</Badge></TableCell>
-                            <TableCell colSpan={2}></TableCell>
-                        </TableRow>
-                    ))}
-                </TableFooter>
-            )}
-        </Table>
     );
 }
