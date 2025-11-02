@@ -31,6 +31,45 @@ const StatCard = ({ title, usd, iqd, className, icon: Icon }: { title: string; u
     </div>
 );
 
+const currencyPriority: Record<string, number> = {
+    IQD: 0,
+    USD: 1,
+    IRR: 2,
+};
+
+const currencyIcons: Record<string, string> = {
+    IQD: "🇮🇶",
+    USD: "💵",
+    IRR: "﷼",
+};
+
+export default function ReportSummary({ report }: { report: ReportInfo }) {
+    if (report.currencyBreakdown && report.currencyBreakdown.length > 0) {
+        const orderedBreakdown = [...report.currencyBreakdown].sort((a, b) => {
+            const priorityA = currencyPriority[a.currency] ?? 99;
+            const priorityB = currencyPriority[b.currency] ?? 99;
+            if (priorityA === priorityB) {
+                return a.currency.localeCompare(b.currency);
+            }
+            return priorityA - priorityB;
+        });
+
+        return (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {orderedBreakdown.map((item) => (
+                    <Card key={item.currency} className="h-full border-none bg-muted/40 shadow-none">
+                        <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
+                            <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
+                                <span className="text-lg leading-none">{currencyIcons[item.currency] || "💱"}</span>
+                                {item.label}
+                            </CardTitle>
+                            <Badge variant="outline" className="text-[11px] px-2 py-0.5">{item.currency}</Badge>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <p className="text-xl font-bold font-mono text-primary">
+                                {formatCurrencyDisplay(item.finalBalance, item.currency, item.symbol)}
+                            </p>
+                            <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
 export default function ReportSummary({ report }: { report: ReportInfo }) {
     if (report.currencyBreakdown && report.currencyBreakdown.length > 0) {
         return (

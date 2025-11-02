@@ -55,11 +55,12 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange, of
         ];
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-5">
             <div className="space-y-2">
                 <Label className="font-semibold">خيارات العرض</Label>
                 <div className="flex flex-col gap-2">
                     <Select value={filters.currency} onValueChange={(v) => onFiltersChange((prev: any) => ({...prev, currency: v}))}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="كل العملات" /></SelectTrigger>
                         <SelectTrigger><SelectValue placeholder="كل العملات" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="both">كل العملات</SelectItem>
@@ -71,7 +72,7 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange, of
                         </SelectContent>
                     </Select>
                     <Select value={filters.direction} onValueChange={(v) => onFiltersChange((prev: any) => ({ ...prev, direction: v }))}>
-                        <SelectTrigger><SelectValue placeholder="كل الحركات" /></SelectTrigger>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="كل الحركات" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">كل الحركات</SelectItem>
                             <SelectItem value="debit">حركات مدينة فقط</SelectItem>
@@ -79,7 +80,7 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange, of
                         </SelectContent>
                     </Select>
                     <Select value={filters.officer} onValueChange={(v) => onFiltersChange((prev: any) => ({ ...prev, officer: v }))}>
-                        <SelectTrigger><SelectValue placeholder="كل الموظفين" /></SelectTrigger>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="كل الموظفين" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">كل الموظفين</SelectItem>
                             {officerOptions.map((officer) => (
@@ -93,12 +94,14 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange, of
                             placeholder="حد أدنى"
                             value={filters.minAmount}
                             onChange={(e) => onFiltersChange((prev: any) => ({ ...prev, minAmount: e.target.value }))}
+                            className="h-10"
                         />
                         <Input
                             type="number"
                             placeholder="حد أقصى"
                             value={filters.maxAmount}
                             onChange={(e) => onFiltersChange((prev: any) => ({ ...prev, maxAmount: e.target.value }))}
+                            className="h-10"
                         />
                     </div>
                     <Button variant="ghost" size="sm" onClick={onResetFilters}>
@@ -125,7 +128,7 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange, of
                             {basicOperations.map(type => {
                                 const Icon = type.icon;
                                 return (
-                                    <div key={type.id} className="flex items-center space-x-2 space-x-reverse p-2 rounded-md bg-muted/50">
+                                    <div key={type.id} className="flex items-center space-x-2 space-x-reverse p-2 rounded-md bg-muted/40">
                                         <Checkbox id={`filter-${type.id}`} checked={filters.typeFilter.has(type.id)} onCheckedChange={() => handleFilterToggle(type.id)} />
                                         <Label htmlFor={`filter-${type.id}`} className="flex items-center gap-2 cursor-pointer text-xs">
                                             <Icon className="h-4 w-4 text-muted-foreground" />
@@ -141,7 +144,7 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange, of
                             {otherOperations.map(type => {
                                 const Icon = type.icon;
                                 return (
-                                    <div key={type.id} className="flex items-center space-x-2 space-x-reverse p-2 rounded-md bg-muted/50">
+                                    <div key={type.id} className="flex items-center space-x-2 space-x-reverse p-2 rounded-md bg-muted/40">
                                         <Checkbox id={`filter-${type.id}`} checked={filters.typeFilter.has(type.id)} onCheckedChange={() => handleFilterToggle(type.id)} />
                                         <Label htmlFor={`filter-${type.id}`} className="flex items-center gap-2 cursor-pointer text-xs">
                                             <Icon className="h-4 w-4 text-muted-foreground" />
