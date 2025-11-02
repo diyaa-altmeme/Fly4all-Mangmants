@@ -3,7 +3,15 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableFooter,
+} from "@/components/ui/table";
 import { ReportTransaction, StructuredDescription } from "@/lib/types";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -25,6 +33,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import EditVoucherHandler from "./edit-voucher-handler";
 import { mapVoucherLabel } from "@/lib/accounting/labels";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const formatCurrency = (amount: number | null | undefined, currency: string) => {
   const value = Number(amount) || 0;
@@ -45,7 +59,7 @@ const DetailedDescription = ({ description }: { description: StructuredDescripti
     }
     
     return (
-        <div className="space-y-1 text-xs text-right p-2 bg-muted/50 rounded-md">
+        <div className="space-y-1 text-xs text-right p-2 bg-muted/40 rounded-md">
             <p className="font-bold">{description.title}</p>
             {description.totalReceived && <p className="text-muted-foreground">{description.totalReceived}</p>}
             {description.selfReceipt && <p className="text-green-600 font-semibold">{description.selfReceipt}</p>}
@@ -90,10 +104,10 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
 
     return (
         <>
-            <tr className="text-sm text-center font-medium hover:bg-muted/50">
-                <td className="p-2 font-mono text-xs">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd HH:mm') : '-'}</td>
-                <td className="p-2">{transaction.invoiceNumber}</td>
-                <td className="p-2 space-y-1">
+            <TableRow className="text-sm text-center font-medium transition-colors odd:bg-background even:bg-muted/20 hover:bg-muted/40">
+                <TableCell className="px-3 py-2 font-mono text-xs">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd') : '-'}</TableCell>
+                <TableCell className="px-3 py-2">{transaction.invoiceNumber}</TableCell>
+                <TableCell className="px-3 py-2 space-y-1">
                     <Badge variant="outline" className="mr-1">
                         {label}
                     </Badge>
@@ -102,19 +116,34 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                             variant="secondary"
                             className={cn(
                                 "text-[10px]",
-                                direction === 'debit' && 'bg-green-600/10 text-green-700',
-                                direction === 'credit' && 'bg-red-600/10 text-red-700'
+                                direction === 'debit' && 'bg-red-600/10 text-red-700',
+                                direction === 'credit' && 'bg-green-600/10 text-green-700'
                             )}
                         >
                             {direction === 'debit' ? 'مدين' : direction === 'credit' ? 'دائن' : 'عام'}
                         </Badge>
                     </div>
-                </td>
-                <td className="p-2 text-right text-xs">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-right text-xs">
                     <DetailedDescription description={transaction.description} />
-                </td>
-                <td className="p-2 text-xs text-right">
+                </TableCell>
+                <TableCell className="px-3 py-2 text-xs text-right">
                     {transaction.notes}
+                </TableCell>
+                <TableCell className="px-3 py-2 font-mono font-bold text-red-600 text-center">
+                    {transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}
+                </TableCell>
+                <TableCell className="px-3 py-2 font-mono font-bold text-green-600 text-center">
+                    {transaction.credit > 0 ? formatCurrency(transaction.credit, transaction.currency) : '-'}
+                </TableCell>
+                <TableCell className={cn("px-3 py-2 font-mono font-bold text-center", (transaction.balancesByCurrency?.[transaction.currency] ?? transaction.balance ?? 0) < 0 ? 'text-red-600' : 'text-green-600')}>
+                    {formatCurrency(transaction.balancesByCurrency?.[transaction.currency] ?? transaction.balance ?? 0, transaction.currency)}
+                </TableCell>
+                <TableCell className="px-3 py-2 text-center">
+                    <Badge variant="outline" className="text-[11px] px-2 py-1">{transaction.currency}</Badge>
+                </TableCell>
+                <TableCell className="px-3 py-2 text-xs text-center">{transaction.officer}</TableCell>
+                <TableCell className="px-3 py-2 text-center">
                 </td>
                 <td className="p-2 font-mono font-bold text-red-600 text-center">
                     {transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}
@@ -132,25 +161,41 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                 <td className="p-2 text-center">
                     <div className="flex items-center gap-1 justify-center">
                         {transaction.sourceRoute && (
-                            <Button
-                                asChild
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-primary"
-                                title="عرض المستند الأصلي"
-                            >
-                                <Link href={transaction.sourceRoute} target="_blank" rel="noopener noreferrer">
-                                    <ArrowUpRight className="h-4 w-4" />
-                                </Link>
-                            </Button>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        asChild
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8 text-primary"
+                                    >
+                                        <Link href={transaction.sourceRoute} target="_blank" rel="noopener noreferrer">
+                                            <ArrowUpRight className="h-4 w-4" />
+                                        </Link>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>عرض المستند الأصلي</TooltipContent>
+                            </Tooltip>
                         )}
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={handleEdit}>
-                            <Pencil className="h-4 w-4" />
-                        </Button>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600" onClick={handleEdit}>
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>تعديل السند</TooltipContent>
+                        </Tooltip>
                         <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                            </AlertDialogTrigger>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <AlertDialogTrigger asChild>
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent>حذف السند</TooltipContent>
+                            </Tooltip>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
@@ -163,8 +208,8 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                             </AlertDialogContent>
                         </AlertDialog>
                     </div>
-                </td>
-            </tr>
+                </TableCell>
+            </TableRow>
             {isEditOpen && (
                 <EditVoucherHandler
                     voucher={transaction}
@@ -196,6 +241,72 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
     }, [transactions]);
 
     return (
+        <TooltipProvider>
+            <div className="space-y-3">
+                <Table className="w-full text-xs">
+                    <TableHeader>
+                        <TableRow className="bg-muted/70">
+                            <TableHead className="px-3 py-3 font-bold text-center w-32">التاريخ</TableHead>
+                            <TableHead className="px-3 py-3 font-bold text-center">رقم الفاتورة</TableHead>
+                            <TableHead className="px-3 py-3 font-bold text-center">النوع</TableHead>
+                            <TableHead className="px-3 py-3 text-right font-bold w-[25%]">البيان</TableHead>
+                            <TableHead className="px-3 py-3 text-right font-bold w-[15%]">ملاحظات</TableHead>
+                            <TableHead className="px-3 py-3 text-center font-bold text-red-700 bg-red-100/50">مدين</TableHead>
+                            <TableHead className="px-3 py-3 text-center font-bold text-green-700 bg-green-100/50">دائن</TableHead>
+                            <TableHead className="px-3 py-3 text-center font-bold bg-blue-100/50">الرصيد</TableHead>
+                            <TableHead className="px-3 py-3 font-bold text-center">العملة</TableHead>
+                            <TableHead className="px-3 py-3 font-bold text-center">الموظف</TableHead>
+                            <TableHead className="px-3 py-3 font-bold text-center">الإجراءات</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {Array.isArray(transactions) && transactions.length > 0 ? (
+                        transactions.map((tx) => (
+                          <TransactionRow
+                            key={tx.id}
+                            transaction={tx}
+                            onRefresh={onRefresh}
+                          />
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={11} className="h-48 text-center text-gray-500">
+                            لا توجد بيانات متاحة لعرضها
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                    {totalsByCurrency.length > 0 && (
+                        <TableFooter>
+                            {totalsByCurrency.map(([currency, totals]) => (
+                                <TableRow key={currency} className="bg-muted/40">
+                                    <TableCell colSpan={5} className="px-3 py-2 text-center font-bold">إجمالي {currency}</TableCell>
+                                    <TableCell className="px-3 py-2 font-mono text-red-600 text-center font-bold">{formatCurrency(totals.debit, currency)}</TableCell>
+                                    <TableCell className="px-3 py-2 font-mono text-green-600 text-center font-bold">{formatCurrency(totals.credit, currency)}</TableCell>
+                                    <TableCell className="px-3 py-2 font-mono text-center font-bold">{formatCurrency(totals.balance, currency)}</TableCell>
+                                    <TableCell className="px-3 py-2 text-center"><Badge variant="outline" className="text-[11px] px-2 py-1">{currency}</Badge></TableCell>
+                                    <TableCell colSpan={2}></TableCell>
+                                </TableRow>
+                            ))}
+                        </TableFooter>
+                    )}
+                </Table>
+                {totalsByCurrency.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-end gap-3 rounded-md border border-muted bg-muted/20 px-4 py-3 text-sm">
+                        {totalsByCurrency.map(([currency, totals]) => (
+                            <div key={`summary-${currency}`} className="flex items-center gap-2 font-medium">
+                                <Badge variant="secondary" className="text-[11px]">
+                                    {currency}
+                                </Badge>
+                                <span className="text-red-600">مدين: {formatCurrency(totals.debit, currency)}</span>
+                                <span className="text-green-600">دائن: {formatCurrency(totals.credit, currency)}</span>
+                                <span className="text-primary">الرصيد: {formatCurrency(totals.balance, currency)}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </TooltipProvider>
         <Table className="w-full text-xs">
             <TableHeader>
                 <TableRow className="bg-muted/80">
