@@ -47,7 +47,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
 import { DateRange } from "react-day-picker";
-import { format, subDays, parseISO } from "date-fns";
+import { format, subDays, parseISO, startOfDay, endOfDay } from "date-fns";
 import * as XLSX from "xlsx";
 import ReportTable from "@/app/reports/account-statement/components/report-table";
 import ReportFilters from "@/app/reports/account-statement/components/report-filters";
@@ -682,7 +682,7 @@ export default function ReportGenerator({
         </Card>
       </aside>
 
-      <div className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden h-full lg:h-[calc(100vh-160px)]">
+      <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden h-full lg:h-[calc(100vh-120px)]">
         <header className="flex flex-col gap-3 p-3 border-b bg-muted/20 lg:flex-row lg:items-center">
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -767,8 +767,8 @@ export default function ReportGenerator({
             </div>
           )}
         </div>
-         {reportSummary && <div className="p-3 border-t bg-card"><ReportSummary report={reportSummary} /></div>}
-      </div>
+        {reportSummary && <footer className="p-3 border-t bg-card"><ReportSummary report={reportSummary} /></footer>}
+      </main>
     </div>
   );
 }
