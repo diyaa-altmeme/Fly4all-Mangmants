@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -62,6 +63,7 @@ import type {
   Exchange,
   ReportTransaction,
   ReportInfo,
+  ReportCurrencySummary
 } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -108,78 +110,42 @@ const amountForTransaction = (tx: ReportTransaction): number => {
 
 const buildReportSummary = (
   transactions: ReportTransaction[],
+  openingBalances: Record<string, number>,
   currency: Currency | "both",
   supportedCurrencies: string[],
   currencyMetadata: Record<string, { name?: string; symbol?: string }>
 ): ReportInfo => {
-  const summaryMap = new Map<string, {
-    openingBalance: number;
-    totalDebit: number;
-    totalCredit: number;
-    finalBalance: number;
-  }>();
 
-  const sortedTransactions = [...transactions].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-  
-  const openingTx = sortedTransactions[0];
-  if(openingTx) {
-    for (const curr of supportedCurrencies) {
-        const balanceBefore = (openingTx.balancesByCurrency?.[curr] ?? 0) - ((openingTx.currency === curr ? (openingTx.debit || 0) - (openingTx.credit || 0) : 0));
-        summaryMap.set(curr, {
-            openingBalance: balanceBefore,
-            totalDebit: 0,
-            totalCredit: 0,
-            finalBalance: balanceBefore,
-        });
-    }
-  }
+  const summaryMap = new Map<string, ReportCurrencySummary>();
 
+  // Initialize with opening balances for all supported currencies
+  supportedCurrencies.forEach(code => {
+    summaryMap.set(code, {
+      currency: code,
+      label: currencyMetadata[code]?.name || code,
+      symbol: currencyMetadata[code]?.symbol,
+      openingBalance: openingBalances[code] || 0,
+      totalDebit: 0,
+      totalCredit: 0,
+      finalBalance: openingBalances[code] || 0,
+    });
+  });
 
-  sortedTransactions.forEach((tx) => {
+  // Process transactions
+  transactions.forEach((tx) => {
     const curr = tx.currency || "USD";
-    if (!summaryMap.has(curr)) {
-      const balanceBefore = (tx.balancesByCurrency?.[curr] ?? tx.balance ?? 0) - ((tx.debit || 0) - (tx.credit || 0));
-      summaryMap.set(curr, {
-        openingBalance: balanceBefore,
-        totalDebit: 0,
-        totalCredit: 0,
-        finalBalance: balanceBefore,
-      });
-    }
-
     const entry = summaryMap.get(curr)!;
     entry.totalDebit += tx.debit || 0;
     entry.totalCredit += tx.credit || 0;
-    entry.finalBalance = tx.balancesByCurrency?.[curr] ?? tx.balance ?? entry.finalBalance;
+    entry.finalBalance = (tx.balancesByCurrency?.[curr] ?? tx.balance ?? entry.finalBalance);
   });
-
-  supportedCurrencies.forEach((code) => {
-    if (!summaryMap.has(code)) {
-      summaryMap.set(code, {
-        openingBalance: 0,
-        totalDebit: 0,
-        totalCredit: 0,
-        finalBalance: 0,
-      });
-    }
-  });
-
-  const currencyBreakdown = Array.from(summaryMap.entries()).map(([code, values]) => ({
-    currency: code,
-    label: currencyMetadata[code]?.name || code,
-    symbol: currencyMetadata[code]?.symbol,
-    openingBalance: values.openingBalance,
-    totalDebit: values.totalDebit,
-    totalCredit: values.totalCredit,
-    finalBalance: values.finalBalance,
-  }));
-
-  const getValue = (code: string, key: keyof (typeof currencyBreakdown)[number]) => {
+  
+  const currencyBreakdown = Array.from(summaryMap.values());
+  const getValue = (code: string, key: keyof ReportCurrencySummary) => {
     const found = currencyBreakdown.find((entry) => entry.currency === code);
     return found ? Number(found[key] || 0) : 0;
   };
+
 
   return {
     title: "كشف الحساب",
@@ -206,7 +172,9 @@ export default function ReportGenerator({
   exchanges = [],
   defaultAccountId,
 }: ReportGeneratorProps) {
+  const [report, setReport] = useState<ReportInfo | null>(null);
   const [transactions, setTransactions] = useState<ReportTransaction[]>([]);
+  const [openingBalances, setOpeningBalances] = useState<Record<string, number>>({});
   const { data: navData } = useVoucherNav();
 
   const [accountType, setAccountType] = useState<
@@ -223,6 +191,7 @@ export default function ReportGenerator({
     officer: "all",
     minAmount: "",
     maxAmount: "",
+    showOpeningBalance: true,
   }));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -321,22 +290,24 @@ export default function ReportGenerator({
     }
     setIsLoading(true);
     setTransactions([]);
+    setOpeningBalances({});
     setError(null);
 
     try {
-      const data = await getAccountStatement({
+      const { transactions: data, openingBalances: ob } = await getAccountStatement({
         accountId: filters.accountId,
         dateFrom: filters.dateRange?.from,
         dateTo: filters.dateRange?.to,
         voucherType: Array.from(filters.typeFilter),
       });
 
-      const transactionsData = Array.isArray(data) ? data : [];
-      setTransactions(transactionsData);
+      setTransactions(data || []);
+      setOpeningBalances(ob || {});
       setLastRefreshedAt(new Date().toISOString());
     } catch (error: any) {
       setError(error.message);
       setTransactions([]);
+      setOpeningBalances({});
       if (!error.message.startsWith("FIRESTORE_INDEX_URL::")) {
         toast({
           title: "فشل",
@@ -347,7 +318,8 @@ export default function ReportGenerator({
     } finally {
       setIsLoading(false);
     }
-  }, [filters, toast, allFilters]);
+  }, [filters, toast]);
+
 
   useEffect(() => {
     if (defaultAccountId) {
@@ -358,7 +330,6 @@ export default function ReportGenerator({
   const resetFilters = useCallback(() => {
     setFilters((prev) => ({
       ...prev,
-      dateRange: createDefaultDateRange(),
       searchTerm: "",
       currency: "both",
       typeFilter: new Set(allFilters.map((filter) => filter.id)),
@@ -366,6 +337,7 @@ export default function ReportGenerator({
       officer: "all",
       minAmount: "",
       maxAmount: "",
+      showOpeningBalance: true,
     }));
   }, [allFilters]);
 
@@ -490,15 +462,17 @@ export default function ReportGenerator({
   }, [currencyOptions, filters.currency]);
 
   const reportSummary = useMemo(() => {
-    if (finalTransactions.length === 0) return null;
+    if (finalTransactions.length === 0 && Object.keys(openingBalances).length === 0) return null;
     return buildReportSummary(
       finalTransactions,
+      openingBalances,
       filters.currency,
       supportedCurrencies,
       currencyDisplayMetadata
     );
   }, [
     finalTransactions,
+    openingBalances,
     filters.currency,
     supportedCurrencies,
     currencyDisplayMetadata,
@@ -682,7 +656,7 @@ export default function ReportGenerator({
         </Card>
       </aside>
 
-      <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden h-full lg:h-[calc(100vh-120px)]">
+      <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden h-full lg:min-h-[calc(100vh-120px)]">
         <header className="flex flex-col gap-3 p-3 border-b bg-muted/20 lg:flex-row lg:items-center">
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -734,7 +708,7 @@ export default function ReportGenerator({
                 </AlertDescription>
               </Alert>
             </div>
-          ) : finalTransactions.length === 0 ? (
+          ) : finalTransactions.length === 0 && !reportSummary ? (
             <Card className="border-dashed h-full flex flex-col items-center justify-center text-center">
               <CardHeader>
                 <CardTitle className="text-lg">لا توجد حركات خلال الفترة المختارة</CardTitle>
@@ -757,6 +731,8 @@ export default function ReportGenerator({
                   <div className="h-full overflow-auto rounded-lg border bg-background">
                     <ReportTable
                       transactions={finalTransactions}
+                      showOpeningBalance={filters.showOpeningBalance}
+                      openingBalances={openingBalances}
                       onRefresh={handleGenerateReport}
                     />
                   </div>
