@@ -863,6 +863,7 @@ export default function ReportGenerator({
             </Card>
           ) : (
             <div className="flex h-full flex-col gap-4">
+              {reportSummary && <ReportSummary report={reportSummary} />}
               <Tabs defaultValue="table" className="flex-1 flex flex-col">
                 <TabsList className="w-full max-w-md overflow-x-auto">
                   <TabsTrigger value="table">جدول الحركات</TabsTrigger>
@@ -871,6 +872,7 @@ export default function ReportGenerator({
                 </TabsList>
                 <Separator className="mt-3" />
                 <TabsContent value="table" className="flex-1 mt-4 space-y-4">
+                <TabsContent value="table" className="flex-1 mt-4">
                   <div className="h-full overflow-auto rounded-lg border bg-background">
                     <ReportTable
                       transactions={finalTransactions}

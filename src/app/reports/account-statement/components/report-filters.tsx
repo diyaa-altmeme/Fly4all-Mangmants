@@ -61,6 +61,7 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange, of
                 <div className="flex flex-col gap-2">
                     <Select value={filters.currency} onValueChange={(v) => onFiltersChange((prev: any) => ({...prev, currency: v}))}>
                         <SelectTrigger className="h-10"><SelectValue placeholder="كل العملات" /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="كل العملات" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="both">كل العملات</SelectItem>
                             {availableCurrencies.map((currency) => (
