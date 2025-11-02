@@ -79,6 +79,7 @@ import { useVoucherNav } from "@/context/voucher-nav-context";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { mapVoucherLabel } from "@/lib/accounting/labels";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ReportGeneratorProps {
   boxes: Box[];
@@ -102,57 +103,82 @@ const amountForTransaction = (tx: ReportTransaction): number => {
 
 const buildReportSummary = (
   transactions: ReportTransaction[],
-  currency: Currency | "both"
+  currency: Currency | "both",
+  supportedCurrencies: string[],
+  currencyMetadata: Record<string, { name?: string; symbol?: string }>
 ): ReportInfo => {
-  let totalDebitUSD = 0;
-  let totalCreditUSD = 0;
-  let totalDebitIQD = 0;
-  let totalCreditIQD = 0;
+  const summaryMap = new Map<string, {
+    openingBalance: number;
+    totalDebit: number;
+    totalCredit: number;
+    finalBalance: number;
+  }>();
 
-  transactions.forEach((tx) => {
-    if (tx.currency === "USD") {
-      totalDebitUSD += tx.debit || 0;
-      totalCreditUSD += tx.credit || 0;
+  const sortedTransactions = [...transactions].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  sortedTransactions.forEach((tx) => {
+    const curr = tx.currency || "USD";
+    if (!summaryMap.has(curr)) {
+      const balanceBefore =
+        (tx.balancesByCurrency?.[curr] ?? tx.balance ?? 0) -
+        ((tx.debit || 0) - (tx.credit || 0));
+      summaryMap.set(curr, {
+        openingBalance: balanceBefore,
+        totalDebit: 0,
+        totalCredit: 0,
+        finalBalance: balanceBefore,
+      });
     }
-    if (tx.currency === "IQD") {
-      totalDebitIQD += tx.debit || 0;
-      totalCreditIQD += tx.credit || 0;
+
+    const entry = summaryMap.get(curr)!;
+    entry.totalDebit += tx.debit || 0;
+    entry.totalCredit += tx.credit || 0;
+    entry.finalBalance = tx.balancesByCurrency?.[curr] ?? tx.balance ?? entry.finalBalance;
+  });
+
+  supportedCurrencies.forEach((code) => {
+    if (!summaryMap.has(code)) {
+      summaryMap.set(code, {
+        openingBalance: 0,
+        totalDebit: 0,
+        totalCredit: 0,
+        finalBalance: 0,
+      });
     }
   });
 
-  const firstTransaction = transactions[0];
-  const lastTransaction = transactions[transactions.length - 1];
+  const currencyBreakdown = Array.from(summaryMap.entries()).map(([code, values]) => ({
+    currency: code,
+    label: currencyMetadata[code]?.name || code,
+    symbol: currencyMetadata[code]?.symbol,
+    openingBalance: values.openingBalance,
+    totalDebit: values.totalDebit,
+    totalCredit: values.totalCredit,
+    finalBalance: values.finalBalance,
+  }));
 
-  const openingBalanceUSD = firstTransaction
-    ? firstTransaction.balanceUSD -
-      (firstTransaction.currency === "USD"
-        ? (firstTransaction.debit || 0) - (firstTransaction.credit || 0)
-        : 0)
-    : 0;
-  const openingBalanceIQD = firstTransaction
-    ? firstTransaction.balanceIQD -
-      (firstTransaction.currency === "IQD"
-        ? (firstTransaction.debit || 0) - (firstTransaction.credit || 0)
-        : 0)
-    : 0;
-
-  const finalBalanceUSD = lastTransaction?.balanceUSD ?? 0;
-  const finalBalanceIQD = lastTransaction?.balanceIQD ?? 0;
+  const getValue = (code: string, key: keyof (typeof currencyBreakdown)[number]) => {
+    const found = currencyBreakdown.find((entry) => entry.currency === code);
+    return found ? Number(found[key] || 0) : 0;
+  };
 
   return {
     title: "كشف الحساب",
     transactions,
-    openingBalanceUSD,
-    openingBalanceIQD,
-    totalDebitUSD,
-    totalCreditUSD,
-    finalBalanceUSD,
-    totalDebitIQD,
-    totalCreditIQD,
-    finalBalanceIQD,
+    openingBalanceUSD: getValue("USD", "openingBalance"),
+    openingBalanceIQD: getValue("IQD", "openingBalance"),
+    totalDebitUSD: getValue("USD", "totalDebit"),
+    totalCreditUSD: getValue("USD", "totalCredit"),
+    finalBalanceUSD: getValue("USD", "finalBalance"),
+    totalDebitIQD: getValue("IQD", "totalDebit"),
+    totalCreditIQD: getValue("IQD", "totalCredit"),
+    finalBalanceIQD: getValue("IQD", "finalBalance"),
     currency,
     accountType: "asset",
     balanceMode: "asset",
+    currencyBreakdown,
   };
 };
 
@@ -388,10 +414,77 @@ export default function ReportGenerator({
     );
   }, [filteredTransactions]);
 
+  const baseCurrencyMetadata = useMemo(() => {
+    const metadata: Record<string, { name?: string; symbol?: string }> = {};
+    const settings = navData?.settings.currencySettings;
+    if (settings?.currencies) {
+      settings.currencies.forEach((currencySetting) => {
+        metadata[currencySetting.code] = {
+          name: currencySetting.name || currencySetting.code,
+          symbol: currencySetting.symbol || currencySetting.code,
+        };
+      });
+    }
+    const fallback: Record<string, { name: string; symbol: string }> = {
+      USD: { name: "الدولار الأمريكي", symbol: "USD" },
+      IQD: { name: "الدينار العراقي", symbol: "IQD" },
+    };
+    Object.entries(fallback).forEach(([code, value]) => {
+      if (!metadata[code]) {
+        metadata[code] = value;
+      }
+    });
+    return metadata;
+  }, [navData]);
+
+  const currencyDisplayMetadata = useMemo(() => {
+    const metadata = { ...baseCurrencyMetadata };
+    finalTransactions.forEach((tx) => {
+      if (!metadata[tx.currency]) {
+        metadata[tx.currency] = { name: tx.currency, symbol: tx.currency };
+      }
+    });
+    return metadata;
+  }, [baseCurrencyMetadata, finalTransactions]);
+
+  const supportedCurrencies = useMemo(
+    () => Object.keys(currencyDisplayMetadata),
+    [currencyDisplayMetadata]
+  );
+
+  const currencyOptions = useMemo(
+    () =>
+      supportedCurrencies.map((code) => ({
+        code,
+        label: currencyDisplayMetadata[code]?.name || code,
+        symbol: currencyDisplayMetadata[code]?.symbol,
+      })),
+    [supportedCurrencies, currencyDisplayMetadata]
+  );
+
+  useEffect(() => {
+    if (
+      filters.currency !== "both" &&
+      !currencyOptions.some((option) => option.code === filters.currency)
+    ) {
+      setFilters((prev) => ({ ...prev, currency: "both" }));
+    }
+  }, [currencyOptions, filters.currency]);
+
   const reportSummary = useMemo(() => {
     if (finalTransactions.length === 0) return null;
-    return buildReportSummary(finalTransactions, filters.currency);
-  }, [finalTransactions, filters.currency]);
+    return buildReportSummary(
+      finalTransactions,
+      filters.currency,
+      supportedCurrencies,
+      currencyDisplayMetadata
+    );
+  }, [
+    finalTransactions,
+    filters.currency,
+    supportedCurrencies,
+    currencyDisplayMetadata,
+  ]);
 
   const selectedAccountLabel = useMemo(() => {
     return allAccounts.find((account) => account.value === filters.accountId)?.label;
@@ -401,9 +494,11 @@ export default function ReportGenerator({
     const badges: { id: string; label: string }[] = [];
 
     if (filters.currency !== "both") {
+      const currencyLabel =
+        currencyDisplayMetadata[filters.currency]?.name || filters.currency;
       badges.push({
         id: "currency",
-        label: filters.currency === "USD" ? "العملة: USD" : "العملة: IQD",
+        label: `العملة: ${currencyLabel}`,
       });
     }
 
@@ -454,7 +549,7 @@ export default function ReportGenerator({
     }
 
     return badges;
-  }, [filters, allFilters]);
+  }, [filters, allFilters, currencyDisplayMetadata]);
 
   const handleExport = () => {
     if (!finalTransactions || finalTransactions.length === 0) {
@@ -468,12 +563,11 @@ export default function ReportGenerator({
         typeof tx.description === "string"
           ? tx.description
           : tx.description?.title,
-      "مدين (USD)": tx.currency === "USD" ? tx.debit : 0,
-      "دائن (USD)": tx.currency === "USD" ? tx.credit : 0,
-      "الرصيد (USD)": tx.balanceUSD,
-      "مدين (IQD)": tx.currency === "IQD" ? tx.debit : 0,
-      "دائن (IQD)": tx.currency === "IQD" ? tx.credit : 0,
-      "الرصيد (IQD)": tx.balanceIQD,
+      مدين: tx.debit || 0,
+      دائن: tx.credit || 0,
+      الرصيد:
+        tx.balancesByCurrency?.[tx.currency] ?? tx.balance ?? 0,
+      العملة: tx.currency,
       الموظف: tx.officer || "",
       الملاحظات: tx.notes || "",
     }));
@@ -504,8 +598,8 @@ export default function ReportGenerator({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-full lg:h-[calc(100vh-160px)] gap-4">
-      <aside className="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4 lg:sticky top-20">
+    <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+      <aside className="w-full lg:w-72 xl:w-80 flex-shrink-0 lg:sticky lg:top-24 self-start">
         <Card>
           <CardHeader>
             <CardTitle>خيارات العرض</CardTitle>
@@ -513,7 +607,7 @@ export default function ReportGenerator({
               اختر الحساب والفترة الزمنية لتجميع جميع الحركات المالية المرتبطة به.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5">
             <div className="space-y-2">
               <Label className="font-semibold">نوع الحساب</Label>
               <Select
@@ -523,7 +617,7 @@ export default function ReportGenerator({
                   setFilters((prev) => ({ ...prev, accountId: "" }));
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -579,7 +673,7 @@ export default function ReportGenerator({
                     <Button
                       variant="outline"
                       className={cn(
-                        "justify-start text-left font-normal",
+                        "h-11 justify-start text-left font-normal",
                         !filters.dateRange?.from && "text-muted-foreground"
                       )}
                     >
@@ -608,7 +702,7 @@ export default function ReportGenerator({
                     <Button
                       variant="outline"
                       className={cn(
-                        "justify-start text-left font-normal",
+                        "h-11 justify-start text-left font-normal",
                         !filters.dateRange?.to && "text-muted-foreground"
                       )}
                     >
@@ -634,15 +728,26 @@ export default function ReportGenerator({
                 </Popover>
               </div>
             </div>
-            <Button
-              onClick={handleGenerateReport}
-              disabled={isLoading}
-              className="w-full"
-            >
-              {isLoading && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-              <Filter className="me-2 h-4 w-4" />
-              عرض الكشف
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleGenerateReport}
+                disabled={isLoading}
+                className="flex-1 h-11 flex items-center justify-center gap-2"
+              >
+                {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                <Filter className="h-4 w-4" />
+                <span>عرض الكشف</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 px-4"
+                onClick={resetFilters}
+                disabled={isLoading}
+              >
+                إعادة التعيين
+              </Button>
+            </div>
             <Separator />
             <ReportFilters
               filters={filters}
@@ -650,38 +755,50 @@ export default function ReportGenerator({
               allFilters={allFilters}
               officerOptions={officerOptions}
               onResetFilters={resetFilters}
+              currencyOptions={currencyOptions}
             />
           </CardContent>
         </Card>
       </aside>
 
       <div className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
-        <header className="flex flex-wrap items-center gap-3 justify-between p-3 border-b bg-muted/10">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={handleExport} variant="outline" disabled={finalTransactions.length === 0}>
-              <Download className="me-2 h-4 w-4" />Excel
+        <header className="flex flex-col gap-3 p-3 border-b bg-muted/10 lg:flex-row lg:items-center lg:gap-4">
+          <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+            <Button
+              onClick={handleExport}
+              variant="outline"
+              disabled={finalTransactions.length === 0}
+              className="h-10 gap-2"
+            >
+              <Download className="h-4 w-4" />Excel
             </Button>
-            <Button onClick={handlePrint} variant="outline" disabled={finalTransactions.length === 0}>
-              <Printer className="me-2 h-4 w-4" />طباعة
+            <Button
+              onClick={handlePrint}
+              variant="outline"
+              disabled={finalTransactions.length === 0}
+              className="h-10 gap-2"
+            >
+              <Printer className="h-4 w-4" />طباعة
             </Button>
             <Button
               onClick={handleGenerateReport}
               variant="ghost"
               disabled={isLoading || !filters.accountId}
               title="تحديث البيانات"
+              className="h-10 gap-2"
             >
-              <RefreshCw className={cn("me-2 h-4 w-4", isLoading && "animate-spin")}
+              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")}
               />
               تحديث
             </Button>
           </div>
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="flex items-center gap-3">
             {lastRefreshedAt && (
               <span className="text-xs text-muted-foreground">
                 آخر تحديث: {format(new Date(lastRefreshedAt), "yyyy-MM-dd HH:mm")}
               </span>
             )}
-            <div className="relative flex-1 max-w-sm">
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="بحث في النتائج..."
@@ -689,7 +806,7 @@ export default function ReportGenerator({
                 onChange={(e) =>
                   setFilters((prev) => ({ ...prev, searchTerm: e.target.value }))
                 }
-                className="ps-10 h-9"
+                className="ps-10 h-10"
               />
             </div>
           </div>
@@ -745,18 +862,39 @@ export default function ReportGenerator({
               </CardFooter>
             </Card>
           ) : (
-            <>
-              {reportSummary && <ReportSummary report={reportSummary} />}
-              <ReportInsights
-                transactions={finalTransactions}
-                currencyFilter={filters.currency}
-              />
-              <ReportTimeline transactions={finalTransactions} />
-              <ReportTable
-                transactions={finalTransactions}
-                onRefresh={handleGenerateReport}
-              />
-            </>
+            <div className="flex h-full flex-col gap-4">
+              <Tabs defaultValue="table" className="flex-1 flex flex-col">
+                <TabsList className="w-full max-w-md overflow-x-auto">
+                  <TabsTrigger value="table">جدول الحركات</TabsTrigger>
+                  <TabsTrigger value="insights">التحليلات</TabsTrigger>
+                  <TabsTrigger value="timeline">الخط الزمني</TabsTrigger>
+                </TabsList>
+                <Separator className="mt-3" />
+                <TabsContent value="table" className="flex-1 mt-4 space-y-4">
+                  <div className="h-full overflow-auto rounded-lg border bg-background">
+                    <ReportTable
+                      transactions={finalTransactions}
+                      onRefresh={handleGenerateReport}
+                    />
+                  </div>
+                  {reportSummary && (
+                    <div className="pb-2">
+                      <ReportSummary report={reportSummary} />
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="insights" className="mt-4">
+                  <ReportInsights
+                    transactions={finalTransactions}
+                    currencyFilter={filters.currency}
+                    currencyMetadata={currencyDisplayMetadata}
+                  />
+                </TabsContent>
+                <TabsContent value="timeline" className="mt-4">
+                  <ReportTimeline transactions={finalTransactions} />
+                </TabsContent>
+              </Tabs>
+            </div>
           )}
         </div>
       </div>
