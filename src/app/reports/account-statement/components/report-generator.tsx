@@ -95,8 +95,8 @@ interface ReportGeneratorProps {
 }
 
 const createDefaultDateRange = (): DateRange => ({
-  from: subDays(new Date(), 30),
-  to: new Date(),
+  from: startOfDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+  to: endOfDay(new Date()),
 });
 
 const amountForTransaction = (tx: ReportTransaction): number => {
@@ -122,13 +122,25 @@ const buildReportSummary = (
   const sortedTransactions = [...transactions].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
+  
+  const openingTx = sortedTransactions[0];
+  if(openingTx) {
+    for (const curr of supportedCurrencies) {
+        const balanceBefore = (openingTx.balancesByCurrency?.[curr] ?? 0) - ((openingTx.currency === curr ? (openingTx.debit || 0) - (openingTx.credit || 0) : 0));
+        summaryMap.set(curr, {
+            openingBalance: balanceBefore,
+            totalDebit: 0,
+            totalCredit: 0,
+            finalBalance: balanceBefore,
+        });
+    }
+  }
+
 
   sortedTransactions.forEach((tx) => {
     const curr = tx.currency || "USD";
     if (!summaryMap.has(curr)) {
-      const balanceBefore =
-        (tx.balancesByCurrency?.[curr] ?? tx.balance ?? 0) -
-        ((tx.debit || 0) - (tx.credit || 0));
+      const balanceBefore = (tx.balancesByCurrency?.[curr] ?? tx.balance ?? 0) - ((tx.debit || 0) - (tx.credit || 0));
       summaryMap.set(curr, {
         openingBalance: balanceBefore,
         totalDebit: 0,
@@ -216,6 +228,7 @@ export default function ReportGenerator({
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
   const { toast } = useToast();
+  const { hasPermission } = useAuth();
 
   const firestoreIndexUrl =
     error && error.startsWith("FIRESTORE_INDEX_URL::")
@@ -258,7 +271,7 @@ export default function ReportGenerator({
     }
   }, [accountType, clients, suppliers, boxes, exchanges, navData]);
 
-  const allFilters = useMemo(
+   const allFilters = useMemo(
     () => [
       { id: "booking", label: "حجز طيران", icon: Plane, group: "basic" },
       { id: "visa", label: "طلب فيزا", icon: CreditCard, group: "basic" },
@@ -279,7 +292,7 @@ export default function ReportGenerator({
     ],
     []
   );
-
+  
   useEffect(() => {
     setFilters((prev) => ({
       ...prev,
@@ -334,7 +347,7 @@ export default function ReportGenerator({
     } finally {
       setIsLoading(false);
     }
-  }, [filters, toast]);
+  }, [filters, toast, allFilters]);
 
   useEffect(() => {
     if (defaultAccountId) {
@@ -360,7 +373,7 @@ export default function ReportGenerator({
     const rawMin = filters.minAmount !== "" ? Number(filters.minAmount) : null;
     const rawMax = filters.maxAmount !== "" ? Number(filters.maxAmount) : null;
     const minAmount = rawMin !== null && Number.isFinite(rawMin) ? rawMin : null;
-    const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? rawMax : null;
+    const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? maxAmount : null;
 
     return transactions.filter((tx) => {
       const typeKey = tx.sourceType || tx.voucherType || tx.type;
@@ -562,31 +575,21 @@ export default function ReportGenerator({
       return;
     }
     const data = finalTransactions.map((tx) => ({
-      التاريخ: tx.date ? format(parseISO(tx.date), "yyyy-MM-dd") : "",
-      النوع: mapVoucherLabel(tx.sourceType || tx.voucherType || tx.type),
-      البيان:
-        typeof tx.description === "string"
-          ? tx.description
-          : tx.description?.title,
-      مدين: tx.debit || 0,
-      دائن: tx.credit || 0,
-      الرصيد:
-        tx.balancesByCurrency?.[tx.currency] ?? tx.balance ?? 0,
-      العملة: tx.currency,
-      الموظف: tx.officer || "",
-      الملاحظات: tx.notes || "",
+      'التاريخ': tx.date ? format(parseISO(tx.date), "yyyy-MM-dd") : "",
+      'النوع': mapVoucherLabel(tx.sourceType || tx.voucherType || tx.type),
+      'البيان': typeof tx.description === "string" ? tx.description : tx.description?.title,
+      'مدين': tx.debit || 0,
+      'دائن': tx.credit || 0,
+      'الرصيد': tx.balancesByCurrency?.[tx.currency] ?? tx.balance ?? 0,
+      'العملة': tx.currency,
+      'الموظف': tx.officer || "",
+      'الملاحظات': tx.notes || "",
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "كشف الحساب");
-    const accountName =
-      selectedAccountLabel || allAccounts.find((a) => a.value === filters.accountId)?.label || "Account";
-    XLSX.writeFile(
-      wb,
-      `Statement-${(accountName || "Account").replace(/[:\\/\\s]+/g, "-")}-${
-        new Date().toISOString().split("T")[0]
-      }.xlsx`
-    );
+    const accountName = selectedAccountLabel || "Account";
+    XLSX.writeFile(wb, `Statement-${accountName.replace(/[:\\/\\s]+/g, "-")}-${new Date().toISOString().split("T")[0]}.xlsx`);
     toast({ title: "تم التصدير بنجاح" });
   };
 
@@ -622,35 +625,13 @@ export default function ReportGenerator({
                   setFilters((prev) => ({ ...prev, accountId: "" }));
                 }}
               >
-                <SelectTrigger className="h-11">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="relation">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />عميل / مورد
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="box">
-                    <div className="flex items-center gap-2">
-                      <Wallet className="h-4 w-4" />صندوق
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="exchange">
-                    <div className="flex items-center gap-2">
-                      <Building className="h-4 w-4" />بورصة
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="expense">
-                    <div className="flex items-center gap-2">
-                      <Banknote className="h-4 w-4" />مصروف
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="static">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />حساب عام
-                    </div>
-                  </SelectItem>
+                  <SelectItem value="relation"><div className="flex items-center gap-2"><Users className="h-4 w-4" />عميل / مورد</div></SelectItem>
+                  <SelectItem value="box"><div className="flex items-center gap-2"><Wallet className="h-4 w-4" />صندوق</div></SelectItem>
+                  <SelectItem value="exchange"><div className="flex items-center gap-2"><Building className="h-4 w-4" />بورصة</div></SelectItem>
+                  <SelectItem value="expense"><div className="flex items-center gap-2"><Banknote className="h-4 w-4" />مصروف</div></SelectItem>
+                  <SelectItem value="static"><div className="flex items-center gap-2"><FileText className="h-4 w-4" />حساب عام</div></SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -658,190 +639,91 @@ export default function ReportGenerator({
               <Label className="font-semibold">الحساب</Label>
               <Autocomplete
                 value={filters.accountId}
-                onValueChange={(v) =>
-                  setFilters((prev) => ({ ...prev, accountId: v }))
-                }
+                onValueChange={(v) => setFilters((f) => ({ ...f, accountId: v }))}
                 options={allAccounts}
                 placeholder="اختر حسابًا..."
               />
-              {selectedAccountLabel && (
-                <p className="text-xs text-muted-foreground text-right">
-                  سيتم عرض كافة الحركات المتعلقة بالحساب "{selectedAccountLabel}"
-                </p>
-              )}
             </div>
             <div className="space-y-2">
               <Label className="font-semibold">الفترة الزمنية</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "h-11 justify-start text-left font-normal",
-                        !filters.dateRange?.from && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filters.dateRange?.from
-                        ? format(filters.dateRange.from, "yyyy-MM-dd")
-                        : "من تاريخ"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={filters.dateRange?.from}
-                      onSelect={(d) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          dateRange: { ...prev.dateRange, from: d },
-                        }))
-                      }
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "h-11 justify-start text-left font-normal",
-                        !filters.dateRange?.to && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filters.dateRange?.to
-                        ? format(filters.dateRange.to, "yyyy-MM-dd")
-                        : "إلى تاريخ"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={filters.dateRange?.to}
-                      onSelect={(d) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          dateRange: { ...prev.dateRange, to: d },
-                        }))
-                      }
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                 <div className="grid grid-cols-2 gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("h-11 justify-start text-left font-normal", !filters.dateRange?.from && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : "من تاريخ"}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={filters.dateRange?.from} onSelect={(d) => setFilters((f) => ({ ...f, dateRange: { ...f.dateRange, from: d } }))} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                     <Popover>
+                        <PopoverTrigger asChild>
+                             <Button variant="outline" className={cn("h-11 justify-start text-left font-normal", !filters.dateRange?.to && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : "إلى تاريخ"}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={filters.dateRange?.to} onSelect={(d) => setFilters((f) => ({ ...f, dateRange: { ...f.dateRange, to: d } }))} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleGenerateReport}
-                disabled={isLoading}
-                className="flex-1 h-11 flex items-center justify-center gap-2"
-              >
-                {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                <Filter className="h-4 w-4" />
-                <span>عرض الكشف</span>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-11 px-4"
-                onClick={resetFilters}
-                disabled={isLoading}
-              >
-                إعادة التعيين
-              </Button>
-            </div>
+            <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full h-11 flex items-center justify-center gap-2">
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Filter className="h-4 w-4" />
+              <span>عرض الكشف</span>
+            </Button>
             <Separator />
-            <ReportFilters
-              filters={filters}
-              onFiltersChange={setFilters}
-              allFilters={allFilters}
-              officerOptions={officerOptions}
-              onResetFilters={resetFilters}
-              currencyOptions={currencyOptions}
-            />
+            <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} officerOptions={officerOptions} onResetFilters={resetFilters} currencyOptions={currencyOptions}/>
           </CardContent>
         </Card>
       </aside>
 
-      <div className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden">
-        <header className="flex flex-col gap-3 p-3 border-b bg-muted/10 lg:flex-row lg:items-center lg:gap-4">
-          <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
-            <Button
-              onClick={handleExport}
-              variant="outline"
-              disabled={finalTransactions.length === 0}
-              className="h-10 gap-2"
-            >
-              <Download className="h-4 w-4" />Excel
-            </Button>
-            <Button
-              onClick={handlePrint}
-              variant="outline"
-              disabled={finalTransactions.length === 0}
-              className="h-10 gap-2"
-            >
-              <Printer className="h-4 w-4" />طباعة
-            </Button>
-            <Button
-              onClick={handleGenerateReport}
-              variant="ghost"
-              disabled={isLoading || !filters.accountId}
-              title="تحديث البيانات"
-              className="h-10 gap-2"
-            >
-              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")}
-              />
-              تحديث
-            </Button>
+      <div className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden h-full lg:h-[calc(100vh-160px)]">
+        <header className="flex flex-col gap-3 p-3 border-b bg-muted/20 lg:flex-row lg:items-center">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="بحث في النتائج..."
+              value={filters.searchTerm}
+              onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
+              className="ps-10 h-10"
+            />
           </div>
-          <div className="flex items-center gap-3">
-            {lastRefreshedAt && (
-              <span className="text-xs text-muted-foreground">
-                آخر تحديث: {format(new Date(lastRefreshedAt), "yyyy-MM-dd HH:mm")}
-              </span>
-            )}
-            <div className="relative flex-1 min-w-[200px] max-w-xs">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="بحث في النتائج..."
-                value={filters.searchTerm}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, searchTerm: e.target.value }))
-                }
-                className="ps-10 h-10"
-              />
-            </div>
+          <div className="flex flex-wrap items-center gap-1">
+            {appliedFilterBadges.map((badge) => (
+              <Badge key={badge.id} variant="outline" className="text-xs">
+                {badge.label}
+              </Badge>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 lg:ml-auto">
+             {lastRefreshedAt && <span className="text-xs text-muted-foreground">آخر تحديث: {format(new Date(lastRefreshedAt), "HH:mm:ss")}</span>}
+            <Button onClick={handleGenerateReport} variant="ghost" size="icon" disabled={isLoading || !filters.accountId} title="تحديث البيانات">
+              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+            </Button>
+            <Button onClick={handleExport} variant="ghost" size="icon" disabled={finalTransactions.length === 0} title="تصدير إلى Excel">
+              <Download className="h-4 w-4" />
+            </Button>
+            <Button onClick={handlePrint} variant="ghost" size="icon" disabled={finalTransactions.length === 0} title="طباعة">
+              <Printer className="h-4 w-4" />
+            </Button>
           </div>
         </header>
 
-        <div className="px-4 py-3 border-b bg-muted/20 flex flex-wrap gap-2 items-center">
-          <Badge variant="secondary" className="text-xs">
-            {finalTransactions.length} حركة مالية
-          </Badge>
-          {appliedFilterBadges.map((badge) => (
-            <Badge key={badge.id} variant="outline" className="text-xs">
-              {badge.label}
-            </Badge>
-          ))}
-        </div>
-
         <div className="flex-grow overflow-y-auto p-4 space-y-4">
           {isLoading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : error ? (
             <div className="p-8">
               <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
                 <AlertTitle>حدث خطأ في قاعدة البيانات!</AlertTitle>
                 <AlertDescription>
-                  <p>
-                    يتطلب هذا الاستعلام إنشاء فهرس مركب في Firestore. بدون هذا الفهرس، لا يمكن جلب البيانات.
-                  </p>
+                  <p>يتطلب هذا الاستعلام إنشاء فهرس مركب في Firestore. بدون هذا الفهرس، لا يمكن جلب البيانات.</p>
                   {firestoreIndexUrl && (
                     <div className="mt-4">
                       <Button onClick={handleCopyIndexUrl}>
@@ -853,22 +735,17 @@ export default function ReportGenerator({
               </Alert>
             </div>
           ) : finalTransactions.length === 0 ? (
-            <Card className="border-dashed">
+            <Card className="border-dashed h-full flex flex-col items-center justify-center text-center">
               <CardHeader>
                 <CardTitle className="text-lg">لا توجد حركات خلال الفترة المختارة</CardTitle>
-                <CardDescription>
-                  قم بتعديل الفلاتر أو تغيير الفترة الزمنية لعرض نتائج أخرى.
-                </CardDescription>
+                <CardDescription>قم بتعديل الفلاتر أو تغيير الفترة الزمنية لعرض نتائج أخرى.</CardDescription>
               </CardHeader>
               <CardFooter>
-                <Button variant="outline" onClick={resetFilters}>
-                  إعادة تعيين الفلاتر
-                </Button>
+                <Button variant="outline" onClick={resetFilters}>إعادة تعيين الفلاتر</Button>
               </CardFooter>
             </Card>
           ) : (
             <div className="flex h-full flex-col gap-4">
-              {reportSummary && <ReportSummary report={reportSummary} />}
               <Tabs defaultValue="table" className="flex-1 flex flex-col">
                 <TabsList className="w-full max-w-md overflow-x-auto">
                   <TabsTrigger value="table">جدول الحركات</TabsTrigger>
@@ -884,20 +761,13 @@ export default function ReportGenerator({
                     />
                   </div>
                 </TabsContent>
-                <TabsContent value="insights" className="mt-4">
-                  <ReportInsights
-                    transactions={finalTransactions}
-                    currencyFilter={filters.currency}
-                    currencyMetadata={currencyDisplayMetadata}
-                  />
-                </TabsContent>
-                <TabsContent value="timeline" className="mt-4">
-                  <ReportTimeline transactions={finalTransactions} />
-                </TabsContent>
+                <TabsContent value="insights" className="mt-4"><ReportInsights transactions={finalTransactions} currencyFilter={filters.currency} currencyMetadata={currencyDisplayMetadata} /></TabsContent>
+                <TabsContent value="timeline" className="mt-4"><ReportTimeline transactions={finalTransactions} /></TabsContent>
               </Tabs>
             </div>
           )}
         </div>
+         {reportSummary && <div className="p-3 border-t bg-card"><ReportSummary report={reportSummary} /></div>}
       </div>
     </div>
   );
