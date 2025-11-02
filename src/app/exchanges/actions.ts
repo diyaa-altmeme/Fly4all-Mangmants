@@ -1,3 +1,4 @@
+
 "use server";
 
 import { postJournalEntries } from '@/lib/finance/posting';
@@ -380,7 +381,7 @@ export async function savePayments(
     return { success: true, batch: newBatch };
 }
 
-export const getUnifiedExchangeLedger = cache(async (exchangeId: string, from?: Date, to?: Date): Promise<UnifiedLedgerEntry[]> => {
+export async function getUnifiedExchangeLedger(exchangeId: string, from?: Date, to?: Date): Promise<UnifiedLedgerEntry[]> {
     if (!exchangeId) return [];
 
     const db = await getDb();
@@ -448,7 +449,7 @@ export const getUnifiedExchangeLedger = cache(async (exchangeId: string, from?: 
     }
 
     return finalEntries as UnifiedLedgerEntry[];
-});
+};
 
 
 export async function updateBatch(batchId: string, batchType: 'transaction' | 'payment', data: { date?: string; description?: string, isConfirmed?: boolean }) {
@@ -542,7 +543,7 @@ export interface ExchangeDashboardData extends Exchange {
   lastTransactions: UnifiedLedgerEntry[];
 }
 
-export const getExchangesDashboardData = cache(async (): Promise<ExchangeDashboardData[]> => {
+export async function getExchangesDashboardData(): Promise<ExchangeDashboardData[]> {
     const db = await getDb();
     if (!db) return [];
     
@@ -562,4 +563,4 @@ export const getExchangesDashboardData = cache(async (): Promise<ExchangeDashboa
     });
 
     return Promise.all(dashboardDataPromises);
-});
+};
