@@ -179,11 +179,6 @@ export const navConfig = {
         icon: BellRing,
       },
       {
-        title: "إعدادات متقدمة للحسابات",
-        href: "/settings/advanced-accounts-setup",
-        icon: GitBranch
-      },
-      {
         title: "إدارة الأصول",
         href: "/settings/assets",
         icon: Wallet,

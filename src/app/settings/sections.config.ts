@@ -27,7 +27,6 @@ export const settingSections = [
         name: 'الإعدادات المحاسبية والمالية', 
         icon: GitBranch,
         subItems: [
-            { id: 'accounting_linking', name: 'ربط الحسابات المالية', icon: WalletCards, component: FinanceAccountSettings },
             { id: 'accounting_sequences', name: 'تسلسل الفواتير', icon: FileBarChart, component: InvoiceSequencesPage },
             { id: 'accounting_currencies', name: 'العملات', icon: Banknote, component: CurrencySettings },
         ],
