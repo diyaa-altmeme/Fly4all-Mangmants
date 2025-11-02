@@ -25,86 +25,107 @@ import { mapVoucherLabel } from "@/lib/accounting/labels";
 import type { ReportTransaction, Currency } from "@/lib/types";
 import { format, parseISO } from "date-fns";
 
-const formatCurrencyValue = (value: number, currency: Currency) => {
-  const options =
-    currency === "USD"
-      ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
-      : { minimumFractionDigits: 0, maximumFractionDigits: 0 };
-  const formatter = new Intl.NumberFormat("en-US", options);
-  return formatter.format(value || 0);
-};
-
 interface ReportInsightsProps {
   transactions: ReportTransaction[];
   currencyFilter: Currency | "both";
+  currencyMetadata?: Record<string, { name?: string; symbol?: string }>;
 }
+
+const numberFormatOptions = (currency: string) => {
+  if (currency === "IQD") {
+    return { minimumFractionDigits: 0, maximumFractionDigits: 0 } as Intl.NumberFormatOptions;
+  }
+  return { minimumFractionDigits: 2, maximumFractionDigits: 2 } as Intl.NumberFormatOptions;
+};
+
+const formatCurrencyValue = (
+  value: number,
+  currency: string,
+  metadata?: ReportInsightsProps["currencyMetadata"]
+) => {
+  const formatter = new Intl.NumberFormat("en-US", numberFormatOptions(currency));
+  const symbol = metadata?.[currency]?.symbol;
+  const label = symbol && symbol !== currency ? symbol : currency;
+  return `${formatter.format(value || 0)} ${label}`;
+};
+
+const palette = ["#2563eb", "#16a34a", "#f97316", "#9333ea", "#0ea5e9", "#dc2626"];
 
 export default function ReportInsights({
   transactions,
   currencyFilter,
+  currencyMetadata,
 }: ReportInsightsProps) {
-  const totals = useMemo(() => {
-    return transactions.reduce(
-      (acc, tx) => {
-        if (tx.currency === "USD") {
-          acc.usd.debit += tx.debit || 0;
-          acc.usd.credit += tx.credit || 0;
-          acc.usd.balance = tx.balanceUSD;
-        }
-        if (tx.currency === "IQD") {
-          acc.iqd.debit += tx.debit || 0;
-          acc.iqd.credit += tx.credit || 0;
-          acc.iqd.balance = tx.balanceIQD;
-        }
-        return acc;
-      },
-      {
-        usd: { debit: 0, credit: 0, balance: 0 },
-        iqd: { debit: 0, credit: 0, balance: 0 },
-      }
-    );
+  const allCurrencyCodes = useMemo(() => {
+    const codes = new Set<string>();
+    Object.keys(currencyMetadata || {}).forEach((code) => codes.add(code));
+    transactions.forEach((tx) => codes.add(tx.currency));
+    return Array.from(codes);
+  }, [currencyMetadata, transactions]);
+
+  const filteredCurrencyCodes = useMemo(() => {
+    if (currencyFilter === "both") return allCurrencyCodes;
+    return allCurrencyCodes.filter((code) => code === currencyFilter);
+  }, [allCurrencyCodes, currencyFilter]);
+
+  const displayCurrencyCodes = useMemo(() => {
+    if (filteredCurrencyCodes.length > 0) {
+      return filteredCurrencyCodes;
+    }
+    if (currencyFilter !== "both") {
+      return [currencyFilter];
+    }
+    return allCurrencyCodes;
+  }, [filteredCurrencyCodes, currencyFilter, allCurrencyCodes]);
+
+  const totalsByCurrency = useMemo(() => {
+    const map = new Map<string, { debit: number; credit: number; balance: number }>();
+    transactions.forEach((tx) => {
+      const currency = tx.currency || "USD";
+      const current = map.get(currency) || { debit: 0, credit: 0, balance: 0 };
+      current.debit += tx.debit || 0;
+      current.credit += tx.credit || 0;
+      const balanceValue = tx.balancesByCurrency?.[currency] ?? tx.balance ?? current.balance;
+      current.balance = balanceValue;
+      map.set(currency, current);
+    });
+    return map;
   }, [transactions]);
 
-  const dailyTrend = useMemo(() => {
-    const map = new Map<string, {
-      date: string;
-      debitUSD: number;
-      creditUSD: number;
-      balanceUSD: number;
-      debitIQD: number;
-      creditIQD: number;
-      balanceIQD: number;
-    }>();
+  const currencyBadges = useMemo(() => {
+    return displayCurrencyCodes.map((currency) => {
+      const totals = totalsByCurrency.get(currency) || {
+        debit: 0,
+        credit: 0,
+        balance: 0,
+      };
+      const label = currencyMetadata?.[currency]?.name || currency;
+      return {
+        currency,
+        label,
+        totals,
+      };
+    });
+  }, [displayCurrencyCodes, totalsByCurrency, currencyMetadata]);
 
+  const trendCurrencyCodes = useMemo(() => {
+    if (currencyFilter === "both") {
+      return displayCurrencyCodes.slice(0, 4);
+    }
+    return displayCurrencyCodes.slice(0, 1);
+  }, [displayCurrencyCodes, currencyFilter]);
+
+  const dailyTrend = useMemo(() => {
+    const map = new Map<string, Record<string, unknown>>();
     transactions.forEach((tx) => {
       const parsedDate = tx.date ? parseISO(tx.date) : new Date();
       const key = format(parsedDate, "yyyy-MM-dd");
-      const current = map.get(key) || {
-        date: key,
-        debitUSD: 0,
-        creditUSD: 0,
-        balanceUSD: 0,
-        debitIQD: 0,
-        creditIQD: 0,
-        balanceIQD: 0,
-      };
-
-      if (tx.currency === "USD") {
-        current.debitUSD += tx.debit || 0;
-        current.creditUSD += tx.credit || 0;
-        current.balanceUSD = tx.balanceUSD;
-      }
-      if (tx.currency === "IQD") {
-        current.debitIQD += tx.debit || 0;
-        current.creditIQD += tx.credit || 0;
-        current.balanceIQD = tx.balanceIQD;
-      }
-
+      const current = map.get(key) || { date: key };
+      current[`balance_${tx.currency}`] = tx.balancesByCurrency?.[tx.currency] ?? tx.balance ?? 0;
       map.set(key, current);
     });
-
     return Array.from(map.values()).sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      (a, b) => new Date(a.date as string).getTime() - new Date(b.date as string).getTime()
     );
   }, [transactions]);
 
@@ -114,68 +135,54 @@ export default function ReportInsights({
       {
         id: string;
         label: string;
-        debitUSD: number;
-        creditUSD: number;
-        debitIQD: number;
-        creditIQD: number;
         count: number;
+        totals: Record<string, { debit: number; credit: number }>;
       }
     >();
 
     transactions.forEach((tx) => {
       const id = tx.sourceType || tx.voucherType || tx.type || "other";
       const label = mapVoucherLabel(id);
-      const current =
-        map.get(id) || {
-          id,
-          label,
-          debitUSD: 0,
-          creditUSD: 0,
-          debitIQD: 0,
-          creditIQD: 0,
-          count: 0,
-        };
-
-      if (tx.currency === "USD") {
-        current.debitUSD += tx.debit || 0;
-        current.creditUSD += tx.credit || 0;
-      }
-      if (tx.currency === "IQD") {
-        current.debitIQD += tx.debit || 0;
-        current.creditIQD += tx.credit || 0;
-      }
-      current.count += 1;
-      map.set(id, current);
+      const entry = map.get(id) || {
+        id,
+        label,
+        count: 0,
+        totals: {},
+      };
+      const currencyTotals = entry.totals[tx.currency] || { debit: 0, credit: 0 };
+      currencyTotals.debit += tx.debit || 0;
+      currencyTotals.credit += tx.credit || 0;
+      entry.totals[tx.currency] = currencyTotals;
+      entry.count += 1;
+      map.set(id, entry);
     });
 
+    const relevantCurrencies = currencyFilter === "both" ? displayCurrencyCodes : displayCurrencyCodes.slice(0, 1);
+
     return Array.from(map.values())
+      .map((entry) => {
+        const totals: Record<string, number> = {};
+        relevantCurrencies.forEach((currency) => {
+          const currencyTotals = entry.totals[currency] || { debit: 0, credit: 0 };
+          totals[`debit_${currency}`] = currencyTotals.debit;
+          totals[`credit_${currency}`] = currencyTotals.credit;
+        });
+        return { ...entry, ...totals };
+      })
       .sort((a, b) => {
-        const aTotal = a.debitUSD + a.creditUSD + a.debitIQD + a.creditIQD;
-        const bTotal = b.debitUSD + b.creditUSD + b.debitIQD + b.creditIQD;
-        return bTotal - aTotal;
+        const totalForEntry = (item: typeof a) => {
+          return relevantCurrencies.reduce((sum, currency) => {
+            return (
+              sum +
+              (item[`debit_${currency}`] || 0) +
+              (item[`credit_${currency}`] || 0)
+            );
+          }, 0);
+        };
+        return totalForEntry(b) - totalForEntry(a);
       })
       .slice(0, 8);
-  }, [transactions]);
-
-  const currencyBadges: { label: string; debit: number; credit: number; balance: number; currency: Currency }[] = useMemo(
-    () => [
-      {
-        label: "الدولار الأمريكي",
-        debit: totals.usd.debit,
-        credit: totals.usd.credit,
-        balance: totals.usd.balance,
-        currency: "USD",
-      },
-      {
-        label: "الدينار العراقي",
-        debit: totals.iqd.debit,
-        credit: totals.iqd.credit,
-        balance: totals.iqd.balance,
-        currency: "IQD",
-      },
-    ],
-    [totals]
-  );
+  }, [transactions, currencyFilter, displayCurrencyCodes]);
 
   return (
     <Card>
@@ -187,35 +194,40 @@ export default function ReportInsights({
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {currencyBadges.map((item) => (
-            <div
-              key={item.currency}
-              className="rounded-lg border p-3 bg-muted/30"
-            >
-              <p className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
-                {item.label}
-                {currencyFilter !== "both" && currencyFilter !== item.currency && (
-                  <Badge variant="outline" className="text-[10px]">
-                    خارج التصفية
-                  </Badge>
-                )}
-              </p>
-              <div className="mt-2 text-sm space-y-1 font-mono">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">إجمالي المدين</span>
-                  <span>{formatCurrencyValue(item.debit, item.currency)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">إجمالي الدائن</span>
-                  <span>{formatCurrencyValue(item.credit, item.currency)}</span>
-                </div>
-                <div className="flex justify-between font-bold">
-                  <span>الرصيد الختامي</span>
-                  <span>{formatCurrencyValue(item.balance, item.currency)}</span>
+          {currencyBadges.map((item) => {
+            const totals = item.totals;
+            const isOutsideFilter =
+              currencyFilter !== "both" && currencyFilter !== item.currency;
+            return (
+              <div
+                key={item.currency}
+                className="rounded-lg border p-3 bg-muted/30"
+              >
+                <p className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
+                  {item.label}
+                  {isOutsideFilter && (
+                    <Badge variant="outline" className="text-[10px]">
+                      خارج التصفية
+                    </Badge>
+                  )}
+                </p>
+                <div className="mt-2 text-sm space-y-1 font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">إجمالي المدين</span>
+                    <span>{formatCurrencyValue(totals.debit, item.currency, currencyMetadata)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">إجمالي الدائن</span>
+                    <span>{formatCurrencyValue(totals.credit, item.currency, currencyMetadata)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold">
+                    <span>الرصيد الختامي</span>
+                    <span>{formatCurrencyValue(totals.balance, item.currency, currencyMetadata)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -231,22 +243,21 @@ export default function ReportInsights({
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Area
-                    type="monotone"
-                    dataKey="balanceUSD"
-                    name="الرصيد (USD)"
-                    stroke="#2563eb"
-                    fill="#93c5fd"
-                    strokeWidth={2}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="balanceIQD"
-                    name="الرصيد (IQD)"
-                    stroke="#16a34a"
-                    fill="#bbf7d0"
-                    strokeWidth={2}
-                  />
+                  {trendCurrencyCodes.map((currency, index) => {
+                    const color = palette[index % palette.length];
+                    return (
+                      <Area
+                        key={currency}
+                        type="monotone"
+                        dataKey={`balance_${currency}`}
+                        name={`الرصيد (${currency})`}
+                        stroke={color}
+                        fill={color}
+                        strokeWidth={2}
+                        fillOpacity={0.2 + (index % 3) * 0.2}
+                      />
+                    );
+                  })}
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -264,10 +275,27 @@ export default function ReportInsights({
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="debitUSD" name="مدين USD" stackId="usd" fill="#16a34a" />
-                  <Bar dataKey="creditUSD" name="دائن USD" stackId="usd" fill="#dc2626" />
-                  <Bar dataKey="debitIQD" name="مدين IQD" stackId="iqd" fill="#0ea5e9" />
-                  <Bar dataKey="creditIQD" name="دائن IQD" stackId="iqd" fill="#f97316" />
+                  {displayCurrencyCodes.map((currency, index) => {
+                    const color = palette[index % palette.length];
+                    return (
+                      <React.Fragment key={currency}>
+                        <Bar
+                          dataKey={`debit_${currency}`}
+                          name={`مدين ${currency}`}
+                          stackId={currency}
+                          fill={color}
+                          fillOpacity={0.85}
+                        />
+                        <Bar
+                          dataKey={`credit_${currency}`}
+                          name={`دائن ${currency}`}
+                          stackId={currency}
+                          fill={color}
+                          fillOpacity={0.45}
+                        />
+                      </React.Fragment>
+                    );
+                  })}
                 </BarChart>
               </ResponsiveContainer>
             </div>
