@@ -443,6 +443,22 @@ export type ReportTransaction = {
   sourceId?: string;
   sourceRoute?: string;
   originalData?: any;
+  notes?: string;
+  entryNote?: string;
+  voucherNote?: string;
+  direction?: 'debit' | 'credit' | 'neutral';
+  amount?: number;
+  balancesByCurrency?: Record<string, number>;
+};
+
+export type ReportCurrencySummary = {
+  currency: Currency;
+  label: string;
+  symbol?: string;
+  openingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  finalBalance: number;
 };
 
 export type ReportInfo = {
@@ -459,6 +475,7 @@ export type ReportInfo = {
   currency: Currency | 'both';
   accountType: AccountType;
   balanceMode: 'asset' | 'liability';
+  currencyBreakdown?: ReportCurrencySummary[];
 };
 
 
