@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -12,7 +13,7 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
-import { ReportTransaction, StructuredDescription } from "@/lib/types";
+import { ReportTransaction } from "@/lib/types";
 import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +56,7 @@ const formatCurrency = (amount: number | null | undefined, currency: string) => 
   return formattedAmount;
 };
 
-const DetailedDescription = ({ description }: { description: StructuredDescription | string }) => {
+const DetailedDescription = ({ description }: { description: ReportTransaction['description'] }) => {
     if (typeof description === 'string') {
         return <p>{description}</p>;
     }
@@ -98,10 +99,6 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
     };
 
     const label = mapVoucherLabel(transaction.sourceType || transaction.voucherType || transaction.type);
-    const direction = transaction.direction
-        || (transaction.debit && transaction.debit > 0 ? 'debit'
-        : transaction.credit && transaction.credit > 0 ? 'credit'
-        : 'neutral');
 
     return (
         <>
@@ -178,7 +175,35 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
     );
 };
 
-export default function ReportTable({ transactions, onRefresh }: { transactions: ReportTransaction[], onRefresh: () => void }) {
+export default function ReportTable({ 
+    transactions, 
+    onRefresh,
+    showOpeningBalance,
+    openingBalances
+}: { 
+    transactions: ReportTransaction[], 
+    onRefresh: () => void,
+    showOpeningBalance: boolean,
+    openingBalances: Record<string, number>
+}) {
+    const openingBalanceRows = Object.entries(openingBalances)
+        .filter(([, balance]) => Math.abs(balance) > 0.01)
+        .map(([currency, balance]) => ({
+            id: `opening_${currency}`,
+            date: '',
+            invoiceNumber: '',
+            description: 'الرصيد السابق',
+            type: 'رصيد افتتاحي',
+            debit: balance > 0 ? balance : 0,
+            credit: balance < 0 ? Math.abs(balance) : 0,
+            balance: balance,
+            currency: currency,
+        }));
+        
+    const transactionsToRender = showOpeningBalance 
+        ? [...openingBalanceRows, ...transactions]
+        : transactions;
+
     return (
         <TooltipProvider>
             <div className="space-y-3">
@@ -199,8 +224,8 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {Array.isArray(transactions) && transactions.length > 0 ? (
-                        transactions.map((tx) => (
+                      {transactionsToRender.length > 0 ? (
+                        transactionsToRender.map((tx) => (
                           <TransactionRow
                             key={tx.id}
                             transaction={tx}

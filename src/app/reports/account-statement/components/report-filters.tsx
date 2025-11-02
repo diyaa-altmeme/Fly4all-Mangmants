@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -20,6 +21,7 @@ interface ReportFiltersProps {
         officer: string;
         minAmount: string;
         maxAmount: string;
+        showOpeningBalance: boolean;
     };
     officerOptions: string[];
     onFiltersChange: (filters: any) => void;
@@ -61,7 +63,6 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange, of
                 <div className="flex flex-col gap-2">
                     <Select value={filters.currency} onValueChange={(v) => onFiltersChange((prev: any) => ({...prev, currency: v}))}>
                         <SelectTrigger className="h-10"><SelectValue placeholder="كل العملات" /></SelectTrigger>
-                        <SelectTrigger><SelectValue placeholder="كل العملات" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="both">كل العملات</SelectItem>
                             {availableCurrencies.map((currency) => (
@@ -103,6 +104,14 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange, of
                             onChange={(e) => onFiltersChange((prev: any) => ({ ...prev, maxAmount: e.target.value }))}
                             className="h-10"
                         />
+                    </div>
+                     <div className="flex items-center space-x-2 space-x-reverse pt-2">
+                        <Checkbox
+                            id="show-opening-balance"
+                            checked={filters.showOpeningBalance}
+                            onCheckedChange={(checked) => onFiltersChange((prev: any) => ({...prev, showOpeningBalance: checked}))}
+                        />
+                        <Label htmlFor="show-opening-balance" className="font-semibold cursor-pointer">إظهار الرصيد السابق</Label>
                     </div>
                     <Button variant="ghost" size="sm" onClick={onResetFilters}>
                         إعادة تعيين الفلاتر المتقدمة

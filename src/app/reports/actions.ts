@@ -1,7 +1,8 @@
 
+
 'use server';
 
-import { getDb } from "@/lib/firebase-admin";
+import { getDb } from '@/lib/firebase-admin';
 import { Timestamp } from "firebase-admin/firestore";
 import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription, ReportInfo, Currency } from '@/lib/types';
 import { getClients } from '@/app/relations/actions';
@@ -45,133 +46,88 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
   const { accountId, dateFrom, dateTo, voucherType } = filters;
 
   try {
-    let rows: any[] = [];
-    
-    // Fetch users to map createdBy UID to name
     const users = await getUsers();
     const usersMap = new Map(users.map(u => [u.uid, u.name]));
     
-    rows = []; // Reset rows
-    
     const allVouchersSnap = await db.collection('journal-vouchers').orderBy('date', 'asc').get();
+
+    const openingBalances: Record<string, number> = {};
+    const reportRows: any[] = [];
 
     allVouchersSnap.forEach(doc => {
         const v = doc.data() as JournalVoucher;
-
         if (v.isDeleted) return;
 
-        const voucherDate = normalizeToDate(v.date) ?? normalizeToDate(v.createdAt) ?? null;
-        if (dateFrom && voucherDate && voucherDate < dateFrom) return;
-        if (dateTo && voucherDate && voucherDate > dateTo) return;
+        const voucherDate = normalizeToDate(v.date) ?? normalizeToDate(v.createdAt) ?? new Date();
 
-        const isoDate = voucherDate ? voucherDate.toISOString() : serializeDate(v.date);
+        const processEntry = (entry: JournalEntry, type: 'debit' | 'credit') => {
+            if (entry.accountId === accountId) {
+                const amount = (type === 'debit' ? 1 : -1) * (entry.amount || 0);
+                const currency = v.currency || 'USD';
 
-        const isRelevant = v.debitEntries?.some(e => e.accountId === accountId) || v.creditEntries?.some(e => e.accountId === accountId);
-
-        if (isRelevant) {
-            v.debitEntries?.forEach((entry, index) => {
-                if (entry.accountId === accountId) {
-                    let description = entry.description || v.notes;
-                    // FIX: Modify segment description
-                    if (v.sourceType === 'segment' && description.startsWith('إيراد سكمنت من')) {
-                        const parts = description.split(' للفترة من ');
-                        if (parts.length > 1) {
-                            description = `سكمنت للفترة من ${parts[1]}`;
-                        }
-                    }
-
-                    const entryNote = typeof entry.note === 'string' ? entry.note.trim() : '';
+                if (dateFrom && voucherDate < dateFrom) {
+                    openingBalances[currency] = (openingBalances[currency] || 0) + amount;
+                } else if ((!dateFrom || voucherDate >= dateFrom) && (!dateTo || voucherDate <= dateTo)) {
+                    
+                    const entryNote = typeof (entry as any).note === 'string' ? (entry as any).note.trim() : '';
                     const voucherNote = typeof v.notes === 'string' ? v.notes.trim() : '';
 
-                    rows.push({
-                        id: `${doc.id}_debit_${index}`,
-                        date: isoDate,
+                    reportRows.push({
+                        id: `${doc.id}_${type}_${Math.random()}`,
+                        date: voucherDate.toISOString(),
                         invoiceNumber: v.invoiceNumber,
-                        description: description,
-                        debit: Number(entry.amount ?? entry.debit) || 0,
-                        credit: 0,
-                        currency: v.currency || 'USD',
-                        officer: usersMap.get(v.createdBy) || v.officer || v.createdBy, // Use map to get name
+                        description: entry.description || v.notes || '',
+                        debit: type === 'debit' ? entry.amount || 0 : 0,
+                        credit: type === 'credit' ? entry.amount || 0 : 0,
+                        currency: currency,
+                        officer: usersMap.get(v.createdBy) || v.officer || v.createdBy,
                         voucherType: v.voucherType,
-                        sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
-                        notes: entryNote,
-                        entryNote,
-                        voucherNote,
-                        direction: 'debit',
-                        amount: Number(entry.amount ?? entry.debit) || 0,
+                        sourceType: v.originalData?.sourceType || v.voucherType,
+                        sourceId: v.originalData?.sourceId || doc.id,
+                        sourceRoute: v.originalData?.sourceRoute,
+                        originalData: v.originalData,
+                        notes: entryNote || voucherNote,
+                        direction: type,
+                        amount: entry.amount || 0,
                         type: v.voucherType,
                         accountId: entry.accountId,
-                        accountName: entry.accountName,
                         createdAt: serializeDate(v.createdAt),
                     });
                 }
-            });
-            v.creditEntries?.forEach((entry, index) => {
-                if (entry.accountId === accountId) {
-                     let description = entry.description || v.notes;
-                     // FIX: Modify segment description
-                     if (v.sourceType === 'segment' && description.startsWith('إيراد سكمنت من')) {
-                        const parts = description.split(' للفترة من ');
-                        if (parts.length > 1) {
-                            description = `سكمنت للفترة من ${parts[1]}`;
-                        }
-                    }
+            }
+        };
 
-                    const entryNote = typeof entry.note === 'string' ? entry.note.trim() : '';
-                    const voucherNote = typeof v.notes === 'string' ? v.notes.trim() : '';
-
-                     rows.push({
-                        id: `${doc.id}_credit_${index}`,
-                        date: isoDate,
-                        invoiceNumber: v.invoiceNumber,
-                        description: description,
-                        debit: 0,
-                        credit: Number(entry.amount ?? entry.credit) || 0,
-                        currency: v.currency || 'USD',
-                        officer: usersMap.get(v.createdBy) || v.officer || v.createdBy, // Use map to get name
-                        voucherType: v.voucherType,
-                        sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
-                        notes: entryNote,
-                        entryNote,
-                        voucherNote,
-                        direction: 'credit',
-                        amount: Number(entry.amount ?? entry.credit) || 0,
-                        type: v.voucherType,
-                        accountId: entry.accountId,
-                        accountName: entry.accountName,
-                        createdAt: serializeDate(v.createdAt),
-                    });
-                }
-            });
-        }
+        (v.debitEntries || []).forEach(entry => processEntry(entry, 'debit'));
+        (v.creditEntries || []).forEach(entry => processEntry(entry, 'credit'));
     });
 
     const filteredRows = voucherType && voucherType.length > 0
-        ? rows.filter(r => (r.voucherType && voucherType.includes(r.voucherType)) || (r.sourceType && voucherType.includes(r.sourceType)))
-        : rows;
+        ? reportRows.filter(r => (r.voucherType && voucherType.includes(r.voucherType)) || (r.sourceType && voucherType.includes(r.sourceType)))
+        : reportRows;
 
-
-    const runningBalances = new Map<string, number>();
+    const runningBalances: Record<string, number> = { ...openingBalances };
+    
     const result = filteredRows
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .map((r: any) => {
             const currency = r.currency || 'USD';
-            const previousBalance = runningBalances.get(currency) ?? 0;
+            const previousBalance = runningBalances[currency] ?? 0;
             const nextBalance = previousBalance + (r.debit || 0) - (r.credit || 0);
-            runningBalances.set(currency, nextBalance);
+            runningBalances[currency] = nextBalance;
 
-            const balancesSnapshot = Object.fromEntries(Array.from(runningBalances.entries()));
+            const balancesSnapshot = { ...runningBalances };
 
             return {
                 ...r,
-                balance: nextBalance,
-                balancesByCurrency: balancesSnapshot,
+                balance: nextBalance, // For single currency context
+                balancesByCurrency: balancesSnapshot, // For multi-currency context
                 balanceUSD: balancesSnapshot['USD'] ?? 0,
                 balanceIQD: balancesSnapshot['IQD'] ?? 0,
             };
         });
 
-    return result;
+    return { transactions: result, openingBalances };
+
   } catch (err: any) {
     console.error('❌ Error loading account statement:', err.message);
     if (err.code === 9 || err.code === 'FAILED_PRECONDITION' || (err.message && err.message.includes('requires an index'))) { 
@@ -181,7 +137,6 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
       const userMessage = `فشل تحميل كشف الحساب: يتطلب الاستعلام فهرسًا مركبًا في Firestore.`;
       
       if (indexUrl) {
-        // Special prefix to be caught by the frontend
         throw new Error(`FIRESTORE_INDEX_URL::${indexUrl}`);
       } else {
          throw new Error(`${userMessage} يرجى مراجعة سجلات الخادم للحصول على الرابط وإنشاء الفهرس المطلوب.`);
@@ -192,8 +147,7 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
 }
 
 export async function getClientTransactions(clientId: string) {
-    const transactions = await getAccountStatement({ accountId: clientId });
-    const allRelations = await getClients({all: true});
+    const { transactions, openingBalances } = await getAccountStatement({ accountId: clientId });
     
     let totalSales = 0;
     let paidAmount = 0;
@@ -249,7 +203,7 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         if(v.isDeleted) return;
 
         const processEntries = (entries: JournalEntry[], isDebit: boolean) => {
-            entries.forEach(entry => {
+            (entries || []).forEach(entry => {
                 if (balances[entry.accountId]) {
                     const amount = isDebit ? entry.amount : -entry.amount;
                     if (v.currency === 'USD') {
