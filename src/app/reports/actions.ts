@@ -2,13 +2,40 @@
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
-import { Timestamp, FieldPath } from "firebase-admin/firestore";
+import { Timestamp } from "firebase-admin/firestore";
 import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription, ReportInfo, Currency } from '@/lib/types';
 import { getClients } from '@/app/relations/actions';
-import { parseISO } from "date-fns";
 import { getUsers } from "../users/actions";
 
 // 🔹 جلب كشف الحساب مع معالجة الحقول الجديدة وحساب أرصدة منفصلة لكل عملة
+const normalizeToDate = (value: unknown): Date | null => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  if (value instanceof Timestamp) {
+    return value.toDate();
+  }
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as any).toDate === 'function') {
+    const date = (value as any).toDate();
+    return date instanceof Date ? date : null;
+  }
+  if (typeof value === 'object' && value !== null && 'seconds' in value) {
+    const seconds = (value as any).seconds;
+    if (typeof seconds === 'number') {
+      return new Date(seconds * 1000);
+    }
+  }
+  return null;
+};
+
+const serializeDate = (value: unknown): string => {
+  const asDate = normalizeToDate(value);
+  return (asDate ?? new Date()).toISOString();
+};
+
 export async function getAccountStatement(filters: { accountId: string; dateFrom?: Date; dateTo?: Date; voucherType?: string[] }) {
   const db = await getDb();
   if (!db) {
@@ -30,15 +57,17 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
 
     allVouchersSnap.forEach(doc => {
         const v = doc.data() as JournalVoucher;
-        
+
         if (v.isDeleted) return;
 
-        const voucherDate = parseISO(v.date);
-        if (dateFrom && voucherDate < dateFrom) return;
-        if (dateTo && voucherDate > dateTo) return;
-        
+        const voucherDate = normalizeToDate(v.date) ?? normalizeToDate(v.createdAt) ?? null;
+        if (dateFrom && voucherDate && voucherDate < dateFrom) return;
+        if (dateTo && voucherDate && voucherDate > dateTo) return;
+
+        const isoDate = voucherDate ? voucherDate.toISOString() : serializeDate(v.date);
+
         const isRelevant = v.debitEntries?.some(e => e.accountId === accountId) || v.creditEntries?.some(e => e.accountId === accountId);
-        
+
         if (isRelevant) {
              v.debitEntries?.forEach((entry, index) => {
                 if (entry.accountId === accountId) {
@@ -51,13 +80,23 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                         }
                     }
                     rows.push({
-                        id: `${doc.id}_debit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                        id: `${doc.id}_debit_${index}`,
+                        date: isoDate,
+                        invoiceNumber: v.invoiceNumber,
                         description: description,
-                        debit: Number(entry.amount) || 0, credit: 0,
-                        currency: v.currency || 'USD', 
+                        debit: Number(entry.amount ?? entry.debit) || 0,
+                        credit: 0,
+                        currency: v.currency || 'USD',
                         officer: usersMap.get(v.createdBy) || v.officer || v.createdBy, // Use map to get name
                         voucherType: v.voucherType,
                         sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                        notes: entry.note || v.notes,
+                        direction: 'debit',
+                        amount: Number(entry.amount ?? entry.debit) || 0,
+                        type: v.voucherType,
+                        accountId: entry.accountId,
+                        accountName: entry.accountName,
+                        createdAt: serializeDate(v.createdAt),
                     });
                 }
             });
@@ -72,13 +111,23 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                         }
                     }
                      rows.push({
-                        id: `${doc.id}_credit_${index}`, date: v.date, invoiceNumber: v.invoiceNumber,
+                        id: `${doc.id}_credit_${index}`,
+                        date: isoDate,
+                        invoiceNumber: v.invoiceNumber,
                         description: description,
-                        debit: 0, credit: Number(entry.amount) || 0,
-                        currency: v.currency || 'USD', 
+                        debit: 0,
+                        credit: Number(entry.amount ?? entry.credit) || 0,
+                        currency: v.currency || 'USD',
                         officer: usersMap.get(v.createdBy) || v.officer || v.createdBy, // Use map to get name
                         voucherType: v.voucherType,
                         sourceType: v.originalData?.sourceType || v.voucherType, sourceId: v.originalData?.sourceId || doc.id, sourceRoute: v.originalData?.sourceRoute, originalData: v.originalData,
+                        notes: entry.note || v.notes,
+                        direction: 'credit',
+                        amount: Number(entry.amount ?? entry.credit) || 0,
+                        type: v.voucherType,
+                        accountId: entry.accountId,
+                        accountName: entry.accountName,
+                        createdAt: serializeDate(v.createdAt),
                     });
                 }
             });
@@ -100,7 +149,8 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
             } else if (r.currency === 'IQD') {
                 balanceIQD += (r.debit || 0) - (r.credit || 0);
             }
-            return { ...r, balanceUSD, balanceIQD };
+            const currentBalance = r.currency === 'USD' ? balanceUSD : balanceIQD;
+            return { ...r, balanceUSD, balanceIQD, balance: currentBalance };
         });
 
     return result;

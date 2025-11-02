@@ -2,13 +2,14 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { ReportTransaction, StructuredDescription } from "@/lib/types";
 import { format, isValid, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ArrowUpRight, Pencil, Trash2 } from "lucide-react";
 import { deleteVoucher } from "@/app/accounts/vouchers/list/actions";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -81,13 +82,33 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
     };
 
     const label = mapVoucherLabel(transaction.sourceType || transaction.voucherType);
+    const direction = transaction.direction
+        || (transaction.debit && transaction.debit > 0 ? 'debit'
+        : transaction.credit && transaction.credit > 0 ? 'credit'
+        : 'neutral');
 
     return (
         <>
             <tr className="text-sm text-center font-medium hover:bg-muted/50">
                 <td className="p-2 font-mono text-xs">{transaction.date ? format(parseISO(transaction.date), 'yyyy-MM-dd HH:mm') : '-'}</td>
                 <td className="p-2">{transaction.invoiceNumber}</td>
-                <td className="p-2"><Badge variant="outline">{label}</Badge></td>
+                <td className="p-2 space-y-1">
+                    <Badge variant="outline" className="mr-1">
+                        {label}
+                    </Badge>
+                    <div>
+                        <Badge
+                            variant="secondary"
+                            className={cn(
+                                "text-[10px]",
+                                direction === 'debit' && 'bg-green-600/10 text-green-700',
+                                direction === 'credit' && 'bg-red-600/10 text-red-700'
+                            )}
+                        >
+                            {direction === 'debit' ? 'مدين' : direction === 'credit' ? 'دائن' : 'عام'}
+                        </Badge>
+                    </div>
+                </td>
                 <td className="p-2 text-right text-xs">
                     <DetailedDescription description={transaction.description} />
                 </td>
@@ -103,10 +124,23 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                 <td className="p-2 text-xs text-center">{transaction.officer}</td>
                 <td className="p-2 text-center">
                     <div className="flex items-center gap-1 justify-center">
-                         <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={handleEdit}>
+                        {transaction.sourceRoute && (
+                            <Button
+                                asChild
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7 text-primary"
+                                title="عرض المستند الأصلي"
+                            >
+                                <Link href={transaction.sourceRoute} target="_blank" rel="noopener noreferrer">
+                                    <ArrowUpRight className="h-4 w-4" />
+                                </Link>
+                            </Button>
+                        )}
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-600" onClick={handleEdit}>
                             <Pencil className="h-4 w-4" />
                         </Button>
-                         <AlertDialog>
+                        <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive"><Trash2 className="h-4 w-4" /></Button>
                             </AlertDialogTrigger>
