@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -24,7 +25,10 @@ import {
   Repeat,
   Layers3,
   Share2,
+  Wand2,
+  AreaChart,
   Wallet,
+  Boxes,
   FileUp,
   FileDown,
   BookUser,
@@ -59,6 +63,7 @@ import type {
   ReportTransaction,
   ReportInfo,
 } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
 import {
   Popover,
   PopoverContent,
@@ -871,7 +876,6 @@ export default function ReportGenerator({
                   <TabsTrigger value="timeline">الخط الزمني</TabsTrigger>
                 </TabsList>
                 <Separator className="mt-3" />
-                <TabsContent value="table" className="flex-1 mt-4 space-y-4">
                 <TabsContent value="table" className="flex-1 mt-4">
                   <div className="h-full overflow-auto rounded-lg border bg-background">
                     <ReportTable
@@ -879,11 +883,6 @@ export default function ReportGenerator({
                       onRefresh={handleGenerateReport}
                     />
                   </div>
-                  {reportSummary && (
-                    <div className="pb-2">
-                      <ReportSummary report={reportSummary} />
-                    </div>
-                  )}
                 </TabsContent>
                 <TabsContent value="insights" className="mt-4">
                   <ReportInsights
