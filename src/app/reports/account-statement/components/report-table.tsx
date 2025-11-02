@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from "react";
@@ -109,7 +108,7 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                     <Badge variant="outline" className="mr-1">{label}</Badge>
                 </TableCell>
                 <TableCell className="px-2 py-3 text-right text-xs"><DetailedDescription description={transaction.description} /></TableCell>
-                <TableCell className="px-2 py-3 text-xs text-right">{transaction.notes}</TableCell>
+                <TableCell className="px-2 py-3 text-right text-xs">{transaction.notes}</TableCell>
                 <TableCell className="px-2 py-3 font-mono font-bold text-red-600 text-center">
                     {transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}
                 </TableCell>
@@ -194,10 +193,10 @@ export default function ReportTable({
             invoiceNumber: '',
             description: 'الرصيد السابق',
             type: 'رصيد افتتاحي',
-            debit: balance > 0 ? balance : 0,
-            credit: balance < 0 ? Math.abs(balance) : 0,
+            debit: 0,
+            credit: 0,
             balance: balance,
-            currency: currency,
+            currency: currency as Currency,
         }));
         
     const transactionsToRender = showOpeningBalance 
@@ -207,7 +206,7 @@ export default function ReportTable({
     return (
         <TooltipProvider>
             <div className="space-y-3">
-                <Table className="w-full text-xs">
+                <Table className="w-full text-xs" dir="rtl">
                     <TableHeader>
                         <TableRow className="bg-muted/70">
                             <TableHead className="px-2 py-3 font-bold text-center w-28">التاريخ</TableHead>
