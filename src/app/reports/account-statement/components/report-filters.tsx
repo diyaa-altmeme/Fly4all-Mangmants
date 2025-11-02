@@ -3,9 +3,9 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from '@/components/ui/label';
-import { SlidersHorizontal, CheckCheck, Undo } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Currency } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,11 +16,17 @@ interface ReportFiltersProps {
     filters: {
         currency: Currency | 'both';
         typeFilter: Set<string>;
+        direction: 'all' | 'debit' | 'credit';
+        officer: string;
+        minAmount: string;
+        maxAmount: string;
     };
+    officerOptions: string[];
     onFiltersChange: (filters: any) => void;
+    onResetFilters: () => void;
 }
 
-export default function ReportFilters({ allFilters, filters, onFiltersChange }: ReportFiltersProps) {
+export default function ReportFilters({ allFilters, filters, onFiltersChange, officerOptions, onResetFilters }: ReportFiltersProps) {
 
     const handleFilterToggle = (id: string) => {
         onFiltersChange((prev: any) => {
@@ -53,9 +59,43 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange }: 
                             <SelectItem value="IQD">IQD</SelectItem>
                         </SelectContent>
                     </Select>
+                    <Select value={filters.direction} onValueChange={(v) => onFiltersChange((prev: any) => ({ ...prev, direction: v }))}>
+                        <SelectTrigger><SelectValue placeholder="كل الحركات" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">كل الحركات</SelectItem>
+                            <SelectItem value="debit">حركات مدينة فقط</SelectItem>
+                            <SelectItem value="credit">حركات دائنة فقط</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Select value={filters.officer} onValueChange={(v) => onFiltersChange((prev: any) => ({ ...prev, officer: v }))}>
+                        <SelectTrigger><SelectValue placeholder="كل الموظفين" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">كل الموظفين</SelectItem>
+                            {officerOptions.map((officer) => (
+                                <SelectItem key={officer} value={officer}>{officer}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <div className="grid grid-cols-2 gap-2">
+                        <Input
+                            type="number"
+                            placeholder="حد أدنى"
+                            value={filters.minAmount}
+                            onChange={(e) => onFiltersChange((prev: any) => ({ ...prev, minAmount: e.target.value }))}
+                        />
+                        <Input
+                            type="number"
+                            placeholder="حد أقصى"
+                            value={filters.maxAmount}
+                            onChange={(e) => onFiltersChange((prev: any) => ({ ...prev, maxAmount: e.target.value }))}
+                        />
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={onResetFilters}>
+                        إعادة تعيين الفلاتر المتقدمة
+                    </Button>
                 </div>
             </div>
-            
+
             <div className="space-y-2">
                 <div className="flex justify-between items-center mb-2">
                      <Label className="font-semibold">فلترة الحركات</Label>
