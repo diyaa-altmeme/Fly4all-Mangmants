@@ -40,7 +40,7 @@ import { ChevronDown, Edit, MoreHorizontal, FileText as InvoiceIcon } from 'luci
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search } from 'lucide-react';
-import ManageInstallmentsDialog from './manage-installments-dialog';
+import ManageInstallmentsDialog from '@/components/subscriptions/manage-installments-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 
