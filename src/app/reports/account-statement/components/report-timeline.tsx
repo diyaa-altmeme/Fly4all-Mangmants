@@ -78,6 +78,10 @@ export default function ReportTimeline({ transactions }: ReportTimelineProps) {
                 const label = mapVoucherLabel(tx.sourceType || tx.voucherType || tx.type);
                 const timeLabel = tx.date ? format(parseISO(tx.date), "HH:mm") : "--:--";
                 const direction = tx.debit && tx.debit > 0 ? "debit" : tx.credit && tx.credit > 0 ? "credit" : "neutral";
+                const balanceValue =
+                  tx.balancesByCurrency?.[tx.currency] ??
+                  tx.balance ??
+                  (tx.currency === "USD" ? tx.balanceUSD : tx.balanceIQD);
                 return (
                   <div
                     key={tx.id}
@@ -122,15 +126,12 @@ export default function ReportTimeline({ transactions }: ReportTimelineProps) {
                       <span
                         className={cn(
                           "font-semibold",
-                          (tx.balance ?? (tx.currency === "USD" ? tx.balanceUSD : tx.balanceIQD)) < 0
+                          balanceValue < 0
                             ? "text-red-600"
                             : "text-blue-600"
                         )}
                       >
-                        الرصيد: {formatCurrencyDisplay(
-                          tx.balance ?? (tx.currency === "USD" ? tx.balanceUSD : tx.balanceIQD),
-                          tx.currency
-                        )}
+                        الرصيد: {formatCurrencyDisplay(balanceValue, tx.currency)}
                       </span>
                     </div>
                     {tx.sourceRoute && (

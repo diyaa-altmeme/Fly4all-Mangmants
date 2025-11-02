@@ -24,9 +24,10 @@ interface ReportFiltersProps {
     officerOptions: string[];
     onFiltersChange: (filters: any) => void;
     onResetFilters: () => void;
+    currencyOptions?: { code: string; label: string; symbol?: string }[];
 }
 
-export default function ReportFilters({ allFilters, filters, onFiltersChange, officerOptions, onResetFilters }: ReportFiltersProps) {
+export default function ReportFilters({ allFilters, filters, onFiltersChange, officerOptions, onResetFilters, currencyOptions }: ReportFiltersProps) {
 
     const handleFilterToggle = (id: string) => {
         onFiltersChange((prev: any) => {
@@ -46,17 +47,27 @@ export default function ReportFilters({ allFilters, filters, onFiltersChange, of
     const basicOperations = allFilters.filter(f => f.group === 'basic');
     const otherOperations = allFilters.filter(f => f.group === 'other');
 
+    const availableCurrencies = currencyOptions && currencyOptions.length > 0
+        ? currencyOptions
+        : [
+            { code: 'USD', label: 'الدولار الأمريكي' },
+            { code: 'IQD', label: 'الدينار العراقي' },
+        ];
+
     return (
         <div className="space-y-4">
             <div className="space-y-2">
                 <Label className="font-semibold">خيارات العرض</Label>
                 <div className="flex flex-col gap-2">
                     <Select value={filters.currency} onValueChange={(v) => onFiltersChange((prev: any) => ({...prev, currency: v}))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger><SelectValue placeholder="كل العملات" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="both">كل العملات</SelectItem>
-                            <SelectItem value="USD">USD</SelectItem>
-                            <SelectItem value="IQD">IQD</SelectItem>
+                            {availableCurrencies.map((currency) => (
+                                <SelectItem key={currency.code} value={currency.code}>
+                                    {currency.label} ({currency.code})
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                     <Select value={filters.direction} onValueChange={(v) => onFiltersChange((prev: any) => ({ ...prev, direction: v }))}>
