@@ -70,21 +70,6 @@ export default function ReportSummary({ report }: { report: ReportInfo }) {
                                 {formatCurrencyDisplay(item.finalBalance, item.currency, item.symbol)}
                             </p>
                             <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
-export default function ReportSummary({ report }: { report: ReportInfo }) {
-    if (report.currencyBreakdown && report.currencyBreakdown.length > 0) {
-        return (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {report.currencyBreakdown.map((item) => (
-                    <Card key={item.currency} className="border border-muted/60 shadow-sm">
-                        <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                            <CardTitle className="text-sm font-semibold text-foreground">{item.label}</CardTitle>
-                            <Badge variant="outline" className="text-[11px] px-2 py-0.5">{item.currency}</Badge>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <p className="text-lg font-bold font-mono text-primary">
-                                {formatCurrencyDisplay(item.finalBalance, item.currency, item.symbol)}
-                            </p>
-                            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                                 <span>الرصيد الافتتاحي</span>
                                 <span className="text-right font-medium text-foreground">{formatCurrencyDisplay(item.openingBalance, item.currency, item.symbol)}</span>
                                 <span>إجمالي المدين</span>
