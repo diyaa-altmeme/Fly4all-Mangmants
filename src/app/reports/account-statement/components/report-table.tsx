@@ -5,7 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { ReportTransaction, StructuredDescription } from "@/lib/types";
-import { format, isValid, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -26,13 +26,14 @@ import {
 import EditVoucherHandler from "./edit-voucher-handler";
 import { mapVoucherLabel } from "@/lib/accounting/labels";
 
-const formatCurrency = (amount: number, currency: 'USD' | 'IQD') => {
-  if (Math.abs(amount) < 0.01) return `0.00`;
-  const options = currency === 'IQD' 
-    ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } 
+const formatCurrency = (amount: number | null | undefined, currency: string) => {
+  const value = Number(amount) || 0;
+  if (Math.abs(value) < 0.00001) return `0.00`;
+  const options = currency === 'IQD'
+    ? { minimumFractionDigits: 0, maximumFractionDigits: 0 }
     : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-  const formattedAmount = new Intl.NumberFormat('en-US', options).format(Math.abs(amount));
-  if (amount < 0) {
+  const formattedAmount = new Intl.NumberFormat('en-US', options).format(Math.abs(value));
+  if (value < 0) {
       return `(${formattedAmount})`;
   }
   return formattedAmount;
@@ -115,12 +116,18 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                 <td className="p-2 text-xs text-right">
                     {transaction.notes}
                 </td>
-                <td className="p-2 font-mono font-bold text-red-600 text-center">{transaction.currency === 'USD' ? formatCurrency(transaction.debit, 'USD') : '-'}</td>
-                <td className="p-2 font-mono font-bold text-green-600 text-center">{transaction.currency === 'USD' ? formatCurrency(transaction.credit, 'USD') : '-'}</td>
-                <td className={cn("p-2 font-mono font-bold text-center", transaction.balanceUSD < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balanceUSD, 'USD')}</td>
-                <td className="p-2 font-mono font-bold text-red-600 text-center">{transaction.currency === 'IQD' ? formatCurrency(transaction.debit, 'IQD') : '-'}</td>
-                <td className="p-2 font-mono font-bold text-green-600 text-center">{transaction.currency === 'IQD' ? formatCurrency(transaction.credit, 'IQD') : '-'}</td>
-                <td className={cn("p-2 font-mono font-bold text-center", transaction.balanceIQD < 0 ? 'text-red-600' : 'text-green-600')}>{formatCurrency(transaction.balanceIQD, 'IQD')}</td>
+                <td className="p-2 font-mono font-bold text-red-600 text-center">
+                    {transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}
+                </td>
+                <td className="p-2 font-mono font-bold text-green-600 text-center">
+                    {transaction.credit > 0 ? formatCurrency(transaction.credit, transaction.currency) : '-'}
+                </td>
+                <td className={cn("p-2 font-mono font-bold text-center", (transaction.balancesByCurrency?.[transaction.currency] ?? transaction.balance ?? 0) < 0 ? 'text-red-600' : 'text-green-600')}>
+                    {formatCurrency(transaction.balancesByCurrency?.[transaction.currency] ?? transaction.balance ?? 0, transaction.currency)}
+                </td>
+                <td className="p-2 text-center">
+                    <Badge variant="outline" className="text-[11px] px-2 py-1">{transaction.currency}</Badge>
+                </td>
                 <td className="p-2 text-xs text-center">{transaction.officer}</td>
                 <td className="p-2 text-center">
                     <div className="flex items-center gap-1 justify-center">
@@ -173,7 +180,21 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
 };
 
 export default function ReportTable({ transactions, onRefresh }: { transactions: ReportTransaction[], onRefresh: () => void }) {
-    
+
+    const totalsByCurrency = React.useMemo(() => {
+        const totals = new Map<string, { debit: number; credit: number; balance: number }>();
+        transactions.forEach((tx) => {
+            const currency = tx.currency || 'USD';
+            const current = totals.get(currency) || { debit: 0, credit: 0, balance: 0 };
+            current.debit += tx.debit || 0;
+            current.credit += tx.credit || 0;
+            const balanceValue = tx.balancesByCurrency?.[currency] ?? tx.balance ?? current.balance;
+            current.balance = balanceValue;
+            totals.set(currency, current);
+        });
+        return Array.from(totals.entries());
+    }, [transactions]);
+
     return (
         <Table className="w-full text-xs">
             <TableHeader>
@@ -183,12 +204,10 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
                     <TableHead className="p-2 font-bold text-center">النوع</TableHead>
                     <TableHead className="p-2 text-right font-bold w-[25%]">البيان</TableHead>
                     <TableHead className="p-2 text-right font-bold w-[15%]">ملاحظات</TableHead>
-                    <TableHead className="p-2 text-center font-bold text-red-700 bg-red-100/50">مدين (USD)</TableHead>
-                    <TableHead className="p-2 text-center font-bold text-green-700 bg-green-100/50">دائن (USD)</TableHead>
-                    <TableHead className="p-2 text-center font-bold bg-blue-100/50">الرصيد (USD)</TableHead>
-                    <TableHead className="p-2 text-center font-bold text-red-700 bg-red-100/50">مدين (IQD)</TableHead>
-                    <TableHead className="p-2 text-center font-bold text-green-700 bg-green-100/50">دائن (IQD)</TableHead>
-                    <TableHead className="p-2 text-center font-bold bg-blue-100/50">الرصيد (IQD)</TableHead>
+                    <TableHead className="p-2 text-center font-bold text-red-700 bg-red-100/50">مدين</TableHead>
+                    <TableHead className="p-2 text-center font-bold text-green-700 bg-green-100/50">دائن</TableHead>
+                    <TableHead className="p-2 text-center font-bold bg-blue-100/50">الرصيد</TableHead>
+                    <TableHead className="p-2 font-bold text-center">العملة</TableHead>
                     <TableHead className="p-2 font-bold text-center">الموظف</TableHead>
                     <TableHead className="p-2 font-bold text-center">الإجراءات</TableHead>
                 </TableRow>
@@ -204,12 +223,26 @@ export default function ReportTable({ transactions, onRefresh }: { transactions:
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={13} className="h-48 text-center text-gray-500">
+                  <TableCell colSpan={11} className="h-48 text-center text-gray-500">
                     لا توجد بيانات متاحة لعرضها
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
+            {totalsByCurrency.length > 0 && (
+                <TableFooter>
+                    {totalsByCurrency.map(([currency, totals]) => (
+                        <TableRow key={currency} className="bg-muted/50">
+                            <TableCell colSpan={5} className="p-2 text-center font-bold">إجمالي {currency}</TableCell>
+                            <TableCell className="p-2 font-mono text-red-600 text-center font-bold">{formatCurrency(totals.debit, currency)}</TableCell>
+                            <TableCell className="p-2 font-mono text-green-600 text-center font-bold">{formatCurrency(totals.credit, currency)}</TableCell>
+                            <TableCell className="p-2 font-mono text-center font-bold">{formatCurrency(totals.balance, currency)}</TableCell>
+                            <TableCell className="p-2 text-center"><Badge variant="outline" className="text-[11px] px-2 py-1">{currency}</Badge></TableCell>
+                            <TableCell colSpan={2}></TableCell>
+                        </TableRow>
+                    ))}
+                </TableFooter>
+            )}
         </Table>
     );
 }
