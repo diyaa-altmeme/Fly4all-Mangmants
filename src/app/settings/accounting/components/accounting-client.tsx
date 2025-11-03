@@ -15,22 +15,12 @@ import type { NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 interface AccountingClientProps {
   initialChartData: TreeNode[];
   initialFinanceMap: NormalizedFinanceAccounts;
+  onSettingsChanged: () => void;
 }
-
-const NavButton = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
-    <Button 
-        variant={active ? "secondary" : "ghost"}
-        className="w-full justify-start gap-2 font-semibold"
-        onClick={onClick}
-    >
-        {children}
-    </Button>
-);
 
 export default function AccountingClient(props: AccountingClientProps) {
   const [chartData, setChartData] = useState<TreeNode[]>(props.initialChartData);
   const [loading, setLoading] = useState(false);
-  const [activeView, setActiveView] = useState<'chart' | 'linking'>('chart');
   const { toast } = useToast();
 
   const refreshChartData = useCallback(async () => {
@@ -48,63 +38,16 @@ export default function AccountingClient(props: AccountingClientProps) {
   
   const handleSettingsSaved = () => {
     toast({ title: "تم حفظ إعدادات الربط بنجاح" });
-    // Re-fetch might be needed if settings affect chart data display
+    props.onSettingsChanged();
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[250px,1fr] gap-6 items-start">
-        <aside className="lg:sticky top-20">
-             <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">أقسام المحاسبة</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-1 p-2">
-                    <NavButton active={activeView === 'chart'} onClick={() => setActiveView('chart')}>
-                        <GitBranch className="h-5 w-5" />
-                        الدليل المحاسبي
-                    </NavButton>
-                    <NavButton active={activeView === 'linking'} onClick={() => setActiveView('linking')}>
-                         <WalletCards className="h-5 w-5" />
-                        ربط الحسابات
-                    </NavButton>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full justify-start gap-2"
-                        onClick={refreshChartData}
-                        disabled={loading}
-                    >
-                        <RefreshCw className="h-4 w-4" />
-                        تحديث البيانات
-                    </Button>
-                </CardContent>
-            </Card>
-        </aside>
-
-        <main>
-            {activeView === 'chart' && (
-                <AccountsTreeClient initialAccounts={chartData} onAccountsUpdated={setChartData} />
-            )}
-
-            {activeView === 'linking' && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>ربط الحسابات المالية</CardTitle>
-                        <CardDescription>
-                            اربط حسابات النظام الرئيسية بالحسابات الفعلية في شجرة الحسابات لضمان التوجيه المحاسبي الصحيح.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <FinanceAccountSettings
-                            initialFinanceMap={props.initialFinanceMap}
-                            chartOfAccounts={chartData}
-                            onSaveSuccess={handleSettingsSaved}
-                        />
-                    </CardContent>
-                </Card>
-            )}
-        </main>
+    <div className="space-y-6">
+        <FinanceAccountSettings
+            initialFinanceMap={props.initialFinanceMap}
+            chartOfAccounts={chartData}
+            onSaveSuccess={handleSettingsSaved}
+        />
     </div>
   );
 }
-
