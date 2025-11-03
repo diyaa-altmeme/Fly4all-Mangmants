@@ -3,7 +3,7 @@
 
 import React from 'react';
 import {
-    Users, GitBranch, SlidersHorizontal, Settings, Upload, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, MessageSquareQuote, Shield, FileText, Code as DeveloperIcon, Paintbrush, FileBarChart, Banknote, DollarSign, WalletCards
+    Users, GitBranch, SlidersHorizontal, Settings, Upload, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, Shield, FileText, Code as DeveloperIcon, Paintbrush, FileBarChart, Banknote, DollarSign, WalletCards
 } from 'lucide-react';
 
 // Import client components
