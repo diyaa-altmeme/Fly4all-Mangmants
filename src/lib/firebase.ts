@@ -2,6 +2,7 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
+import { getDatabase, type Database } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCtlF3onBhtwg0Hh3iOOEjygi9mj81wxrA",
@@ -15,6 +16,7 @@ const firebaseConfig = {
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
+let rtdb: Database;
 
 if (getApps().length) {
     app = getApps()[0];
@@ -24,5 +26,6 @@ if (getApps().length) {
 
 auth = getAuth(app);
 db = getFirestore(app);
+rtdb = getDatabase(app);
 
-export { app, db, auth };
+export { app, db, auth, rtdb };
