@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, PlusCircle, Trash2, CheckCircle, Edit } from 'lucide-react';
+import { Loader2, Save, PlusCircle, Trash2, CheckCircle, Edit, Banknote, Coins, ArrowRightLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { updateSettings } from '@/app/settings/actions';
 import type { AppSettings, CurrencySettings, CurrencySetting } from '@/lib/types';
@@ -52,6 +52,22 @@ const currencyFormSchema = z.object({
   symbol: z.string().min(1, "الرمز الخاص مطلوب."),
 });
 type CurrencyFormValues = z.infer<typeof currencyFormSchema>;
+
+const SectionCard = ({ title, icon: Icon, children }: { title: string, icon: React.ElementType, children: React.ReactNode }) => (
+    <Card className="flex flex-col">
+        <CardHeader>
+            <div className="flex items-center gap-3">
+                <div className="p-3 bg-primary/10 rounded-full">
+                    <Icon className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle className="text-lg">{title}</CardTitle>
+            </div>
+        </CardHeader>
+        <CardContent className="space-y-4 flex-grow">
+            {children}
+        </CardContent>
+    </Card>
+);
 
 const EditCurrencyDialog = ({ currency, onSave, children }: { currency: CurrencySetting, onSave: (data: CurrencySetting) => void, children: React.ReactNode }) => {
     const [open, setOpen] = useState(false);
@@ -208,25 +224,17 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
     if (!currencySettings) {
         return (
             <Card>
-                <CardHeader>
-                    <Skeleton className="h-8 w-1/2" />
-                </CardHeader>
-                <CardContent>
-                    <Skeleton className="h-64 w-full" />
-                </CardContent>
+                <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
+                <CardContent><Skeleton className="h-64 w-full" /></CardContent>
             </Card>
         );
     }
 
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>إعدادات العملات وأسعار الصرف</CardTitle>
-                <CardDescription>إدارة العملات المعتمدة في النظام وتحديد أسعار الصرف بينها.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="space-y-3">
+        <div className="space-y-6">
+            <SectionCard title="إدارة العملات" icon={Coins}>
+                <div className="space-y-2">
                     <Label className="font-semibold">العملات المعتمدة (انقر على بطاقة لجعلها الافتراضية)</Label>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                          {(currencySettings.currencies || []).map((currency) => (
@@ -235,7 +243,7 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                               onClick={() => handleDefaultCurrencyChange(currency.code)}
                               className={cn(
                                 "cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 relative",
-                                currencySettings.defaultCurrency === currency.code && "ring-2 ring-primary border-primary"
+                                currencySettings.defaultCurrency === currency.code && "ring-2 ring-primary border-primary bg-primary/10"
                               )}
                             >
                                 <CardContent className="p-3 relative">
@@ -269,8 +277,7 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                         ))}
                     </div>
                 </div>
-
-                <div className="space-y-4 p-4 border rounded-lg">
+                 <div className="space-y-4 p-4 border rounded-lg mt-4">
                     <h4 className="font-semibold">إضافة عملة جديدة</h4>
                      <div className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end">
                         <Input value={newCurrency.code} onChange={(e) => setNewCurrency(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="الرمز (EUR)" />
@@ -279,10 +286,10 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                         <Button variant="outline" size="sm" onClick={handleAddNewCurrency}><PlusCircle className="me-2 h-4 w-4" />إضافة</Button>
                     </div>
                 </div>
+            </SectionCard>
 
-                <div className="space-y-2 pt-4 border-t">
-                    <Label className="font-semibold">أسعار الصرف</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <SectionCard title="إدارة أسعار الصرف" icon={ArrowRightLeft}>
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {exchangeRatePairs.map(pair => (
                             <div key={pair.key} className="space-y-1.5">
                                 <Label htmlFor={`rate-${pair.key}`}>سعر صرف {pair.from} مقابل {pair.to}</Label>
@@ -299,16 +306,15 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                             </div>
                         ))}
                     </div>
-                </div>
-            </CardContent>
-            <CardFooter className="justify-end">
-                <Button onClick={handleSave} disabled={isSaving}>
+            </SectionCard>
+
+            <div className="flex justify-end mt-6">
+                <Button onClick={handleSave} disabled={isSaving} size="lg">
                     {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                    <Save className="me-2 h-4 w-4"/>
+                    <Save className="me-2 h-4 w-4" />
                     حفظ كل إعدادات العملات
                 </Button>
-            </CardFooter>
-        </Card>
+            </div>
+        </div>
     );
 }
-
