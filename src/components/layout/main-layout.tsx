@@ -9,12 +9,10 @@ import TopBar from "./topbar";
 import TopLoader from '@/components/ui/top-loader';
 import { useThemeCustomization } from "@/context/theme-customization-context";
 import { useTheme } from "next-themes";
-import { cn } from "@/lib/utils";
-import { Sidebar, SidebarContent, SidebarHeader, SidebarGroup, SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarGroup, SidebarProvider } from "@/components/ui/sidebar";
 import { MainNav } from "./main-nav";
-import { Button } from "../ui/button";
-import { Menu } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTranslation } from "@/i18n";
 
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
@@ -24,6 +22,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
     const { activeTheme } = useThemeCustomization();
     const { theme: mode } = useTheme();
     const isMobile = useIsMobile();
+    const { direction, t } = useTranslation();
 
     React.useEffect(() => {
         if (typeof window === 'undefined' || !activeTheme) return;
@@ -57,13 +56,13 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 
     return (
-        <div dir="rtl" className="flex min-h-screen w-full flex-col bg-muted/40">
+        <div dir={direction} className="flex min-h-screen w-full flex-col bg-muted/40">
             <SidebarProvider>
                 {isMobile && (
                     <Sidebar>
                         <SidebarHeader>
                             <div className="flex items-center justify-between p-2">
-                                <h2 className="font-bold text-lg">القائمة الرئيسية</h2>
+                                <h2 className="font-bold text-lg">{t('common.mainMenu')}</h2>
                             </div>
                         </SidebarHeader>
                         <SidebarContent>

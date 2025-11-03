@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Rocket, LineChart, ShieldCheck, Repeat, ArrowLeft, LucideIcon, Menu, X, Sun, Moon, Zap, Smartphone, HelpCircle, User, Users, Store, Check, Star } from 'lucide-react';
+import { Rocket, LineChart, ShieldCheck, Repeat, LucideIcon, Menu, Sun, Moon, Zap, Smartphone, HelpCircle, Check, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
@@ -13,18 +13,20 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { useTheme } from 'next-themes';
 import type { LandingPageSettings } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { useTranslation } from '@/i18n';
 
 
 const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const { theme, setTheme } = useTheme();
+    const { t, locale, toggleLocale } = useTranslation();
 
     const menuItems = [
-        { label: 'المميزات', section: 'features' },
-        { label: 'كيف يعمل', section: 'how-it-works' },
-        { label: 'آراء العملاء', section: 'testimonials' },
-        { label: 'الأسعار', section: 'pricing' },
-    ];
+        { key: 'features', section: 'features' },
+        { key: 'howItWorks', section: 'how-it-works' },
+        { key: 'testimonials', section: 'testimonials' },
+        { key: 'pricing', section: 'pricing' },
+    ] as const;
 
     const scrollToSection = (sectionId: string) => {
         setIsSheetOpen(false);
@@ -36,7 +38,9 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
             });
         }
     };
-    
+
+    const languageLabel = locale === 'ar' ? t('common.language.shortEn') : t('common.language.shortAr');
+
     return (
         <header className={cn(
             "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
@@ -47,21 +51,24 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
                     <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
                         <Rocket/>
                     </div>
-                    <span className="text-xl font-bold">Mudarib</span>
+                    <span className="text-xl font-bold">{t('common.brandName')}</span>
                 </Link>
-                
+
                 <nav className="hidden md:flex items-center gap-8">
                     {menuItems.map(item => (
-                        <button key={item.label} onClick={() => scrollToSection(item.section)} className="font-medium hover:text-primary transition-colors">
-                            {item.label}
+                        <button key={item.key} onClick={() => scrollToSection(item.section)} className="font-medium hover:text-primary transition-colors">
+                            {t(`landing.header.menuItems.${item.key}`)}
                         </button>
                     ))}
                 </nav>
-                
+
                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={toggleLocale} className="hidden sm:inline-flex">
+                        {languageLabel}
+                    </Button>
                     <Button asChild>
                         <Link href="/auth/login">
-                           تسجيل الدخول
+                           {t('common.login')}
                         </Link>
                     </Button>
                      <Button variant="ghost" size="icon" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full">
@@ -77,17 +84,20 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
                             </SheetTrigger>
                             <SheetContent side="right">
                                 <SheetHeader className="text-right p-4 border-b">
-                                    <SheetTitle>القائمة</SheetTitle>
+                                    <SheetTitle>{t('common.menu')}</SheetTitle>
                                 </SheetHeader>
                                 <nav className="flex flex-col p-4 space-y-4">
                                      {menuItems.map(item => (
-                                        <button key={item.label} onClick={() => scrollToSection(item.section)} className="font-medium hover:text-primary transition-colors text-right py-2 border-b">
-                                            {item.label}
+                                        <button key={item.key} onClick={() => scrollToSection(item.section)} className="font-medium hover:text-primary transition-colors text-right py-2 border-b">
+                                            {t(`landing.header.menuItems.${item.key}`)}
                                         </button>
                                     ))}
-                                    <Button asChild className="mt-6">
+                                    <Button variant="outline" onClick={toggleLocale}>
+                                        {languageLabel}
+                                    </Button>
+                                    <Button asChild className="mt-2">
                                        <Link href="/auth/login">
-                                         تسجيل الدخول
+                                         {t('common.login')}
                                        </Link>
                                     </Button>
                                 </nav>
@@ -113,6 +123,15 @@ const FeatureCard = ({ icon: Icon, title, description }: { icon: LucideIcon, tit
     </div>
 );
 
+const featureIconMap: Record<string, LucideIcon> = {
+    smartInput: Zap,
+    analytics: LineChart,
+    reconciliation: ShieldCheck,
+    sync: Repeat,
+    mobile: Smartphone,
+    support: HelpCircle,
+};
+
 const StepCard = ({ number, title, description, imageUrl }: { number: number, title: string, description: string, imageUrl: string }) => (
     <div className="relative">
         <div className="flex flex-col items-center text-center p-6 bg-card text-card-foreground rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 h-full">
@@ -133,6 +152,7 @@ const StepCard = ({ number, title, description, imageUrl }: { number: number, ti
 
 export function LandingPage({ settings }: { settings: LandingPageSettings }) {
     const [isScrolled, setIsScrolled] = useState(false);
+    const { t, tm } = useTranslation();
 
     useEffect(() => {
         const handleScroll = () => {
@@ -143,6 +163,36 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
     }, []);
 
     const heroSettings = settings || {};
+    const featuresHeading = tm<{ prefix: string; highlight: string; suffix: string }>('landing.features.heading');
+    const features = tm<Array<{ key: string; title: string; description: string }>>('landing.features.items');
+    const howItWorksHeading = tm<{ prefix: string; highlight: string; suffix: string }>('landing.howItWorks.heading');
+    const howItWorksSteps = tm<Array<{ key: string; title: string; description: string; imageUrl: string }>>('landing.howItWorks.steps');
+    const testimonialsHeading = tm<{ prefix: string; highlight: string; suffix: string }>('landing.testimonials.heading');
+    const testimonials = tm<Array<{ key: string; name: string; role: string; quote: string }>>('landing.testimonials.items');
+    const pricingHeading = tm<{ prefix: string; highlight: string; suffix: string }>('landing.pricing.heading');
+    const pricingPlans = tm<Array<{ key: string; name: string; description: string; price: string; priceSuffix?: string; features: string[]; badge?: string; cta: string }>>('landing.pricing.plans');
+    const partnersHeading = tm<{ prefix: string; highlight: string; suffix: string }>('landing.partners.heading');
+    const faqHeading = tm<{ prefix: string; highlight: string; suffix: string }>('landing.faq.heading');
+    const currentYear = new Date().getFullYear();
+    const quickLinks = [
+        { href: '#', label: t('landing.footer.quickLinks.links.home') },
+        { href: '#features', label: t('landing.footer.quickLinks.links.features') },
+        { href: '#how-it-works', label: t('landing.footer.quickLinks.links.howItWorks') },
+        { href: '#pricing', label: t('landing.footer.quickLinks.links.pricing') },
+        { href: '/auth/login', label: t('landing.footer.quickLinks.links.login') },
+    ];
+    const companyLinks = [
+        { href: '#', label: t('landing.footer.company.links.about') },
+        { href: '#', label: t('landing.footer.company.links.faq') },
+        { href: '#', label: t('landing.footer.company.links.privacy') },
+        { href: '#', label: t('landing.footer.company.links.terms') },
+        { href: '#', label: t('landing.footer.company.links.contact') },
+    ];
+    const contactItems = [
+        { icon: 'fas fa-map-marker-alt', label: t('landing.footer.contact.addressLabel'), value: t('common.contact.location') },
+        { icon: 'fas fa-phone-alt', label: t('landing.footer.contact.phoneLabel'), value: t('common.contact.phone') },
+        { icon: 'fas fa-envelope', label: t('landing.footer.contact.emailLabel'), value: t('common.contact.email') },
+    ];
 
     return (
         <div className="bg-background text-foreground">
@@ -156,7 +206,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                     <div className="container mx-auto px-4 relative z-10">
                         <div className="max-w-4xl mx-auto text-center">
                             <div className="inline-block px-4 py-2 bg-accent text-accent-foreground rounded-full mb-6">
-                                <span className="font-bold flex items-center gap-2"> <Zap className="h-4 w-4" /> الإصدار الجديد متاح الآن!</span>
+                                <span className="font-bold flex items-center gap-2 rtl:flex-row-reverse"><Zap className="h-4 w-4" /> {t('landing.header.badge')}</span>
                             </div>
                             
                              <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
@@ -172,11 +222,11 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                             <div className="flex flex-col sm:flex-row justify-center gap-4">
                                 <Button asChild size="lg" className="px-8 py-4 text-lg transition-all transform hover:scale-105 shadow-lg shadow-primary/20">
                                     <Link href="/auth/login">
-                                        ابدأ الآن مجانًا
+                                        {t('landing.hero.primaryCta')}
                                     </Link>
                                 </Button>
                                 <Button asChild variant="secondary" size="lg" className="px-8 py-4 text-lg transition-all transform hover:scale-105 shadow-lg">
-                                    <a href="#features">اكتشف المميزات</a>
+                                    <a href="#features">{t('landing.hero.secondaryCta')}</a>
                                 </Button>
                             </div>
                         </div>
@@ -195,19 +245,26 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                 <section id="features" className="py-20 bg-muted/50">
                     <div className="container mx-auto px-4">
                         <div className="text-center mb-16">
-                            <h2 className="text-3xl md:text-5xl font-bold mb-4">مميزات <span className="text-primary">استثنائية</span></h2>
+                            <h2 className="text-3xl md:text-5xl font-bold mb-4">
+                                {featuresHeading.prefix} <span className="text-primary">{featuresHeading.highlight}</span>{featuresHeading.suffix ? ` ${featuresHeading.suffix}` : ''}
+                            </h2>
                             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                                اكتشف الأدوات القوية التي تجعل عملك أسهل وأكثر كفاءة
+                                {t('landing.features.description')}
                             </p>
                         </div>
-                        
+
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            <FeatureCard icon={Zap} title="إدخال ذكي للبيانات" description="استيراد تلقائي لبيانات التذاكر والفيزا والفواتير من ملفات PDF بضغطة زر واحدة." />
-                            <FeatureCard icon={LineChart} title="تقارير وتحليلات" description="كشوفات حسابات مفصلة وتقارير أرباح متقدمة لدعم اتخاذ القرارات." />
-                            <FeatureCard icon={ShieldCheck} title="تدقيق ومطابقة" description="أدوات ذكية لمقارنة كشف حسابك مع كشف حساب الموردين وكشف الفروقات والاختلافات تلقائيًا بدقة تصل إلى 99%." />
-                            <FeatureCard icon={Repeat} title="مزامنة فورية" description="تحديث البيانات تلقائيًا بين الفروع والمستخدمين في الوقت الفعلي." />
-                            <FeatureCard icon={Smartphone} title="تطبيق متنقل" description="إدارة عملك من أي مكان عبر تطبيق الهاتف مع إشعارات فورية." />
-                            <FeatureCard icon={HelpCircle} title="دعم فني 24/7" description="فريق دعم فني متاح على مدار الساعة لمساعدتك في أي استفسار." />
+                            {features.map(feature => {
+                                const Icon = featureIconMap[feature.key] ?? Zap;
+                                return (
+                                    <FeatureCard
+                                        key={feature.key}
+                                        icon={Icon}
+                                        title={feature.title}
+                                        description={feature.description}
+                                    />
+                                );
+                            })}
                         </div>
                     </div>
                 </section>
@@ -215,15 +272,21 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                 <section id="how-it-works" className="py-20">
                      <div className="container mx-auto px-4">
                         <div className="text-center mb-16">
-                            <h2 className="text-3xl md:text-5xl font-bold mb-4">كيف <span className="text-primary">يعمل</span> النظام؟</h2>
+                            <h2 className="text-3xl md:text-5xl font-bold mb-4">{howItWorksHeading.prefix} <span className="text-primary">{howItWorksHeading.highlight}</span>{howItWorksHeading.suffix ? ` ${howItWorksHeading.suffix}` : ''}</h2>
                             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                                ثلاث خطوات بسيطة لتحويل عملك إلى تجربة رقمية متكاملة
+                                {t('landing.howItWorks.description')}
                             </p>
                         </div>
                         <div className="grid md:grid-cols-3 gap-8">
-                           <StepCard number={1} title="رفع المستندات" description="قم برفع ملفات PDF الخاصة بالتذاكر، الفيزا، والفواتير إلى النظام." imageUrl="https://images.unsplash.com/photo-1547658719-da2b51169166?q=80&w=1064&auto=format&fit=crop" />
-                           <StepCard number={2} title="المعالجة الذكية" description="يقوم النظام بمعالجة المستندات واستخراج البيانات المالية تلقائيًا." imageUrl="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1085&auto=format&fit=crop" />
-                           <StepCard number={3} title="إدارة وتقارير" description="تصفح البيانات المالية، أنشئ التقارير، واتخذ القرارات بكل ثقة." imageUrl="https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1085&auto=format&fit=crop" />
+                           {howItWorksSteps.map((step, index) => (
+                               <StepCard
+                                   key={step.key}
+                                   number={index + 1}
+                                   title={step.title}
+                                   description={step.description}
+                                   imageUrl={step.imageUrl}
+                               />
+                           ))}
                         </div>
                     </div>
                 </section>
@@ -231,134 +294,84 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                 <section id="testimonials" className="py-20 bg-muted/50">
                     <div className="container mx-auto px-4">
                          <div className="text-center mb-16">
-                            <h2 className="text-3xl md:text-5xl font-bold mb-4">يثق بنا <span className="text-primary">الخبراء</span></h2>
+                            <h2 className="text-3xl md:text-5xl font-bold mb-4">{testimonialsHeading.prefix} <span className="text-primary">{testimonialsHeading.highlight}</span>{testimonialsHeading.suffix ? ` ${testimonialsHeading.suffix}` : ''}</h2>
                             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                                آراء بعض عملائنا الذين يستخدمون النظام يوميًا لتحسين أعمالهم
+                                {t('landing.testimonials.description')}
                             </p>
                         </div>
                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                             <Card className="bg-card text-card-foreground">
-                                <CardContent className="p-8">
-                                    <div className="flex items-center mb-4">
-                                        <Image src="https://picsum.photos/seed/1/40/40" alt="User" width={40} height={40} className="rounded-full" />
-                                        <div className="mr-4">
-                                            <h4 className="font-bold">أحمد علي</h4>
-                                            <p className="text-sm text-muted-foreground">مدير، شركة النور للسفر</p>
+                             {testimonials.map((testimonial, index) => (
+                                <Card key={testimonial.key} className="bg-card text-card-foreground">
+                                    <CardContent className="p-8">
+                                        <div className="flex items-center mb-4 gap-4 rtl:flex-row-reverse">
+                                            <Image src={`https://picsum.photos/seed/${index + 1}/40/40`} alt={testimonial.name} width={40} height={40} className="rounded-full" />
+                                            <div className="text-start rtl:text-end">
+                                                <h4 className="font-bold">{testimonial.name}</h4>
+                                                <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <p className="mb-4">"النظام غيّر طريقة عملنا بالكامل. أصبحنا نوفر ساعات يوميًا بفضل الإدخال الذكي."</p>
-                                    <div className="flex items-center text-yellow-500">
-                                       <Star/><Star/><Star/><Star/><Star/>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                             <Card className="bg-card text-card-foreground">
-                                <CardContent className="p-8">
-                                    <div className="flex items-center mb-4">
-                                        <Image src="https://picsum.photos/seed/2/40/40" alt="User" width={40} height={40} className="rounded-full" />
-                                        <div className="mr-4">
-                                            <h4 className="font-bold">فاطمة حسن</h4>
-                                            <p className="text-sm text-muted-foreground">محاسبة، شركة الأفق للسياحة</p>
+                                        <p className="mb-4">“{testimonial.quote}”</p>
+                                        <div className="flex items-center text-yellow-500">
+                                           <Star/><Star/><Star/><Star/><Star/>
                                         </div>
-                                    </div>
-                                    <p className="mb-4">"أداة التدقيق والمطابقة رائعة! كشفت لنا عن فروقات لم نكن لنلاحظها بالطرق التقليدية."</p>
-                                    <div className="flex items-center text-yellow-500">
-                                       <Star/><Star/><Star/><Star/><Star/>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                             <Card className="bg-card text-card-foreground">
-                                <CardContent className="p-8">
-                                    <div className="flex items-center mb-4">
-                                        <Image src="https://picsum.photos/seed/3/40/40" alt="User" width={40} height={40} className="rounded-full" />
-                                        <div className="mr-4">
-                                            <h4 className="font-bold">علي محمد</h4>
-                                            <p className="text-sm text-muted-foreground">صاحب، شركة البراق للسياحة</p>
-                                        </div>
-                                    </div>
-                                    <p className="mb-4">"الدعم الفني سريع ومتجاوب. التقارير المالية أصبحت واضحة ومفصلة أكثر من أي وقت مضى."</p>
-                                    <div className="flex items-center text-yellow-500">
-                                       <Star/><Star/><Star/><Star/><Star/>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="pricing" className="py-20">
-                    <div className="container mx-auto px-4">
-                        <div className="text-center mb-16">
-                            <h2 className="text-3xl md:text-5xl font-bold mb-4">خطط <span className="text-primary">أسعار</span> مرنة</h2>
-                            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                                اختر الخطة التي تناسب حجم أعمالك واحتياجات فريقك
-                            </p>
-                        </div>
-                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 items-center">
-                            <Card className="rounded-2xl border-2">
-                                <CardHeader className="text-center">
-                                    <CardTitle className="text-2xl">الخطة الأساسية</CardTitle>
-                                    <CardDescription>مثالية للشركات الصغيرة والناشئة</CardDescription>
-                                </CardHeader>
-                                <CardContent className="text-center">
-                                    <p className="text-5xl font-bold mb-4">$29<span className="text-lg font-normal text-muted-foreground">/شهر</span></p>
-                                    <ul className="space-y-4 text-right">
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> حتى 3 مستخدمين</li>
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> إدخال 500 تذكرة شهريًا</li>
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> دعم فني عبر البريد الإلكتروني</li>
-                                    </ul>
-                                </CardContent>
-                                <CardFooter>
-                                    <Button className="w-full" variant="outline">اختر الخطة</Button>
-                                </CardFooter>
-                            </Card>
-                            <Card className="rounded-2xl border-2 border-primary shadow-lg scale-105">
-                                 <CardHeader className="text-center">
-                                    <div className="flex justify-center"><Badge>الأكثر شيوعًا</Badge></div>
-                                    <CardTitle className="text-3xl text-primary">الخطة الاحترافية</CardTitle>
-                                    <CardDescription>للشركات المتوسطة والمتنامية</CardDescription>
-                                </CardHeader>
-                                <CardContent className="text-center">
-                                    <p className="text-6xl font-bold mb-4">$79<span className="text-lg font-normal text-muted-foreground">/شهر</span></p>
-                                    <ul className="space-y-4 text-right">
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> حتى 10 مستخدمين</li>
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> إدخال 2000 تذكرة شهريًا</li>
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> أداة التدقيق والمطابقة</li>
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> دعم فني عبر الدردشة</li>
-                                    </ul>
-                                </CardContent>
-                                <CardFooter>
-                                    <Button className="w-full">اختر الخطة</Button>
-                                </CardFooter>
-                            </Card>
-                            <Card className="rounded-2xl border-2">
-                                 <CardHeader className="text-center">
-                                    <CardTitle className="text-2xl">خطة الشركات</CardTitle>
-                                    <CardDescription>حلول مخصصة للشركات الكبيرة</CardDescription>
-                                </CardHeader>
-                                <CardContent className="text-center">
-                                    <p className="text-4xl font-bold my-8">تواصل معنا</p>
-                                    <ul className="space-y-4 text-right">
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> عدد مستخدمين غير محدود</li>
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> عدد تذاكر غير محدود</li>
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> تقارير وتحليلات مخصصة</li>
-                                        <li className="flex items-center justify-end gap-3"><Check className="text-green-500" /> دعم فني مخصص ومدير حساب</li>
-                                    </ul>
-                                </CardContent>
-                                <CardFooter>
-                                    <Button className="w-full" variant="outline">تواصل مع المبيعات</Button>
-                                </CardFooter>
-                            </Card>
+                                    </CardContent>
+                                </Card>
+                            ))}
                         </div>
                     </div>
                 </section>
                 
+
+<section id="pricing" className="py-20">
+    <div className="container mx-auto px-4">
+        <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4">{pricingHeading.prefix} <span className="text-primary">{pricingHeading.highlight}</span>{pricingHeading.suffix ? ` ${pricingHeading.suffix}` : ''}</h2>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                {t('landing.pricing.description')}
+            </p>
+        </div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 items-center">
+            {pricingPlans.map(plan => {
+                const isFeatured = Boolean(plan.badge);
+                const priceSize = plan.key === 'professional' ? 'text-6xl' : plan.key === 'enterprise' ? 'text-4xl' : 'text-5xl';
+                return (
+                    <Card key={plan.key} className={cn('rounded-2xl border-2', isFeatured && 'border-primary shadow-lg scale-105')}>
+                        <CardHeader className="text-center">
+                            {plan.badge ? <div className="flex justify-center"><Badge>{plan.badge}</Badge></div> : null}
+                            <CardTitle className={cn('text-2xl', isFeatured && 'text-3xl text-primary')}>{plan.name}</CardTitle>
+                            <CardDescription>{plan.description}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="text-center">
+                            <p className={cn(priceSize, 'font-bold mb-4')}>
+                                {plan.price}
+                                {plan.priceSuffix ? <span className="text-lg font-normal text-muted-foreground">{plan.priceSuffix}</span> : null}
+                            </p>
+                            <ul className="space-y-4 text-start rtl:text-end">
+                                {plan.features.map(feature => (
+                                    <li key={feature} className="flex items-center gap-3 justify-start rtl:flex-row-reverse">
+                                        <Check className="text-green-500" /> {feature}
+                                    </li>
+                                ))}
+                            </ul>
+                        </CardContent>
+                        <CardFooter>
+                            <Button className="w-full" variant={isFeatured ? 'default' : 'outline'}>
+                                {plan.cta}
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                );
+            })}
+        </div>
+    </div>
+</section>
+
                 <section id="partners" className="py-20 bg-muted/50">
                     <div className="container mx-auto px-4">
                          <div className="text-center mb-16">
-                            <h2 className="text-3xl md:text-5xl font-bold mb-4">شركاء <span className="text-primary">النجاح</span></h2>
+                            <h2 className="text-3xl md:text-5xl font-bold mb-4">{partnersHeading.prefix} <span className="text-primary">{partnersHeading.highlight}</span>{partnersHeading.suffix ? ` ${partnersHeading.suffix}` : ''}</h2>
                             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                                نفخر بالتعاون مع نخبة من شركات السياحة والسفر الرائدة التي وثقت في نظامنا لتحقيق أهدافها.
+                                {t('landing.partners.description')}
                             </p>
                         </div>
                         <div className="flex flex-wrap justify-center items-center gap-x-12 gap-y-8">
@@ -374,9 +387,9 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                 <section id="faq" className="py-20">
                      <div className="container mx-auto px-4">
                         <div className="text-center mb-16">
-                             <h2 className="text-3xl md:text-5xl font-bold mb-4">الأسئلة <span className="text-primary">الشائعة</span></h2>
+                             <h2 className="text-3xl md:text-5xl font-bold mb-4">{faqHeading.prefix} <span className="text-primary">{faqHeading.highlight}</span>{faqHeading.suffix ? ` ${faqHeading.suffix}` : ''}</h2>
                             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                                إجابات على بعض الأسئلة التي قد تخطر ببالك.
+                                {t('landing.faq.description')}
                             </p>
                         </div>
                          <div className="max-w-3xl mx-auto">
@@ -394,80 +407,72 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                     </div>
                 </section>
                 
-                 <footer className="bg-gray-900 text-gray-300 py-12">
-                    <div className="container mx-auto px-4">
-                        <div className="grid md:grid-cols-4 gap-8 mb-12">
-                             <div>
-                                <div className="flex items-center space-x-2 space-x-reverse mb-4">
-                                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
-                                        <Rocket/>
-                                    </div>
-                                    <span className="text-xl font-bold text-white">Mudarib</span>
-                                </div>
-                                <p className="mb-4">
-                                    نظام محاسبة متكامل لشركات السياحة والسفر لإدارة التذاكر، الفيزا، والفواتير بكل سهولة.
-                                </p>
-                                <div className="flex space-x-4 space-x-reverse">
-                                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors">
-                                        <i className="fab fa-twitter"></i>
-                                    </a>
-                                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors">
-                                        <i className="fab fa-facebook-f"></i>
-                                    </a>
-                                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors">
-                                        <i className="fab fa-linkedin-in"></i>
-                                    </a>
-                                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors">
-                                        <i className="fab fa-instagram"></i>
-                                    </a>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <h4 className="text-lg font-bold text-white mb-4">روابط سريعة</h4>
-                                <ul className="space-y-3">
-                                    <li><a href="#" className="hover:text-white transition-colors">الصفحة الرئيسية</a></li>
-                                    <li><a href="#features" className="hover:text-white transition-colors">المميزات</a></li>
-                                    <li><a href="#how-it-works" className="hover:text-white transition-colors">كيف يعمل</a></li>
-                                    <li><a href="#pricing" className="hover:text-white transition-colors">الأسعار</a></li>
-                                    <li><a href="/auth/login" className="hover:text-white transition-colors">تسجيل الدخول</a></li>
-                                </ul>
-                            </div>
-                            
-                            <div>
-                                <h4 className="text-lg font-bold text-white mb-4">الشركة</h4>
-                                <ul className="space-y-3">
-                                    <li><a href="#" className="hover:text-white transition-colors">من نحن</a></li>
-                                    <li><a href="#" className="hover:text-white transition-colors">الأسئلة الشائعة</a></li>
-                                    <li><a href="#" className="hover:text-white transition-colors">سياسة الخصوصية</a></li>
-                                    <li><a href="#" className="hover:text-white transition-colors">شروط الاستخدام</a></li>
-                                    <li><a href="#" className="hover:text-white transition-colors">اتصل بنا</a></li>
-                                </ul>
-                            </div>
-                            
-                            <div>
-                                <h4 className="text-lg font-bold text-white mb-4">اتصل بنا</h4>
-                                <ul className="space-y-3">
-                                    <li className="flex items-start">
-                                        <i className="fas fa-map-marker-alt mt-1 mr-3 text-primary"></i>
-                                        <span>الرياض، المملكة العربية السعودية</span>
-                                    </li>
-                                    <li className="flex items-center">
-                                        <i className="fas fa-phone-alt mr-3 text-primary"></i>
-                                        <span>+966 12 345 6789</span>
-                                    </li>
-                                    <li className="flex items-center">
-                                        <i className="fas fa-envelope mr-3 text-primary"></i>
-                                        <span>info@mudarib.com</span>
-                                    </li>
-                                </ul>
-                            </div>
-                        </div>
-                         <div className="pt-8 border-t border-gray-800 text-center">
-                            <p>&copy; {new Date().getFullYear()} Mudarib. جميع الحقوق محفوظة.</p>
-                        </div>
+                 
+<footer className="bg-gray-900 text-gray-300 py-12">
+    <div className="container mx-auto px-4">
+        <div className="grid md:grid-cols-4 gap-8 mb-12">
+            <div>
+                <div className="flex items-center gap-2 mb-4 rtl:flex-row-reverse">
+                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white">
+                        <Rocket/>
                     </div>
-                </footer>
+                    <span className="text-xl font-bold text-white">{t('common.brandName')}</span>
+                </div>
+                <p className="mb-4">
+                    {t('landing.footer.description')}
+                </p>
+                <div className="flex gap-4">
+                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors" aria-label={t('landing.footer.social.twitter')}>
+                        <i className="fab fa-twitter"></i>
+                    </a>
+                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors" aria-label={t('landing.footer.social.facebook')}>
+                        <i className="fab fa-facebook-f"></i>
+                    </a>
+                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors" aria-label={t('landing.footer.social.linkedin')}>
+                        <i className="fab fa-linkedin-in"></i>
+                    </a>
+                    <a href="#" className="w-10 h-10 rounded-full bg-gray-800 hover:bg-gray-700 flex items-center justify-center transition-colors" aria-label={t('landing.footer.social.instagram')}>
+                        <i className="fab fa-instagram"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div>
+                <h4 className="text-lg font-bold text-white mb-4">{t('landing.footer.quickLinks.title')}</h4>
+                <ul className="space-y-3">
+                    {quickLinks.map(link => (
+                        <li key={link.href}><a href={link.href} className="hover:text-white transition-colors">{link.label}</a></li>
+                    ))}
+                </ul>
+            </div>
+
+            <div>
+                <h4 className="text-lg font-bold text-white mb-4">{t('landing.footer.company.title')}</h4>
+                <ul className="space-y-3">
+                    {companyLinks.map(link => (
+                        <li key={link.label}><a href={link.href} className="hover:text-white transition-colors">{link.label}</a></li>
+                    ))}
+                </ul>
+            </div>
+
+            <div>
+                <h4 className="text-lg font-bold text-white mb-4">{t('landing.footer.contact.title')}</h4>
+                <ul className="space-y-3">
+                    {contactItems.map(item => (
+                        <li key={item.label} className="flex items-start gap-3 rtl:flex-row-reverse">
+                            <i className={item.icon + ' mt-1 text-primary'}></i>
+                            <span>{item.value}</span>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+        <div className="pt-8 border-t border-gray-800 text-center">
+            <p>{t('landing.footer.copyright', { year: currentYear })}</p>
+        </div>
+    </div>
+</footer>
+
             </main>
         </div>
     );

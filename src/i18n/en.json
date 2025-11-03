@@ -1,0 +1,357 @@
+{
+  "common": {
+    "brandName": "Mudarib",
+    "login": "Sign in",
+    "menu": "Menu",
+    "mainMenu": "Main menu",
+    "startNow": "Start now for free",
+    "exploreFeatures": "Discover the features",
+    "error": "Error",
+    "success": "Success",
+    "language": {
+      "switchToArabic": "العربية",
+      "switchToEnglish": "English",
+      "shortAr": "AR",
+      "shortEn": "EN"
+    },
+    "rightsReserved": "All rights reserved.",
+    "contact": {
+      "phone": "+966 12 345 6789",
+      "email": "info@mudarib.com",
+      "location": "Riyadh, Saudi Arabia"
+    }
+  },
+  "landing": {
+    "header": {
+      "badge": "New release available now!",
+      "menuItems": {
+        "features": "Features",
+        "howItWorks": "How it works",
+        "testimonials": "Testimonials",
+        "pricing": "Pricing"
+      }
+    },
+    "hero": {
+      "primaryCta": "Start now for free",
+      "secondaryCta": "Discover the features"
+    },
+    "features": {
+      "heading": {
+        "prefix": "Exceptional",
+        "highlight": "features",
+        "suffix": ""
+      },
+      "description": "Discover the powerful tools that make your work easier and more efficient",
+      "items": [
+        {
+          "key": "smartInput",
+          "title": "Smart data entry",
+          "description": "Automatically import ticket, visa, and invoice data from PDF files with a single click."
+        },
+        {
+          "key": "analytics",
+          "title": "Reports & analytics",
+          "description": "Detailed account statements and advanced profit reports to support decision making."
+        },
+        {
+          "key": "reconciliation",
+          "title": "Audit & reconciliation",
+          "description": "Intelligent tools to compare your statements with suppliers and highlight differences with up to 99% accuracy."
+        },
+        {
+          "key": "sync",
+          "title": "Real-time sync",
+          "description": "Keep data automatically updated across branches and users instantly."
+        },
+        {
+          "key": "mobile",
+          "title": "Mobile app",
+          "description": "Run your business from anywhere with instant notifications."
+        },
+        {
+          "key": "support",
+          "title": "24/7 support",
+          "description": "A support team that is available around the clock to help with any question."
+        }
+      ]
+    },
+    "howItWorks": {
+      "heading": {
+        "prefix": "How",
+        "highlight": "it works",
+        "suffix": "for your business?"
+      },
+      "description": "Three simple steps to transform your operations into a fully digital experience",
+      "steps": [
+        {
+          "key": "upload",
+          "title": "Upload documents",
+          "description": "Upload your PDF tickets, visas, and invoices directly into the platform.",
+          "imageUrl": "https://images.unsplash.com/photo-1547658719-da2b51169166?q=80&w=1064&auto=format&fit=crop"
+        },
+        {
+          "key": "processing",
+          "title": "Intelligent processing",
+          "description": "The system extracts and processes financial data automatically.",
+          "imageUrl": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1085&auto=format&fit=crop"
+        },
+        {
+          "key": "reports",
+          "title": "Manage & report",
+          "description": "Browse financial insights, build reports, and make confident decisions.",
+          "imageUrl": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1085&auto=format&fit=crop"
+        }
+      ]
+    },
+    "testimonials": {
+      "heading": {
+        "prefix": "Trusted by",
+        "highlight": "experts",
+        "suffix": ""
+      },
+      "description": "Feedback from customers who rely on the platform every day",
+      "items": [
+        {
+          "key": "ahmed",
+          "name": "Ahmed Ali",
+          "role": "Manager, Al Noor Travel",
+          "quote": "The platform transformed how we work. We save hours every day thanks to smart data entry."
+        },
+        {
+          "key": "fatima",
+          "name": "Fatima Hassan",
+          "role": "Accountant, Al Ofoq Tourism",
+          "quote": "The audit and reconciliation tools are fantastic! They reveal differences we would never spot manually."
+        },
+        {
+          "key": "ali",
+          "name": "Ali Mohammed",
+          "role": "Owner, Al Buraq Travel",
+          "quote": "Support is fast and responsive. Our financial reports have never been clearer."
+        }
+      ]
+    },
+    "pricing": {
+      "heading": {
+        "prefix": "Flexible",
+        "highlight": "pricing",
+        "suffix": "plans"
+      },
+      "description": "Pick the plan that matches the size of your business and team needs",
+      "plans": [
+        {
+          "key": "basic",
+          "name": "Basic plan",
+          "description": "Perfect for small and growing agencies",
+          "price": "$29",
+          "priceSuffix": "/month",
+          "features": [
+            "Up to 3 users",
+            "Process 500 tickets per month",
+            "Email support"
+          ],
+          "cta": "Choose plan"
+        },
+        {
+          "key": "professional",
+          "name": "Professional plan",
+          "description": "Designed for scaling teams",
+          "badge": "Most popular",
+          "price": "$79",
+          "priceSuffix": "/month",
+          "features": [
+            "Up to 10 users",
+            "Process 2,000 tickets per month",
+            "Audit & reconciliation tool",
+            "Live chat support"
+          ],
+          "cta": "Choose plan"
+        },
+        {
+          "key": "enterprise",
+          "name": "Enterprise plan",
+          "description": "Tailored solutions for large organizations",
+          "price": "Contact us",
+          "features": [
+            "Unlimited users",
+            "Unlimited tickets",
+            "Custom analytics & reporting",
+            "Dedicated support and account manager"
+          ],
+          "cta": "Talk to sales"
+        }
+      ]
+    },
+    "partners": {
+      "heading": {
+        "prefix": "Partners in",
+        "highlight": "success",
+        "suffix": ""
+      },
+      "description": "We proudly collaborate with leading travel companies that trust Mudarib to achieve their goals."
+    },
+    "faq": {
+      "heading": {
+        "prefix": "Frequently",
+        "highlight": "asked",
+        "suffix": "questions"
+      },
+      "description": "Answers to the questions you might have in mind."
+    },
+    "footer": {
+      "description": "An end-to-end accounting system for travel agencies to manage tickets, visas, and invoices effortlessly.",
+      "social": {
+        "twitter": "Twitter",
+        "facebook": "Facebook",
+        "linkedin": "LinkedIn",
+        "instagram": "Instagram"
+      },
+      "quickLinks": {
+        "title": "Quick links",
+        "links": {
+          "home": "Home",
+          "features": "Features",
+          "howItWorks": "How it works",
+          "pricing": "Pricing",
+          "login": "Sign in"
+        }
+      },
+      "company": {
+        "title": "Company",
+        "links": {
+          "about": "About",
+          "faq": "FAQ",
+          "privacy": "Privacy policy",
+          "terms": "Terms of use",
+          "contact": "Contact us"
+        }
+      },
+      "contact": {
+        "title": "Get in touch",
+        "addressLabel": "Address",
+        "phoneLabel": "Phone",
+        "emailLabel": "Email"
+      },
+      "copyright": "© {{year}} Mudarib. All rights reserved."
+    }
+  },
+  "navigation": {
+    "main": {
+      "dashboard": "Dashboard",
+      "accounts": "Accounts hub"
+    },
+    "groups": {
+      "relations": {
+        "title": "Relationships",
+        "items": {
+          "clients": "Relationship management",
+          "campaigns": "Campaigns",
+          "chat": "Conversations"
+        }
+      },
+      "vouchers": {
+        "title": "Vouchers",
+        "items": {
+          "records": "Voucher records",
+          "settings": "Settings",
+          "standardReceipt": "Standard receipt",
+          "distributedReceipt": "Distributed receipt",
+          "paymentVoucher": "Payment voucher",
+          "expenseVoucher": "Expense voucher",
+          "journalVoucher": "Journal voucher"
+        }
+      },
+      "operations": {
+        "title": "Accounting operations",
+        "items": {
+          "bookings": "Flight bookings",
+          "visas": "Visa requests",
+          "remittances": "Remittances"
+        }
+      },
+      "customBusiness": {
+        "title": "Custom business",
+        "items": {
+          "subscriptions": "Subscriptions",
+          "segments": "Segments",
+          "exchanges": "Exchanges",
+          "profitSharing": "Share distribution",
+          "flightAnalysis": "Flight analysis"
+        }
+      },
+      "reports": {
+        "title": "Reports & tools",
+        "items": {
+          "debts": "Balance report",
+          "accountStatement": "Account statement",
+          "profitLoss": "Profit & loss",
+          "profitability": "Profitability analysis",
+          "cashFlow": "Cash flow",
+          "smartReconciliation": "Smart reconciliation"
+        }
+      },
+      "additionalFeatures": {
+        "title": "Additional features",
+        "items": {
+          "boxes": "Cash boxes",
+          "suppliers": "Suppliers",
+          "profile": "Profile",
+          "profits": "Profits",
+          "notifications": "Notifications",
+          "assets": "Asset management"
+        }
+      },
+      "system": {
+        "title": "System",
+        "items": {
+          "generalSettings": "General settings",
+          "accountingGuide": "Chart of accounts & financial mapping",
+          "users": "Staff & permissions",
+          "financeTools": "Financial tools",
+          "templates": "Message templates",
+          "activityLog": "Activity log",
+          "errorLog": "Error log",
+          "dataAudit": "Data audit",
+          "deletedLog": "Deleted records"
+        }
+      }
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "Welcome back",
+      "subtitle": "Sign in to access your futuristic control panel",
+      "emailLabel": "Email",
+      "emailPlaceholder": "example@domain.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "••••••••",
+      "rememberMe": "Remember me",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign in",
+      "socialDivider": "Or sign in with",
+      "noAccount": "Don't have an account?",
+      "registerNow": "Register now"
+    },
+    "forgotPassword": {
+      "title": "Reset your password",
+      "subtitle": "Enter your email and we'll send you a reset link.",
+      "emailLabel": "Email",
+      "emailPlaceholder": "example@company.com",
+      "submit": "Send reset link",
+      "backToLogin": "Back to login",
+      "success": {
+        "title": "Sent successfully!",
+        "description": "A password reset link has been sent to your email. Please check your inbox."
+      },
+      "errors": {
+        "enterEmail": "Please enter your email address.",
+        "userNotFound": "This email address is not registered in the system.",
+        "generic": "An error occurred while sending the reset link."
+      }
+    }
+  },
+  "noPermission": {
+    "title": "Access denied",
+    "message": "You do not have the required permissions to view this page. Please contact your administrator if you believe this is a mistake."
+  }
+}

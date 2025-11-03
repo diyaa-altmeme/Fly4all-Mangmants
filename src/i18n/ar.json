@@ -1,0 +1,357 @@
+{
+  "common": {
+    "brandName": "Mudarib",
+    "login": "تسجيل الدخول",
+    "menu": "القائمة",
+    "mainMenu": "القائمة الرئيسية",
+    "startNow": "ابدأ الآن مجانًا",
+    "exploreFeatures": "اكتشف المميزات",
+    "error": "خطأ",
+    "success": "تم بنجاح",
+    "language": {
+      "switchToArabic": "العربية",
+      "switchToEnglish": "English",
+      "shortAr": "AR",
+      "shortEn": "EN"
+    },
+    "rightsReserved": "جميع الحقوق محفوظة.",
+    "contact": {
+      "phone": "+966 12 345 6789",
+      "email": "info@mudarib.com",
+      "location": "الرياض، المملكة العربية السعودية"
+    }
+  },
+  "landing": {
+    "header": {
+      "badge": "الإصدار الجديد متاح الآن!",
+      "menuItems": {
+        "features": "المميزات",
+        "howItWorks": "كيف يعمل",
+        "testimonials": "آراء العملاء",
+        "pricing": "الأسعار"
+      }
+    },
+    "hero": {
+      "primaryCta": "ابدأ الآن مجانًا",
+      "secondaryCta": "اكتشف المميزات"
+    },
+    "features": {
+      "heading": {
+        "prefix": "مميزات",
+        "highlight": "استثنائية",
+        "suffix": ""
+      },
+      "description": "اكتشف الأدوات القوية التي تجعل عملك أسهل وأكثر كفاءة",
+      "items": [
+        {
+          "key": "smartInput",
+          "title": "إدخال ذكي للبيانات",
+          "description": "استيراد تلقائي لبيانات التذاكر والفيزا والفواتير من ملفات PDF بضغطة زر واحدة."
+        },
+        {
+          "key": "analytics",
+          "title": "تقارير وتحليلات",
+          "description": "كشوفات حسابات مفصلة وتقارير أرباح متقدمة لدعم اتخاذ القرارات."
+        },
+        {
+          "key": "reconciliation",
+          "title": "تدقيق ومطابقة",
+          "description": "أدوات ذكية لمقارنة كشف حسابك مع كشف حساب الموردين وكشف الفروقات والاختلافات تلقائيًا بدقة تصل إلى 99%."
+        },
+        {
+          "key": "sync",
+          "title": "مزامنة فورية",
+          "description": "تحديث البيانات تلقائيًا بين الفروع والمستخدمين في الوقت الفعلي."
+        },
+        {
+          "key": "mobile",
+          "title": "تطبيق متنقل",
+          "description": "إدارة عملك من أي مكان عبر تطبيق الهاتف مع إشعارات فورية."
+        },
+        {
+          "key": "support",
+          "title": "دعم فني 24/7",
+          "description": "فريق دعم فني متاح على مدار الساعة لمساعدتك في أي استفسار."
+        }
+      ]
+    },
+    "howItWorks": {
+      "heading": {
+        "prefix": "كيف",
+        "highlight": "يعمل",
+        "suffix": "النظام؟"
+      },
+      "description": "ثلاث خطوات بسيطة لتحويل عملك إلى تجربة رقمية متكاملة",
+      "steps": [
+        {
+          "key": "upload",
+          "title": "رفع المستندات",
+          "description": "قم برفع ملفات PDF الخاصة بالتذاكر، الفيزا، والفواتير إلى النظام.",
+          "imageUrl": "https://images.unsplash.com/photo-1547658719-da2b51169166?q=80&w=1064&auto=format&fit=crop"
+        },
+        {
+          "key": "processing",
+          "title": "المعالجة الذكية",
+          "description": "يقوم النظام بمعالجة المستندات واستخراج البيانات المالية تلقائيًا.",
+          "imageUrl": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1085&auto=format&fit=crop"
+        },
+        {
+          "key": "reports",
+          "title": "إدارة وتقارير",
+          "description": "تصفح البيانات المالية، أنشئ التقارير، واتخذ القرارات بكل ثقة.",
+          "imageUrl": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1085&auto=format&fit=crop"
+        }
+      ]
+    },
+    "testimonials": {
+      "heading": {
+        "prefix": "يثق بنا",
+        "highlight": "الخبراء",
+        "suffix": ""
+      },
+      "description": "آراء بعض عملائنا الذين يستخدمون النظام يوميًا لتحسين أعمالهم",
+      "items": [
+        {
+          "key": "ahmed",
+          "name": "أحمد علي",
+          "role": "مدير، شركة النور للسفر",
+          "quote": "النظام غيّر طريقة عملنا بالكامل. أصبحنا نوفر ساعات يوميًا بفضل الإدخال الذكي."
+        },
+        {
+          "key": "fatima",
+          "name": "فاطمة حسن",
+          "role": "محاسبة، شركة الأفق للسياحة",
+          "quote": "أداة التدقيق والمطابقة رائعة! كشفت لنا عن فروقات لم نكن لنلاحظها بالطرق التقليدية."
+        },
+        {
+          "key": "ali",
+          "name": "علي محمد",
+          "role": "صاحب، شركة البراق للسياحة",
+          "quote": "الدعم الفني سريع ومتجاوب. التقارير المالية أصبحت واضحة ومفصلة أكثر من أي وقت مضى."
+        }
+      ]
+    },
+    "pricing": {
+      "heading": {
+        "prefix": "خطط",
+        "highlight": "أسعار",
+        "suffix": "مرنة"
+      },
+      "description": "اختر الخطة التي تناسب حجم أعمالك واحتياجات فريقك",
+      "plans": [
+        {
+          "key": "basic",
+          "name": "الخطة الأساسية",
+          "description": "مثالية للشركات الصغيرة والناشئة",
+          "price": "$29",
+          "priceSuffix": "/شهر",
+          "features": [
+            "حتى 3 مستخدمين",
+            "إدخال 500 تذكرة شهريًا",
+            "دعم فني عبر البريد الإلكتروني"
+          ],
+          "cta": "اختر الخطة"
+        },
+        {
+          "key": "professional",
+          "name": "الخطة الاحترافية",
+          "description": "للشركات المتوسطة والمتنامية",
+          "badge": "الأكثر شيوعًا",
+          "price": "$79",
+          "priceSuffix": "/شهر",
+          "features": [
+            "حتى 10 مستخدمين",
+            "إدخال 2000 تذكرة شهريًا",
+            "أداة التدقيق والمطابقة",
+            "دعم فني عبر الدردشة"
+          ],
+          "cta": "اختر الخطة"
+        },
+        {
+          "key": "enterprise",
+          "name": "خطة الشركات",
+          "description": "حلول مخصصة للشركات الكبيرة",
+          "price": "تواصل معنا",
+          "features": [
+            "عدد مستخدمين غير محدود",
+            "عدد تذاكر غير محدود",
+            "تقارير وتحليلات مخصصة",
+            "دعم فني مخصص ومدير حساب"
+          ],
+          "cta": "تواصل مع المبيعات"
+        }
+      ]
+    },
+    "partners": {
+      "heading": {
+        "prefix": "شركاء",
+        "highlight": "النجاح",
+        "suffix": ""
+      },
+      "description": "نفخر بالتعاون مع نخبة من شركات السياحة والسفر الرائدة التي وثقت في نظامنا لتحقيق أهدافها."
+    },
+    "faq": {
+      "heading": {
+        "prefix": "الأسئلة",
+        "highlight": "الشائعة",
+        "suffix": ""
+      },
+      "description": "إجابات على بعض الأسئلة التي قد تخطر ببالك."
+    },
+    "footer": {
+      "description": "نظام محاسبة متكامل لشركات السياحة والسفر لإدارة التذاكر، الفيزا، والفواتير بكل سهولة.",
+      "social": {
+        "twitter": "تويتر",
+        "facebook": "فيسبوك",
+        "linkedin": "لينكدإن",
+        "instagram": "إنستغرام"
+      },
+      "quickLinks": {
+        "title": "روابط سريعة",
+        "links": {
+          "home": "الصفحة الرئيسية",
+          "features": "المميزات",
+          "howItWorks": "كيف يعمل",
+          "pricing": "الأسعار",
+          "login": "تسجيل الدخول"
+        }
+      },
+      "company": {
+        "title": "الشركة",
+        "links": {
+          "about": "من نحن",
+          "faq": "الأسئلة الشائعة",
+          "privacy": "سياسة الخصوصية",
+          "terms": "شروط الاستخدام",
+          "contact": "اتصل بنا"
+        }
+      },
+      "contact": {
+        "title": "اتصل بنا",
+        "addressLabel": "العنوان",
+        "phoneLabel": "الهاتف",
+        "emailLabel": "البريد الإلكتروني"
+      },
+      "copyright": "© {{year}} Mudarib. جميع الحقوق محفوظة."
+    }
+  },
+  "navigation": {
+    "main": {
+      "dashboard": "الرئيسية",
+      "accounts": "مركز الحسابات"
+    },
+    "groups": {
+      "relations": {
+        "title": "العلاقات",
+        "items": {
+          "clients": "ادارة العلاقات",
+          "campaigns": "الحملات",
+          "chat": "المحادثات"
+        }
+      },
+      "vouchers": {
+        "title": "السندات",
+        "items": {
+          "records": "سجل السندات",
+          "settings": "الإعدادات",
+          "standardReceipt": "سند قبض عادي",
+          "distributedReceipt": "سند قبض مخصص",
+          "paymentVoucher": "سند دفع",
+          "expenseVoucher": "سند مصاريف",
+          "journalVoucher": "سند قيد داخلي"
+        }
+      },
+      "operations": {
+        "title": "العمليات المحاسبية",
+        "items": {
+          "bookings": "حجوزات الطيران",
+          "visas": "طلبات الفيزا",
+          "remittances": "الحوالات"
+        }
+      },
+      "customBusiness": {
+        "title": "الأعمال المخصصة",
+        "items": {
+          "subscriptions": "الاشتراكات",
+          "segments": "السكمنت",
+          "exchanges": "البورصات",
+          "profitSharing": "توزيع الحصص",
+          "flightAnalysis": "تحليل الطيران"
+        }
+      },
+      "reports": {
+        "title": "التقارير والأدوات",
+        "items": {
+          "debts": "تقرير الأرصدة",
+          "accountStatement": "كشف حساب",
+          "profitLoss": "الأرباح والخسائر",
+          "profitability": "تحليل الربحية",
+          "cashFlow": "التدفق النقدي",
+          "smartReconciliation": "التدقيق الذكي"
+        }
+      },
+      "additionalFeatures": {
+        "title": "الميزات الإضافية",
+        "items": {
+          "boxes": "الصناديق",
+          "suppliers": "الموردين",
+          "profile": "الملف الشخصي",
+          "profits": "الأرباح",
+          "notifications": "الإشعارات",
+          "assets": "إدارة الأصول"
+        }
+      },
+      "system": {
+        "title": "النظام",
+        "items": {
+          "generalSettings": "الإعدادات العامة",
+          "accountingGuide": "الدليل المحاسبي والربط المالي",
+          "users": "الموظفين والصلاحيات",
+          "financeTools": "الأدوات المالية",
+          "templates": "قوالب الرسائل",
+          "activityLog": "سجل النشاطات",
+          "errorLog": "سجل الأخطاء",
+          "dataAudit": "تدقيق البيانات",
+          "deletedLog": "سجل المحذوفات"
+        }
+      }
+    }
+  },
+  "auth": {
+    "login": {
+      "title": "مرحبًا بك",
+      "subtitle": "سجل الدخول للوصول إلى لوحة التحكم المستقبلية",
+      "emailLabel": "البريد الإلكتروني",
+      "emailPlaceholder": "example@domain.com",
+      "passwordLabel": "كلمة المرور",
+      "passwordPlaceholder": "••••••••",
+      "rememberMe": "تذكرني",
+      "forgotPassword": "نسيت كلمة المرور؟",
+      "submit": "تسجيل الدخول",
+      "socialDivider": "أو سجل الدخول باستخدام",
+      "noAccount": "ليس لديك حساب؟",
+      "registerNow": "سجل الآن"
+    },
+    "forgotPassword": {
+      "title": "إعادة تعيين كلمة المرور",
+      "subtitle": "أدخل بريدك الإلكتروني وسنرسل لك رابطًا لإعادة التعيين.",
+      "emailLabel": "البريد الإلكتروني",
+      "emailPlaceholder": "example@company.com",
+      "submit": "إرسال رابط إعادة التعيين",
+      "backToLogin": "العودة لتسجيل الدخول",
+      "success": {
+        "title": "تم الإرسال بنجاح!",
+        "description": "تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني. يرجى التحقق من صندوق الوارد."
+      },
+      "errors": {
+        "enterEmail": "يرجى إدخال البريد الإلكتروني.",
+        "userNotFound": "هذا البريد الإلكتروني غير مسجل في النظام.",
+        "generic": "حدث خطأ أثناء محاولة إرسال رابط إعادة التعيين."
+      }
+    }
+  },
+  "noPermission": {
+    "title": "وصول مرفوض",
+    "message": "عذراً، أنت لا تملك الصلاحيات اللازمة لعرض هذه الصفحة. يرجى التواصل مع مسؤول النظام إذا كنت تعتقد أن هذا خطأ."
+  }
+}

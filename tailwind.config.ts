@@ -2,6 +2,7 @@
 import type {Config} from 'tailwindcss';
 
 const { fontFamily } = require("tailwindcss/defaultTheme")
+const plugin = require("tailwindcss/plugin")
 
 export default {
   darkMode: ['class'],
@@ -117,5 +118,11 @@ export default {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    require('tailwindcss-animate'),
+    plugin(({ addVariant }) => {
+      addVariant('rtl', '[dir="rtl"] &');
+      addVariant('ltr', '[dir="ltr"] &');
+    })
+  ],
 } satisfies Config;
