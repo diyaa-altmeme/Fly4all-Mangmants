@@ -34,19 +34,13 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
     try {
         const settingsDoc = await db.collection('settings').doc(SETTINGS_DOC_ID).get();
         
-        let mergedSettings = { ...defaultSettingsData };
-
         if (settingsDoc.exists) {
             const dbSettings = settingsDoc.data() as AppSettings;
             
-            // Deep merge logic, ensuring arrays like currencies are handled correctly
+            // Deep merge logic for currencies
             const dbCurrencies = dbSettings.currencySettings?.currencies || [];
             const defaultCurrencies = defaultSettingsData.currencySettings?.currencies || [];
-            
-            // Create a map of existing currency codes to avoid duplicates
             const existingCodes = new Set(dbCurrencies.map(c => c.code));
-            
-            // Add default currencies only if they don't already exist in the database settings
             const combinedCurrencies = [...dbCurrencies];
             defaultCurrencies.forEach(defaultCurrency => {
                 if (!existingCodes.has(defaultCurrency.code)) {
@@ -54,14 +48,14 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
                 }
             });
 
-
-            mergedSettings = {
+            // Construct the merged settings object correctly
+            const mergedSettings = {
                 ...defaultSettingsData,
                 ...dbSettings,
                 currencySettings: {
                     ...defaultSettingsData.currencySettings,
                     ...(dbSettings.currencySettings || {}),
-                    currencies: combinedCurrencies,
+                    currencies: combinedCurrencies, // Use the correctly combined currencies
                 },
                 theme: {
                     ...defaultSettingsData.theme,
@@ -71,15 +65,16 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
                     ? dbSettings.relationSections 
                     : defaultSettingsData.relationSections,
             };
+
+            // Always ensure the DB connection status is true for the app to function
+            mergedSettings.databaseStatus = { isDatabaseConnected: true };
+            return mergedSettings;
+
         } else {
             console.log("No settings found in database, seeding with default settings.");
             await db.collection('settings').doc(SETTINGS_DOC_ID).set(defaultSettingsData);
+            return { ...defaultSettingsData, databaseStatus: { isDatabaseConnected: true } };
         }
-        
-        // Always ensure the DB connection status in the app is 'true' to avoid accidental lockout.
-        mergedSettings.databaseStatus = { isDatabaseConnected: true };
-        
-        return mergedSettings;
 
     } catch (error: any) {
         console.error("Error getting settings:", String(error));
