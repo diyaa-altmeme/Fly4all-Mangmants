@@ -18,40 +18,48 @@ interface CurrencySettingsProps {
 }
 
 export default function CurrencySettings({ settings: initialSettings, onSettingsChanged }: CurrencySettingsProps) {
-    const [currencySettings, setCurrencySettings] = useState<CurrencySettings>(initialSettings.currencySettings || { defaultCurrency: 'USD', exchangeRates: {}, currencies: [] });
+    const [currencySettings, setCurrencySettings] = useState<CurrencySettings | undefined>(initialSettings?.currencySettings);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
 
     useEffect(() => {
-        setCurrencySettings(initialSettings.currencySettings || { defaultCurrency: 'USD', exchangeRates: {}, currencies: [] });
+        setCurrencySettings(initialSettings?.currencySettings || { defaultCurrency: 'USD', exchangeRates: {}, currencies: [] });
     }, [initialSettings]);
 
     const handleExchangeRateChange = (key: string, value: string) => {
         const numericValue = parseFloat(value) || 0;
-        setCurrencySettings(prev => ({
-            ...prev,
-            exchangeRates: {
-                ...prev.exchangeRates,
-                [key]: numericValue
-            }
-        }));
+        setCurrencySettings(prev => {
+            if (!prev) return prev;
+            return {
+                ...prev,
+                exchangeRates: {
+                    ...prev.exchangeRates,
+                    [key]: numericValue
+                }
+            };
+        });
     };
     
     const handleDefaultCurrencyChange = (value: string) => {
-        setCurrencySettings(prev => ({ ...prev, defaultCurrency: value }));
+        setCurrencySettings(prev => prev ? ({ ...prev, defaultCurrency: value }) : prev);
     };
 
     const handleSave = async () => {
+        if (!currencySettings) return;
         setIsSaving(true);
         const result = await updateSettings({ currencySettings: currencySettings });
         if (result.success) {
             toast({ title: 'تم حفظ إعدادات العملات بنجاح' });
             onSettingsChanged();
         } else {
-            toast({ title: 'خطأ', description: 'لم يتم حفظ الإعدادات', variant: 'destructive' });
+            toast({ title: 'خطأ', description: 'لم يتم حفظ الإعدادات.', variant: 'destructive' });
         }
         setIsSaving(false);
     };
+
+    if (!currencySettings) {
+        return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    }
 
     return (
         <Card>
@@ -107,4 +115,3 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
         </Card>
     );
 }
-
