@@ -5,8 +5,7 @@ import { getSettings } from '@/app/settings/actions';
 import { getChartOfAccounts } from '@/app/settings/accounting/chart-of-accounts/actions';
 import { getUsers } from '@/app/users/actions';
 import { getBoxes } from '@/app/boxes/actions';
-import { getClients } from '@/app/clients/actions';
-import { getSuppliers } from '@/app/suppliers/actions';
+import { getClients } from '@/app/relations/actions';
 import { getExchanges } from '@/app/exchanges/actions';
 import ProtectedPage from '@/components/auth/protected-page';
 import SettingsPageContent from './components/settings-page-content';
@@ -51,9 +50,11 @@ function SettingsDataContainer() {
             setChartOfAccounts(chartData);
             setUsers(usersData as User[]);
             setBoxes(boxesData);
-            setClients(clientsResponse.clients);
-            const supplierData = clientsResponse.clients.filter(c => c.relationType === 'supplier' || c.relationType === 'both');
-            setSuppliers(supplierData);
+            
+            const allRelations = clientsResponse.clients;
+            setClients(allRelations.filter(r => r.relationType === 'client' || r.relationType === 'both'));
+            setSuppliers(allRelations.filter(r => r.relationType === 'supplier' || r.relationType === 'both'));
+
             setExchanges(exchangesData.accounts || []);
 
         } catch (e: any) {
