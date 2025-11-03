@@ -27,17 +27,15 @@ const formSchema = z.object({
   from: z.string().min(1, "اسم الدافع مطلوب"),
   toBox: z.string().min(1, "الصندوق مطلوب"),
   amount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val > 0, { message: "المبلغ يجب أن يكون أكبر من صفر" }),
-  currency: z.enum(['USD', 'IQD']),
+  currency: z.string().min(1, 'العملة مطلوبة'),
   details: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-
 interface NewStandardReceiptFormProps {
     onVoucherAdded?: (voucher: any) => void;
     onVoucherUpdated?: (voucher: any) => void;
-    selectedCurrency: Currency;
     isEditing?: boolean;
     initialData?: FormValues & { id?: string };
 }
@@ -51,8 +49,7 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
     />
 );
 
-
-export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrency, isEditing, initialData, onVoucherUpdated }: NewStandardReceiptFormProps) {
+export default function NewStandardReceiptForm({ onVoucherAdded, isEditing, initialData, onVoucherUpdated }: NewStandardReceiptFormProps) {
   const { data: navData } = useVoucherNav();
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
@@ -61,7 +58,7 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
     resolver: zodResolver(formSchema),
     defaultValues: isEditing ? initialData : {
       date: new Date(),
-      currency: selectedCurrency,
+      currency: navData?.settings.currencySettings?.defaultCurrency || 'USD',
       amount: undefined,
       details: '',
       from: '',
@@ -75,19 +72,13 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
       }
   }, [currentUser, isEditing, form]);
 
-  const { control, handleSubmit, setValue, register, formState: { errors, isSubmitting }, reset } = form;
-
-  useEffect(() => {
-    if (!isEditing) {
-        setValue('currency', selectedCurrency);
-        setValue('amount', undefined);
-    }
-  }, [selectedCurrency, setValue, isEditing]);
+  const { control, handleSubmit, setValue, register, formState: { errors, isSubmitting }, reset, watch } = form;
+  const watchedCurrency = watch('currency');
   
   const boxName = useMemo(() => {
-    const boxId = form.watch('toBox');
+    const boxId = watch('toBox');
     return navData?.boxes?.find(b => b.id === boxId)?.name || 'غير محدد';
-  }, [form, navData?.boxes]);
+  }, [watch, navData?.boxes]);
 
 
   const onSubmit = async (data: FormValues) => {
@@ -107,7 +98,7 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
                 from: data.from,
                 toBox: data.toBox,
                 amount: data.amount,
-                currency: data.currency,
+                currency: data.currency as 'USD' | 'IQD',
                 details: data.details
             });
 
@@ -126,10 +117,23 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
       <div className="p-6 space-y-6 flex-grow">
       
         <div className="grid md:grid-cols-2 gap-6 items-start">
-            <div className="space-y-1.5">
-                <Label htmlFor="date">التاريخ</Label>
-                <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
-                {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
+            <div className="flex gap-2">
+                <div className="space-y-1.5 flex-grow">
+                    <Label htmlFor="date">التاريخ</Label>
+                    <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
+                    {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
+                </div>
+                <div className="space-y-1.5 w-32">
+                    <Label htmlFor="currency">العملة</Label>
+                    <Controller name="currency" control={control} render={({ field }) => (
+                         <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                {(navData?.settings?.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
+                            </SelectContent>
+                         </Select>
+                    )} />
+                </div>
             </div>
              <div className="space-y-1.5">
                 <Label htmlFor="from">استلام من</Label>
@@ -147,7 +151,7 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
                     name="amount"
                     control={control}
                     render={({ field }) => (
-                        <AmountInput currency={selectedCurrency} {...field} onValueChange={field.onChange} />
+                        <AmountInput currency={watchedCurrency as Currency} {...field} onValueChange={field.onChange} />
                     )}
                 />
                 {errors.amount && <p className="text-destructive text-sm mt-1">{errors.amount.message}</p>}

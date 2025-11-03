@@ -28,9 +28,6 @@ export default function NewJournalVoucherDialog({ onVoucherAdded, children }: Ne
   const [open, setOpen] = useState(false);
   const { data: navData, loaded: isDataLoaded, fetchData } = useVoucherNav();
   const [dialogDimensions, setDialogDimensions] = useState({ width: '896px', height: '80vh' });
-  
-  const defaultCurrency = navData?.settings.currencySettings?.defaultCurrency || 'IQD';
-  const [currency, setCurrency] = useState<Currency>(defaultCurrency as Currency);
 
   useEffect(() => {
     if (open && !isDataLoaded) {
@@ -38,19 +35,10 @@ export default function NewJournalVoucherDialog({ onVoucherAdded, children }: Ne
     }
   }, [open, isDataLoaded, fetchData]);
 
-   useEffect(() => {
-    if(navData?.settings.currencySettings?.defaultCurrency) {
-        setCurrency(navData.settings.currencySettings.defaultCurrency as Currency);
-    }
-  }, [navData]);
-
   const handleSuccess = (newVoucher: any) => {
       onVoucherAdded(newVoucher);
       setOpen(false);
   }
-  
-  const headerColor = currency === 'USD' ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
-
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -62,18 +50,12 @@ export default function NewJournalVoucherDialog({ onVoucherAdded, children }: Ne
         style={{ maxWidth: dialogDimensions.width, width: '95vw', height: dialogDimensions.height }}
       >
         <DialogHeader 
-          className="p-4 rounded-t-lg flex flex-row justify-between items-center"
-          style={{ backgroundColor: headerColor, color: 'white' }}
+          className="p-4 rounded-t-lg flex flex-row justify-between items-center bg-primary text-primary-foreground"
         >
           <div>
-            <DialogTitle className="text-white">إنشاء قيد محاسبي جديد</DialogTitle>
+            <DialogTitle>إنشاء قيد محاسبي جديد</DialogTitle>
           </div>
            <div className="flex items-center gap-2">
-               {(navData?.settings?.currencySettings?.currencies || []).map(c => (
-                <Button key={c.code} type="button" onClick={() => setCurrency(c.code as Currency)} className={cn('text-white h-8', currency === c.code ? 'bg-white/30' : 'bg-transparent border border-white/50')}>
-                    {c.code}
-                </Button>
-              ))}
                <VoucherDialogSettings
                  dialogKey="journal_voucher"
                  onDimensionsChange={setDialogDimensions}
@@ -90,7 +72,6 @@ export default function NewJournalVoucherDialog({ onVoucherAdded, children }: Ne
             ) : (
                 <NewJournalVoucherForm 
                     onVoucherAdded={handleSuccess} 
-                    selectedCurrency={currency} 
                 />
             )}
         </div>
@@ -98,5 +79,3 @@ export default function NewJournalVoucherDialog({ onVoucherAdded, children }: Ne
     </Dialog>
   );
 }
-
-    

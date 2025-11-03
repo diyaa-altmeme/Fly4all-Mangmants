@@ -44,7 +44,6 @@ interface NewDistributedReceiptFormProps {
     settings: DistributedVoucherSettings;
     onVoucherAdded?: (voucher: any) => void;
     onVoucherUpdated?: (voucher: any) => void;
-    selectedCurrency: Currency;
     isEditing?: boolean;
     initialData?: DistributedReceiptInput & { id?: string };
 }
@@ -52,7 +51,6 @@ interface NewDistributedReceiptFormProps {
 export default function NewDistributedReceiptForm({ 
     settings, 
     onVoucherAdded, 
-    selectedCurrency,
     isEditing,
     initialData,
     onVoucherUpdated
@@ -70,9 +68,7 @@ export default function NewDistributedReceiptForm({
     resolver: zodResolver(dynamicSchema),
     defaultValues: isEditing && initialData ? { ...initialData } : {
       date: new Date(),
-      userId: '',
-      accountId: '',
-      currency: selectedCurrency,
+      currency: navData?.settings.currencySettings?.defaultCurrency || 'USD',
       exchangeRate: 0,
       totalAmount: 0,
       notes: '',
@@ -89,7 +85,8 @@ export default function NewDistributedReceiptForm({
   const watchedDistributions = watch('distributions');
   const totalAmount = watch('totalAmount');
   const companyAmount = watch('companyAmount');
-  
+  const watchedCurrency = watch('currency');
+
   React.useEffect(() => {
     if (currentUser && 'role' in currentUser && !isEditing) {
         form.setValue('userId', currentUser.uid);
@@ -98,20 +95,6 @@ export default function NewDistributedReceiptForm({
         }
     }
   }, [isEditing, form, currentUser]);
-
-
-  React.useEffect(() => {
-     if (!isEditing) {
-        setValue('currency', selectedCurrency);
-        setValue('totalAmount', 0);
-        setValue('companyAmount', 0);
-        const resetDist: any = {};
-        (settings.distributionChannels || []).forEach(c => {
-            resetDist[c.id] = { enabled: true, amount: 0 };
-        });
-        setValue('distributions', resetDist);
-     }
-  }, [selectedCurrency, setValue, settings.distributionChannels, isEditing]);
 
   React.useEffect(() => {
     const subscription = watch((value, { name, type }) => {
@@ -167,11 +150,22 @@ export default function NewDistributedReceiptForm({
                     <h3 className="text-lg font-semibold">معلومات السند الأساسية</h3>
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5 p-4 border rounded-lg bg-muted/30">
-                     <FormItem className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                         <Label className="whitespace-nowrap">التاريخ</Label>
                         <Controller control={control} name="date" render={({ field }) => ( <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, 'yyyy-MM-dd') : <span>اختر تاريخ</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsCalendarOpen(false);}} /></PopoverContent></Popover>)} />
                         <FormMessage />
-                    </FormItem>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Label className="whitespace-nowrap">العملة</Label>
+                        <Controller name="currency" control={control} render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                     {(navData?.settings?.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        )} />
+                    </div>
                     <FormItem className="flex items-center gap-2">
                         <Label className="whitespace-nowrap">الحساب الدافع</Label>
                         <Controller control={control} name="accountId" render={({ field }) => (<FormControl><Autocomplete searchAction='clients' value={field.value} onValueChange={field.onChange} placeholder="ابحث عن حساب..."/></FormControl>)} />
@@ -188,9 +182,9 @@ export default function NewDistributedReceiptForm({
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-5 p-4 border rounded-lg bg-muted/30">
                     <div className="flex items-center gap-2">
                       <Label className="whitespace-nowrap">إجمالي المبلغ</Label>
-                      <FormField control={control} name="totalAmount" render={({ field }) => (<FormItem><Controller control={control} name="totalAmount" render={({field}) => <AmountInput currency={selectedCurrency} {...field} onValueChange={field.onChange} />} /><FormMessage /></FormItem>)} />
+                      <FormField control={control} name="totalAmount" render={({ field }) => (<FormItem><Controller control={control} name="totalAmount" render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} />} /><FormMessage /></FormItem>)} />
                     </div>
-                    {selectedCurrency === 'USD' && 
+                    {watchedCurrency === 'USD' && 
                       <div className="flex items-center gap-2">
                         <Label className="whitespace-nowrap">سعر الصرف</Label>
                         <FormField control={control} name="exchangeRate" render={({ field }) => (<FormItem><Controller control={control} name="exchangeRate" render={({field}) => <AmountInput currency="IQD" {...field} onValueChange={field.onChange} />} /><FormMessage /></FormItem>)} />
@@ -199,11 +193,11 @@ export default function NewDistributedReceiptForm({
                 
                     <div className="md:col-span-full pt-4 border-t">
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
-                            <div className="space-y-1.5"><Label>المبلغ المسدد لحساب الدافع</Label><Controller control={control} name="companyAmount" render={({field}) => <AmountInput currency={selectedCurrency} {...field} onValueChange={field.onChange} readOnly />} /><FormMessage /></div>
+                            <div className="space-y-1.5"><Label>المبلغ المسدد لحساب الدافع</Label><Controller control={control} name="companyAmount" render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} readOnly />} /><FormMessage /></div>
                             {(settings.distributionChannels || []).map((channel) => (
                                 <div key={channel.id} className="space-y-1.5">
                                     <Label>{channel.label}</Label>
-                                    <Controller control={control} name={`distributions.${channel.id}.amount`} render={({field}) => <AmountInput currency={selectedCurrency} {...field} onValueChange={field.onChange} />} />
+                                    <Controller control={control} name={`distributions.${channel.id}.amount`} render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} />} />
                                 </div>
                             ))}
                         </div>
