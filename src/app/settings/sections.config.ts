@@ -3,7 +3,7 @@
 
 import React from 'react';
 import {
-    Users, GitBranch, SlidersHorizontal, Settings, Upload, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, Shield, FileText, Code as DeveloperIcon, Paintbrush, FileBarChart, Banknote, DollarSign, WalletCards
+    Users, GitBranch, SlidersHorizontal, Settings, Upload, CreditCard, Link2, Palette, Database, Presentation, ImageIcon, ScanSearch, Shield, FileText, Code as DeveloperIcon, Paintbrush, FileBarChart, Banknote, DollarSign, WalletCards, MessageSquare
 } from 'lucide-react';
 
 // Import client components
@@ -45,7 +45,7 @@ export const settingSections = [
         name: 'الربط الخارجي (API)', 
         icon: Link2,
         subItems: [
-            { id: 'api_whatsapp', name: 'WhatsApp', icon: MessageSquareQuote, component: ApiSettings }
+            { id: 'api_whatsapp', name: 'WhatsApp', icon: MessageSquare, component: ApiSettings }
         ]
     },
     { 
