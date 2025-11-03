@@ -39,17 +39,29 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
         if (settingsDoc.exists) {
             const dbSettings = settingsDoc.data() as AppSettings;
             
-            // Deep merge logic
+            // Deep merge logic, ensuring arrays like currencies are handled correctly
+            const dbCurrencies = dbSettings.currencySettings?.currencies || [];
+            const defaultCurrencies = defaultSettingsData.currencySettings?.currencies || [];
+            
+            // Create a map of existing currency codes to avoid duplicates
+            const existingCodes = new Set(dbCurrencies.map(c => c.code));
+            
+            // Add default currencies only if they don't already exist in the database settings
+            const combinedCurrencies = [...dbCurrencies];
+            defaultCurrencies.forEach(defaultCurrency => {
+                if (!existingCodes.has(defaultCurrency.code)) {
+                    combinedCurrencies.push(defaultCurrency);
+                }
+            });
+
+
             mergedSettings = {
                 ...defaultSettingsData,
                 ...dbSettings,
                 currencySettings: {
                     ...defaultSettingsData.currencySettings,
                     ...(dbSettings.currencySettings || {}),
-                    currencies: [
-                        ...(defaultSettingsData.currencySettings?.currencies || []),
-                        ...(dbSettings.currencySettings?.currencies || []),
-                    ].filter((v, i, a) => a.findIndex(t => t.code === v.code) === i), // Unique currencies by code
+                    currencies: combinedCurrencies,
                 },
                 theme: {
                     ...defaultSettingsData.theme,
