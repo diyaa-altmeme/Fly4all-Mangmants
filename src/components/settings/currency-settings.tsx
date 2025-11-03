@@ -137,18 +137,19 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                     </div>
                 </div>
 
-                 <div className="space-y-1.5 max-w-sm">
+                 <div className="space-y-2">
                     <Label>العملة الافتراضية للنظام</Label>
-                    <Select value={currencySettings.defaultCurrency} onValueChange={handleDefaultCurrencyChange}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            {currencySettings.currencies.map(c => (
-                                <SelectItem key={c.code} value={c.code}>
-                                    {c.name} ({c.symbol})
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                    <div className="flex flex-wrap gap-2">
+                        {currencySettings.currencies.map(c => (
+                            <Button
+                                key={c.code}
+                                variant={currencySettings.defaultCurrency === c.code ? 'default' : 'outline'}
+                                onClick={() => handleDefaultCurrencyChange(c.code)}
+                            >
+                                {c.name} ({c.symbol})
+                            </Button>
+                        ))}
+                    </div>
                 </div>
                 <div className="space-y-2 pt-4 border-t">
                     <Label className="font-semibold">أسعار الصرف</Label>
@@ -181,5 +182,3 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
         </Card>
     );
 }
-
-    
