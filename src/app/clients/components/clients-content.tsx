@@ -196,7 +196,14 @@ export default function ClientsContent({ initialRelations, totalRelations, relat
                           <p className="text-muted-foreground">لا توجد نتائج تطابق الفلتر.</p>
                        </div>
                     )}
-                    <DataTablePagination table={table} totalRows={totalRelations} />
+                    <DataTablePagination 
+                        table={table} 
+                        totalRows={totalRelations}
+                        pageSize={table.getState().pagination.pageSize}
+                        pageIndex={table.getState().pagination.pageIndex}
+                        onPageChange={(index) => table.setPageIndex(index)}
+                        onPageSizeChange={(size) => table.setPageSize(size)}
+                    />
                     </>
                 )}
             </CardContent>
