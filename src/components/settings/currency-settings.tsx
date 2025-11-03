@@ -2,16 +2,33 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
+import { Button } from "@/components/ui/button";
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, PlusCircle, Trash2, CheckCircle, Edit, Settings } from 'lucide-react';
+import { Loader2, Save, PlusCircle, Trash2, CheckCircle, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { updateSettings } from '@/app/settings/actions';
 import type { AppSettings, CurrencySettings, CurrencySetting } from '@/lib/types';
 import { produce } from 'immer';
-import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
 import { Separator } from '../ui/separator';
@@ -21,6 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -79,7 +97,6 @@ interface CurrencySettingsProps {
 }
 
 export default function CurrencySettings({ settings: initialSettings, onSettingsChanged }: CurrencySettingsProps) {
-    
     const [currencySettings, setCurrencySettings] = useState<CurrencySettings | null>(initialSettings?.currencySettings || null);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
@@ -295,4 +312,3 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
     );
 }
 
-    
