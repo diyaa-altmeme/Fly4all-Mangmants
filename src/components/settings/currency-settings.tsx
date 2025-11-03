@@ -29,6 +29,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '../ui/form';
+import { Skeleton } from '../ui/skeleton';
 
 const currencyFormSchema = z.object({
   code: z.string().min(3, "الرمز يجب أن يكون 3 أحرف.").max(3, "الرمز يجب أن يكون 3 أحرف."),
@@ -86,10 +87,21 @@ const defaultCurrencySettings: CurrencySettings = {
     currencies: [
         { code: 'USD', name: 'US Dollar', symbol: '$' },
         { code: 'IQD', name: 'Iraqi Dinar', symbol: 'ع.د' },
+        { code: 'IRR', name: 'Iranian Rial', symbol: '﷼' },
     ],
 };
 
 export default function CurrencySettings({ settings: initialSettings, onSettingsChanged }: CurrencySettingsProps) {
+    
+    if (!initialSettings) {
+        return (
+            <Card>
+                <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
+                <CardContent><Skeleton className="h-64 w-full" /></CardContent>
+            </Card>
+        )
+    }
+
     const [currencySettings, setCurrencySettings] = useState<CurrencySettings>(initialSettings.currencySettings || defaultCurrencySettings);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
@@ -209,7 +221,7 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                                 currencySettings.defaultCurrency === currency.code && "ring-2 ring-primary border-primary"
                               )}
                             >
-                              <CardContent className="p-3 relative">
+                                <CardContent className="p-3 relative">
                                 {currencySettings.defaultCurrency === currency.code && (
                                     <CheckCircle className="h-5 w-5 text-primary absolute top-2 right-2"/>
                                 )}
@@ -270,4 +282,3 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
         </Card>
     );
 }
-
