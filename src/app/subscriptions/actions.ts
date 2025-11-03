@@ -1,54 +1,11 @@
 
+
 'use server';
-
-import { postRevenue, postCost } from '@/lib/finance/posting';
-
-type SubscriptionInvoice = { id: string; total: number; currency?: string };
-
-export async function createSubscriptionInvoice(inv: SubscriptionInvoice) {
-    // Delegate to postRevenue which uses FinanceAccountsMap and preventDirectCashRevenue
-    await postRevenue({
-        sourceType: 'subscriptions',
-        sourceId: inv.id,
-        date: new Date(),
-        currency: inv.currency || 'USD',
-        amount: inv.total,
-        clientId: undefined,
-    });
-}
-
-export async function receiveSubscriptionPayment(subscriptionId: string, amount: number, cashAccountId?: string) {
-    // For payments, use finance map to resolve AR and cash accounts
-    const { getFinanceMap, postJournalEntries } = await import('@/lib/finance/posting');
-    const fm = await getFinanceMap();
-    const ar = fm.receivableAccountId;
-    const cash = cashAccountId || fm.defaultCashId;
-    if (!ar || !cash) throw new Error('AR or cash account not configured');
-
-    const entries = [
-        { 
-            accountId: cash, 
-            debit: amount, 
-            credit: 0,
-            currency: 'USD' as const,
-            description: `استلام دفعة اشتراك`
-        },
-        { 
-            accountId: ar, 
-            debit: 0, 
-            credit: amount,
-            currency: 'USD' as const,
-            description: `استلام دفعة اشتراك`
-        }
-    ];
-
-    await postJournalEntries({ sourceType: 'subscriptions', sourceId: subscriptionId, entries, date: Date.now() });
-}
 
 import { getDb } from '@/lib/firebase-admin';
 import type { Subscription, SubscriptionInstallment, Payment, SubscriptionStatus, JournalEntry, Client, Supplier } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { addMonths, format, parseISO, endOfDay } from 'date-fns';
+import { addMonths, format, parseISO, endOfDay, isWithinInterval, startOfDay } from 'date-fns';
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import { getSettings } from '@/app/settings/actions';
 import { createNotification } from '../notifications/actions';
@@ -63,12 +20,25 @@ const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
     if (!data) return null;
 
-    const safeData = { ...data, id: doc.id };
-    for (const key in safeData) {
-        if (safeData[key] && typeof safeData[key].toDate === 'function') {
-            safeData[key] = safeData[key].toDate().toISOString();
+    // Create a deep copy to avoid mutating the original data by serializing and deserializing
+    const safeData = JSON.parse(JSON.stringify({ ...data, id: doc.id }));
+
+    // Recursively find and convert date-like objects
+    const convertDates = (obj: any) => {
+        for (const key in obj) {
+            if (obj[key] && typeof obj[key] === 'object') {
+                if (obj[key].hasOwnProperty('_seconds') && obj[key].hasOwnProperty('nanoseconds')) {
+                    obj[key] = new Date(obj[key]._seconds * 1000).toISOString();
+                } else if (obj[key] instanceof Date) {
+                    obj[key] = obj[key].toISOString();
+                } else {
+                    convertDates(obj[key]);
+                }
+            }
         }
-    }
+    };
+
+    convertDates(safeData);
     return safeData;
 };
 
@@ -154,9 +124,6 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     
     const settings = await getSettings();
     const financeSettings = normalizeFinanceAccounts(settings.financeAccounts);
-    if (financeSettings.preventDirectCashRevenue && subscriptionData.boxId) {
-      throw new Error("❌ غير مسموح بتسجيل الإيرادات مباشرة في الصندوق. استخدم حساب الإيراد أولًا.");
-    }
     
     const subSettings = settings.subscriptionSettings;
 
@@ -222,6 +189,10 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             batch.set(installmentRef, instData);
         });
 
+        const debitAccount = financeSettings.preventDirectCashRevenue && finalSubscriptionData.boxId
+            ? financeSettings.receivableAccountId
+            : finalSubscriptionData.boxId;
+            
         await postJournalEntry({
             sourceType: 'subscription',
             sourceId: subscriptionRef.id,
@@ -230,8 +201,23 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             currency: finalSubscriptionData.currency,
             date: new Date(finalSubscriptionData.purchaseDate),
             userId: user.uid,
-            creditAccountId: finalSubscriptionData.clientId
+            debitAccountId: finalSubscriptionData.clientId,
+            creditAccountId: financeSettings.revenueMap.subscriptions,
         });
+
+        if (totalPurchase > 0) {
+           await postJournalEntry({
+                sourceType: 'subscription_cost',
+                sourceId: subscriptionRef.id,
+                description: `تكلفة اشتراك خدمة ${finalSubscriptionData.serviceName}`,
+                amount: totalPurchase,
+                currency: finalSubscriptionData.currency,
+                date: new Date(finalSubscriptionData.purchaseDate),
+                userId: user.uid,
+                debitAccountId: financeSettings.expenseMap.subscriptions,
+                creditAccountId: finalSubscriptionData.supplierId,
+            });
+        }
         
         batch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });
         if (finalSubscriptionData.supplierId) {
@@ -701,3 +687,5 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
+    
