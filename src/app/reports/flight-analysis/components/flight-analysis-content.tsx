@@ -353,9 +353,9 @@ export default function FlightAnalysisContent() {
                                 onDeleteReport={handleDeleteReport}
                             />
                             <DataTablePagination
-                                pageIndex={pagination.pageIndex}
+                                totalRows={filteredReports.length}
                                 pageSize={pagination.pageSize}
-                                totalCount={filteredReports.length}
+                                pageIndex={pagination.pageIndex}
                                 onPageChange={(index) => setPagination(prev => ({...prev, pageIndex: index}))}
                                 onPageSizeChange={(size) => setPagination({ pageIndex: 0, pageSize: size })}
                             />
