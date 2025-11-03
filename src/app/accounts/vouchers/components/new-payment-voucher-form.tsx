@@ -18,7 +18,7 @@ import { DialogFooter } from '@/components/ui/dialog';
 import { useAuth } from '@/lib/auth-context';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { createPaymentVoucher } from '@/app/accounts/vouchers/payment/actions';
-import { updateVoucher } from '../list/actions';
+import { updateVoucher } from '@/app/accounts/vouchers/list/actions';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 
@@ -28,7 +28,7 @@ const formSchema = z.object({
   phoneNumber: z.string().optional(),
   fund: z.string().min(1, "الصندوق مطلوب"),
   details: z.string().optional(),
-  currency: z.enum(['USD', 'IQD']),
+  currency: z.string().min(1, 'العملة مطلوبة'),
   totalAmount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val > 0, { message: "المبلغ يجب أن يكون أكبر من صفر" }),
   exchangeRate: z.coerce.number().optional(),
   purpose: z.enum(['tickets', 'services']),
@@ -40,7 +40,6 @@ type FormValues = z.infer<typeof formSchema>;
 interface NewPaymentVoucherFormProps {
     onVoucherAdded?: (voucher: any) => void;
     onVoucherUpdated?: (voucher: any) => void;
-    selectedCurrency: Currency;
     isEditing?: boolean;
     initialData?: FormValues & { id?: string };
 }
@@ -55,16 +54,17 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
 );
 
 
-export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency, onVoucherUpdated, isEditing, initialData }: NewPaymentVoucherFormProps) {
+export default function NewPaymentVoucherForm({ onVoucherAdded, onVoucherUpdated, isEditing, initialData }: NewPaymentVoucherFormProps) {
   const { data: navData } = useVoucherNav();
-  const { user: currentUser } = useAuth();
+  const { user } = useAuth();
+  const currentUser = user as CurrentUser | null;
   const { toast } = useToast();
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: isEditing ? initialData : {
       date: new Date(),
-      currency: selectedCurrency,
+      currency: navData?.settings.currencySettings?.defaultCurrency,
       totalAmount: undefined,
       details: '',
       payeeId: '',
@@ -75,26 +75,21 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
     },
   });
   
-  const { control, handleSubmit, setValue, register, formState: { errors, isSubmitting }, reset } = form;
+  const { control, handleSubmit, setValue, register, formState: { errors, isSubmitting }, reset, watch } = form;
+  const watchedCurrency = watch('currency');
 
    useEffect(() => {
     if (currentUser && 'role' in currentUser && currentUser.boxId && !isEditing) {
         form.setValue('fund', currentUser.boxId);
       }
   }, [currentUser, isEditing, form]);
-
-  useEffect(() => {
-    if(!isEditing) {
-        setValue('currency', selectedCurrency);
-        setValue('totalAmount', undefined);
-    }
-  }, [selectedCurrency, setValue, isEditing]);
   
   const payeeOptions = useMemo(() => {
     if (!navData) return [];
     return [
       ...(navData.clients || []).map(c => ({ value: c.id, label: `عميل: ${c.name}` })),
-      ...(navData.suppliers || []).map(s => ({ value: s.id, label: `مورد: ${s.name}` }))
+      ...(navData.suppliers || []).map(s => ({ value: s.id, label: `مورد: ${s.name}` })),
+      ...(navData.exchanges || []).map(e => ({ value: e.id, label: `بورصة: ${e.name}` })),
     ];
   }, [navData]);
 
@@ -114,7 +109,7 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
                 date: (data.date as Date).toISOString(),
                 toSupplierId: data.payeeId, // Assuming payeeId is the supplier ID
                 amount: data.totalAmount,
-                currency: data.currency,
+                currency: data.currency as 'USD' | 'IQD',
                 boxId: data.fund,
                 purpose: data.purpose,
                 details: data.details,
@@ -137,15 +132,28 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
       
         <div className="grid md:grid-cols-2 gap-6 items-start">
              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                        <Label htmlFor="date">التاريخ</Label>
+                        <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
+                        {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
+                    </div>
+                     <div className="space-y-1.5">
+                        <Label htmlFor="currency">العملة</Label>
+                        <Controller name="currency" control={control} render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    {(navData?.settings?.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        )} />
+                    </div>
+                 </div>
                  <div className="space-y-1.5">
                     <Label htmlFor="payeeId">اسم المستفيد</Label>
                      <Controller name="payeeId" control={control} render={({ field }) => ( <Autocomplete options={payeeOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..." /> )}/>
                     {errors.payeeId && <p className="text-sm text-destructive mt-1">{errors.payeeId.message}</p>}
-                </div>
-                 <div className="space-y-1.5">
-                    <Label htmlFor="fund">الصندوق</Label>
-                    <Controller control={control} name="fund" render={({ field }) => ( <Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue placeholder="اختر الصندوق..." /></SelectTrigger><SelectContent>{(navData?.boxes || []).map(box => <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>)}</SelectContent></Select> )} />
-                    {errors.fund && <p className="text-sm text-destructive mt-1">{errors.fund.message}</p>}
                 </div>
                  <div className="space-y-1.5">
                     <Label htmlFor="purpose">الغرض من الدفع</Label>
@@ -154,20 +162,20 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
              </div>
              <div className="space-y-4">
                 <div className="space-y-1.5">
-                    <Label htmlFor="date">التاريخ</Label>
-                    <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
-                    {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
+                    <Label htmlFor="fund">الصندوق</Label>
+                    <Controller control={control} name="fund" render={({ field }) => ( <Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue placeholder="اختر الصندوق..." /></SelectTrigger><SelectContent>{(navData?.boxes || []).map(box => <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>)}</SelectContent></Select> )} />
+                    {errors.fund && <p className="text-sm text-destructive mt-1">{errors.fund.message}</p>}
                 </div>
                  <div className="space-y-1.5">
                     <Label htmlFor="totalAmount">المبلغ المدفوع</Label>
                     <Controller
                         name="totalAmount"
                         control={control}
-                        render={({ field }) => <AmountInput currency={selectedCurrency} {...field} onValueChange={field.onChange} />}
+                        render={({ field }) => <AmountInput currency={watchedCurrency as Currency} {...field} onValueChange={field.onChange} />}
                     />
                     {errors.totalAmount && <p className="text-sm text-destructive mt-1">{errors.totalAmount.message}</p>}
                 </div>
-                {selectedCurrency === 'USD' && (
+                {watchedCurrency === 'USD' && (
                    <div className="space-y-1.5">
                         <Label htmlFor="exchangeRate">سعر الصرف (مقابل الدينار)</Label>
                          <Controller
@@ -210,3 +218,4 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
     </form>
   );
 }
+
