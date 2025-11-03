@@ -6,16 +6,15 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, DollarSign, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, Save, DollarSign, PlusCircle, Trash2, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { updateSettings } from '@/app/settings/actions';
 import type { AppSettings, CurrencySettings, CurrencySetting } from '@/lib/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { produce } from 'immer';
 import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { buttonVariants } from '@/components/ui/button';
-
+import { Separator } from '../ui/separator';
 
 interface CurrencySettingsProps {
     settings: AppSettings;
@@ -103,33 +102,36 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="space-y-4 p-4 border rounded-lg">
-                    <h4 className="font-semibold">العملات المعتمدة</h4>
-                    <div className="space-y-2">
-                        {currencySettings.currencies.map((currency, index) => (
-                            <div key={index} className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-center">
-                                <Input value={currency.code} onChange={(e) => handleCurrencyFieldChange(index, 'code', e.target.value.toUpperCase())} placeholder="الرمز (USD)" />
-                                <Input value={currency.name} onChange={(e) => handleCurrencyFieldChange(index, 'name', e.target.value)} placeholder="الاسم (دولار أمريكي)" />
-                                <Input value={currency.symbol} onChange={(e) => handleCurrencyFieldChange(index, 'symbol', e.target.value)} placeholder="الرمز ($)" />
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4"/></Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                            <AlertDialogDescription>سيتم حذف هذه العملة من القائمة. تأكد من عدم وجود معاملات مرتبطة بها.</AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleRemoveCurrency(index)} className={cn(buttonVariants({variant: 'destructive'}))}>نعم، احذف</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
+                <div className="space-y-3">
+                    <Label className="font-semibold">العملات المعتمدة (انقر على بطاقة لجعلها الافتراضية)</Label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                         {currencySettings.currencies.map((currency, index) => (
+                           <Card
+                              key={index}
+                              onClick={() => handleDefaultCurrencyChange(currency.code)}
+                              className={cn(
+                                "cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1",
+                                currencySettings.defaultCurrency === currency.code && "ring-2 ring-primary border-primary"
+                              )}
+                            >
+                              <CardContent className="p-3 relative">
+                                {currencySettings.defaultCurrency === currency.code && (
+                                    <CheckCircle className="h-5 w-5 text-primary absolute top-2 right-2"/>
+                                )}
+                                <div className="text-center space-y-1">
+                                    <p className="text-2xl font-bold">{currency.symbol}</p>
+                                    <p className="font-semibold">{currency.name}</p>
+                                    <p className="text-xs text-muted-foreground font-mono">{currency.code}</p>
+                                </div>
+                              </CardContent>
+                           </Card>
                         ))}
                     </div>
-                    <div className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end pt-2 border-t">
+                </div>
+
+                <div className="space-y-4 p-4 border rounded-lg">
+                    <h4 className="font-semibold">إضافة عملة جديدة</h4>
+                     <div className="grid grid-cols-[1fr,1fr,1fr,auto] gap-2 items-end">
                         <Input value={newCurrency.code} onChange={(e) => setNewCurrency(p => ({ ...p, code: e.target.value.toUpperCase() }))} placeholder="الرمز (EUR)" />
                         <Input value={newCurrency.name} onChange={(e) => setNewCurrency(p => ({ ...p, name: e.target.value }))} placeholder="الاسم (يورو)" />
                         <Input value={newCurrency.symbol} onChange={(e) => setNewCurrency(p => ({ ...p, symbol: e.target.value }))} placeholder="الرمز (€)" />
@@ -137,20 +139,6 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                     </div>
                 </div>
 
-                 <div className="space-y-2">
-                    <Label>العملة الافتراضية للنظام</Label>
-                    <div className="flex flex-wrap gap-2">
-                        {currencySettings.currencies.map(c => (
-                            <Button
-                                key={c.code}
-                                variant={currencySettings.defaultCurrency === c.code ? 'default' : 'outline'}
-                                onClick={() => handleDefaultCurrencyChange(c.code)}
-                            >
-                                {c.name} ({c.symbol})
-                            </Button>
-                        ))}
-                    </div>
-                </div>
                 <div className="space-y-2 pt-4 border-t">
                     <Label className="font-semibold">أسعار الصرف</Label>
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
