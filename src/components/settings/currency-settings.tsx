@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -7,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, Save, DollarSign, PlusCircle, Trash2, CheckCircle, Edit, Settings } from 'lucide-react';
+import { Loader2, Save, PlusCircle, Trash2, CheckCircle, Edit, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { updateSettings } from '@/app/settings/actions';
 import type { AppSettings, CurrencySettings, CurrencySetting } from '@/lib/types';
@@ -80,16 +79,8 @@ interface CurrencySettingsProps {
 }
 
 export default function CurrencySettings({ settings: initialSettings, onSettingsChanged }: CurrencySettingsProps) {
-    if (!initialSettings || !initialSettings.currencySettings) {
-      return (
-        <Card>
-            <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
-            <CardContent><Skeleton className="h-64 w-full" /></CardContent>
-        </Card>
-      );
-    }
-
-    const [currencySettings, setCurrencySettings] = useState<CurrencySettings>(initialSettings.currencySettings);
+    
+    const [currencySettings, setCurrencySettings] = useState<CurrencySettings | null>(initialSettings?.currencySettings || null);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
     
@@ -102,6 +93,7 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
     }, [initialSettings]);
     
     const handleSave = useCallback(async () => {
+        if (!currencySettings) return;
         setIsSaving(true);
         try {
             const result = await updateSettings({ currencySettings: currencySettings });
@@ -121,14 +113,18 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
     const handleExchangeRateChange = (key: string, value: string) => {
         const numericValue = parseFloat(value) || 0;
         setCurrencySettings(produce(draft => {
-            if (!draft.exchangeRates) draft.exchangeRates = {};
-            draft.exchangeRates[key] = numericValue;
+            if (draft) {
+                 if (!draft.exchangeRates) draft.exchangeRates = {};
+                 draft.exchangeRates[key] = numericValue;
+            }
         }));
     };
     
     const handleDefaultCurrencyChange = (value: string) => {
         setCurrencySettings(produce(draft => {
-            draft.defaultCurrency = value;
+            if (draft) {
+                draft.defaultCurrency = value;
+            }
         }));
     };
     
@@ -138,41 +134,45 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
             return;
         }
         setCurrencySettings(produce(draft => {
-            if (!draft.currencies) draft.currencies = [];
-            if (!draft.currencies.some(c => c.code.toUpperCase() === newCurrency.code.toUpperCase())) {
-                draft.currencies.push({ ...newCurrency, code: newCurrency.code.toUpperCase() });
-                toast({ title: "تمت إضافة العملة", description: "لا تنس حفظ التغييرات."});
-                setNewCurrency({ code: '', name: '', symbol: '' });
-            } else {
-                 toast({ title: "العملة موجودة بالفعل", variant: 'destructive'});
+            if (draft) {
+                if (!draft.currencies) draft.currencies = [];
+                if (!draft.currencies.some(c => c.code.toUpperCase() === newCurrency.code.toUpperCase())) {
+                    draft.currencies.push({ ...newCurrency, code: newCurrency.code.toUpperCase() });
+                    toast({ title: "تمت إضافة العملة", description: "لا تنس حفظ التغييرات."});
+                    setNewCurrency({ code: '', name: '', symbol: '' });
+                } else {
+                     toast({ title: "العملة موجودة بالفعل", variant: 'destructive'});
+                }
             }
         }));
     };
 
     const handleUpdateCurrency = (updatedCurrency: CurrencySetting) => {
         setCurrencySettings(produce(draft => {
-            const index = (draft.currencies || []).findIndex(c => c.code === updatedCurrency.code);
-            if (index !== -1) {
-                draft.currencies![index] = updatedCurrency;
+            if (draft) {
+                const index = (draft.currencies || []).findIndex(c => c.code === updatedCurrency.code);
+                if (index !== -1) {
+                    draft.currencies![index] = updatedCurrency;
+                }
             }
         }));
          toast({ title: "تم تحديث العملة", description: "لا تنس حفظ التغييرات."});
     };
     
     const handleRemoveCurrency = (codeToRemove: string) => {
-        if (currencySettings.defaultCurrency === codeToRemove) {
+        if (currencySettings?.defaultCurrency === codeToRemove) {
             toast({ title: "لا يمكن الحذف", description: "لا يمكنك حذف العملة الافتراضية.", variant: 'destructive' });
             return;
         }
         setCurrencySettings(produce(draft => {
-            if (draft.currencies) {
+            if (draft?.currencies) {
                 draft.currencies = draft.currencies.filter(c => c.code !== codeToRemove);
             }
         }));
     };
     
     const exchangeRatePairs = useMemo(() => {
-        if (!currencySettings.currencies || currencySettings.currencies.length < 2) return [];
+        if (!currencySettings?.currencies || currencySettings.currencies.length < 2) return [];
         const pairs: {key: string, from: string, to: string}[] = [];
         for (let i = 0; i < currencySettings.currencies.length; i++) {
             for (let j = 0; j < currencySettings.currencies.length; j++) {
@@ -186,7 +186,21 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
             }
         }
         return pairs;
-    }, [currencySettings.currencies]);
+    }, [currencySettings?.currencies]);
+    
+    if (!currencySettings) {
+        return (
+            <Card>
+                <CardHeader>
+                    <Skeleton className="h-8 w-1/2" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-64 w-full" />
+                </CardContent>
+            </Card>
+        );
+    }
+
 
     return (
         <Card>
@@ -221,6 +235,18 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                                     <EditCurrencyDialog currency={currency} onSave={handleUpdateCurrency}>
                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => e.stopPropagation()}><Edit className="h-4 w-4"/></Button>
                                     </EditCurrencyDialog>
+                                     <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={(e) => e.stopPropagation()}><Trash2 className="h-4 w-4"/></Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader><AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle><AlertDialogDescription>هل تريد حذف عملة {currency.name}؟ لا يمكنك حذف العملة الافتراضية.</AlertDialogDescription></AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleRemoveCurrency(currency.code)} disabled={currency.code === currencySettings.defaultCurrency} className={cn(buttonVariants({ variant: 'destructive' }))}>نعم، حذف</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </CardFooter>
                            </Card>
                         ))}
@@ -268,3 +294,5 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
         </Card>
     );
 }
+
+    

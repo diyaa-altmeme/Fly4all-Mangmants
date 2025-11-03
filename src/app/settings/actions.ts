@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb, getStorageAdmin } from '@/lib/firebase-admin';
@@ -41,19 +40,25 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
             const finalSettings = produce(defaultSettingsData, draft => {
                 // Merge top-level keys, except for nested objects we handle manually
                 for (const key in dbSettings) {
-                    if (Object.prototype.hasOwnProperty.call(dbSettings, key) && !['currencySettings', 'theme'].includes(key)) {
+                    if (Object.prototype.hasOwnProperty.call(dbSettings, key) && !['currencySettings', 'theme', 'voucherSettings', 'relationSections'].includes(key)) {
                         (draft as any)[key] = (dbSettings as any)[key];
                     }
                 }
 
                 // Deep merge for currencySettings
                 if (dbSettings.currencySettings) {
+                    const savedCurrencies = dbSettings.currencySettings.currencies || [];
+                    const defaultCurrencies = defaultSettingsData.currencySettings.currencies;
+                    const allCurrencyCodes = new Set([...savedCurrencies.map(c => c.code), ...defaultCurrencies.map(c => c.code)]);
+
+                    const mergedCurrencies = Array.from(allCurrencyCodes).map(code => {
+                        return savedCurrencies.find(c => c.code === code) || defaultCurrencies.find(c => c.code === code)!;
+                    });
+                    
                     draft.currencySettings = {
                         ...defaultSettingsData.currencySettings,
                         ...dbSettings.currencySettings,
-                        currencies: dbSettings.currencySettings.currencies && dbSettings.currencySettings.currencies.length > 0
-                            ? dbSettings.currencySettings.currencies
-                            : defaultSettingsData.currencySettings.currencies,
+                        currencies: mergedCurrencies,
                         exchangeRates: {
                             ...(defaultSettingsData.currencySettings?.exchangeRates || {}),
                             ...(dbSettings.currencySettings.exchangeRates || {}),
@@ -64,14 +69,16 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
                 }
                 
                 // Deep merge for theme
-                if (dbSettings.theme) {
-                     draft.theme = {
-                        ...defaultSettingsData.theme,
-                        ...(dbSettings.theme || {}),
-                     };
-                } else {
-                    draft.theme = defaultSettingsData.theme;
-                }
+                draft.theme = {
+                    ...defaultSettingsData.theme,
+                    ...(dbSettings.theme || {}),
+                };
+                
+                 // Deep merge for voucherSettings
+                draft.voucherSettings = {
+                    ...defaultSettingsData.voucherSettings,
+                    ...(dbSettings.voucherSettings || {}),
+                };
 
                  // Ensure relationSections exists
                 draft.relationSections = dbSettings.relationSections && dbSettings.relationSections.length > 0 
@@ -167,4 +174,4 @@ export async function checkSystemHealth(): Promise<HealthCheckResult[]> {
     return results;
 }
 
-
+    
