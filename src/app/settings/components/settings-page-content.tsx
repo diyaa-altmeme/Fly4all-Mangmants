@@ -20,6 +20,7 @@ interface SettingsPageContentProps {
     clients: Client[];
     suppliers: Supplier[];
     exchanges: Exchange[];
+    onSettingsChanged: () => void;
 }
 
 export default function SettingsPageContent(props: SettingsPageContentProps) {
