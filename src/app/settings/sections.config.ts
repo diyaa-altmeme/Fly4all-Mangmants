@@ -16,11 +16,10 @@ import AssetManagementSettings from '@/app/settings/sections/asset-management';
 import LandingPageSettingsComponent from '@/app/settings/sections/landing-page-settings';
 import InvoiceSequencesPage from '@/app/settings/invoice-sequences/page';
 import ClientPermissionsPage from '@/app/settings/client-permissions/page';
-import AccountingClient from '@/app/settings/accounting/components/accounting-client';
+import AccountingSettingsPage from '@/app/settings/accounting/page';
 import ThemeSelector from '@/app/settings/themes/components/theme-selector';
 import AliasesSettings from '@/app/relations/settings/import/components/aliases-settings';
 import DynamicImportTool from '@/app/relations/settings/import/components/dynamic-import-tool';
-import ChartOfAccountsPage from '@/app/settings/accounting/chart-of-accounts/page';
 
 
 export const settingSections = [
@@ -29,8 +28,7 @@ export const settingSections = [
         name: 'الإعدادات المحاسبية والمالية', 
         icon: GitBranch,
         subItems: [
-            { id: 'accounting_chart', name: 'الدليل المحاسبي', icon: GitBranch, component: ChartOfAccountsPage },
-            { id: 'accounting_linking', name: 'ربط الحسابات', icon: WalletCards, component: AccountingClient },
+            { id: 'accounting_main', name: 'الربط والدليل المحاسبي', icon: GitBranch, component: AccountingSettingsPage },
             { id: 'accounting_currencies', name: 'العملات', icon: Banknote, component: CurrencySettings },
             { id: 'accounting_sequences', name: 'تسلسل الفواتير', icon: FileBarChart, component: InvoiceSequencesPage },
         ],
