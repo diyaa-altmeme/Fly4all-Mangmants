@@ -4,18 +4,18 @@
 import React, { Suspense, useState, useEffect, useCallback } from 'react';
 import { getChartOfAccounts } from './chart-of-accounts/actions';
 import { getFinanceAccountsMap } from './actions';
-import AccountingClient from './components/accounting-client';
+import FinanceAccountSettings from './components/FinanceAccountSettings';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import ProtectedPage from '@/components/auth/protected-page';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { GitBranch, WalletCards } from 'lucide-react';
+import type { TreeNode } from '@/lib/types';
+import type { NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 
-function AccountingDataContainer() {
-    const [chartOfAccounts, setChartOfAccounts] = useState<any[]>([]);
-    const [financeMap, setFinanceMap] = useState<any | null>(null);
+function FinanceSettingsContainer() {
+    const [chartOfAccounts, setChartOfAccounts] = useState<TreeNode[]>([]);
+    const [financeMap, setFinanceMap] = useState<NormalizedFinanceAccounts | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -55,11 +55,15 @@ function AccountingDataContainer() {
     }
     
     return (
-        <AccountingClient 
-            initialFinanceMap={financeMap}
-            initialChartData={chartOfAccounts}
-            onSettingsChanged={fetchData}
-        />
+        <Card>
+            <CardContent className="pt-6">
+                <FinanceAccountSettings
+                    initialFinanceMap={financeMap}
+                    chartOfAccounts={chartOfAccounts}
+                    onSaveSuccess={fetchData}
+                />
+            </CardContent>
+        </Card>
     )
 }
 
@@ -68,13 +72,13 @@ export default function AccountingSettingsPage() {
         <ProtectedPage requiredPermission="settings:finance:manage">
              <div className="space-y-6">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">📘 الإعدادات المحاسبية والمالية</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">الربط المالي</h1>
                     <p className="text-muted-foreground">
-                        إدارة شجرة الحسابات وربط الحسابات المحاسبية الرئيسية بالعمليات التلقائية في النظام.
+                        إدارة وربط الحسابات المحاسبية الرئيسية بالعمليات التلقائية في النظام.
                     </p>
                 </div>
                 <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
-                    <AccountingDataContainer />
+                    <FinanceSettingsContainer />
                 </Suspense>
             </div>
         </ProtectedPage>
