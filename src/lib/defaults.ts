@@ -236,3 +236,4 @@ export const defaultSettingsData: AppSettings = {
     relationSections: defaultRelationSections,
     financeAccounts: defaultFinanceAccounts,
 };
+

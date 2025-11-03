@@ -38,50 +38,40 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
         if (settingsDoc.exists) {
             const dbSettings = settingsDoc.data() as AppSettings;
             
-            // Perform a deep merge to ensure defaults are respected
-            const mergedSettings = produce(defaultSettingsData, draft => {
-                // Merge top-level keys
+            const finalSettings = produce(defaultSettingsData, draft => {
+                // Merge top-level keys, except for nested objects we handle manually
                 for (const key in dbSettings) {
-                    if (Object.prototype.hasOwnProperty.call(dbSettings, key)) {
+                    if (Object.prototype.hasOwnProperty.call(dbSettings, key) && !['currencySettings', 'theme'].includes(key)) {
                         (draft as any)[key] = (dbSettings as any)[key];
                     }
                 }
 
-                // Deep merge currency settings
-                const defaultCurrencies = defaultSettingsData.currencySettings?.currencies || [];
-                const dbCurrencies = dbSettings.currencySettings?.currencies || [];
-                
-                const combinedCurrenciesMap = new Map<string, CurrencySetting>();
-                
-                // Add defaults first
-                defaultCurrencies.forEach(c => combinedCurrenciesMap.set(c.code, c));
-                // Overwrite with any custom/saved ones
-                dbCurrencies.forEach(c => combinedCurrenciesMap.set(c.code, c));
-                
-                const combinedCurrencies = Array.from(combinedCurrenciesMap.values());
-
-                // Ensure currencySettings object exists
-                if (!draft.currencySettings) {
-                    draft.currencySettings = { ...defaultSettingsData.currencySettings! };
+                // Deep merge for currencySettings
+                if (dbSettings.currencySettings) {
+                    draft.currencySettings = {
+                        ...defaultSettingsData.currencySettings,
+                        ...dbSettings.currencySettings,
+                        currencies: dbSettings.currencySettings.currencies && dbSettings.currencySettings.currencies.length > 0
+                            ? dbSettings.currencySettings.currencies
+                            : defaultSettingsData.currencySettings.currencies,
+                        exchangeRates: {
+                            ...(defaultSettingsData.currencySettings?.exchangeRates || {}),
+                            ...(dbSettings.currencySettings.exchangeRates || {}),
+                        }
+                    };
+                } else {
+                    draft.currencySettings = defaultSettingsData.currencySettings;
                 }
-
-                // Merge exchange rates, giving precedence to saved ones
-                draft.currencySettings.exchangeRates = {
-                    ...defaultSettingsData.currencySettings?.exchangeRates,
-                    ...dbSettings.currencySettings?.exchangeRates,
-                };
                 
-                // Set the combined currencies
-                draft.currencySettings.currencies = combinedCurrencies;
-
-                // Set the default currency, falling back to default if saved one is invalid
-                draft.currencySettings.defaultCurrency = dbSettings.currencySettings?.defaultCurrency || defaultSettingsData.currencySettings!.defaultCurrency;
-                 
-                // Deep merge theme
-                draft.theme = {
-                    ...defaultSettingsData.theme,
-                    ...(dbSettings.theme || {}),
-                };
+                // Deep merge for theme
+                if (dbSettings.theme) {
+                     draft.theme = {
+                        ...defaultSettingsData.theme,
+                        ...(dbSettings.theme || {}),
+                     };
+                } else {
+                    draft.theme = defaultSettingsData.theme;
+                }
 
                  // Ensure relationSections exists
                 draft.relationSections = dbSettings.relationSections && dbSettings.relationSections.length > 0 
@@ -89,8 +79,8 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
                     : defaultSettingsData.relationSections;
             });
             
-            mergedSettings.databaseStatus = { isDatabaseConnected: true };
-            return mergedSettings;
+            finalSettings.databaseStatus = { isDatabaseConnected: true };
+            return finalSettings;
 
         } else {
             console.log("No settings found in database, seeding with default settings.");
@@ -176,4 +166,5 @@ export async function checkSystemHealth(): Promise<HealthCheckResult[]> {
     ]);
     return results;
 }
+
 
