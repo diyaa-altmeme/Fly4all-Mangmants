@@ -3,12 +3,13 @@
 'use server';
 
 import { getDb, getStorageAdmin } from '@/lib/firebase-admin';
-import type { AppSettings, HealthCheckResult, DatabaseStatusSettings } from '@/lib/types';
+import type { AppSettings, HealthCheckResult, DatabaseStatusSettings, CurrencySetting } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { defaultSettingsData } from '@/lib/defaults';
 import { cache } from 'react';
+import { produce } from 'immer';
 
 // Mock function until google drive is implemented
 async function testGoogleDriveConnection(): Promise<HealthCheckResult> {
@@ -37,36 +38,57 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
         if (settingsDoc.exists) {
             const dbSettings = settingsDoc.data() as AppSettings;
             
-            // Deep merge logic for currencies
-            const dbCurrencies = dbSettings.currencySettings?.currencies || [];
-            const defaultCurrencies = defaultSettingsData.currencySettings?.currencies || [];
-            const existingCodes = new Set(dbCurrencies.map(c => c.code));
-            const combinedCurrencies = [...dbCurrencies];
-            defaultCurrencies.forEach(defaultCurrency => {
-                if (!existingCodes.has(defaultCurrency.code)) {
-                    combinedCurrencies.push(defaultCurrency);
+            // Perform a deep merge to ensure defaults are respected
+            const mergedSettings = produce(defaultSettingsData, draft => {
+                // Merge top-level keys
+                for (const key in dbSettings) {
+                    if (Object.prototype.hasOwnProperty.call(dbSettings, key)) {
+                        (draft as any)[key] = (dbSettings as any)[key];
+                    }
                 }
-            });
 
-            // Construct the merged settings object correctly
-            const mergedSettings = {
-                ...defaultSettingsData,
-                ...dbSettings,
-                currencySettings: {
-                    ...defaultSettingsData.currencySettings,
-                    ...(dbSettings.currencySettings || {}),
-                    currencies: combinedCurrencies, // Use the correctly combined currencies
-                },
-                theme: {
+                // Deep merge currency settings
+                const defaultCurrencies = defaultSettingsData.currencySettings?.currencies || [];
+                const dbCurrencies = dbSettings.currencySettings?.currencies || [];
+                
+                const combinedCurrenciesMap = new Map<string, CurrencySetting>();
+                
+                // Add defaults first
+                defaultCurrencies.forEach(c => combinedCurrenciesMap.set(c.code, c));
+                // Overwrite with any custom/saved ones
+                dbCurrencies.forEach(c => combinedCurrenciesMap.set(c.code, c));
+                
+                const combinedCurrencies = Array.from(combinedCurrenciesMap.values());
+
+                // Ensure currencySettings object exists
+                if (!draft.currencySettings) {
+                    draft.currencySettings = { ...defaultSettingsData.currencySettings! };
+                }
+
+                // Merge exchange rates, giving precedence to saved ones
+                draft.currencySettings.exchangeRates = {
+                    ...defaultSettingsData.currencySettings?.exchangeRates,
+                    ...dbSettings.currencySettings?.exchangeRates,
+                };
+                
+                // Set the combined currencies
+                draft.currencySettings.currencies = combinedCurrencies;
+
+                // Set the default currency, falling back to default if saved one is invalid
+                draft.currencySettings.defaultCurrency = dbSettings.currencySettings?.defaultCurrency || defaultSettingsData.currencySettings!.defaultCurrency;
+                 
+                // Deep merge theme
+                draft.theme = {
                     ...defaultSettingsData.theme,
                     ...(dbSettings.theme || {}),
-                },
-                 relationSections: dbSettings.relationSections && dbSettings.relationSections.length > 0 
-                    ? dbSettings.relationSections 
-                    : defaultSettingsData.relationSections,
-            };
+                };
 
-            // Always ensure the DB connection status is true for the app to function
+                 // Ensure relationSections exists
+                draft.relationSections = dbSettings.relationSections && dbSettings.relationSections.length > 0 
+                    ? dbSettings.relationSections 
+                    : defaultSettingsData.relationSections;
+            });
+            
             mergedSettings.databaseStatus = { isDatabaseConnected: true };
             return mergedSettings;
 
@@ -94,7 +116,15 @@ export async function updateSettings(settingsData: Partial<AppSettings>): Promis
     try {
         const oldSettings = await getSettings();
         
-        const newSettings: AppSettings = { ...oldSettings, ...settingsData };
+        // Use a proper merge to avoid overwriting nested objects
+        const newSettings = {
+            ...oldSettings,
+            ...settingsData,
+            // Explicitly merge nested objects if they exist in the payload
+            ...(settingsData.theme && { theme: { ...oldSettings.theme, ...settingsData.theme } }),
+            ...(settingsData.currencySettings && { currencySettings: { ...oldSettings.currencySettings, ...settingsData.currencySettings } }),
+            ...(settingsData.voucherSettings && { voucherSettings: { ...oldSettings.voucherSettings, ...settingsData.voucherSettings } }),
+        };
 
         await settingsRef.set(newSettings, { merge: true });
         
@@ -146,3 +176,4 @@ export async function checkSystemHealth(): Promise<HealthCheckResult[]> {
     ]);
     return results;
 }
+
