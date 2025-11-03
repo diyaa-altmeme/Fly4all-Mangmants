@@ -37,35 +37,17 @@ export default function AccountingClient(props: AccountingClientProps) {
     props.onSettingsChanged();
   };
 
+  // This component will now only render the FinanceAccountSettings
+  // The tabbing logic has been removed.
   return (
-    <Tabs defaultValue="linking" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="linking" className="gap-2">
-                <WalletCards className="h-4 w-4"/>
-                الربط المالي
-            </TabsTrigger>
-            <TabsTrigger value="chart" className="gap-2">
-                <GitBranch className="h-4 w-4"/>
-                الدليل المحاسبي
-            </TabsTrigger>
-        </TabsList>
-        <TabsContent value="linking">
-             <Card>
-                <CardContent className="pt-6">
-                    <FinanceAccountSettings
-                        initialFinanceMap={props.initialFinanceMap}
-                        chartOfAccounts={chartData}
-                        onSaveSuccess={handleSettingsSaved}
-                    />
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="chart">
-             <AccountsTreeClient
-                initialAccounts={chartData}
-                onAccountsUpdated={setChartData}
+    <Card>
+        <CardContent className="pt-6">
+            <FinanceAccountSettings
+                initialFinanceMap={props.initialFinanceMap}
+                chartOfAccounts={chartData}
+                onSaveSuccess={handleSettingsSaved}
             />
-        </TabsContent>
-    </Tabs>
+        </CardContent>
+    </Card>
   );
 }
