@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -17,10 +18,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Separator } from '../ui/separator';
 import {
   Dialog,
-  DialogClose,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -32,7 +30,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '../ui/form'
 import { Skeleton } from '../ui/skeleton';
 
 const currencyFormSchema = z.object({
-  code: z.string().min(3, "الرمز يجب أن يكون 3 أحرف.").max(3, "الرمز يجب أن يكون 3 أحرف."),
+  code: z.string().min(3, "الرمز يجب أن يكون 3 أحرف.").max(3, "الرمز يجب أن يكون 3 أحرف.").toUpperCase(),
   name: z.string().min(1, "الاسم مطلوب."),
   symbol: z.string().min(1, "الرمز الخاص مطلوب."),
 });
@@ -81,28 +79,17 @@ interface CurrencySettingsProps {
     onSettingsChanged: () => void;
 }
 
-const defaultCurrencySettings: CurrencySettings = {
-    defaultCurrency: 'USD',
-    exchangeRates: { 'USD_IQD': 1480 },
-    currencies: [
-        { code: 'USD', name: 'US Dollar', symbol: '$' },
-        { code: 'IQD', name: 'Iraqi Dinar', symbol: 'ع.د' },
-        { code: 'IRR', name: 'Iranian Rial', symbol: '﷼' },
-    ],
-};
-
 export default function CurrencySettings({ settings: initialSettings, onSettingsChanged }: CurrencySettingsProps) {
-    
-    if (!initialSettings) {
-        return (
-            <Card>
-                <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
-                <CardContent><Skeleton className="h-64 w-full" /></CardContent>
-            </Card>
-        )
+    if (!initialSettings || !initialSettings.currencySettings) {
+      return (
+        <Card>
+            <CardHeader><Skeleton className="h-8 w-1/2" /></CardHeader>
+            <CardContent><Skeleton className="h-64 w-full" /></CardContent>
+        </Card>
+      );
     }
 
-    const [currencySettings, setCurrencySettings] = useState<CurrencySettings>(initialSettings.currencySettings || defaultCurrencySettings);
+    const [currencySettings, setCurrencySettings] = useState<CurrencySettings>(initialSettings.currencySettings);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
     
@@ -184,7 +171,6 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
         }));
     };
     
-    // Generate all possible exchange rate pairs
     const exchangeRatePairs = useMemo(() => {
         if (!currencySettings.currencies || currencySettings.currencies.length < 2) return [];
         const pairs: {key: string, from: string, to: string}[] = [];
