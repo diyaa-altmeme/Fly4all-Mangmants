@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React from 'react';
@@ -51,12 +50,12 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
         return;
     }
     
-    onClientUpdated(undefined, id);
-
     const result = await deleteClient(id);
-    if (!result.success) {
+    if (result.success) {
+        toast({ title: "تم حذف العلاقة بنجاح" });
+        onClientUpdated(undefined, id);
+    } else {
         toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
-        router.refresh();
     }
   };
 
@@ -112,7 +111,7 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
       if (!relationSections || !Array.isArray(relationSections)) return [];
       const allFields = relationSections.flatMap(s => s.fields);
       const customData: { label: string, value: any, id: string }[] = [];
-      const hardcodedFields = ['name', 'type', 'relationType', 'status', 'paymentType', 'country', 'province', 'streetAddress', 'avatarUrl', 'password', 'createdAt', 'createdBy', 'balance', 'lastTransaction', 'useCount', 'id', 'loginIdentifier'];
+      const hardcodedFields = ['name', 'type', 'relationType', 'status', 'paymentType', 'country', 'province', 'streetAddress', 'avatarUrl', 'password', 'createdAt', 'createdBy', 'balance', 'lastTransaction', 'useCount', 'id', 'loginIdentifier', 'code', 'phone', 'email'];
 
       allFields.forEach(field => {
           if (!hardcodedFields.includes(field.id) && client[field.id]) {
@@ -124,37 +123,25 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
 
   return (
     <Card 
-        className="flex flex-col h-full transition-all duration-300 hover:shadow-xl hover:-translate-y-1 rounded-xl"
+        className="flex flex-col h-full transition-all duration-300 hover:shadow-xl hover:-translate-y-1 rounded-xl overflow-hidden"
     >
       <CardHeader 
-        className="relative p-4 flex flex-row items-center gap-4 text-primary-foreground rounded-t-xl"
-        style={gradientStyle}
+        className="relative p-4 flex flex-row items-center gap-4 text-primary-foreground rounded-t-xl border-b-4"
+        style={{...gradientStyle, borderColor: 'hsla(var(--primary-foreground), 0.2)'}}
       >
-        <Avatar className="h-16 w-16 border-4 border-background/50 shrink-0 shadow-sm">
+        <Avatar className="h-20 w-20 border-4 border-background/50 shrink-0 shadow-md">
             <AvatarImage src={client.avatarUrl} alt={client.name} />
-            <AvatarFallback className="text-xl text-foreground"><CircleUserRound className="h-10 w-10 text-muted-foreground"/></AvatarFallback>
+            <AvatarFallback className="text-3xl text-foreground"><CircleUserRound className="h-12 w-12 text-muted-foreground"/></AvatarFallback>
         </Avatar>
         <div className="flex-grow min-w-0">
-          <CardTitle className="font-bold text-lg truncate" title={client.name}>
+          <CardTitle className="font-bold text-xl truncate" title={client.name}>
              <Link href={`/clients/${client.id}`} className="hover:underline flex items-center gap-2">
-                <Icon className="h-5 w-5" />
                 {client.name}
-                 {client.password && (
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <CheckCircle className="h-5 w-5 text-lime-300" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>هذه العلاقة لديها حساب فعال لتسجيل الدخول.</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                 )}
              </Link>
           </CardTitle>
+          {client.code && <p className="font-mono text-xs text-white/80">({client.code})</p>}
+
           <CardDescription className="text-xs flex items-center gap-2 mt-2 text-white/80">
-             {client.code && <Badge variant="secondary" className="font-mono">{client.code}</Badge>}
              <Badge variant="outline" className="bg-white/10 border-white/20 text-white"><Icon className="me-1.5 h-3 w-3" />{relationTypeLabel}</Badge>
              <Badge variant="outline" className="bg-white/10 border-white/20 text-white"><EntityIcon className="me-1.5 h-3 w-3" />{entityTypeLabel}</Badge>
           </CardDescription>
@@ -207,13 +194,25 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
       </CardHeader>
       
       <CardContent className="px-4 py-3 flex-grow text-sm text-muted-foreground space-y-2">
+          {client.phone && (
+              <div className="flex items-center justify-end gap-2">
+                <span className="font-semibold text-foreground dir-ltr">{client.phone}</span>
+                <Phone className="h-4 w-4 text-primary" />
+            </div>
+          )}
+           {client.email && (
+              <div className="flex items-center justify-end gap-2">
+                <span className="font-semibold text-foreground">{client.email}</span>
+                <Mail className="h-4 w-4 text-primary" />
+            </div>
+          )}
           {address && (
             <div className="flex items-center justify-end gap-2">
                 <span className="font-semibold text-foreground">{address}</span>
                 <MapPin className="h-4 w-4 text-primary" />
             </div>
           )}
-          {customFields.length > 0 && address && <Separator className="my-2" />}
+          {customFields.length > 0 && (client.phone || client.email || address) && <Separator className="my-2" />}
           {customFields.map(field => (
              <div key={field.id} className="flex items-center justify-end gap-2">
                 <span className="font-semibold text-foreground truncate">{field.value}</span>
@@ -253,3 +252,4 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
     </Card>
   );
 }
+
