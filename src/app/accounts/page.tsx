@@ -10,8 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { ArrowRightLeft, FileText, Settings, Wallet, ArrowUpRight, BarChart3 } from "lucide-react";
+import { PageContainer, PageHeader, PageSection } from "@/components/layout/page-structure";
 
 export const metadata: Metadata = {
   title: "مركز إدارة الحسابات",
@@ -128,51 +128,54 @@ const quickLinks = [
 
 export default function AccountsManagementPage() {
   return (
-    <div className="space-y-8">
-      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-sm font-semibold text-primary/80">الحسابات</p>
-          <h1 className="text-3xl font-bold tracking-tight">مركز إدارة الحسابات</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            نقطة الانطلاق الموحدة لكل ما يتعلق بالحوالات، السندات، والتهيئة المحاسبية.
-          </p>
-        </div>
-        <Button asChild className="gap-2" size="lg">
-          <Link href="/finance/overview">
-            <BarChart3 className="h-4 w-4" />
-            عرض الأداء المالي
-          </Link>
-        </Button>
-      </header>
+    <PageContainer>
+      <PageHeader
+        eyebrow="الحسابات"
+        title="مركز إدارة الحسابات"
+        description="نقطة الانطلاق الموحدة لكل ما يتعلق بالحوالات، السندات، والتهيئة المحاسبية."
+        actions={(
+          <Button asChild className="gap-2" size="lg">
+            <Link href="/finance/overview">
+              <BarChart3 className="h-4 w-4" />
+              عرض الأداء المالي
+            </Link>
+          </Button>
+        )}
+      />
 
-      <section>
-        <h2 className="text-xl font-bold mb-3">روابط سريعة</h2>
-        <div className="grid gap-3 md:grid-cols-3">
+      <PageSection>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold sm:text-2xl">روابط سريعة</h2>
+            <p className="text-sm text-muted-foreground sm:text-base">
+              وصول مباشر للمهام المتكررة داخل وحدة الحسابات.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {quickLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="group flex flex-col rounded-lg border p-4 transition hover:border-primary hover:bg-primary/5"
+              className="group flex flex-col rounded-xl border border-border/40 bg-muted/20 p-4 transition hover:border-primary hover:bg-primary/5"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-3">
                 <span className="text-sm font-medium text-muted-foreground">{link.description}</span>
                 <link.icon className="h-5 w-5 text-primary transition group-hover:translate-x-1" />
               </div>
               <div className="mt-4 flex items-center justify-between">
-                <span className="text-base font-semibold">{link.label}</span>
-                <ArrowUpRight className="h-4 w-4 opacity-60 transition group-hover:translate-x-1 group-hover:-translate-y-1" />
+                <span className="text-base font-semibold sm:text-lg">{link.label}</span>
+                <ArrowUpRight className="h-4 w-4 opacity-60 transition group-hover:-translate-y-1 group-hover:translate-x-1" />
               </div>
             </Link>
           ))}
         </div>
-      </section>
+      </PageSection>
 
-      <Separator />
-
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-xl font-bold">الوحدات المرتبطة</h2>
-          <p className="text-sm text-muted-foreground">
+      <PageSection>
+        <div className="space-y-2">
+          <h2 className="text-xl font-semibold sm:text-2xl">الوحدات المرتبطة</h2>
+          <p className="text-sm text-muted-foreground sm:text-base">
             استعرض الوحدات المحاسبية الأساسية وتابع المهام المرتبطة بكل وحدة.
           </p>
         </div>
@@ -199,7 +202,7 @@ export default function AccountsManagementPage() {
                           <p className="font-medium">{link.label}</p>
                           <p className="text-muted-foreground text-xs">{link.description}</p>
                         </div>
-                        <ArrowUpRight className="mt-1 h-4 w-4 text-muted-foreground transition group-hover:text-primary group-hover:translate-x-1 group-hover:-translate-y-1" />
+                        <ArrowUpRight className="mt-1 h-4 w-4 text-muted-foreground transition group-hover:-translate-y-1 group-hover:translate-x-1 group-hover:text-primary" />
                       </Link>
                     </li>
                   ))}
@@ -216,7 +219,7 @@ export default function AccountsManagementPage() {
             </Card>
           ))}
         </div>
-      </section>
-    </div>
+      </PageSection>
+    </PageContainer>
   );
 }

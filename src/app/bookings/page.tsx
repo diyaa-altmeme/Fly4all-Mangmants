@@ -4,10 +4,10 @@ import BookingsContent from "./components/bookings-content";
 import { getBookings } from "./actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
-import type { BookingEntry, JournalVoucher } from "@/lib/types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type { BookingEntry } from "@/lib/types";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageContainer, PageHeader, PageSection } from "@/components/layout/page-structure";
 
 async function BookingsDataContainer({ page, limit }: { page: number, limit: number }) {
     const [{ bookings, total }, error] = await getBookings({ page, limit })
@@ -40,19 +40,19 @@ export default async function BookingsPage({ searchParams }: { searchParams: { [
     const limit = Number(searchParams?.['limit'] ?? '15');
 
     return (
-        <div className="space-y-6">
-            <div className="px-0 sm:px-6">
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة الحجوزات والعمليات</h1>
-                <p className="text-muted-foreground">
-                    إدارة شاملة لجميع الحجوزات وعمليات التذاكر (إصدار، تغيير، استرجاع، إلغاء) في مكان واحد.
-                </p>
-            </div>
-            <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-                <BookingsDataContainer
-                    page={page}
-                    limit={limit}
-                />
-            </Suspense>
-        </div>
+        <PageContainer>
+            <PageHeader
+                title="إدارة الحجوزات والعمليات"
+                description="إدارة شاملة لجميع الحجوزات وعمليات التذاكر (إصدار، تغيير، استرجاع، إلغاء) في مكان واحد."
+            />
+            <PageSection className="min-h-[24rem]">
+                <Suspense fallback={<Skeleton className="h-64 w-full rounded-xl" />}>
+                    <BookingsDataContainer
+                        page={page}
+                        limit={limit}
+                    />
+                </Suspense>
+            </PageSection>
+        </PageContainer>
     )
 }
