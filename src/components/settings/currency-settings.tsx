@@ -36,6 +36,7 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
     const handleExchangeRateChange = (key: string, value: string) => {
         const numericValue = parseFloat(value) || 0;
         setCurrencySettings(produce(draft => {
+            if (!draft.exchangeRates) draft.exchangeRates = {};
             draft.exchangeRates[key] = numericValue;
         }));
     };
@@ -48,6 +49,7 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
     
     const handleCurrencyFieldChange = (index: number, field: keyof CurrencySetting, value: string) => {
         setCurrencySettings(produce(draft => {
+            if (!draft.currencies) draft.currencies = [];
             (draft.currencies[index] as any)[field] = value;
         }));
     };
@@ -58,6 +60,7 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
             return;
         }
         setCurrencySettings(produce(draft => {
+            if (!draft.currencies) draft.currencies = [];
             draft.currencies.push({ ...newCurrency, code: newCurrency.code.toUpperCase() });
         }));
         setNewCurrency({ code: '', name: '', symbol: '' });
@@ -65,7 +68,9 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
     
     const handleRemoveCurrency = (index: number) => {
         setCurrencySettings(produce(draft => {
-            draft.currencies.splice(index, 1);
+            if (draft.currencies) {
+                draft.currencies.splice(index, 1);
+            }
         }));
     }
 
@@ -86,11 +91,11 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
         return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
     
-    const exchangeRatePairs = currencySettings.currencies.flatMap((c1) =>
+    const exchangeRatePairs = currencySettings.currencies?.flatMap((c1) =>
       currencySettings.currencies
         .filter((c2) => c1.code !== c2.code)
         .map((c2) => `${c1.code}_${c2.code}`)
-    );
+    ) || [];
 
 
     return (
@@ -105,7 +110,7 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                 <div className="space-y-3">
                     <Label className="font-semibold">العملات المعتمدة (انقر على بطاقة لجعلها الافتراضية)</Label>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                         {currencySettings.currencies.map((currency, index) => (
+                         {(currencySettings.currencies || []).map((currency, index) => (
                            <Card
                               key={index}
                               onClick={() => handleDefaultCurrencyChange(currency.code)}
@@ -150,7 +155,7 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                                         id={`rate-${key}`}
                                         type="number"
                                         step="any"
-                                        value={currencySettings.exchangeRates[key] || ''}
+                                        value={currencySettings.exchangeRates?.[key] || ''}
                                         onChange={(e) => handleExchangeRateChange(key, e.target.value)}
                                         className="pe-8"
                                     />

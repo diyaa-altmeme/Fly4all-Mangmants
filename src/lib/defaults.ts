@@ -1,6 +1,6 @@
 
 
-import type { AppSettings, RelationSection, LandingPageSettings, CurrencySettings, VoucherSettings, InvoiceSequenceSettings, ImportFieldSettings, ImportLogicSettings, CustomRelationField, SegmentSettings, PartnerShareSetting, FinanceAccountsSettings, CustomRevenueAccountsSettings } from './types';
+import type { AppSettings, RelationSection, LandingPageSettings, CurrencySettings, VoucherSettings, InvoiceSequenceSettings, ImportFieldSettings, ImportLogicSettings, CustomRelationField, SegmentSettings, PartnerShareSetting, FinanceAccountsMap, CustomRevenueAccountsSettings } from './types';
 import { serializeFinanceAccounts } from '@/lib/finance/finance-accounts';
 import { COUNTRIES_DATA } from './countries-data';
 import { parseISO } from 'date-fns';
@@ -186,14 +186,7 @@ const defaultPartnerShareSetting: PartnerShareSetting = {
   value: 50,
 };
 
-const defaultFinanceAccountsSettings: FinanceAccountsSettings = {
-    cashAccountId: "",
-    bankAccountId: "",
-    clientAccountId: "",
-    partnerAccountId: "",
-    revenueAccountId: "",
-    expenseAccountId: "",
-    alrawdatainAccountId: ""
+const defaultFinanceAccountsSettings: FinanceAccountsMap = {
 };
 
 const defaultFinanceAccounts = serializeFinanceAccounts({ preventDirectCashRevenue: false });
@@ -241,7 +234,4 @@ export const defaultSettingsData: AppSettings = {
     importLogicSettings: defaultImportLogicSettings,
     relationSections: defaultRelationSections,
     financeAccounts: defaultFinanceAccounts,
-    customRevenueAccounts: defaultCustomRevenueAccountsSettings,
-    preventDirectProfitToCash: true,
 };
-
