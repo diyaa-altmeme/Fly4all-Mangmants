@@ -185,7 +185,7 @@ export async function getClientById(id: string): Promise<Client | null> {
             ...safeData,
         } as Client;
     } catch (error) {
-        console.error(`Error getting client by ID ${''}${id}:`, String(error));
+        console.error(`Error getting client by ID ${id}:`, String(error));
         return null;
     }
 }

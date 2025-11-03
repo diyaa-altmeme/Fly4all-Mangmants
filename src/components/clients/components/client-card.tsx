@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React from 'react';
@@ -153,6 +154,7 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
              </Link>
           </CardTitle>
           <CardDescription className="text-xs flex items-center gap-2 mt-2 text-white/80">
+             {client.code && <Badge variant="secondary" className="font-mono">{client.code}</Badge>}
              <Badge variant="outline" className="bg-white/10 border-white/20 text-white"><Icon className="me-1.5 h-3 w-3" />{relationTypeLabel}</Badge>
              <Badge variant="outline" className="bg-white/10 border-white/20 text-white"><EntityIcon className="me-1.5 h-3 w-3" />{entityTypeLabel}</Badge>
           </CardDescription>

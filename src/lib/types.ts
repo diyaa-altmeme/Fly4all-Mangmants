@@ -1,4 +1,5 @@
 
+
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
 import { COUNTRIES_DATA } from './countries-data';
@@ -152,7 +153,7 @@ export type SegmentProfitType = 'fixed' | 'percentage';
 
 export type SegmentServiceSetting = {
     type: SegmentProfitType;
-    value: number; // Can be a fixed amount أو قيمة ثابتة
+    value: number; // Can be a fixed amount or a percentage
 };
 
 export type SegmentSettings = {
@@ -414,7 +415,7 @@ export type WhatsappGroupParticipant = {
     name?: string;
 };
 
-export type AccountType = "asset" | "liability" | "equity" | "revenue" | "expense" | "clearing";
+export type AccountType = 'group' | 'box' | 'client' | 'supplier' | 'expense' | 'revenue' | 'account' | 'subscription' | 'company' | 'individual' | 'both' | 'exchange' | '';
 
 export type StructuredDescription = {
     title: string;
@@ -443,22 +444,6 @@ export type ReportTransaction = {
   sourceId?: string;
   sourceRoute?: string;
   originalData?: any;
-  notes?: string;
-  entryNote?: string;
-  voucherNote?: string;
-  direction?: 'debit' | 'credit' | 'neutral';
-  amount?: number;
-  balancesByCurrency?: Record<string, number>;
-};
-
-export type ReportCurrencySummary = {
-  currency: Currency;
-  label: string;
-  symbol?: string;
-  openingBalance: number;
-  totalDebit: number;
-  totalCredit: number;
-  finalBalance: number;
 };
 
 export type ReportInfo = {
@@ -475,7 +460,6 @@ export type ReportInfo = {
   currency: Currency | 'both';
   accountType: AccountType;
   balanceMode: 'asset' | 'liability';
-  currencyBreakdown?: ReportCurrencySummary[];
 };
 
 
@@ -495,14 +479,11 @@ export type TreeNode = {
 export type SegmentEntry = {
   id: string;
   periodId: string;
-  invoiceNumber: string; // The master invoice for the whole period
-  companyInvoiceNumber: string; // The specific invoice for this company's entry
+  invoiceNumber: string;
   fromDate: string;
   toDate: string;
-  entryDate: string; // The date this entry was added
   companyName: string;
   clientId: string;
-  hasPartner: boolean;
   partnerId: string;
   partnerName: string;
   currency: Currency;
@@ -544,7 +525,6 @@ export type SegmentEntry = {
   partnerShares?: {
       partnerId: string;
       partnerName: string;
-      partnerInvoiceNumber: string; // Specific invoice for this partner's share
       share: number;
   }[];
 };
@@ -1503,3 +1483,4 @@ export interface PostJournalInput {
   sourceId: string;
   sourceRoute?: string;
 }
+
