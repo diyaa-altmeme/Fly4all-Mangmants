@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb, getStorageAdmin } from '@/lib/firebase-admin';
@@ -32,22 +33,41 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
 
     try {
         const settingsDoc = await db.collection('settings').doc(SETTINGS_DOC_ID).get();
-        if (!settingsDoc.exists) {
-            console.log("No settings found in database, seeding with default settings.");
-            const initialSettings = { ...defaultSettingsData, databaseStatus: { isDatabaseConnected: true } };
-            await db.collection('settings').doc(SETTINGS_DOC_ID).set(initialSettings);
-            return initialSettings;
-        }
         
-        const settingsData = settingsDoc.data() as AppSettings;
+        let mergedSettings = { ...defaultSettingsData };
+
+        if (settingsDoc.exists) {
+            const dbSettings = settingsDoc.data() as AppSettings;
+            
+            // Deep merge logic
+            mergedSettings = {
+                ...defaultSettingsData,
+                ...dbSettings,
+                currencySettings: {
+                    ...defaultSettingsData.currencySettings,
+                    ...(dbSettings.currencySettings || {}),
+                    currencies: [
+                        ...(defaultSettingsData.currencySettings?.currencies || []),
+                        ...(dbSettings.currencySettings?.currencies || []),
+                    ].filter((v, i, a) => a.findIndex(t => t.code === v.code) === i), // Unique currencies by code
+                },
+                theme: {
+                    ...defaultSettingsData.theme,
+                    ...(dbSettings.theme || {}),
+                },
+                 relationSections: dbSettings.relationSections && dbSettings.relationSections.length > 0 
+                    ? dbSettings.relationSections 
+                    : defaultSettingsData.relationSections,
+            };
+        } else {
+            console.log("No settings found in database, seeding with default settings.");
+            await db.collection('settings').doc(SETTINGS_DOC_ID).set(defaultSettingsData);
+        }
         
         // Always ensure the DB connection status in the app is 'true' to avoid accidental lockout.
-        // The actual connection status is managed by server environment variables.
-        if (settingsData.databaseStatus?.isDatabaseConnected !== true) {
-             return { ...settingsData, databaseStatus: { isDatabaseConnected: true } };
-        }
+        mergedSettings.databaseStatus = { isDatabaseConnected: true };
         
-        return settingsData;
+        return mergedSettings;
 
     } catch (error: any) {
         console.error("Error getting settings:", String(error));
