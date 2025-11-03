@@ -28,7 +28,7 @@ const formSchema = z.object({
   phoneNumber: z.string().optional(),
   fund: z.string().min(1, "الصندوق مطلوب"),
   details: z.string().optional(),
-  currency: z.enum(['USD', 'IQD']),
+  currency: z.string().min(1, 'العملة مطلوبة'),
   totalAmount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val > 0, { message: "المبلغ يجب أن يكون أكبر من صفر" }),
   exchangeRate: z.coerce.number().optional(),
   purpose: z.enum(['tickets', 'services']),
@@ -116,7 +116,7 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
                 date: (data.date as Date).toISOString(),
                 toSupplierId: data.payeeId, // Assuming payeeId is the supplier ID
                 amount: data.totalAmount,
-                currency: data.currency,
+                currency: data.currency as 'USD' | 'IQD',
                 boxId: data.fund,
                 purpose: data.purpose,
                 details: data.details,
@@ -213,3 +213,4 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, selectedCurrency
   );
 }
 
+    
