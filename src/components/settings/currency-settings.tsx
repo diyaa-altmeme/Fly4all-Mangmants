@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -147,21 +148,19 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                 <div className="space-y-2 pt-4 border-t">
                     <Label className="font-semibold">أسعار الصرف</Label>
                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {exchangeRatePairs.map(key => (
-                            <div key={key} className="space-y-1.5">
-                                <Label htmlFor={`rate-${key}`}>سعر صرف {key.replace('_', ' إلى ')}</Label>
-                                 <div className="relative">
-                                    <Input
-                                        id={`rate-${key}`}
-                                        type="number"
-                                        step="any"
-                                        value={currencySettings.exchangeRates?.[key] || ''}
-                                        onChange={(e) => handleExchangeRateChange(key, e.target.value)}
-                                        className="pe-8"
-                                    />
-                                </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor={`rate-USD_IQD`}>سعر صرف الدولار مقابل الدينار</Label>
+                            <div className="relative">
+                                <Input
+                                    id={`rate-USD_IQD`}
+                                    type="number"
+                                    step="any"
+                                    value={currencySettings.exchangeRates?.['USD_IQD'] || ''}
+                                    onChange={(e) => handleExchangeRateChange('USD_IQD', e.target.value)}
+                                    className="pe-8"
+                                />
                             </div>
-                        ))}
+                        </div>
                     </div>
                 </div>
             </CardContent>

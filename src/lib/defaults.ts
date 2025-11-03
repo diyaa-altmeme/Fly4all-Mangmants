@@ -166,6 +166,7 @@ const defaultCurrencySettings: CurrencySettings = {
     currencies: [
         { code: 'USD', name: 'US Dollar', symbol: '$' },
         { code: 'IQD', name: 'Iraqi Dinar', symbol: 'ع.د' },
+        { code: 'IRR', name: 'Iranian Rial', symbol: '﷼' },
     ],
 };
 
