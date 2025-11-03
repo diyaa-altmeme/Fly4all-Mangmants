@@ -1,173 +1,333 @@
 
+'use server';
+
 import { getDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getSettings } from "@/app/settings/actions";
 import { getNextVoucherNumber } from "@/lib/sequences";
-import type { JournalVoucher, JournalEntry, FinanceAccountsMap } from "../types";
+import type { JournalVoucher, JournalEntry as LegacyJournalEntry, FinanceAccountsMap } from "../types";
 import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
-import { inferAccountCategory } from '@/lib/finance/account-categories';
+import { inferAccountCategory, type AccountCategory } from '@/lib/finance/account-categories';
+import { getCurrentUserFromSession } from "../auth/actions";
+import { Timestamp } from "firebase-admin/firestore";
 
-interface PostJournalParams {
-  sourceType: string;
+
+export type JournalEntry = {
+  accountId: string;
+  debit: number;       // >= 0
+  credit: number;      // >= 0
+  currency: Currency;
+  exchangeRate?: number;
+  relationId?: string;     // NEW: علاقة مرتبطة بالقيد
+  companyId?: string;
+  note?: string;
+  accountType?: string;
+};
+
+export type PostJournalPayload = {
+  sourceType: string;          // "tickets" | "visas" | "subscriptions" | "segments" | "exchanges" | "profit-sharing" | ...
   sourceId: string;
-  description: string;
-  amount: number;
-  currency: string;
-  date: Date;
-  userId?: string;
-  debitAccountId?: string;
-  creditAccountId?: string;
-  creditEntries?: JournalEntry[];
-  cost?: number;
-  costAccountId?: string;
-  revenueAccountId?: string;
-  clientId?: string;
-  supplierId?: string;
+  date?: number | Date;        // ms | Date
+  entries: JournalEntry[];
+  meta?: Record<string, any>;
+  description?: string;
+};
+
+async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
+  const accountIds = Array.from(new Set(entries.map(e => e.accountId).filter(Boolean)));
+  if (accountIds.length === 0) return;
+  const refs = accountIds.map((id: string) => db.collection('chart_of_accounts').doc(id));
+  const snaps = await Promise.all(refs.map((r: any) => r.get()));
+  const missing = snaps.map((s: any, i: number) => (!s.exists ? accountIds[i] : null)).filter(Boolean);
+  if (missing.length) throw new Error('Accounts not found: ' + missing.join(', '));
 }
 
-export async function postJournalEntry({
-  sourceType,
-  sourceId,
-  description,
-  amount,
-  currency,
-  date,
-  userId,
-  debitAccountId,
-  creditAccountId,
-  creditEntries,
-  cost,
-  revenueAccountId,
-  clientId,
-  supplierId,
-}: PostJournalParams): Promise<string> {
+function isBalanced(entries: JournalEntry[]) {
+  const totalDebit = entries.reduce((s, e) => s + (e.debit || 0), 0);
+  const totalCredit = entries.reduce((s, e) => s + (e.credit || 0), 0);
+  // allow tiny float rounding
+  return Math.abs(totalDebit - totalCredit) < 0.0001;
+}
+
+type StoredEntry = JournalEntry & {
+  amount: number;
+  description?: string;
+  accountType?: string;
+};
+
+function splitEntries(entries: StoredEntry[]): {
+  debitEntries: LegacyJournalEntry[];
+  creditEntries: LegacyJournalEntry[];
+} {
+  const debitEntries: LegacyJournalEntry[] = [];
+  const creditEntries: LegacyJournalEntry[] = [];
+
+  for (const entry of entries) {
+    if (entry.debit > 0) {
+      debitEntries.push({
+        accountId: entry.accountId,
+        amount: entry.debit,
+        description: entry.description ?? entry.note,
+      });
+    }
+
+    if (entry.credit > 0) {
+      creditEntries.push({
+        accountId: entry.accountId,
+        amount: entry.credit,
+        description: entry.description ?? entry.note,
+      });
+    }
+  }
+
+  return { debitEntries, creditEntries };
+}
+
+function resolveCurrency(entries: JournalEntry[]): Currency {
+  const first = entries.find(e => !!e.currency);
+  return (first?.currency as Currency) || 'USD';
+}
+
+export async function postJournalEntries(payload: PostJournalPayload) {
   const db = await getDb();
 
-  const appSettings = await getSettings();
-  const financeSettingsRaw = appSettings.financeAccounts as FinanceAccountsMap | undefined;
-
-  if (!financeSettingsRaw) {
-    throw new Error("Finance settings (financeAccounts) not found in settings/app_settings document!");
+  if (!payload.entries || !Array.isArray(payload.entries) || payload.entries.length === 0) {
+    throw new Error('No entries provided');
   }
 
-  const financeSettings = normalizeFinanceAccounts(financeSettingsRaw);
-
-  const voucherRef = db.collection("journal-vouchers").doc();
-  const newVoucher: Omit<JournalVoucher, 'id'> = {
-    invoiceNumber: await getNextVoucherNumber(sourceType.toUpperCase()),
-    date: date.toISOString(),
-    currency,
-    notes: description,
-    createdBy: userId || "system",
-    officer: userId || 'system',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    voucherType: `journal_from_${sourceType}`,
-    debitEntries: [],
-    creditEntries: [],
-    isAudited: false,
-    isConfirmed: true,
-    originalData: { sourceType, sourceId, amount, cost: cost || 0 },
-  };
-
-  const saleAmount = amount;
-  const costAmount = cost || 0;
-
-  if (sourceType === 'segment' && creditEntries) {
-    // Special handling for segment entries
-    const finalDebitAccount = debitAccountId || clientId || financeSettings.receivableAccountId;
-    if (!finalDebitAccount) throw new Error("Missing debit account for segment entry.");
-    
-    newVoucher.debitEntries.push({ accountId: finalDebitAccount, amount: saleAmount, description: `دين عن: ${description}` });
-    
-    // Spread the passed credit entries (partner shares + alrawdatain share)
-    newVoucher.creditEntries.push(...creditEntries);
-
-  } else if (costAmount > 0) {
-    // Compound entry for Sale, Cost, and Profit
-    const profitAmount = saleAmount - costAmount;
-    const finalClientId = clientId || debitAccountId || financeSettings.receivableAccountId;
-    const finalSupplierId = supplierId || costAccountId || financeSettings.payableAccountId;
-
-    let finalRevenueAccountId = revenueAccountId;
-    if (sourceType === 'booking') finalRevenueAccountId = finalRevenueAccountId || financeSettings.revenueMap.tickets || financeSettings.generalRevenueId;
-    if (sourceType === 'visa') finalRevenueAccountId = finalRevenueAccountId || financeSettings.revenueMap.visas || financeSettings.generalRevenueId;
-    if (sourceType === 'subscription') finalRevenueAccountId = finalRevenueAccountId || financeSettings.revenueMap.subscriptions || financeSettings.generalRevenueId;
-    if (sourceType === 'segment') finalRevenueAccountId = finalRevenueAccountId || financeSettings.revenueMap.segments || financeSettings.generalRevenueId;
-    if (!finalRevenueAccountId) {
-      finalRevenueAccountId = financeSettings.generalRevenueId;
-    }
-
-    if (!finalClientId || !finalSupplierId || !finalRevenueAccountId) {
-      throw new Error("Missing default accounts for compound entry in finance settings.");
-    }
-    
-    newVoucher.debitEntries.push({ accountId: finalClientId, amount: saleAmount, description: `دين عن: ${description}` });
-    newVoucher.creditEntries.push({ accountId: finalSupplierId, amount: costAmount, description: `تكلفة: ${description}` });
-    
-    if (profitAmount > 0) {
-      newVoucher.creditEntries.push({ accountId: finalRevenueAccountId, amount: profitAmount, description: `ربح عن: ${description}` });
-    } else if (profitAmount < 0) {
-      newVoucher.debitEntries.push({ accountId: financeSettings.generalExpenseId || financeSettings.expenseMap.operating || 'expense_general', amount: Math.abs(profitAmount), description: `خسارة عن: ${description}` });
-    }
-    
-  } else {
-    // Simple entry (e.g., receipt, payment, expense)
-    const finalDebitAccount = debitAccountId || financeSettings.defaultCashId || financeSettings.receivableAccountId;
-    const finalCreditAccount = creditAccountId || financeSettings.payableAccountId || financeSettings.revenueMap.other || financeSettings.generalRevenueId;
-    
-    if (!finalDebitAccount || !finalCreditAccount) {
-      throw new Error(`Could not determine debit/credit accounts for sourceType '${sourceType}'. Check finance settings.`);
-    }
-
-    newVoucher.debitEntries.push({ accountId: finalDebitAccount, amount: saleAmount, description });
-    newVoucher.creditEntries.push({ accountId: finalCreditAccount, amount: saleAmount, description });
-  }
-  
-  // Validate the entry is balanced
-  const totalDebit = newVoucher.debitEntries.reduce((sum, e) => sum + e.amount, 0);
-  const totalCredit = newVoucher.creditEntries.reduce((sum, e) => sum + e.amount, 0);
-  if (Math.abs(totalDebit - totalCredit) > 0.01) {
-    console.error("Journal Entry Imbalance Details:", {
-        debits: newVoucher.debitEntries,
-        credits: newVoucher.creditEntries,
-        totalDebit, totalCredit
-    });
-    throw new Error(`Journal entry is not balanced. Debits: ${totalDebit}, Credits: ${totalCredit}`);
+  // Permission check: unless caller set meta.system === true, require user has vouchers:create
+  let postingUser: { uid: string; name?: string } | null = null;
+  if (!payload.meta || !payload.meta.system) {
+    const user = await getCurrentUserFromSession();
+    if (!user) throw new Error('Authentication required to post journal entries');
+    // deny clients
+    if ('isClient' in user && user.isClient) throw new Error('Insufficient permissions');
+    const allowed = user.role === 'admin' || (user.permissions && user.permissions.includes('vouchers:create'));
+    if (!allowed) throw new Error('User lacks vouchers:create permission');
+    postingUser = { uid: user.uid, name: user.name };
   }
 
-  await voucherRef.set({
-      ...newVoucher,
-      entries: [
-        ...newVoucher.debitEntries.map(entry => ({
-          accountId: entry.accountId,
-          debit: entry.amount,
-          credit: 0,
-          amount: entry.amount,
-          description: entry.description,
-          currency: newVoucher.currency,
-          relationId: entry.relationId,
-          companyId: entry.companyId,
-          accountType: inferAccountCategory(entry.accountId, financeSettings),
-          type: 'debit' as const,
-        })),
-        ...newVoucher.creditEntries.map(entry => ({
-          accountId: entry.accountId,
-          debit: 0,
-          credit: entry.amount,
-          amount: entry.amount,
-          description: entry.description,
-          currency: newVoucher.currency,
-          relationId: entry.relationId,
-          companyId: entry.companyId,
-          accountType: inferAccountCategory(entry.accountId, financeSettings),
-          type: 'credit' as const,
-        })),
-      ],
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
+  // Validation and checks
+  // 1) balanced
+  if (!isBalanced(payload.entries)) {
+    throw new Error('Entries are not balanced (debit != credit)');
+  }
+
+  // 2) accounts exist
+  // await ensureAccountsExist(db, payload.entries);
+
+  // 3) optional finance map checks
+  let finance = null;
+  try {
+    finance = await getFinanceMap();
+  } catch (e) { /* ignore */ }
+
+
+  if (finance?.preventDirectCashRevenue) {
+    // guard: prevent direct cash posting when flagged (caller should pass fa if needed)
+    const cashId = finance.defaultCashId;
+    if (cashId) {
+      for (const e of payload.entries) {
+        if (e.accountId === cashId) throw new Error('Direct cash posting is disabled by finance settings');
+      }
+    }
+  }
+
+  const now = Timestamp.now();
+  const voucherRef = db.collection('journal-vouchers').doc();
+  const voucherNumber = await getNextVoucherNumber(payload.sourceType.toUpperCase());
+  const voucherCurrency = resolveCurrency(payload.entries);
+
+  const storedEntries = payload.entries.map((entry) => {
+    const debit = Number(entry.debit) || 0;
+    const credit = Number(entry.credit) || 0;
+    const amount = debit > 0 ? debit : credit;
+    const description = entry.note ?? (entry as any).description;
+    const accountType = inferAccountCategory(entry.accountId, finance || null);
+    
+    const finalEntry: StoredEntry = {
+      ...entry,
+      debit,
+      credit,
+      amount,
+      currency: entry.currency || voucherCurrency,
+      description,
+      accountType,
+    };
+    // Ensure optional fields are not undefined
+    if (!finalEntry.relationId) delete finalEntry.relationId;
+    if (!finalEntry.companyId) delete finalEntry.companyId;
+
+    return finalEntry;
   });
 
-  console.log(`✅ Posted journal for ${sourceType} (${sourceId}) amount: ${amount}`);
+  const { debitEntries, creditEntries } = splitEntries(storedEntries);
+  const voucherDate = payload.date instanceof Date
+    ? payload.date.toISOString()
+    : payload.date
+      ? new Date(payload.date).toISOString()
+      : new Date().toISOString();
+
+  const createdBy = payload.meta?.createdBy || postingUser?.uid || 'system';
+  const officer = payload.meta?.officer || postingUser?.name || 'system';
+
+  await voucherRef.set({
+    id: voucherRef.id,
+    invoiceNumber: voucherNumber,
+    date: voucherDate,
+    currency: resolveCurrency(payload.entries),
+    notes: payload.description || '',
+    createdBy,
+    officer,
+    createdAt: now,
+    updatedAt: now,
+    voucherType: `journal_from_${payload.sourceType}`,
+    sourceType: payload.sourceType,
+    sourceId: payload.sourceId,
+    debitEntries,
+    creditEntries,
+    isAudited: false,
+    isConfirmed: true,
+    meta: payload.meta || null,
+    entries: storedEntries.map(entry => {
+      const e: any = {
+        accountId: entry.accountId,
+        debit: entry.debit,
+        credit: entry.credit,
+        amount: entry.amount,
+        description: entry.description ?? entry.note,
+        currency: entry.currency,
+        accountType: entry.accountType,
+        type: entry.debit > 0 ? 'debit' : 'credit',
+      }
+      if(entry.relationId) e.relationId = entry.relationId;
+      if(entry.companyId) e.companyId = entry.companyId;
+      return e;
+    }),
+    originalData: {
+      sourceType: payload.sourceType,
+      sourceId: payload.sourceId,
+      meta: payload.meta || null,
+    },
+  } as any);
+
   return voucherRef.id;
 }
+
+
+// جلب خريطة الربط من الإعدادات (كاش بسيط اختياري)
+let _cache: { at: number; map: NormalizedFinanceAccounts | null } = { at: 0, map: null };
+
+export async function getFinanceMap(): Promise<NormalizedFinanceAccounts> {
+  const now = Date.now();
+  if (_cache.map && now - _cache.at < 15_000) return _cache.map; // cache 15s
+
+  const db = await getDb();
+  const ref = db.collection("settings").doc("app_settings");
+  const snap = await ref.get();
+  const fmRaw = (snap.data()?.financeAccounts || {}) as FinanceAccountsMap;
+  const fm = normalizeFinanceAccounts(fmRaw);
+  _cache = { at: now, map: fm };
+  return fm;
+}
+
+// مثال: إنشاء قيد إيراد لوحدة معينة (tickets/visas/...)
+export async function postRevenue({
+  sourceType, sourceId, date, currency, amount,
+  clientId, // يُحفظ بالـ meta فقط (لا ننشئ حساب فرعي)
+}: {
+  sourceType: "tickets"|"visas"|"subscriptions"|"segments"|"profit_distribution";
+  sourceId: string;
+  date: string | Date;
+  currency: string;
+  amount: number;
+  clientId?: string;
+}) {
+  if (amount <= 0) return;
+
+  const fm = await getFinanceMap();
+
+  const revenueAccountId = fm.revenueMap?.[sourceType] || fm.generalRevenueId;
+  const arId = fm.receivableAccountId;
+  if (!revenueAccountId || !arId) {
+    throw new Error(`Missing mapping: revenue=${revenueAccountId} or AR=${arId}`);
+  }
+
+  const shouldDefer = fm.preventDirectCashRevenue && fm.defaultCashId;
+  const debitAccountId = shouldDefer ? arId : (fm.defaultCashId || arId);
+
+  const entries: JournalEntry[] = [
+    {
+      accountId: debitAccountId,
+      debit: amount,
+      credit: 0,
+      currency: currency as Currency,
+      note: shouldDefer ? 'إثبات إيراد آجل' : 'إثبات إيراد نقدي',
+      relationId: clientId,
+    },
+    {
+      accountId: revenueAccountId,
+      debit: 0,
+      credit: amount,
+      currency: currency as Currency,
+      note: 'قيد الإيراد',
+      relationId: clientId,
+    },
+  ];
+
+  return postJournalEntries({
+    sourceType,
+    sourceId,
+    date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
+    entries,
+    meta: { clientId, directCash: !shouldDefer },
+    description: shouldDefer ? 'قيد إيراد آجل' : 'قيد إيراد نقدي',
+  });
+}
+
+// مثال: تسجيل تكلفة
+export async function postCost({
+  costKey, // cost_tickets/cost_visas/...
+  sourceType, sourceId, date, currency, amount, supplierId
+}: {
+  costKey: keyof NonNullable<FinanceAccountsMap["expenseMap"]>;
+  sourceType: string; sourceId: string;
+  date: string|Date; currency: string; amount: number;
+  supplierId?: string;
+}) {
+  if (amount <= 0) return;
+  const fm = await getFinanceMap();
+  const expId = fm.expenseMap?.[costKey] || fm.generalExpenseId;
+  const apId = fm.payableAccountId;
+  if (!expId || !apId) throw new Error(`Missing mapping: expense=${expId} or AP=${apId}`);
+
+  const entries: JournalEntry[] = [
+    {
+      accountId: expId,
+      debit: amount,
+      credit: 0,
+      currency: currency as Currency,
+      note: 'تسجيل مصروف',
+      relationId: supplierId,
+    },
+    {
+      accountId: apId,
+      debit: 0,
+      credit: amount,
+      currency: currency as Currency,
+      note: 'تسجيل ذمم دائنة للمورد',
+      relationId: supplierId,
+    },
+  ];
+
+  return postJournalEntries({
+    sourceType,
+    sourceId,
+    date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
+    entries,
+    meta: { supplierId },
+    description: 'قيد مصروف',
+  });
+}
+
+    
