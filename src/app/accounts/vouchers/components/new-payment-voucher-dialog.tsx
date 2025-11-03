@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import type { Currency, Box, Client, Supplier } from '@/lib/types';
-import NewPaymentVoucherForm from './new-payment-voucher-form';
+import NewPaymentVoucherForm from '@/app/accounts/vouchers/components/new-payment-voucher-form';
 import { cn } from '@/lib/utils';
 import { Settings2, Loader2 } from 'lucide-react';
 import { useVoucherNav } from '@/context/voucher-nav-context';
@@ -27,16 +27,16 @@ export default function NewPaymentVoucherDialog({ onVoucherAdded, children }: Ne
   const { data: navData, loaded: isDataLoaded, fetchData } = useVoucherNav();
   const [dialogDimensions, setDialogDimensions] = useState({ width: '896px', height: '80vh' });
 
-  const handleSuccess = (newVoucher: any) => {
-      onVoucherAdded(newVoucher);
-      setOpen(false);
-  }
-
   useEffect(() => {
     if (open && !isDataLoaded) {
       fetchData();
     }
   }, [open, isDataLoaded, fetchData]);
+
+  const handleSuccess = (newVoucher: any) => {
+      onVoucherAdded(newVoucher);
+      setOpen(false);
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
