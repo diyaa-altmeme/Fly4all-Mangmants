@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -189,20 +188,14 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             batch.set(installmentRef, instData);
         });
 
-        const debitAccount = financeSettings.preventDirectCashRevenue && finalSubscriptionData.boxId
-            ? financeSettings.receivableAccountId
-            : finalSubscriptionData.boxId;
-            
         await postJournalEntry({
             sourceType: 'subscription',
             sourceId: subscriptionRef.id,
             description: `إيراد اشتراك خدمة ${finalSubscriptionData.serviceName}`,
-            amount: totalSale,
-            currency: finalSubscriptionData.currency,
-            date: new Date(finalSubscriptionData.purchaseDate),
-            userId: user.uid,
-            debitAccountId: finalSubscriptionData.clientId,
-            creditAccountId: financeSettings.revenueMap.subscriptions,
+            entries: [
+                { accountId: finalSubscriptionData.clientId, debit: totalSale, credit: 0, currency: finalSubscriptionData.currency },
+                { accountId: financeSettings.revenueMap.subscriptions, debit: 0, credit: totalSale, currency: finalSubscriptionData.currency }
+            ]
         });
 
         if (totalPurchase > 0) {
@@ -210,12 +203,10 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                 sourceType: 'subscription_cost',
                 sourceId: subscriptionRef.id,
                 description: `تكلفة اشتراك خدمة ${finalSubscriptionData.serviceName}`,
-                amount: totalPurchase,
-                currency: finalSubscriptionData.currency,
-                date: new Date(finalSubscriptionData.purchaseDate),
-                userId: user.uid,
-                debitAccountId: financeSettings.expenseMap.subscriptions,
-                creditAccountId: finalSubscriptionData.supplierId,
+                entries: [
+                    { accountId: financeSettings.expenseMap.subscriptions, debit: totalPurchase, credit: 0, currency: finalSubscriptionData.currency },
+                    { accountId: finalSubscriptionData.supplierId, debit: 0, credit: totalPurchase, currency: finalSubscriptionData.currency }
+                ]
             });
         }
         
@@ -361,12 +352,10 @@ export async function paySubscriptionInstallment(
                 sourceType: "journal_from_installment",
                 sourceId: installmentId,
                 description: `سداد دفعة اشتراك خدمة: ${subscriptionData.serviceName}`,
-                amount: totalAmountToCreditToClient,
-                currency: paymentCurrency,
-                date: new Date(),
-                userId: user.uid,
-                debitAccountId: boxId,
-                creditAccountId: subscriptionData.clientId,
+                entries: [
+                    { accountId: boxId, debit: totalAmountToCreditToClient, credit: 0, currency: paymentCurrency },
+                    { accountId: subscriptionData.clientId, debit: 0, credit: totalAmountToCreditToClient, currency: paymentCurrency }
+                ]
             });
             
             let remainingPaymentToApply = paymentAmount;
@@ -425,12 +414,10 @@ export async function paySubscriptionInstallment(
                     sourceType: 'overpayment',
                     sourceId: installment.subscriptionId,
                     description: `رصيد إضافي بعد سداد كل الدفعات لـ ${subscriptionData.clientName}`,
-                    amount: remainingPaymentToApply,
-                    currency: paymentCurrency,
-                    date: new Date(),
-                    userId: user.uid,
-                    debitAccountId: boxId,
-                    creditAccountId: subscriptionData.clientId,
+                    entries: [
+                        { accountId: boxId, debit: remainingPaymentToApply, credit: 0, currency: paymentCurrency },
+                        { accountId: subscriptionData.clientId, debit: 0, credit: remainingPaymentToApply, currency: paymentCurrency }
+                    ]
                 });
             }
             
@@ -479,12 +466,10 @@ export async function deletePayment(paymentId: string) {
                 sourceType: 'reversal',
                 sourceId: payment.journalVoucherId!,
                 description: `عكس قيد سداد دفعة رقم: ${originalJournal.invoiceNumber}`,
-                amount: payment.amount + (payment.discount || 0),
-                currency: payment.currency,
-                date: new Date(),
-                userId: user.uid,
-                debitAccountId: originalJournal.creditEntries[0].accountId,
-                creditAccountId: originalJournal.debitEntries[0].accountId,
+                entries: [
+                    { accountId: originalJournal.creditEntries[0].accountId, debit: payment.amount + (payment.discount || 0), credit: 0, currency: payment.currency },
+                    { accountId: originalJournal.debitEntries[0].accountId, debit: 0, credit: payment.amount + (payment.discount || 0), currency: payment.currency }
+                ]
             });
 
             const totalAmountToReverse = payment.amount + (payment.discount || 0);
@@ -540,12 +525,10 @@ export async function updatePayment(paymentId: string, newData: { amount?: numbe
                     sourceType: 'adjustment',
                     sourceId: paymentId,
                     description: notes,
-                    amount: Math.abs(amountDifference),
-                    currency: oldPayment.currency,
-                    date: new Date(),
-                    userId: user.uid,
-                    debitAccountId: amountDifference > 0 ? (originalJournal.debitEntries[0].accountId) : originalJournal.creditEntries[0].accountId,
-                    creditAccountId: amountDifference > 0 ? originalJournal.creditEntries[0].accountId : (originalJournal.debitEntries[0].accountId),
+                    entries: [
+                        { accountId: amountDifference > 0 ? (originalJournal.debitEntries[0].accountId) : originalJournal.creditEntries[0].accountId, debit: Math.abs(amountDifference), credit: 0, currency: oldPayment.currency },
+                        { accountId: amountDifference > 0 ? originalJournal.creditEntries[0].accountId : (originalJournal.debitEntries[0].accountId), debit: 0, credit: Math.abs(amountDifference), currency: oldPayment.currency }
+                    ]
                 });
             }
             

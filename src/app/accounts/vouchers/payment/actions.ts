@@ -32,12 +32,10 @@ export async function createPaymentVoucher(data: PaymentVoucherData) {
             sourceType: "payment",
             sourceId: `payment-${Date.now()}`,
             description: `سند دفع: ${data.details || `لغرض ${data.purpose}`}`,
-            amount: data.amount,
-            currency: data.currency,
-            date: new Date(data.date),
-            userId: user.uid,
-            debitAccountId: data.toSupplierId,
-            creditAccountId: data.boxId,
+            entries: [
+                { accountId: data.toSupplierId, debit: data.amount, credit: 0, currency: data.currency, note: 'تسديد دفعة للمورد' },
+                { accountId: data.boxId, debit: 0, credit: data.amount, currency: data.currency, note: 'الدفع من الصندوق' }
+            ]
         });
 
         await createAuditLog({

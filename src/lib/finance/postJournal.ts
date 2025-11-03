@@ -64,19 +64,23 @@ function splitEntries(entries: StoredEntry[]): {
 
   for (const entry of entries) {
     if (entry.debit > 0) {
-      debitEntries.push({
+      const debitEntry: LegacyJournalEntry = {
         accountId: entry.accountId,
         amount: entry.debit,
         description: entry.description ?? entry.note,
-      });
+      };
+      if (entry.relationId) debitEntry.relationId = entry.relationId;
+      debitEntries.push(debitEntry);
     }
 
     if (entry.credit > 0) {
-      creditEntries.push({
+       const creditEntry: LegacyJournalEntry = {
         accountId: entry.accountId,
         amount: entry.credit,
         description: entry.description ?? entry.note,
-      });
+      };
+       if (entry.relationId) creditEntry.relationId = entry.relationId;
+       creditEntries.push(creditEntry);
     }
   }
 
@@ -88,47 +92,36 @@ function resolveCurrency(entries: JournalEntry[]): Currency {
   return (first?.currency as Currency) || 'USD';
 }
 
-export async function postJournalEntries(payload: PostJournalPayload) {
+export async function postJournalEntry(payload: PostJournalPayload) {
   const db = await getDb();
 
   if (!payload.entries || !Array.isArray(payload.entries) || payload.entries.length === 0) {
     throw new Error('No entries provided');
   }
 
-  // Permission check: unless caller set meta.system === true, require user has vouchers:create
   let postingUser: { uid: string; name?: string } | null = null;
   if (!payload.meta || !payload.meta.system) {
     const user = await getCurrentUserFromSession();
     if (!user) throw new Error('Authentication required to post journal entries');
-    // deny clients
     if ('isClient' in user && user.isClient) throw new Error('Insufficient permissions');
     const allowed = user.role === 'admin' || (user.permissions && user.permissions.includes('vouchers:create'));
     if (!allowed) throw new Error('User lacks vouchers:create permission');
     postingUser = { uid: user.uid, name: user.name };
   }
 
-  // Validation and checks
-  // 1) balanced
   if (!isBalanced(payload.entries)) {
     throw new Error('Entries are not balanced (debit != credit)');
   }
-
-  // 2) accounts exist
-  // await ensureAccountsExist(db, payload.entries);
-
-  // 3) optional finance map checks
-  let finance = null;
-  try {
-    finance = await getFinanceMap();
-  } catch (e) { /* ignore */ }
-
+  
+  const finance = await getFinanceMap();
 
   if (finance?.preventDirectCashRevenue) {
-    // guard: prevent direct cash posting when flagged (caller should pass fa if needed)
     const cashId = finance.defaultCashId;
     if (cashId) {
       for (const e of payload.entries) {
-        if (e.accountId === cashId) throw new Error('Direct cash posting is disabled by finance settings');
+        if (e.accountId === cashId && inferAccountCategory(e.accountId, finance) === 'revenue') {
+             throw new Error('Direct cash posting is disabled by finance settings');
+        }
       }
     }
   }
@@ -146,15 +139,11 @@ export async function postJournalEntries(payload: PostJournalPayload) {
     const accountType = inferAccountCategory(entry.accountId, finance || null);
     
     const finalEntry: StoredEntry = {
-      ...entry,
-      debit,
-      credit,
-      amount,
+      ...entry, debit, credit, amount,
       currency: entry.currency || voucherCurrency,
       description,
       accountType,
     };
-    // Ensure optional fields are not undefined
     if (!finalEntry.relationId) delete finalEntry.relationId;
     if (!finalEntry.companyId) delete finalEntry.companyId;
 
@@ -275,7 +264,7 @@ export async function postRevenue({
     },
   ];
 
-  return postJournalEntries({
+  return postJournalEntry({
     sourceType,
     sourceId,
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
@@ -320,7 +309,7 @@ export async function postCost({
     },
   ];
 
-  return postJournalEntries({
+  return postJournalEntry({
     sourceType,
     sourceId,
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),

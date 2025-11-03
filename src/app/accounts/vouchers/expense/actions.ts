@@ -36,13 +36,10 @@ export async function createExpenseVoucher(data: ExpenseVoucherData) {
             sourceType: "manualExpense",
             sourceId: `expense-${Date.now()}`,
             description: `مصروف ${data.expenseType}: ${data.notes || ''}`.trim(),
-            amount: data.amount,
-            currency: data.currency,
-            date: new Date(data.date),
-            userId: user.uid,
-            // Override default accounts
-            debitAccountId: `expense_${data.expenseType}`, // Specific expense account
-            creditAccountId: data.boxId, // Fund/box it was paid from
+            entries: [
+                { accountId: `expense_${data.expenseType}`, debit: data.amount, credit: 0, currency: data.currency, note: 'تسجيل المصروف' },
+                { accountId: data.boxId, debit: 0, credit: data.amount, currency: data.currency, note: 'الدفع من الصندوق' }
+            ]
         });
 
         await createAuditLog({
