@@ -35,12 +35,10 @@ export async function createStandardReceipt(data: StandardReceiptData) {
             sourceType: "standard_receipt",
             sourceId: `receipt-${Date.now()}`,
             description: `سند قبض: ${data.details || 'دفعة'}`.trim(),
-            amount: data.amount,
-            currency: data.currency,
-            date: new Date(data.date),
-            userId: user.uid,
-            debitAccountId: data.toBox,
-            creditAccountId: data.from,
+            entries: [
+                { accountId: data.toBox, debit: data.amount, credit: 0, currency: data.currency, note: 'إيداع في الصندوق' },
+                { accountId: data.from, debit: 0, credit: data.amount, currency: data.currency, note: 'سداد دفعة من العميل' }
+            ]
         });
 
         await createAuditLog({
