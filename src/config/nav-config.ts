@@ -1,4 +1,4 @@
-
+import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
   Users,
@@ -6,20 +6,15 @@ import {
   Plane,
   FileText,
   Settings,
-  ShieldCheck,
   MessageSquare,
   CreditCard,
   Building,
   ArrowLeftRight,
-  Ticket,
   Layers3,
   PieChart,
   BookCopy,
   Wallet,
-  ReceiptText,
-  Container,
   Wand2,
-  Activity,
   Waypoints,
   NotebookText,
   BarChart3,
@@ -38,166 +33,287 @@ import {
   FileX2,
   PenSquare,
   Landmark,
-  Bell,
   Box,
   User,
   BellRing
 } from "lucide-react";
 
-export const navConfig = {
+export type NavLinkConfig = {
+  id: string;
+  titleKey: string;
+  href: string;
+  icon: LucideIcon;
+};
+
+export type NavMenuConfig = {
+  id: string;
+  titleKey: string;
+  icon: LucideIcon;
+  items: NavLinkConfig[];
+};
+
+export const navConfig: {
+  mainNav: NavLinkConfig[];
+  relations: NavMenuConfig;
+  vouchers: NavMenuConfig;
+  operations: NavMenuConfig;
+  customBusiness: NavMenuConfig;
+  reports: NavMenuConfig;
+  additionalFeatures: NavMenuConfig;
+  system: NavMenuConfig;
+} = {
   mainNav: [
     {
-      title: "الرئيسية",
+      id: "dashboard",
+      titleKey: "navigation.main.dashboard",
       href: "/dashboard",
       icon: LayoutDashboard,
     },
     {
-      title: "مركز الحسابات",
+      id: "accounts",
+      titleKey: "navigation.main.accounts",
       href: "/accounts",
       icon: Wallet,
     },
   ],
   relations: {
-    title: "العلاقات",
+    id: "relations",
+    titleKey: "navigation.groups.relations.title",
     icon: Contact,
     items: [
       {
-        title: "ادارة العلاقات",
+        id: "clients",
+        titleKey: "navigation.groups.relations.items.clients",
         href: "/clients",
         icon: Users2,
       },
       {
-        title: "الحملات",
+        id: "campaigns",
+        titleKey: "navigation.groups.relations.items.campaigns",
         href: "/campaigns",
         icon: MessageSquare,
       },
       {
-        title: "المحادثات",
+        id: "chat",
+        titleKey: "navigation.groups.relations.items.chat",
         href: "/chat",
         icon: MessageSquare,
       }
     ],
   },
   vouchers: {
-    title: "السندات",
+    id: "vouchers",
+    titleKey: "navigation.groups.vouchers.title",
     icon: FileText,
-    items: [
-       // This will be populated dynamically by the CreateVoucherMenuItems component
-    ],
+    items: [], // Populated dynamically in the navigation component
   },
   operations: {
-    title: "العمليات المحاسبية",
+    id: "operations",
+    titleKey: "navigation.groups.operations.title",
     icon: Calculator,
     items: [
       {
-        title: "حجوزات الطيران",
+        id: "bookings",
+        titleKey: "navigation.groups.operations.items.bookings",
         href: "/bookings",
         icon: Plane,
       },
       {
-        title: "طلبات الفيزا",
+        id: "visas",
+        titleKey: "navigation.groups.operations.items.visas",
         href: "/visas",
         icon: CreditCard,
       },
-       {
-        title: "الحوالات",
+      {
+        id: "remittances",
+        titleKey: "navigation.groups.operations.items.remittances",
         href: "/accounts/remittances",
         icon: ArrowLeftRight,
       },
     ],
   },
   customBusiness: {
-    title: "الأعمال المخصصة",
-    icon: Briefcase,
-    items: [
-        {
-            title: "الاشتراكات",
-            href: "/subscriptions",
-            icon: Repeat,
-        },
-        {
-            title: "السكمنت",
-            href: "/segments",
-            icon: Layers3,
-        },
-        {
-            title: "البورصات",
-            href: "/exchanges",
-            icon: Waypoints,
-        },
-        {
-            title: "توزيع الحصص",
-            href: "/profit-sharing",
-            icon: Share2,
-        },
-        {
-            title: "تحليل الطيران",
-            href: "/reports/flight-analysis",
-            icon: Plane,
-        }
-    ]
-  },
-  reports: {
-    title: "التقارير والأدوات",
-    icon: BarChart3,
-    items: [
-      { title: "تقرير الأرصدة", href: "/reports/debts", icon: BookCopy },
-      { title: "كشف حساب", href: "/reports/account-statement", icon: NotebookText },
-      { title: "الأرباح والخسائر", href: "/reports/profit-loss", icon: FileBarChart },
-      { title: "تحليل الربحية", href: "/reports/profitability-analysis", icon: PieChart },
-      { title: "التدفق النقدي", href: "/reports/cash-flow", icon: Waypoints },
-      { title: "التدقيق الذكي", href: "/reconciliation", icon: Wand2 },
-    ],
-  },
-    additionalFeatures: {
-    title: "الميزات الإضافية",
+    id: "customBusiness",
+    titleKey: "navigation.groups.customBusiness.title",
     icon: Briefcase,
     items: [
       {
-        title: "الصناديق",
+        id: "subscriptions",
+        titleKey: "navigation.groups.customBusiness.items.subscriptions",
+        href: "/subscriptions",
+        icon: Repeat,
+      },
+      {
+        id: "segments",
+        titleKey: "navigation.groups.customBusiness.items.segments",
+        href: "/segments",
+        icon: Layers3,
+      },
+      {
+        id: "exchanges",
+        titleKey: "navigation.groups.customBusiness.items.exchanges",
+        href: "/exchanges",
+        icon: Waypoints,
+      },
+      {
+        id: "profitSharing",
+        titleKey: "navigation.groups.customBusiness.items.profitSharing",
+        href: "/profit-sharing",
+        icon: Share2,
+      },
+      {
+        id: "flightAnalysis",
+        titleKey: "navigation.groups.customBusiness.items.flightAnalysis",
+        href: "/reports/flight-analysis",
+        icon: Plane,
+      }
+    ]
+  },
+  reports: {
+    id: "reports",
+    titleKey: "navigation.groups.reports.title",
+    icon: BarChart3,
+    items: [
+      {
+        id: "debts",
+        titleKey: "navigation.groups.reports.items.debts",
+        href: "/reports/debts",
+        icon: BookCopy,
+      },
+      {
+        id: "accountStatement",
+        titleKey: "navigation.groups.reports.items.accountStatement",
+        href: "/reports/account-statement",
+        icon: NotebookText,
+      },
+      {
+        id: "profitLoss",
+        titleKey: "navigation.groups.reports.items.profitLoss",
+        href: "/reports/profit-loss",
+        icon: FileBarChart,
+      },
+      {
+        id: "profitability",
+        titleKey: "navigation.groups.reports.items.profitability",
+        href: "/reports/profitability-analysis",
+        icon: PieChart,
+      },
+      {
+        id: "cashFlow",
+        titleKey: "navigation.groups.reports.items.cashFlow",
+        href: "/reports/cash-flow",
+        icon: Waypoints,
+      },
+      {
+        id: "smartReconciliation",
+        titleKey: "navigation.groups.reports.items.smartReconciliation",
+        href: "/reconciliation",
+        icon: Wand2,
+      },
+    ],
+  },
+  additionalFeatures: {
+    id: "additionalFeatures",
+    titleKey: "navigation.groups.additionalFeatures.title",
+    icon: Briefcase,
+    items: [
+      {
+        id: "boxes",
+        titleKey: "navigation.groups.additionalFeatures.items.boxes",
         href: "/boxes",
         icon: Box,
       },
       {
-        title: "الموردين",
+        id: "suppliers",
+        titleKey: "navigation.groups.additionalFeatures.items.suppliers",
         href: "/suppliers",
         icon: Building,
       },
       {
-        title: "الملف الشخصي",
+        id: "profile",
+        titleKey: "navigation.groups.additionalFeatures.items.profile",
         href: "/profile",
         icon: User,
       },
       {
-        title: "الأرباح",
+        id: "profits",
+        titleKey: "navigation.groups.additionalFeatures.items.profits",
         href: "/profits",
         icon: AreaChart,
       },
       {
-        title: "الإشعارات",
+        id: "notifications",
+        titleKey: "navigation.groups.additionalFeatures.items.notifications",
         href: "/notifications",
         icon: BellRing,
       },
       {
-        title: "إدارة الأصول",
+        id: "assets",
+        titleKey: "navigation.groups.additionalFeatures.items.assets",
         href: "/settings/assets",
         icon: Wallet,
       }
     ],
   },
   system: {
-    title: "النظام",
+    id: "system",
+    titleKey: "navigation.groups.system.title",
     icon: Network,
     items: [
-      { title: "الإعدادات العامة", href: "/settings", icon: Settings },
-      { title: "الدليل المحاسبي والربط المالي", href: "/settings/accounting", icon: GitBranch },
-      { title: "الموظفين والصلاحيات", href: "/users", icon: Users },
-      { title: "الأدوات المالية", href: "/finance-tools", icon: Landmark },
-      { title: "قوالب الرسائل", href: "/templates", icon: PenSquare },
-      { title: "سجل النشاطات", href: "/system/activity-log", icon: FileTerminal },
-      { title: "سجل الأخطاء", href: "/system/error-log", icon: FileCog },
-      { title: "تدقيق البيانات", href: "/system/data-audit", icon: FileCheck2 },
-      { title: "سجل المحذوفات", href: "/system/deleted-log", icon: FileX2 },
+      {
+        id: "generalSettings",
+        titleKey: "navigation.groups.system.items.generalSettings",
+        href: "/settings",
+        icon: Settings,
+      },
+      {
+        id: "accountingGuide",
+        titleKey: "navigation.groups.system.items.accountingGuide",
+        href: "/settings/accounting",
+        icon: GitBranch,
+      },
+      {
+        id: "users",
+        titleKey: "navigation.groups.system.items.users",
+        href: "/users",
+        icon: Users,
+      },
+      {
+        id: "financeTools",
+        titleKey: "navigation.groups.system.items.financeTools",
+        href: "/finance-tools",
+        icon: Landmark,
+      },
+      {
+        id: "templates",
+        titleKey: "navigation.groups.system.items.templates",
+        href: "/templates",
+        icon: PenSquare,
+      },
+      {
+        id: "activityLog",
+        titleKey: "navigation.groups.system.items.activityLog",
+        href: "/system/activity-log",
+        icon: FileTerminal,
+      },
+      {
+        id: "errorLog",
+        titleKey: "navigation.groups.system.items.errorLog",
+        href: "/system/error-log",
+        icon: FileCog,
+      },
+      {
+        id: "dataAudit",
+        titleKey: "navigation.groups.system.items.dataAudit",
+        href: "/system/data-audit",
+        icon: FileCheck2,
+      },
+      {
+        id: "deletedLog",
+        titleKey: "navigation.groups.system.items.deletedLog",
+        href: "/system/deleted-log",
+        icon: FileX2,
+      }
     ],
   },
 };

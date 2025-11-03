@@ -8,6 +8,7 @@ import { ThemeCustomizationProvider } from "@/context/theme-customization-contex
 import { VoucherNavProvider } from '@/context/voucher-nav-context';
 import { AuthProvider } from '@/lib/auth-context';
 import { MainLayout } from './main-layout';
+import { TranslationProvider } from '@/i18n';
 
 export function Providers({ 
   children,
@@ -15,22 +16,24 @@ export function Providers({
   children: React.ReactNode,
 }) {
     return (
-      <AuthProvider>
-        <VoucherNavProvider>
-            <ThemeCustomizationProvider>
-                <ThemeProvider
-                    attribute="class"
-                    defaultTheme="system"
-                    enableSystem
-                    disableTransitionOnChange
-                >
-                    <MainLayout>
-                        {children}
-                    </MainLayout>
-                    <Toaster />
-                </ThemeProvider>
-            </ThemeCustomizationProvider>
-        </VoucherNavProvider>
-      </AuthProvider>
+      <TranslationProvider>
+        <AuthProvider>
+          <VoucherNavProvider>
+              <ThemeCustomizationProvider>
+                  <ThemeProvider
+                      attribute="class"
+                      defaultTheme="system"
+                      enableSystem
+                      disableTransitionOnChange
+                  >
+                      <MainLayout>
+                          {children}
+                      </MainLayout>
+                      <Toaster />
+                  </ThemeProvider>
+              </ThemeCustomizationProvider>
+          </VoucherNavProvider>
+        </AuthProvider>
+      </TranslationProvider>
     )
 }
