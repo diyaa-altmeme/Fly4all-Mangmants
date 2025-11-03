@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { DialogFooter } from '@/components/ui/dialog';
 import { Autocomplete } from '@/components/ui/autocomplete';
 import { createStandardReceipt } from '@/app/accounts/vouchers/standard/actions';
-import { updateVoucher } from '../list/actions';
+import { updateVoucher } from '@/app/accounts/vouchers/list/actions';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { useAuth } from '@/lib/auth-context';
@@ -32,6 +32,7 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
 
 interface NewStandardReceiptFormProps {
     onVoucherAdded?: (voucher: any) => void;
@@ -49,9 +50,11 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
     />
 );
 
+
 export default function NewStandardReceiptForm({ onVoucherAdded, isEditing, initialData, onVoucherUpdated }: NewStandardReceiptFormProps) {
   const { data: navData } = useVoucherNav();
-  const { user: currentUser } = useAuth();
+  const { user } = useAuth();
+  const currentUser = user as CurrentUser | null;
   const { toast } = useToast();
   
   const form = useForm<FormValues>({
@@ -117,23 +120,21 @@ export default function NewStandardReceiptForm({ onVoucherAdded, isEditing, init
       <div className="p-6 space-y-6 flex-grow">
       
         <div className="grid md:grid-cols-2 gap-6 items-start">
-            <div className="flex gap-2">
-                <div className="space-y-1.5 flex-grow">
-                    <Label htmlFor="date">التاريخ</Label>
-                    <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
-                    {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
-                </div>
-                <div className="space-y-1.5 w-32">
-                    <Label htmlFor="currency">العملة</Label>
-                    <Controller name="currency" control={control} render={({ field }) => (
-                         <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger><SelectValue/></SelectTrigger>
-                            <SelectContent>
-                                {(navData?.settings?.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
-                            </SelectContent>
-                         </Select>
-                    )} />
-                </div>
+            <div className="space-y-1.5">
+                <Label htmlFor="date">التاريخ</Label>
+                <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
+                {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+                <Label htmlFor="currency">العملة</Label>
+                <Controller name="currency" control={control} render={({ field }) => (
+                     <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            {(navData?.settings?.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
+                        </SelectContent>
+                     </Select>
+                )} />
             </div>
              <div className="space-y-1.5">
                 <Label htmlFor="from">استلام من</Label>
@@ -145,7 +146,7 @@ export default function NewStandardReceiptForm({ onVoucherAdded, isEditing, init
                 <Controller name="toBox" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="اختر صندوق..." /></SelectTrigger><SelectContent>{(navData?.boxes || []).map(box => <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>)}</SelectContent></Select>)} />
                 {errors.toBox && <p className="text-destructive text-sm mt-1">{errors.toBox.message}</p>}
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 md:col-span-2">
                 <Label htmlFor="amount">المبلغ المستلم</Label>
                 <Controller
                     name="amount"
