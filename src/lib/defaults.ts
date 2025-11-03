@@ -1,5 +1,4 @@
 
-
 import type { AppSettings, RelationSection, LandingPageSettings, CurrencySettings, VoucherSettings, InvoiceSequenceSettings, ImportFieldSettings, ImportLogicSettings, CustomRelationField, SegmentSettings, PartnerShareSetting, FinanceAccountsMap, CustomRevenueAccountsSettings } from './types';
 import { serializeFinanceAccounts } from '@/lib/finance/finance-accounts';
 import { COUNTRIES_DATA } from './countries-data';
@@ -237,3 +236,4 @@ export const defaultSettingsData: AppSettings = {
     financeAccounts: defaultFinanceAccounts,
 };
 
+    

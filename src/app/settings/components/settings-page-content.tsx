@@ -20,7 +20,6 @@ interface SettingsPageContentProps {
     clients: Client[];
     suppliers: Supplier[];
     exchanges: Exchange[];
-    onSettingsChanged: () => void;
 }
 
 export default function SettingsPageContent(props: SettingsPageContentProps) {
@@ -52,6 +51,14 @@ export default function SettingsPageContent(props: SettingsPageContentProps) {
         return defaultSection || null;
     }, [activeSection, allSections]);
 
+    // This callback will be used to refresh the entire settings data from the top-level page
+    const handleSettingsChanged = useCallback(() => {
+        // In a real app, we'd probably call a function passed down via props
+        // to re-trigger the server action in `settings/page.tsx`.
+        // For now, a window reload is the simplest way to see changes.
+        window.location.reload();
+    }, []);
+
     return (
       <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 items-start">
         <SettingsSidebar 
@@ -64,7 +71,7 @@ export default function SettingsPageContent(props: SettingsPageContentProps) {
         <main className="space-y-6">
             <Card>
                 <CardContent className="pt-6">
-                     {ActiveComponent ? <ActiveComponent {...props} /> : (
+                     {ActiveComponent ? <ActiveComponent settings={props.initialSettings} onSettingsChanged={handleSettingsChanged} {...props} /> : (
                         <div>الرجاء اختيار قسم من القائمة.</div>
                      )}
                 </CardContent>
@@ -73,3 +80,5 @@ export default function SettingsPageContent(props: SettingsPageContentProps) {
       </div>
   );
 }
+
+    
