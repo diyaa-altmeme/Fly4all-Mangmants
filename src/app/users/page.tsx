@@ -11,8 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
 import ProtectedPage from '@/components/auth/protected-page';
 import { DateRange } from 'react-day-picker';
-import { useAuth } from '@/lib/auth-context';
-import Preloader from '@/components/layout/preloader';
+import { PageContainer, PageHeader, PageSection } from '@/components/layout/page-structure';
 
 function UsersPageContainer() {
     const [users, setUsers] = useState<HrData[]>([]);
@@ -71,13 +70,15 @@ function UsersPageContainer() {
 export default function UsersPage() {
   return (
     <ProtectedPage requiredPermission="users:read">
-        <div className="space-y-6">
-            <div className="px-0 sm:px-6">
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة المستخدمين والصلاحيات</h1>
-                <p className="text-muted-foreground">إدارة حسابات الموظفين، تحديد أدوارهم، والتحكم في صلاحيات الوصول للنظام.</p>
-            </div>
-            <UsersPageContainer />
-        </div>
+        <PageContainer>
+            <PageHeader
+                title="إدارة المستخدمين والصلاحيات"
+                description="إدارة حسابات الموظفين، تحديد أدوارهم، والتحكم في صلاحيات الوصول للنظام."
+            />
+            <PageSection>
+                <UsersPageContainer />
+            </PageSection>
+        </PageContainer>
     </ProtectedPage>
   );
 }
