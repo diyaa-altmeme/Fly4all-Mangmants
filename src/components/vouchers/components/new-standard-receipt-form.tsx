@@ -27,7 +27,7 @@ const formSchema = z.object({
   from: z.string().min(1, "اسم الدافع مطلوب"),
   toBox: z.string().min(1, "الصندوق مطلوب"),
   amount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val > 0, { message: "المبلغ يجب أن يكون أكبر من صفر" }),
-  currency: z.enum(['USD', 'IQD']),
+  currency: z.string().min(1, "العملة مطلوبة"),
   details: z.string().optional(),
 });
 
@@ -108,7 +108,7 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
                 from: data.from,
                 toBox: data.toBox,
                 amount: data.amount,
-                currency: data.currency,
+                currency: data.currency as 'USD' | 'IQD',
                 details: data.details
             });
 
@@ -186,3 +186,5 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
     </form>
   );
 }
+
+    

@@ -29,7 +29,7 @@ const entrySchema = z.object({
 
 const formSchema = z.object({
   date: z.date({ required_error: "التاريخ مطلوب" }),
-  currency: z.enum(['USD', 'IQD']),
+  currency: z.string().min(1, 'العملة مطلوبة'),
   notes: z.string().min(1, "بيان القيد مطلوب"),
   exchangeRate: z.coerce.number().optional(),
   entries: z.array(entrySchema).min(2, "يجب وجود حركتين على الأقل (مدين ودائن).")
@@ -64,7 +64,8 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
     return [
       ...(navData.clients || []).map(c => ({ value: c.id, label: `عميل: ${c.name}` })),
       ...(navData.suppliers || []).map(s => ({ value: s.id, label: `مورد: ${s.name}` })),
-      ...(navData.boxes || []).map(b => ({ value: b.id, label: `صندوق: ${b.name}` }))
+      ...(navData.boxes || []).map(b => ({ value: b.id, label: `صندوق: ${b.name}` })),
+      ...(navData.exchanges || []).map(e => ({ value: e.id, label: `بورصة: ${e.name}` })),
     ];
   }, [navData]);
 
@@ -121,7 +122,7 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
         } else {
             const result = await createJournalVoucher({
                 date: (data.date as Date).toISOString(),
-                currency: data.currency,
+                currency: data.currency as 'USD' | 'IQD',
                 notes: data.notes,
                 exchangeRate: data.exchangeRate,
                 entries: data.entries,
@@ -178,6 +179,7 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
                         <Controller name={`entries.${index}.accountId`} control={control} render={({ field }) => (
                            <Autocomplete
                                 searchAction="all"
+                                options={accountOptions}
                                 value={field.value}
                                 onValueChange={field.onChange}
                                 placeholder="ابحث عن حساب..."
