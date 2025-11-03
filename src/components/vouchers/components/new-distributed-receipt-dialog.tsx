@@ -36,21 +36,12 @@ export default function NewDistributedReceiptDialog({
   const { toast } = useToast();
   const { data: navData, loaded: isDataLoaded, fetchData } = useVoucherNav();
   
-  const voucherSettings = navData?.settings?.voucherSettings?.distributed;
+  const voucherSettings = navData?.settings.voucherSettings?.distributed;
   const [dialogDimensions, setDialogDimensions] = useState<{ width?: string, height?: string }>({
     width: voucherSettings?.dialogWidth || '1200px',
     height: voucherSettings?.dialogHeight || '700px',
   });
   
-  const defaultCurrency = navData?.settings?.currencySettings?.defaultCurrency || 'IQD';
-  const [currency, setCurrency] = useState<Currency>(defaultCurrency);
-
-  useEffect(() => {
-    if(navData?.settings?.currencySettings?.defaultCurrency) {
-        setCurrency(navData.settings.currencySettings.defaultCurrency);
-    }
-  }, [navData]);
-
   useEffect(() => {
     if(voucherSettings) {
         setDialogDimensions({
@@ -71,8 +62,6 @@ export default function NewDistributedReceiptDialog({
     setShowSettings(false);
   };
   
-  const headerColor = currency === 'USD' ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
-  
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -88,29 +77,19 @@ export default function NewDistributedReceiptDialog({
         }}
       >
         <DialogHeader 
-           className="p-4 rounded-t-lg flex flex-row justify-between items-center sticky top-0 bg-background z-10 border-b"
-           style={{ backgroundColor: headerColor, color: 'white' }}
+           className="p-4 rounded-t-lg flex flex-row justify-between items-center sticky top-0 bg-primary text-primary-foreground z-10 border-b"
         >
             <div>
-                <DialogTitle className="text-white">{showSettings ? 'إعدادات سند القبض المخصص' : 'سند قبض مخصص'}</DialogTitle>
+                <DialogTitle>{showSettings ? 'إعدادات سند القبض المخصص' : 'سند قبض مخصص'}</DialogTitle>
             </div>
              <div className="flex items-center gap-2">
-              {!showSettings && (
-                  <>
-                     {(navData?.settings?.currencySettings?.currencies || []).map(c => (
-                        <Button key={c.code} type="button" onClick={() => setCurrency(c.code as Currency)} className={cn('text-white h-8', currency === c.code ? 'bg-white/30' : 'bg-transparent border border-white/50')}>
-                            {c.code}
-                        </Button>
-                      ))}
-                    {isDataLoaded && navData && (
-                        <AddClientDialog 
-                            onClientAdded={() => {}} 
-                            onClientUpdated={() => {}} 
-                        >
-                             <Button variant="outline" size="sm" className="h-8 text-black"><Building className="me-2 h-4 w-4"/> إضافة شركة</Button>
-                        </AddClientDialog>
-                    )}
-                  </>
+              {!showSettings && isDataLoaded && navData && (
+                  <AddClientDialog 
+                      onClientAdded={() => {}} 
+                      onClientUpdated={() => {}} 
+                  >
+                        <Button variant="outline" size="sm" className="h-8 text-black"><Building className="me-2 h-4 w-4"/> إضافة شركة</Button>
+                  </AddClientDialog>
               )}
               <Button onClick={() => setShowSettings(!showSettings)} variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
                  {showSettings ? <ArrowRight className="h-5 w-5" /> : <Settings2 className="h-5 w-5" />}
@@ -142,7 +121,6 @@ export default function NewDistributedReceiptDialog({
                 <NewDistributedReceiptForm 
                     onVoucherAdded={handleSuccess} 
                     settings={voucherSettings}
-                    selectedCurrency={currency}
                 />
             )}
         </div>

@@ -17,7 +17,6 @@ import { Settings2, Loader2 } from 'lucide-react';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
 
-
 interface NewPaymentVoucherDialogProps {
   onVoucherAdded: (voucher: any) => void;
   children?: React.ReactNode;
@@ -25,25 +24,19 @@ interface NewPaymentVoucherDialogProps {
 
 export default function NewPaymentVoucherDialog({ onVoucherAdded, children }: NewPaymentVoucherDialogProps) {
   const [open, setOpen] = useState(false);
-  const { data: navData, loaded: isDataLoaded } = useVoucherNav();
+  const { data: navData, loaded: isDataLoaded, fetchData } = useVoucherNav();
   const [dialogDimensions, setDialogDimensions] = useState({ width: '896px', height: '80vh' });
-
-  const defaultCurrency = navData?.settings.currencySettings?.defaultCurrency || 'IQD';
-  const [currency, setCurrency] = useState<Currency>(defaultCurrency);
-
-   useEffect(() => {
-    if(navData?.settings.currencySettings?.defaultCurrency) {
-        setCurrency(navData.settings.currencySettings.defaultCurrency);
-    }
-  }, [navData]);
 
   const handleSuccess = (newVoucher: any) => {
       onVoucherAdded(newVoucher);
       setOpen(false);
   }
 
-  const headerColor = currency === 'USD' ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
-
+  useEffect(() => {
+    if (open && !isDataLoaded) {
+      fetchData();
+    }
+  }, [open, isDataLoaded, fetchData]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -55,18 +48,12 @@ export default function NewPaymentVoucherDialog({ onVoucherAdded, children }: Ne
         style={{ maxWidth: dialogDimensions.width, width: '95vw', height: dialogDimensions.height }}
       >
         <DialogHeader 
-          className="p-4 rounded-t-lg flex flex-row justify-between items-center"
-          style={{ backgroundColor: headerColor, color: 'white' }}
+          className="p-4 rounded-t-lg flex flex-row justify-between items-center bg-primary text-primary-foreground"
         >
           <div>
-            <DialogTitle className="text-white">إنشاء سند دفع جديد</DialogTitle>
+            <DialogTitle>إنشاء سند دفع جديد</DialogTitle>
           </div>
            <div className="flex items-center gap-2">
-               {(navData?.settings?.currencySettings?.currencies || []).map(c => (
-                <Button key={c.code} type="button" onClick={() => setCurrency(c.code)} className={cn('text-white h-8', currency === c.code ? 'bg-white/30' : 'bg-transparent border border-white/50')}>
-                    {c.code}
-                </Button>
-              ))}
                <VoucherDialogSettings
                  dialogKey="payment_voucher"
                  onDimensionsChange={setDialogDimensions}
@@ -82,8 +69,7 @@ export default function NewPaymentVoucherDialog({ onVoucherAdded, children }: Ne
                  <div className="flex justify-center items-center h-48"><Loader2 className="animate-spin h-8 w-8" /></div>
             ) : (
              <NewPaymentVoucherForm 
-                onVoucherAdded={handleSuccess} 
-                selectedCurrency={currency} 
+                onVoucherAdded={handleSuccess}
             />
             )}
         </div>
