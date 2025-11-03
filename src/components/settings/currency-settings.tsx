@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -21,16 +21,27 @@ interface CurrencySettingsProps {
     onSettingsChanged: () => void;
 }
 
+const defaultCurrencySettings: CurrencySettings = {
+    defaultCurrency: 'USD',
+    exchangeRates: { 'USD_IQD': 1480 },
+    currencies: [
+        { code: 'USD', name: 'US Dollar', symbol: '$' },
+        { code: 'IQD', name: 'Iraqi Dinar', symbol: 'ع.د' },
+        { code: 'IRR', name: 'Iranian Rial', symbol: '﷼' },
+    ],
+};
+
 export default function CurrencySettings({ settings: initialSettings, onSettingsChanged }: CurrencySettingsProps) {
-    const [currencySettings, setCurrencySettings] = useState<CurrencySettings>(initialSettings?.currencySettings || { defaultCurrency: 'USD', exchangeRates: {}, currencies: [] });
+    const [currencySettings, setCurrencySettings] = useState<CurrencySettings>(defaultCurrencySettings);
     const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
     
     const [newCurrency, setNewCurrency] = useState({ code: '', name: '', symbol: '' });
 
-
     useEffect(() => {
-        setCurrencySettings(initialSettings?.currencySettings || { defaultCurrency: 'USD', exchangeRates: {}, currencies: [] });
+        if(initialSettings?.currencySettings) {
+            setCurrencySettings(initialSettings.currencySettings);
+        }
     }, [initialSettings]);
 
     const handleExchangeRateChange = (key: string, value: string) => {
@@ -47,13 +58,6 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
         }));
     };
     
-    const handleCurrencyFieldChange = (index: number, field: keyof CurrencySetting, value: string) => {
-        setCurrencySettings(produce(draft => {
-            if (!draft.currencies) draft.currencies = [];
-            (draft.currencies[index] as any)[field] = value;
-        }));
-    };
-
     const handleAddNewCurrency = () => {
         if (!newCurrency.code || !newCurrency.name || !newCurrency.symbol) {
             toast({ title: 'خطأ', description: 'الرجاء ملء جميع حقول العملة الجديدة.', variant: 'destructive' });
@@ -72,8 +76,7 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
                 draft.currencies.splice(index, 1);
             }
         }));
-    }
-
+    };
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -90,13 +93,6 @@ export default function CurrencySettings({ settings: initialSettings, onSettings
     if (!currencySettings) {
         return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin" /></div>;
     }
-    
-    const exchangeRatePairs = currencySettings.currencies?.flatMap((c1) =>
-      currencySettings.currencies
-        .filter((c2) => c1.code !== c2.code)
-        .map((c2) => `${c1.code}_${c2.code}`)
-    ) || [];
-
 
     return (
         <Card>
