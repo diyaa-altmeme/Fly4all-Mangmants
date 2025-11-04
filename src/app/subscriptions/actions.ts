@@ -1,11 +1,12 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus, JournalEntry, Client, Supplier } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { addMonths, format, parseISO, endOfDay, isWithinInterval, startOfDay } from 'date-fns';
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue } from 'firebase-admin/firestore';
 import { getSettings } from '@/app/settings/actions';
 import { createNotification } from '../notifications/actions';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
@@ -55,7 +56,7 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
     }
 
     try {
-        let query: FirebaseFirestore.Query = db.collection('subscriptions');
+        const query: FirebaseFirestore.Query = db.collection('subscriptions');
         
         const snapshot = await query.orderBy('purchaseDate', 'desc').get();
         
@@ -66,10 +67,7 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
         const allSubscriptions = snapshot.docs.map(doc => processDoc(doc) as Subscription);
 
         const subscriptions = allSubscriptions.filter(sub => {
-            if (includeDeleted) {
-                return sub.isDeleted === true;
-            }
-            return sub.isDeleted !== true;
+            return includeDeleted ? sub.isDeleted === true : !sub.isDeleted;
         });
 
 
@@ -696,5 +694,7 @@ export async function revalidateSubscriptionsPath() {
     revalidatePath('/subscriptions');
 }
 
+
+    
 
     
