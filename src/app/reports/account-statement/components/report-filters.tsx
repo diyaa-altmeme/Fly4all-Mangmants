@@ -10,13 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Currency } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { NormalizedVoucherType } from '@/lib/accounting/voucher-types';
 
 
 interface ReportFiltersProps {
-    allFilters: { id: string, label: string, icon: React.ElementType, group: 'basic' | 'other' }[];
+    allFilters: { id: NormalizedVoucherType, label: string, icon: React.ElementType, group: 'basic' | 'other' }[];
     filters: {
         currency: Currency | 'both';
-        typeFilter: Set<string>;
+        typeFilter: Set<NormalizedVoucherType>;
         direction: 'all' | 'debit' | 'credit';
         officer: string;
         minAmount: string;
@@ -31,7 +32,7 @@ interface ReportFiltersProps {
 
 export default function ReportFilters({ allFilters, filters, onFiltersChange, officerOptions, onResetFilters, currencyOptions }: ReportFiltersProps) {
 
-    const handleFilterToggle = (id: string) => {
+    const handleFilterToggle = (id: NormalizedVoucherType) => {
         onFiltersChange((prev: any) => {
             const newSet = new Set(prev.typeFilter);
             if (newSet.has(id)) {

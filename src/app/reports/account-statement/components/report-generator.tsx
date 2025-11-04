@@ -65,6 +65,7 @@ import type {
   ReportInfo,
   ReportCurrencySummary
 } from "@/lib/types";
+import type { NormalizedVoucherType } from "@/lib/accounting/voucher-types";
 import { useAuth } from "@/lib/auth-context";
 import {
   Popover,
@@ -95,6 +96,19 @@ interface ReportGeneratorProps {
   exchanges: Exchange[];
   defaultAccountId?: string;
 }
+
+type ReportFiltersState = {
+  accountId: string;
+  dateRange: DateRange | undefined;
+  searchTerm: string;
+  currency: Currency | "both";
+  typeFilter: Set<NormalizedVoucherType>;
+  direction: "all" | "debit" | "credit";
+  officer: "all" | string;
+  minAmount: string;
+  maxAmount: string;
+  showOpeningBalance: boolean;
+};
 
 const createDefaultDateRange = (): DateRange => ({
   from: startOfDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
@@ -181,13 +195,13 @@ export default function ReportGenerator({
     "relation" | "box" | "exchange" | "static" | "expense"
   >("relation");
 
-  const [filters, setFilters] = useState(() => ({
+  const [filters, setFilters] = useState<ReportFiltersState>(() => ({
     accountId: defaultAccountId || "",
     dateRange: createDefaultDateRange() as DateRange | undefined,
     searchTerm: "",
-    currency: "both" as Currency | "both",
-    typeFilter: new Set<string>(),
-    direction: "all" as "all" | "debit" | "credit",
+    currency: "both",
+    typeFilter: new Set<NormalizedVoucherType>(),
+    direction: "all",
     officer: "all",
     minAmount: "",
     maxAmount: "",
@@ -240,24 +254,25 @@ export default function ReportGenerator({
     }
   }, [accountType, clients, suppliers, boxes, exchanges, navData]);
 
-   const allFilters = useMemo(
+  const allFilters = useMemo(
     () => [
-      { id: "booking", label: "حجز طيران", icon: Plane, group: "basic" },
-      { id: "visa", label: "طلب فيزا", icon: CreditCard, group: "basic" },
-      { id: "subscription", label: "اشتراك", icon: Repeat, group: "basic" },
-      { id: "payment", label: "سند دفع", icon: FileUp, group: "basic" },
-      { id: "standard_receipt", label: "سند قبض", icon: FileDown, group: "basic" },
-      { id: "manualExpense", label: "سند مصاريف", icon: Banknote, group: "basic" },
-      { id: "distributed_receipt", label: "سند قبض مخصص", icon: GitBranch, group: "other" },
-      { id: "remittance", label: "حوالة مستلمة", icon: ArrowRightLeft, group: "other" },
-      { id: "exchange_transaction", label: "معاملة بورصة", icon: ChevronsRightLeft, group: "other" },
-      { id: "exchange_payment", label: "تسديد بورصة", icon: ChevronsRightLeft, group: "other" },
-      { id: "segment", label: "سكمنت", icon: Layers3, group: "other" },
-      { id: "profit-sharing", label: "توزيع الحصص", icon: Share2, group: "other" },
-      { id: "journal_voucher", label: "قيد محاسبي", icon: BookUser, group: "other" },
-      { id: "refund", label: "استرجاع تذكرة", icon: RefreshCw, group: "other" },
-      { id: "exchange", label: "تغيير تذكرة", icon: RefreshCw, group: "other" },
-      { id: "void", label: "إلغاء (فويد)", icon: XCircle, group: "other" },
+      { id: "booking" as NormalizedVoucherType, label: mapVoucherLabel("booking"), icon: Plane, group: "basic" as const },
+      { id: "visa" as NormalizedVoucherType, label: mapVoucherLabel("visa"), icon: CreditCard, group: "basic" as const },
+      { id: "subscription" as NormalizedVoucherType, label: mapVoucherLabel("subscription"), icon: Repeat, group: "basic" as const },
+      { id: "payment" as NormalizedVoucherType, label: mapVoucherLabel("payment"), icon: FileUp, group: "basic" as const },
+      { id: "standard_receipt" as NormalizedVoucherType, label: mapVoucherLabel("standard_receipt"), icon: FileDown, group: "basic" as const },
+      { id: "manualExpense" as NormalizedVoucherType, label: mapVoucherLabel("manualExpense"), icon: Banknote, group: "basic" as const },
+      { id: "distributed_receipt" as NormalizedVoucherType, label: mapVoucherLabel("distributed_receipt"), icon: GitBranch, group: "other" as const },
+      { id: "remittance" as NormalizedVoucherType, label: mapVoucherLabel("remittance"), icon: ArrowRightLeft, group: "other" as const },
+      { id: "transfer" as NormalizedVoucherType, label: mapVoucherLabel("transfer"), icon: Repeat, group: "other" as const },
+      { id: "exchange_transaction" as NormalizedVoucherType, label: mapVoucherLabel("exchange_transaction"), icon: ChevronsRightLeft, group: "other" as const },
+      { id: "exchange_payment" as NormalizedVoucherType, label: mapVoucherLabel("exchange_payment"), icon: ChevronsRightLeft, group: "other" as const },
+      { id: "segment" as NormalizedVoucherType, label: mapVoucherLabel("segment"), icon: Layers3, group: "other" as const },
+      { id: "profit-sharing" as NormalizedVoucherType, label: mapVoucherLabel("profit-sharing"), icon: Share2, group: "other" as const },
+      { id: "journal_voucher" as NormalizedVoucherType, label: mapVoucherLabel("journal_voucher"), icon: BookUser, group: "other" as const },
+      { id: "refund" as NormalizedVoucherType, label: mapVoucherLabel("refund"), icon: RefreshCw, group: "other" as const },
+      { id: "exchange" as NormalizedVoucherType, label: mapVoucherLabel("exchange"), icon: RefreshCw, group: "other" as const },
+      { id: "void" as NormalizedVoucherType, label: mapVoucherLabel("void"), icon: XCircle, group: "other" as const },
     ],
     []
   );
@@ -265,7 +280,7 @@ export default function ReportGenerator({
   useEffect(() => {
     setFilters((prev) => ({
       ...prev,
-      typeFilter: new Set(allFilters.map((filter) => filter.id)),
+      typeFilter: new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id)),
     }));
   }, [allFilters]);
 
@@ -332,7 +347,7 @@ export default function ReportGenerator({
       ...prev,
       searchTerm: "",
       currency: "both",
-      typeFilter: new Set(allFilters.map((filter) => filter.id)),
+      typeFilter: new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id)),
       direction: "all",
       officer: "all",
       minAmount: "",
@@ -348,7 +363,7 @@ export default function ReportGenerator({
     const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? maxAmount : null;
 
     return transactions.filter((tx) => {
-      const typeKey = tx.sourceType || tx.voucherType || tx.type;
+      const typeKey = (tx.normalizedType || tx.sourceType || tx.voucherType || tx.type) as NormalizedVoucherType | undefined;
       if (filters.typeFilter.size > 0 && typeKey && !filters.typeFilter.has(typeKey)) {
         return false;
       }
@@ -513,11 +528,8 @@ export default function ReportGenerator({
       badges.push({ id: "max", label: `حد أقصى: ${filters.maxAmount}` });
     }
 
-    const selectedTypes = filters.typeFilter;
-    if (selectedTypes.size > 0 && selectedTypes.size !== allFilters.length) {
-      const labels = allFilters
-        .filter((filter) => selectedTypes.has(filter.id))
-        .map((filter) => filter.label);
+    if (filters.typeFilter.size > 0 && filters.typeFilter.size !== allFilters.length) {
+      const labels = Array.from(filters.typeFilter).map((typeId) => mapVoucherLabel(typeId));
       labels.slice(0, 4).forEach((label, index) => {
         badges.push({ id: `type-${index}`, label });
       });
@@ -550,7 +562,7 @@ export default function ReportGenerator({
     }
     const data = finalTransactions.map((tx) => ({
       'التاريخ': tx.date ? format(parseISO(tx.date), "yyyy-MM-dd") : "",
-      'النوع': mapVoucherLabel(tx.sourceType || tx.voucherType || tx.type),
+      'النوع': mapVoucherLabel(tx.normalizedType || tx.sourceType || tx.voucherType || tx.type),
       'البيان': typeof tx.description === "string" ? tx.description : tx.description?.title,
       'مدين': tx.debit || 0,
       'دائن': tx.credit || 0,

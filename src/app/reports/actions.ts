@@ -7,6 +7,9 @@ import { Timestamp } from "firebase-admin/firestore";
 import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription, ReportInfo, Currency, StructuredDescription } from '@/lib/types';
 import { getClients } from '@/app/relations/actions';
 import { getUsers } from "../users/actions";
+import { getBoxes } from '@/app/boxes/actions';
+import { getSettings } from '@/app/settings/actions';
+import { normalizeVoucherType } from "@/lib/accounting/voucher-types";
 
 const normalizeToDate = (value: unknown): Date | null => {
   if (!value) return null;
@@ -45,12 +48,36 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
   const { accountId, dateFrom, dateTo, voucherType } = filters;
 
   try {
-    const users = await getUsers();
+    const [users, clientsResult, boxes, settings] = await Promise.all([
+      getUsers(),
+      getClients({ all: true, includeInactive: true, relationType: 'all' }),
+      getBoxes(),
+      getSettings(),
+    ]);
     const usersMap = new Map(users.map(u => [u.uid, u.name]));
-    
-    // This is temporary until a better account source is available
-    const clientsData = (await getClients({ all: true })).clients;
-    const allAccounts = clientsData.map(c => ({ value: c.id, label: c.name }));
+
+    const clientsData = clientsResult.clients || [];
+    const accountLabelMap = new Map<string, string>();
+    clientsData.forEach((client) => {
+      accountLabelMap.set(client.id, client.name);
+    });
+    (boxes || []).forEach((box) => {
+      accountLabelMap.set(box.id, box.name);
+    });
+
+    const distributionSettings = (settings as any)?.voucherSettings?.distributed;
+    const distributionChannels = (distributionSettings?.distributionChannels || []) as Array<{
+      id: string;
+      label: string;
+      accountId?: string;
+    }>;
+    const distributionChannelLabel = new Map<string, string>();
+    distributionChannels.forEach((channel) => {
+      distributionChannelLabel.set(channel.id, channel.label);
+      if (channel.accountId) {
+        accountLabelMap.set(channel.accountId, channel.label);
+      }
+    });
 
     const allVouchersSnap = await db.collection('journal-vouchers').orderBy('date', 'asc').get();
 
@@ -63,6 +90,9 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
 
         const voucherDate = normalizeToDate(v.date) ?? normalizeToDate(v.createdAt) ?? new Date();
 
+        const rawSourceType = v.originalData?.sourceType || v.sourceType || v.voucherType;
+        const normalizedType = normalizeVoucherType(rawSourceType || v.voucherType);
+
         const processEntry = (entry: JournalEntry, type: 'debit' | 'credit') => {
             if (entry.accountId === accountId) {
                 const amount = (type === 'debit' ? 1 : -1) * (entry.amount || 0);
@@ -71,34 +101,40 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                 if (dateFrom && voucherDate < dateFrom) {
                     openingBalances[currency] = (openingBalances[currency] || 0) + amount;
                 } else if ((!dateFrom || voucherDate >= dateFrom) && (!dateTo || voucherDate <= dateTo)) {
-                    
-                    let description: string | StructuredDescription = entry.description || v.notes || '';
-                    if (v.voucherType === 'journal_from_distributed_receipt') {
-                        const totalReceived = `الإجمالي: ${v.originalData.totalAmount} ${v.currency}`;
-                        const selfReceipt = `سداد للدافع: ${v.originalData.companyAmount} ${v.currency}`;
-                        
-                        // Find the client name for the description title
-                        const clientName = allAccounts.find(acc => acc.value === v.originalData.accountId)?.label || v.originalData.accountId;
 
-                        const distributions = Object.entries(v.originalData.distributions || {})
-                            .filter(([, distData]: [string, any]) => distData.amount > 0)
-                            .map(([key, distData]: [string, any]) => {
-                                 const distAccount = v.creditEntries.find(e => e.accountId === key);
+                    let description: string | StructuredDescription = entry.description || v.notes || '';
+                    if (normalizedType === 'distributed_receipt') {
+                        const baseCurrency = currency;
+                        const totalAmount = Number(v.originalData?.totalAmount ?? entry.amount ?? 0);
+                        const companyAmount = Number(v.originalData?.companyAmount ?? 0);
+                        const formattedTotal = new Intl.NumberFormat('en-US').format(totalAmount);
+                        const formattedCompany = new Intl.NumberFormat('en-US').format(companyAmount);
+                        const clientName = accountLabelMap.get(v.originalData?.accountId || '') || v.originalData?.accountId || '';
+
+                        const distributions = Object.entries(v.originalData?.distributions || {})
+                            .map(([channelId, distData]: [string, any]) => {
+                                const numericAmount = Number(distData?.amount || 0);
+                                if (!numericAmount) return null;
+                                const label = distributionChannelLabel.get(channelId)
+                                    || accountLabelMap.get(channelId)
+                                    || channelId;
+                                const formattedAmount = new Intl.NumberFormat('en-US').format(numericAmount);
                                 return {
-                                    name: distAccount?.description || key,
-                                    amount: `${distData.amount} ${v.currency}`
-                                }
-                            });
-                        
+                                    name: label,
+                                    amount: `${formattedAmount} ${distData?.currency || baseCurrency}`,
+                                };
+                            })
+                            .filter(Boolean) as { name: string; amount: string }[];
+
                         description = {
-                            title: `سند قبض موزع من ${clientName}`,
-                            totalReceived,
-                            selfReceipt,
+                            title: clientName ? `سند قبض موزع من ${clientName}` : 'سند قبض موزع',
+                            totalReceived: `الإجمالي: ${formattedTotal} ${baseCurrency}`,
+                            selfReceipt: companyAmount > 0 ? `سداد للدافع: ${formattedCompany} ${baseCurrency}` : undefined,
                             distributions,
-                            notes: v.notes || ''
+                            notes: v.notes || '',
                         };
                     }
-                    
+
                     reportRows.push({
                         id: `${doc.id}_${type}_${Math.random()}`,
                         date: voucherDate.toISOString(),
@@ -108,15 +144,18 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                         credit: type === 'credit' ? entry.amount || 0 : 0,
                         currency: currency,
                         officer: usersMap.get(v.createdBy) || v.officer || v.createdBy,
-                        voucherType: v.voucherType,
-                        sourceType: v.originalData?.sourceType || v.voucherType,
+                        voucherType: normalizedType,
+                        normalizedType,
+                        rawVoucherType: v.voucherType,
+                        sourceType: normalizedType,
+                        rawSourceType,
                         sourceId: v.originalData?.sourceId || doc.id,
                         sourceRoute: v.originalData?.sourceRoute,
                         originalData: v.originalData,
-                        notes: entry.description || v.notes,
+                        notes: entry.description || v.notes || '',
                         direction: type,
                         amount: entry.amount || 0,
-                        type: v.voucherType,
+                        type: normalizedType,
                         accountId: entry.accountId,
                         createdAt: serializeDate(v.createdAt),
                     });
@@ -130,7 +169,10 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     
 
     const filteredRows = voucherType && voucherType.length > 0
-        ? reportRows.filter(r => (r.voucherType && voucherType.includes(r.voucherType)) || (r.sourceType && voucherType.includes(r.sourceType)))
+        ? reportRows.filter(r => {
+            const typeKey = r.normalizedType || r.sourceType || r.voucherType || r.type;
+            return typeKey ? voucherType.includes(typeKey) : false;
+        })
         : reportRows;
 
     const runningBalances: Record<string, number> = { ...openingBalances };
