@@ -1,14 +1,12 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import { Timestamp } from "firebase-admin/firestore";
-import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription, ReportInfo, Currency } from '@/lib/types';
+import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription, ReportInfo, Currency, StructuredDescription } from '@/lib/types';
 import { getClients } from '@/app/relations/actions';
 import { getUsers } from "../users/actions";
 
-// 🔹 جلب كشف الحساب مع معالجة الحقول الجديدة وحساب أرصدة منفصلة لكل عملة
 const normalizeToDate = (value: unknown): Date | null => {
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -69,14 +67,31 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                     openingBalances[currency] = (openingBalances[currency] || 0) + amount;
                 } else if ((!dateFrom || voucherDate >= dateFrom) && (!dateTo || voucherDate <= dateTo)) {
                     
-                    const entryNote = typeof (entry as any).note === 'string' ? (entry as any).note.trim() : '';
-                    const voucherNote = typeof v.notes === 'string' ? v.notes.trim() : '';
-
+                    let description: string | StructuredDescription = entry.description || v.notes || '';
+                    if (v.voucherType === 'journal_from_distributed_receipt') {
+                        const totalReceived = `الإجمالي: ${v.originalData.totalAmount} ${v.currency}`;
+                        const selfReceipt = `سداد للدافع: ${v.originalData.companyAmount} ${v.currency}`;
+                        const distributions = Object.entries(v.originalData.distributions || {})
+                            .filter(([, distData]: [string, any]) => distData.amount > 0)
+                            .map(([key, distData]: [string, any]) => ({
+                                name: v.creditEntries.find(e => e.accountId === key)?.description || key,
+                                amount: `${distData.amount} ${v.currency}`
+                            }));
+                        
+                        description = {
+                            title: `سند قبض موزع من ${v.originalData.accountId}`,
+                            totalReceived,
+                            selfReceipt,
+                            distributions,
+                            notes: v.notes || ''
+                        };
+                    }
+                    
                     reportRows.push({
                         id: `${doc.id}_${type}_${Math.random()}`,
                         date: voucherDate.toISOString(),
                         invoiceNumber: v.invoiceNumber,
-                        description: entry.description || v.notes || '',
+                        description: description,
                         debit: type === 'debit' ? entry.amount || 0 : 0,
                         credit: type === 'credit' ? entry.amount || 0 : 0,
                         currency: currency,
@@ -86,7 +101,7 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                         sourceId: v.originalData?.sourceId || doc.id,
                         sourceRoute: v.originalData?.sourceRoute,
                         originalData: v.originalData,
-                        notes: entryNote || voucherNote,
+                        notes: entry.description || v.notes,
                         direction: type,
                         amount: entry.amount || 0,
                         type: v.voucherType,
@@ -119,8 +134,8 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
 
             return {
                 ...r,
-                balance: nextBalance, // For single currency context
-                balancesByCurrency: balancesSnapshot, // For multi-currency context
+                balance: nextBalance,
+                balancesByCurrency: balancesSnapshot,
                 balanceUSD: balancesSnapshot['USD'] ?? 0,
                 balanceIQD: balancesSnapshot['IQD'] ?? 0,
             };
@@ -202,7 +217,7 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         const v = doc.data() as JournalVoucher;
         if(v.isDeleted) return;
 
-        const processEntries = (entries: JournalEntry[], isDebit: boolean) => {
+        const processEntries = (entries: LegacyJournalEntry[], isDebit: boolean) => {
             (entries || []).forEach(entry => {
                 if (balances[entry.accountId]) {
                     const amount = isDebit ? entry.amount : -entry.amount;
