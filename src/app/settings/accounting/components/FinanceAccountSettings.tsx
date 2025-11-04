@@ -6,7 +6,7 @@ import { updateSettings } from "@/app/settings/actions";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { AlertCircle, Save, Loader2 } from "lucide-react";
-import type { TreeNode } from "@/lib/types";
+import type { TreeNode } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -81,37 +81,49 @@ export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccou
       },
   });
 
+  const accountOptions = useMemo(() => {
+    const tree = buildTree(chartOfAccounts);
+    return flattenNodes(tree);
+  }, [chartOfAccounts]);
+
+  const accountsByCode = useMemo(() => {
+      const map = new Map<string, string>();
+      chartOfAccounts.forEach(acc => map.set(acc.code, acc.id));
+      return map;
+  }, [chartOfAccounts]);
+
   useEffect(() => {
     setLoading(true);
     const normalized = normalizeFinanceAccounts(initialFinanceMap);
-    form.reset({
-        receivableAccountId: normalized.receivableAccountId || '',
-        payableAccountId: normalized.payableAccountId || '',
-        hybridRelationAccountId: normalized.hybridRelationAccountId || '',
-        clearingAccountId: normalized.clearingAccountId || '',
-        defaultCashId: normalized.defaultCashId || '',
-        defaultBankId: normalized.defaultBankId || '',
-        generalRevenueId: normalized.generalRevenueId || '',
-        generalExpenseId: normalized.generalExpenseId || '',
-        preventDirectCashRevenue: normalized.preventDirectCashRevenue || false,
-        rev_tickets: normalized.revenueMap?.tickets || '',
-        rev_visas: normalized.revenueMap?.visas || '',
-        rev_subscriptions: normalized.revenueMap?.subscriptions || '',
-        rev_segments: normalized.revenueMap?.segments || '',
-        rev_other: normalized.revenueMap?.other || '',
-        exp_tickets: normalized.expenseMap?.tickets || '',
-        exp_visas: normalized.expenseMap?.visas || '',
-        exp_subscriptions: normalized.expenseMap?.subscriptions || '',
-        exp_partners: normalized.expenseMap?.partners || '',
-        exp_operating: normalized.expenseMap?.operating || '',
-    });
-    setLoading(false);
-  }, [initialFinanceMap, form]);
+    
+    // Auto-linking logic
+    const getAccountIdByCode = (code: string) => accountsByCode.get(code) || '';
 
-  const accountOptions = useMemo(() => {
-      const tree = buildTree(chartOfAccounts);
-      return flattenNodes(tree);
-  }, [chartOfAccounts]);
+    const defaultValues: Partial<FormValues> = {
+        receivableAccountId: normalized.receivableAccountId || getAccountIdByCode('1-1-2-1'),
+        payableAccountId: normalized.payableAccountId || getAccountIdByCode('2-1-1-1'),
+        hybridRelationAccountId: normalized.hybridRelationAccountId || getAccountIdByCode('1-1-2-2'),
+        clearingAccountId: normalized.clearingAccountId || getAccountIdByCode('1-1-3'),
+        defaultCashId: normalized.defaultCashId || getAccountIdByCode('1-1-1'), // Default Cash Box
+        defaultBankId: normalized.defaultBankId, // No default code for bank
+        generalRevenueId: normalized.generalRevenueId || getAccountIdByCode('4'),
+        generalExpenseId: normalized.generalExpenseId || getAccountIdByCode('5'),
+        preventDirectCashRevenue: normalized.preventDirectCashRevenue || false,
+        rev_tickets: normalized.revenueMap?.tickets || getAccountIdByCode('4-1-1'),
+        rev_visas: normalized.revenueMap?.visas || getAccountIdByCode('4-1-2'),
+        rev_subscriptions: normalized.revenueMap?.subscriptions || getAccountIdByCode('4-1-3'),
+        rev_segments: normalized.revenueMap?.segments || getAccountIdByCode('4-1-4'),
+        rev_other: normalized.revenueMap?.other || getAccountIdByCode('4-2'),
+        exp_tickets: normalized.expenseMap?.tickets || getAccountIdByCode('5-1-1'),
+        exp_visas: normalized.expenseMap?.visas || getAccountIdByCode('5-1-2'),
+        exp_subscriptions: normalized.expenseMap?.subscriptions || getAccountIdByCode('5-1-3'),
+        exp_partners: normalized.expenseMap?.partners || getAccountIdByCode('5-1-4'),
+        exp_operating: normalized.expenseMap?.operating || getAccountIdByCode('5-2'),
+    };
+    
+    form.reset(defaultValues);
+    setLoading(false);
+  }, [initialFinanceMap, accountsByCode, form]);
 
   const handleFormSubmit = async (data: FormValues) => {
     try {
@@ -141,7 +153,7 @@ export default function FinanceAccountSettings({ initialFinanceMap, chartOfAccou
             },
         });
 
-        const result = await updateSettings({ financeAccounts: financePayload });
+        const result = await updateSettings({ financeAccounts: financePayload as any });
         if (result.success) {
             toast({ title: "تم الحفظ بنجاح" });
             onSaveSuccess();
