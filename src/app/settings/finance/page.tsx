@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getFinanceSettings } from '../advanced-accounts-setup/actions';
+import { getFinanceSettings } from '@/app/settings/accounting/actions';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -53,7 +53,7 @@ export default function FinanceControlCenterReadOnly() {
           <p className="text-sm text-muted-foreground">عرض الحسابات الرئيسية المرتبطة بالنظام.</p>
         </div>
         <Button asChild>
-            <Link href="/settings/advanced-accounts-setup">
+            <Link href="/settings/accounting">
                 <ArrowLeft className="ms-2 h-4 w-4"/>
                 إدارة وربط الحسابات
             </Link>
