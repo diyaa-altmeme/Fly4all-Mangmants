@@ -8,7 +8,6 @@ export const createDistributedReceiptSchema = (
 ) => {
   const dynamicFields = channels.reduce((acc, channel) => {
     acc[channel.id] = z.object({
-        enabled: z.boolean().default(true),
         amount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val >= 0).optional(),
     });
     return acc;
@@ -24,14 +23,14 @@ export const createDistributedReceiptSchema = (
     exchangeRate: z.coerce.number().optional(),
     totalAmount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val > 0, { message: "المبلغ الإجمالي يجب أن يكون أكبر من صفر" }),
     details: z.string().optional(),
-    companyAmount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val >= 0, { message: "مبلغ الشركة لا يمكن أن يكون سالبًا."}).optional(),
+    companyAmount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val >= 0, { message: "مبلغ الشركة لا يمكن أن يكون سالبًا."}),
     distributions: z.object(dynamicFields),
   }).refine((data) => {
     const totalDistributionsFromList = Object.values(data.distributions).reduce((sum, item: any) => {
-        return sum + (item.enabled ? (Number(item.amount) || 0) : 0);
+        return sum + (Number(item.amount) || 0);
     }, 0);
     
-    // If there are no distributions, this check is not needed. The companyAmount will equal totalAmount.
+    // If there are no distributions, the company amount should equal the total amount
     if (totalDistributionsFromList === 0) {
         return true;
     }
