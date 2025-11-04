@@ -86,7 +86,7 @@ export default function NewDistributedReceiptForm({
       date: new Date(),
       currency: selectedCurrency,
       exchangeRate: 0,
-      totalAmount: 0,
+      totalAmount: undefined,
       notes: '',
       companyAmount: 0,
       distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
@@ -108,7 +108,7 @@ export default function NewDistributedReceiptForm({
               date: new Date(),
               currency: selectedCurrency,
               exchangeRate: 0,
-              totalAmount: 0,
+              totalAmount: undefined,
               notes: '',
               companyAmount: 0,
               distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
@@ -125,23 +125,30 @@ export default function NewDistributedReceiptForm({
   const { isSubmitting, watch, control, setValue, getValues, register, formState: { errors } } = form;
   const watchedCurrency = watch('currency');
 
+  const boxName = React.useMemo(() => {
+    const boxId = watch('boxId');
+    return navData?.boxes?.find(b => b.id === boxId)?.name || 'غير محدد';
+  }, [watch, navData?.boxes]);
+
+
   React.useEffect(() => {
-    const subscription = watch((value, { name }) => {
-      if (name?.startsWith('distributions.') || name === 'totalAmount') {
-        const currentValues = getValues();
-        const totalAmount = parseNumericValue(currentValues.totalAmount);
-        
-        const totalDist = Object.values(currentValues.distributions || {}).reduce(
-          (sum, item: any) => sum + parseNumericValue(item.amount),
-          0
-        );
+    const subscription = watch((value, { name, type }) => {
+      // Avoid feedback loops and unnecessary recalculations
+      if (type !== 'change' || name === 'companyAmount') return;
 
-        const newCompanyAmount = totalAmount - totalDist;
-        const currentCompanyAmount = parseNumericValue(getValues('companyAmount'));
+      const currentValues = getValues();
+      const totalAmount = parseNumericValue(currentValues.totalAmount);
+      
+      const totalDist = Object.values(currentValues.distributions || {}).reduce(
+        (sum, item: any) => sum + parseNumericValue(item.amount),
+        0
+      );
 
-        if (newCompanyAmount !== currentCompanyAmount) {
-            setValue('companyAmount', newCompanyAmount, { shouldValidate: true });
-        }
+      const newCompanyAmount = totalAmount - totalDist;
+      
+      // Only update if the value is different to prevent re-renders
+      if (Math.abs(newCompanyAmount - parseNumericValue(currentValues.companyAmount)) > 0.001) {
+          setValue('companyAmount', newCompanyAmount >= 0 ? newCompanyAmount : 0, { shouldValidate: true });
       }
     });
     return () => subscription.unsubscribe();
