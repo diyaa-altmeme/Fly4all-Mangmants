@@ -66,8 +66,8 @@ export default function NewDistributedReceiptDialog({
   }
 
   const handleSettingsSaved = async () => {
-    toast({ title: 'تم حفظ الإعدادات', description: 'سيتم تطبيق الإعدادات الجديدة في المرة القادمة التي تفتح فيها هذا النموذج.' });
-    await fetchData(); // Refetch settings
+    toast({ title: 'تم حفظ الإعدادات بنجاح' });
+    await fetchData(true); // Force refetch all settings
     setShowSettings(false);
   };
   
@@ -150,3 +150,4 @@ export default function NewDistributedReceiptDialog({
     </Dialog>
   );
 }
+
