@@ -24,10 +24,10 @@ export default function AccountStatementPage() {
     return (
         <div className="space-y-6">
             <Card>
-                 <CardHeader>
+                <CardHeader>
                     <CardTitle>كشف الحساب</CardTitle>
                     <CardDescription>
-                        عرض وتحليل جميع الحركات المالية لحساب محدد ضمن فترة زمنية.
+                        المركز المالي الموحد للنظام؛ راقب كل العمليات النقدية والحسابية من مكان واحد مع إمكانية التحليل والتدقيق التفصيلي.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

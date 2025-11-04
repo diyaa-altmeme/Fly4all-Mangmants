@@ -20,29 +20,23 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import {
-  PlusCircle,
-  FileText,
   Search,
-  Filter,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
 import VouchersTable from './components/vouchers-table';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useDebounce } from '@/hooks/use-debounce';
 import { getAllVouchers } from './actions';
 import { updateSettings } from '@/app/settings/actions';
 import VouchersListSettingsDialog from './components/vouchers-list-settings-dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useVoucherNav } from '@/context/voucher-nav-context';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { DEFAULT_VOUCHER_TABS_ORDER, getVoucherTypeLabel } from '@/lib/accounting/voucher-types';
+import type { NormalizedVoucherType } from '@/lib/accounting/voucher-types';
 
 
 const VouchersListContent = () => {
@@ -54,7 +48,7 @@ const VouchersListContent = () => {
   const [voucherListSettings, setVoucherListSettings] =
     React.useState<VoucherListSettings | undefined>();
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [filterType, setFilterType] = React.useState('all');
+  const [activeTab, setActiveTab] = React.useState<'all' | NormalizedVoucherType>('all');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   const fetchVouchers = React.useCallback(async () => {
@@ -109,20 +103,61 @@ const VouchersListContent = () => {
     }
   };
 
-  const filteredVouchers = React.useMemo(() => {
+  const searchedVouchers = React.useMemo(() => {
     return vouchers.filter((v) => {
-      const typeMatch = filterType === 'all' || v.voucherType === filterType;
-      const searchMatch = debouncedSearchTerm
-        ? v.invoiceNumber
-            ?.toLowerCase()
-            .includes(debouncedSearchTerm.toLowerCase()) ||
-          v.companyName?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-          v.officer?.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-          v.notes?.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
-        : true;
-      return typeMatch && searchMatch;
+      if (!debouncedSearchTerm) return true;
+      const term = debouncedSearchTerm.toLowerCase();
+      return (
+        v.invoiceNumber?.toLowerCase().includes(term) ||
+        v.companyName?.toLowerCase().includes(term) ||
+        v.officer?.toLowerCase().includes(term) ||
+        v.notes?.toLowerCase().includes(term)
+      );
     });
-  }, [vouchers, debouncedSearchTerm, filterType]);
+  }, [vouchers, debouncedSearchTerm]);
+
+  const tabData = React.useMemo(() => {
+    const map = new Map<string, Voucher[]>();
+    map.set('all', searchedVouchers);
+    searchedVouchers.forEach((voucher) => {
+      const key = voucher.normalizedType || 'other';
+      if (!map.has(key)) {
+        map.set(key, []);
+      }
+      map.get(key)!.push(voucher);
+    });
+    return map;
+  }, [searchedVouchers]);
+
+  const tabDefinitions = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    counts.set('all', searchedVouchers.length);
+    searchedVouchers.forEach((voucher) => {
+      const key = voucher.normalizedType || 'other';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+
+    const presentTypes = Array.from(counts.keys()).filter((key) => key !== 'all') as NormalizedVoucherType[];
+    const ordered = [
+      ...DEFAULT_VOUCHER_TABS_ORDER.filter((type) => presentTypes.includes(type) && counts.get(type) !== undefined),
+      ...presentTypes.filter((type) => !DEFAULT_VOUCHER_TABS_ORDER.includes(type)),
+    ];
+
+    return [
+      { id: 'all' as const, label: 'كل السندات', count: counts.get('all') || 0 },
+      ...ordered.map((type) => ({
+        id: type,
+        label: getVoucherTypeLabel(type),
+        count: counts.get(type) || 0,
+      })),
+    ];
+  }, [searchedVouchers]);
+
+  React.useEffect(() => {
+    if (activeTab !== 'all' && !tabData.has(activeTab)) {
+      setActiveTab('all');
+    }
+  }, [activeTab, tabData]);
 
   if (loading || !isDataLoaded || !voucherListSettings) {
     return (
@@ -141,35 +176,14 @@ const VouchersListContent = () => {
   return (
     <Card>
       <CardHeader className="flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="بحث..."
-              className="ps-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="النوع" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل الأنواع</SelectItem>
-              <SelectItem value="journal_from_standard_receipt">
-                سند قبض عادي
-              </SelectItem>
-              <SelectItem value="journal_from_distributed_receipt">
-                سند قبض مخصص
-              </SelectItem>
-              <SelectItem value="journal_from_payment">سند دفع</SelectItem>
-              <SelectItem value="journal_from_expense">سند مصاريف</SelectItem>
-              <SelectItem value="journal_voucher">قيد محاسبي</SelectItem>
-              <SelectItem value="booking">حجز طيران</SelectItem>
-              <SelectItem value="visa">طلب فيزا</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="بحث في السندات..."
+            className="ps-10"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
 
         <div className="flex items-center gap-2">
@@ -178,6 +192,7 @@ const VouchersListContent = () => {
             variant="outline"
             size="icon"
             className="h-8 w-8"
+            title="تحديث البيانات"
           >
             {loading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -194,17 +209,47 @@ const VouchersListContent = () => {
       </CardHeader>
 
       <CardContent>
-        {filteredVouchers.length > 0 ? (
-          <VouchersTable
-            vouchers={filteredVouchers}
-            onDataChanged={fetchVouchers}
-            settings={voucherListSettings}
-          />
-        ) : (
-          <div className="py-10 text-center text-muted-foreground">
-            لا توجد سندات مطابقة للبحث أو الفلاتر المحددة.
-          </div>
-        )}
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as 'all' | NormalizedVoucherType)}
+          className="space-y-4"
+        >
+          <TabsList className="w-full overflow-x-auto flex gap-2">
+            {tabDefinitions.map((tab) => (
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
+                className="flex items-center gap-2 whitespace-nowrap"
+              >
+                <span>{tab.label}</span>
+                <Badge variant="secondary" className="font-mono text-[11px]">
+                  {tab.count}
+                </Badge>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {tabDefinitions.map((tab) => {
+            const vouchersForTab = tab.id === 'all'
+              ? tabData.get('all') || []
+              : tabData.get(tab.id as string) || [];
+            return (
+              <TabsContent key={tab.id} value={tab.id} className="mt-4">
+                {vouchersForTab.length > 0 ? (
+                  <VouchersTable
+                    vouchers={vouchersForTab}
+                    onDataChanged={fetchVouchers}
+                    settings={voucherListSettings}
+                  />
+                ) : (
+                  <div className="py-10 text-center text-muted-foreground">
+                    لا توجد سندات ضمن هذا التصنيف بناءً على معايير البحث الحالية.
+                  </div>
+                )}
+              </TabsContent>
+            );
+          })}
+        </Tabs>
       </CardContent>
     </Card>
   );
