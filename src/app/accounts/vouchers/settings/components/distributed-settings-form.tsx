@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
@@ -90,7 +91,6 @@ export default function DistributedSettingsForm({
   const onSubmit = async (data: DistributedVoucherSettings) => {
     const result = await updateSettings({ voucherSettings: { ...navData?.settings.voucherSettings, distributed: data } });
     if (result.success) {
-        toast({ title: "تم حفظ الإعدادات بنجاح" });
         if (onSaveSuccess) {
             await onSaveSuccess();
         }
