@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -15,6 +14,7 @@ import { getNextVoucherNumber } from '@/lib/sequences';
 import { cache } from 'react';
 import { postJournalEntry } from '@/lib/finance/postJournal';
 import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
+import * as admin from 'firebase-admin';
 
 const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
@@ -56,9 +56,9 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
     }
 
     try {
-        const query: FirebaseFirestore.Query = db.collection('subscriptions');
+        const query = db.collection('subscriptions').orderBy('purchaseDate', 'desc');
         
-        const snapshot = await query.orderBy('purchaseDate', 'desc').get();
+        const snapshot = await query.get();
         
         if (snapshot.empty) {
             return [];
@@ -74,7 +74,7 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
         // Fetch client data and attach it
         const clientIds = [...new Set(subscriptions.map(s => s.clientId).filter(Boolean))];
         if (clientIds.length > 0) {
-            const clientsSnapshot = await db.collection('clients').where(FieldValue.documentId(), 'in', clientIds).get();
+            const clientsSnapshot = await db.collection('clients').where(admin.firestore.FieldPath.documentId(), 'in', clientIds).get();
             const clientsData = new Map(clientsSnapshot.docs.map(doc => [doc.id, doc.data() as Client]));
             subscriptions.forEach(sub => {
                 if (clientsData.has(sub.clientId)) {
@@ -693,8 +693,5 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
-
-
-    
 
     
