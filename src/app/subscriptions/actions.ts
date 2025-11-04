@@ -57,8 +57,6 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
     try {
         let query: FirebaseFirestore.Query = db.collection('subscriptions');
         
-        // Only sort by date. Filtering for `isDeleted` will be done in the code.
-        // This avoids the complex index requirement.
         const snapshot = await query.orderBy('purchaseDate', 'desc').get();
         
         if (snapshot.empty) {
@@ -67,12 +65,10 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
 
         const allSubscriptions = snapshot.docs.map(doc => processDoc(doc) as Subscription);
 
-        // Filter in code
         const subscriptions = allSubscriptions.filter(sub => {
             if (includeDeleted) {
                 return sub.isDeleted === true;
             }
-            // A subscription is considered "not deleted" if isDeleted is false or doesn't exist (for old records)
             return sub.isDeleted !== true;
         });
 
@@ -700,3 +696,5 @@ export async function revalidateSubscriptionsPath() {
     revalidatePath('/subscriptions');
 }
 
+
+    
