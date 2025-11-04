@@ -1,14 +1,10 @@
 
 'use server';
 
-import { getDb } from "@/lib/firebase-admin";
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
-import { getNextVoucherNumber } from "@/lib/sequences";
 import { createNotification } from "@/app/notifications/actions";
-import { FieldValue } from "firebase-admin/firestore";
-import { createAuditLog } from "@/app/system/activity-log/actions";
-import { postJournalEntry } from "@/lib/finance/postJournal";
+import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
 
 interface StandardReceiptData {
     date: string;
@@ -25,40 +21,42 @@ export async function createStandardReceipt(data: StandardReceiptData) {
         return { success: false, error: "User not authenticated." };
     }
     
-    const db = await getDb();
-    if (!db) {
-        return { success: false, error: "Database not available." };
-    }
-    
     try {
-        const voucherId = await postJournalEntry({
-            sourceType: "standard_receipt",
-            sourceId: `receipt-${Date.now()}`,
-            description: `سند قبض: ${data.details || 'دفعة'}`.trim(),
-            entries: [
-                { accountId: data.toBox, debit: data.amount, credit: 0, currency: data.currency, note: 'إيداع في الصندوق' },
-                { accountId: data.from, debit: 0, credit: data.amount, currency: data.currency, note: 'سداد دفعة من العميل' }
-            ]
+        const description = `سند قبض: ${data.details || 'دفعة'}`.trim();
+        const sourceId = `receipt-${Date.now()}`;
+
+        const { voucherId } = await recordFinancialTransaction({
+            companyId: data.from,
+            sourceType: 'standard_receipt',
+            sourceId,
+            date: data.date,
+            currency: data.currency,
+            debitAccountId: data.toBox,
+            creditAccountId: data.from,
+            amount: data.amount,
+            description,
+            reference: data.details,
+            createdBy: user.uid,
+        }, {
+            actorId: user.uid,
+            actorName: user.name,
+            auditDescription: `أنشأ سند قبض عادي بمبلغ ${data.amount} ${data.currency}.`,
+            auditTargetType: 'VOUCHER',
+            meta: {
+                payerId: data.from,
+                boxId: data.toBox,
+                details: data.details,
+            },
         });
 
-        await createAuditLog({
-            userId: user.uid,
-            userName: user.name,
-            action: 'CREATE',
-            targetType: 'VOUCHER',
-            description: `أنشأ سند قبض عادي بمبلغ ${data.amount} ${data.currency}.`,
-            targetId: voucherId
-        });
-
-        // Notify the client if the payment was from a client
         await createNotification({
-            userId: data.from, // The 'from' field holds the client's ID
+            userId: data.from,
             title: `تم استلام دفعة منك`,
             body: `تم استلام دفعة جديدة بمبلغ ${data.amount} ${data.currency}.`,
             type: 'payment',
             link: `/clients/${data.from}`
         });
-        
+
         revalidatePath("/accounts/vouchers/list");
         revalidatePath("/reports/account-statement");
 

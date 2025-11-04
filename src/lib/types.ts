@@ -260,6 +260,36 @@ export type Payment = {
   notes?: string;
 };
 
+export type FinancialTransactionSource =
+  | 'subscription'
+  | 'voucher'
+  | 'ticket'
+  | 'visa'
+  | 'group'
+  | 'remittance'
+  | 'payment'
+  | 'expense'
+  | 'revenue'
+  | 'standard_receipt'
+  | 'manualExpense'
+  | 'installment'
+  | 'other';
+
+export type FinancialTransaction = {
+  id?: string;
+  companyId?: string;
+  sourceType: FinancialTransactionSource;
+  sourceId?: string;
+  date?: string | Date;
+  currency: Currency;
+  debitAccountId: string;
+  creditAccountId: string;
+  amount: number;
+  description?: string;
+  reference?: string;
+  createdBy?: string;
+};
+
 
 export type AttendanceLog = {
     month: string; // e.g., '2024-05'

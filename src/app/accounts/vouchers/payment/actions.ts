@@ -1,13 +1,9 @@
 
 'use server';
 
-import { getDb } from "@/lib/firebase-admin";
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
-import { getNextVoucherNumber } from "@/lib/sequences";
-import { FieldValue } from "firebase-admin/firestore";
-import { createAuditLog } from "@/app/system/activity-log/actions";
-import { postJournalEntry } from "@/lib/finance/postJournal";
+import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
 
 
 interface PaymentVoucherData {
@@ -22,29 +18,37 @@ interface PaymentVoucherData {
 }
 
 export async function createPaymentVoucher(data: PaymentVoucherData) {
-     const user = await getCurrentUserFromSession();
+    const user = await getCurrentUserFromSession();
     if (!user) {
         return { success: false, error: "User not authenticated." };
     }
 
-    try {
-        const voucherId = await postJournalEntry({
-            sourceType: "payment",
-            sourceId: `payment-${Date.now()}`,
-            description: `سند دفع: ${data.details || `لغرض ${data.purpose}`}`,
-            entries: [
-                { accountId: data.toSupplierId, debit: data.amount, credit: 0, currency: data.currency, note: 'تسديد دفعة للمورد' },
-                { accountId: data.boxId, debit: 0, credit: data.amount, currency: data.currency, note: 'الدفع من الصندوق' }
-            ]
-        });
+    const description = `سند دفع: ${data.details || `لغرض ${data.purpose}`}`.trim();
+    const sourceId = `payment-${Date.now()}`;
 
-        await createAuditLog({
-            userId: user.uid,
-            userName: user.name,
-            action: 'CREATE',
-            targetType: 'VOUCHER',
-            description: `أنشأ سند دفع بمبلغ ${data.amount} ${data.currency}.`,
-            targetId: voucherId,
+    try {
+        const { voucherId } = await recordFinancialTransaction({
+            companyId: data.toSupplierId,
+            sourceType: 'payment',
+            sourceId,
+            date: data.date,
+            currency: data.currency,
+            debitAccountId: data.toSupplierId,
+            creditAccountId: data.boxId,
+            amount: data.amount,
+            description,
+            reference: data.details,
+            createdBy: user.uid,
+        }, {
+            actorId: user.uid,
+            actorName: user.name,
+            auditDescription: `أنشأ سند دفع بمبلغ ${data.amount} ${data.currency}.`,
+            auditTargetType: 'VOUCHER',
+            meta: {
+                purpose: data.purpose,
+                details: data.details,
+                exchangeRate: data.exchangeRate,
+            },
         });
 
         revalidatePath("/accounts/vouchers/list");

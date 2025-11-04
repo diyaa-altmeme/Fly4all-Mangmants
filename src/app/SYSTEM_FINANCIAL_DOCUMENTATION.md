@@ -62,6 +62,46 @@ export interface JournalVoucher {
 *   **سند المصاريف:** `src/app/accounts/vouchers/expense/actions.ts`
 *   **القيد المحاسبي اليدوي:** `src/app/accounts/vouchers/journal/actions.ts`
 *   **سند القبض المخصص (الموزع):** `src/app/accounts/vouchers/distributed/actions.ts`
+*   **الطبقة الموحدة للقيود:** `src/lib/finance/financial-transactions.ts`
+
+بدلاً من تكرار منطق إنشاء القيود في كل ملف `action` أصبح بالإمكان الاعتماد على واجهة موحدة `FinancialTransaction` ودالة `recordFinancialTransaction` لتوليد القيود والتحقق من توازنها وتوثيقها تلقائياً. الواجهة الموحدة تعرّف في `src/lib/types.ts` بالشكل التالي:
+
+```typescript
+export type FinancialTransaction = {
+  sourceType: 'standard_receipt' | 'payment' | 'manualExpense' | ...;
+  sourceId?: string;
+  date?: string | Date;
+  currency: Currency;
+  debitAccountId: string;
+  creditAccountId: string;
+  amount: number;
+  description?: string;
+  reference?: string;
+  companyId?: string;
+};
+```
+
+ودالة التنفيذ:
+
+```typescript
+// File: src/lib/finance/financial-transactions.ts
+export async function recordFinancialTransaction(tx: FinancialTransaction, options?: RecordFinancialTransactionOptions) {
+  const { voucherId } = await postJournalEntry({
+    sourceType: tx.sourceType,
+    sourceId: tx.sourceId ?? `txn-${Date.now()}`,
+    date: tx.date,
+    description: tx.description,
+    entries: [
+      { accountId: tx.debitAccountId, debit: tx.amount, credit: 0, currency: tx.currency },
+      { accountId: tx.creditAccountId, debit: 0, credit: tx.amount, currency: tx.currency },
+    ],
+    meta: { reference: tx.reference, companyId: tx.companyId }
+  });
+
+  // يتم تسجيل الحدث في سجل التدقيق تلقائياً داخل الدالة
+  return { voucherId };
+}
+```
 
 **مثال: آلية عمل سند القبض العادي**
 
@@ -72,25 +112,19 @@ export interface JournalVoucher {
 3.  **الطرف الدائن (Credit):** يكون حساب "العميل" (لأن رصيده الدائن لدينا انخفض).
 
 ```typescript
-// من ملف: src/app/accounts/vouchers/standard/actions.ts
-
-// ...
-batch.set(journalVoucherRef, {
-    // ...
-    voucherType: "journal_from_standard_receipt",
-    debitEntries: [{
-        accountId: data.toBox, // الصندوق (مدين)
-        amount: data.amount,
-        description: 'إيداع في الصندوق'
-    }],
-    creditEntries: [{
-        accountId: data.from, // العميل (دائن)
-        amount: data.amount,
-        description: 'سداد دفعة'
-    }],
-    // ...
+// مقتطف مبسط من: src/app/accounts/vouchers/standard/actions.ts
+const { voucherId } = await recordFinancialTransaction({
+  sourceType: 'standard_receipt',
+  sourceId: `receipt-${Date.now()}`,
+  date: data.date,
+  currency: data.currency,
+  debitAccountId: data.toBox, // الصندوق (مدين)
+  creditAccountId: data.from, // العميل (دائن)
+  amount: data.amount,
+  description: `سند قبض: ${data.details || 'دفعة'}`,
+  reference: data.details,
+  companyId: data.from,
 });
-// ...
 ```
 
 **ملاحظة مهمة:** **نعم، كل سند يتم تسجيله في دفتر الأستاذ** (جدول `journal-vouchers`) بدون استثناء.
