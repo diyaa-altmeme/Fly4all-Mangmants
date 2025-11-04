@@ -78,7 +78,6 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         ref,
         type: "text" as const,
         inputMode: "decimal" as const,
-        placeholder: "",
         value: displayValue || '',
         onChange: handleChange,
         onBlur: handleBlur,
