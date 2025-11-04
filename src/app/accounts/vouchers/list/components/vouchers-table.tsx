@@ -23,6 +23,12 @@ import {
   GitBranch,
   ArrowRightLeft,
   FileUp,
+  Repeat,
+  Layers3,
+  Share2,
+  RefreshCw,
+  XCircle,
+  ChevronsRightLeft,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { deleteVoucher } from '../actions';
@@ -42,6 +48,8 @@ import type { VoucherListSettings } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { normalizeVoucherType } from '@/lib/accounting/voucher-types';
+import type { NormalizedVoucherType } from '@/lib/accounting/voucher-types';
 
 interface VouchersTableProps {
   vouchers: Voucher[];
@@ -59,16 +67,32 @@ const formatCurrency = (amount: number | undefined | null, currency: string) => 
   return `${amount < 0 ? `(${formatted})` : formatted} ${currency}`;
 };
 
-const VoucherTypeIcon = ({ type }: { type: string }) => {
-  const typeMap: Record<string, React.ElementType> = {
-    journal_from_standard_receipt: FileDown,
-    journal_from_distributed_receipt: GitBranch,
-    journal_from_payment: FileUp,
-    journal_from_expense: Banknote,
-    journal_from_remittance: ArrowRightLeft,
+const VoucherTypeIcon = ({ type }: { type?: string }) => {
+  const normalized = normalizeVoucherType(type) as NormalizedVoucherType;
+  const typeMap: Record<NormalizedVoucherType | 'other', React.ElementType> = {
+    standard_receipt: FileDown,
+    distributed_receipt: GitBranch,
+    payment: FileUp,
+    manualExpense: Banknote,
     journal_voucher: BookUser,
+    remittance: ArrowRightLeft,
+    transfer: Repeat,
+    booking: FileText,
+    visa: FileText,
+    subscription: FileText,
+    segment: Layers3,
+    'profit-sharing': Share2,
+    refund: RefreshCw,
+    exchange: RefreshCw,
+    void: XCircle,
+    exchange_transaction: ChevronsRightLeft,
+    exchange_payment: ChevronsRightLeft,
+    exchange_adjustment: ChevronsRightLeft,
+    exchange_revenue: ChevronsRightLeft,
+    exchange_expense: ChevronsRightLeft,
+    other: FileText,
   };
-  const Icon = typeMap[type] || FileText;
+  const Icon = typeMap[normalized] || FileText;
   return <Icon className="h-4 w-4" />;
 };
 
@@ -106,7 +130,7 @@ const VoucherRow = ({
       case 'voucherTypeLabel':
         return (
           <div className="flex items-center justify-end gap-2">
-            <VoucherTypeIcon type={voucher.voucherType} />
+            <VoucherTypeIcon type={voucher.normalizedType || voucher.voucherType} />
             <span>{voucher.voucherTypeLabel}</span>
           </div>
         );

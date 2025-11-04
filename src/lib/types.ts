@@ -2,6 +2,7 @@
 
 import type { ReconciliationResult, ReconciliationSettings, FilterRule } from './reconciliation';
 import type { ThemeConfig } from './themes';
+import type { NormalizedVoucherType } from './accounting/voucher-types';
 import { COUNTRIES_DATA } from './countries-data';
 import { parseISO } from 'date-fns';
 
@@ -449,10 +450,20 @@ export type AccountType = 'group' | 'box' | 'client' | 'supplier' | 'expense' | 
 
 export type StructuredDescription = {
     title: string;
-    totalReceived: string | null;
-    selfReceipt: string | null;
-    distributions: { name: string; amount: string }[];
-    notes: string;
+    totalReceived?: string | null;
+    selfReceipt?: string | null;
+    distributions?: { name: string; amount: string }[];
+    notes?: string;
+};
+
+export type ReportCurrencySummary = {
+  currency: string;
+  label?: string;
+  symbol?: string;
+  openingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  finalBalance: number;
 };
 
 export type ReportTransaction = {
@@ -460,13 +471,20 @@ export type ReportTransaction = {
   invoiceNumber: string;
   date: string;
   description: string | StructuredDescription;
-  type: string;
+  type?: string;
+  normalizedType?: NormalizedVoucherType;
+  rawVoucherType?: string;
+  rawSourceType?: string;
   debit: number;
   credit: number;
+  amount?: number;
   balance: number;
+  balancesByCurrency?: Record<string, number>;
   currency: Currency;
   otherParty?: string;
   officer?: string;
+  notes?: string;
+  direction?: 'debit' | 'credit';
   balanceUSD: number;
   balanceIQD: number;
   voucherType?: string;
@@ -490,6 +508,7 @@ export type ReportInfo = {
   currency: Currency | 'both';
   accountType: AccountType;
   balanceMode: 'asset' | 'liability';
+  currencyBreakdown?: ReportCurrencySummary[];
 };
 
 
