@@ -26,7 +26,7 @@ import { updateVoucher } from "@/app/accounts/vouchers/list/actions";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
-import { useVoucherNav } from "@/context/voucher-nav-context";
+import { useVoucherNav } from '@/context/voucher-nav-context';
 import { useAuth } from "@/lib/auth-context";
 
 
@@ -103,9 +103,6 @@ export default function NewDistributedReceiptForm({
   }, [settings, isEditing, initialData, selectedCurrency, currentUser, form]);
 
   const { isSubmitting, watch, control, setValue, getValues, register, formState: { errors } } = form;
-  const watchedDistributions = watch('distributions');
-  const totalAmount = watch('totalAmount');
-  const companyAmount = watch('companyAmount');
   const watchedCurrency = watch('currency');
 
   React.useEffect(() => {
@@ -127,10 +124,54 @@ export default function NewDistributedReceiptForm({
         if (newCompanyAmount !== (Number(currentValues.companyAmount) || 0)) {
            setValue('companyAmount', newCompanyAmount >= 0 ? newCompanyAmount : 0, { shouldValidate: true });
         }
+      } else if (name === 'companyAmount') {
+        const currentValues = getValues();
+        const companyAmount = Number(currentValues.companyAmount) || 0;
+        const totalAmount = Number(currentValues.totalAmount) || 0;
+        const totalDistributions = Object.values(currentValues.distributions || {}).reduce((sum, item: any) => sum + (Number(item.amount) || 0), 0);
+        
+        const remainingForDistribution = totalAmount - companyAmount;
+        
+        if (totalDistributions > 0 && remainingForDistribution >= 0) {
+            const ratio = remainingForDistribution / totalDistributions;
+            const newDistributions = { ...currentValues.distributions };
+            let calculatedTotalDist = 0;
+
+            Object.keys(newDistributions).forEach((key, index, arr) => {
+                const oldAmount = Number(currentValues.distributions[key]?.amount || 0);
+                let newAmount = oldAmount * ratio;
+
+                if (index === arr.length - 1) { // Adjust last element for rounding
+                    const sumOfOthers = Object.values(newDistributions).slice(0, -1).reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
+                    newAmount = remainingForDistribution - sumOfOthers;
+                }
+                
+                newDistributions[key].amount = Math.max(0, parseFloat(newAmount.toFixed(2)));
+                calculatedTotalDist += newDistributions[key].amount;
+            });
+
+            // Final check due to potential rounding issues
+            const finalDifference = remainingForDistribution - calculatedTotalDist;
+            if (Math.abs(finalDifference) < 0.05 && Object.keys(newDistributions).length > 0) {
+                const lastKey = Object.keys(newDistributions).pop();
+                if(lastKey) newDistributions[lastKey].amount += finalDifference;
+            }
+            
+            setValue('distributions', newDistributions, { shouldValidate: true });
+        } else if (totalDistributions === 0 && remainingForDistribution > 0 && settings.distributionChannels && settings.distributionChannels.length > 0) {
+            // If all distributions are 0, distribute equally
+            const numChannels = settings.distributionChannels.length;
+            const amountPerChannel = remainingForDistribution / numChannels;
+             const newDistributions = { ...currentValues.distributions };
+             settings.distributionChannels.forEach(channel => {
+                 newDistributions[channel.id].amount = amountPerChannel;
+             });
+             setValue('distributions', newDistributions, { shouldValidate: true });
+        }
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, setValue, getValues]);
+  }, [watch, setValue, getValues, settings.distributionChannels]);
 
 
   const onSubmit = async (data: z.infer<typeof dynamicSchema>) => {
@@ -203,18 +244,18 @@ export default function NewDistributedReceiptForm({
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-5 p-4 border rounded-lg bg-muted/30">
                     <div className="flex items-center gap-2">
                       <Label className="whitespace-nowrap">إجمالي المبلغ</Label>
-                      <FormField control={control} name="totalAmount" render={({ field }) => (<FormItem><Controller control={control} name="totalAmount" render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} />} /><FormMessage /></FormItem>)} />
+                      <FormField control={control} name="totalAmount" render={({ field }) => (<FormItem className="w-full"><Controller control={control} name="totalAmount" render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} />} /><FormMessage /></FormItem>)} />
                     </div>
                     {watchedCurrency === 'USD' && 
                       <div className="flex items-center gap-2">
                         <Label className="whitespace-nowrap">سعر الصرف</Label>
-                        <FormField control={control} name="exchangeRate" render={({ field }) => (<FormItem><Controller control={control} name="exchangeRate" render={({field}) => <AmountInput currency="IQD" {...field} onValueChange={field.onChange} />} /><FormMessage /></FormItem>)} />
+                        <FormField control={control} name="exchangeRate" render={({ field }) => (<FormItem className="w-full"><Controller control={control} name="exchangeRate" render={({field}) => <AmountInput currency="IQD" {...field} onValueChange={field.onChange} />} /><FormMessage /></FormItem>)} />
                       </div>
                     }
                 
                     <div className="md:col-span-full pt-4 border-t">
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
-                            <div className="space-y-1.5"><Label>المبلغ المسدد لحساب الدافع</Label><Controller control={control} name="companyAmount" render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} readOnly />} /><FormMessage /></div>
+                            <div className="space-y-1.5"><Label>المبلغ المسدد لحساب الدافع</Label><Controller control={control} name="companyAmount" render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} />} /><FormMessage /></div>
                             {(settings.distributionChannels || []).map((channel) => (
                                 <div key={channel.id} className="space-y-1.5">
                                     <Label>{channel.label}</Label>
@@ -249,3 +290,4 @@ export default function NewDistributedReceiptForm({
     </Form>
   );
 }
+
