@@ -30,7 +30,7 @@ export const createDistributedReceiptSchema = (
         return sum + (Number(item.amount) || 0);
     }, 0);
     
-    // If there are no distributions, the company amount should equal the total amount
+    // If there are no distributions, we don't need to validate the balance here
     if (totalDistributionsFromList === 0) {
         return true;
     }
