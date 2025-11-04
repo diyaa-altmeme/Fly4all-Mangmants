@@ -56,34 +56,41 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
     }
 
     try {
-        // Fetch ALL documents first, then filter in code. This is more reliable.
-        const snapshot = await db.collection('subscriptions').orderBy('purchaseDate', 'desc').get();
+        let query: FirebaseFirestore.Query = db.collection('subscriptions');
+        
+        // This is a more robust way to handle the boolean `isDeleted` field,
+        // as it correctly includes documents where the field might not exist yet.
+        if (includeDeleted) {
+            query = query.where('isDeleted', '==', true);
+        } else {
+            // We want documents where `isDeleted` is explicitly false OR where it doesn't exist.
+            // Firestore doesn't support a direct OR on different fields, but for a single
+            // field check like this, `!= true` works as intended. It fetches docs where
+            // isDeleted is `false` or `null` (or non-existent).
+            query = query.where('isDeleted', '!=', true);
+        }
+
+        const snapshot = await query.orderBy('purchaseDate', 'desc').get();
         
         if (snapshot.empty) {
             return [];
         }
 
-        const allSubscriptions: Subscription[] = snapshot.docs.map(doc => processDoc(doc) as Subscription);
-
-        // Post-filter in code
-        const filteredSubscriptions = allSubscriptions.filter(s => {
-            const isMarkedDeleted = s.isDeleted === true;
-            return includeDeleted ? isMarkedDeleted : !isMarkedDeleted;
-        });
+        const subscriptions = snapshot.docs.map(doc => processDoc(doc) as Subscription);
 
         // Fetch client data and attach it
-        const clientIds = [...new Set(filteredSubscriptions.map(s => s.clientId).filter(Boolean))];
+        const clientIds = [...new Set(subscriptions.map(s => s.clientId).filter(Boolean))];
         if (clientIds.length > 0) {
             const clientsSnapshot = await db.collection('clients').where(FieldValue.documentId(), 'in', clientIds).get();
             const clientsData = new Map(clientsSnapshot.docs.map(doc => [doc.id, doc.data() as Client]));
-            filteredSubscriptions.forEach(sub => {
+            subscriptions.forEach(sub => {
                 if (clientsData.has(sub.clientId)) {
                     sub.client = clientsData.get(sub.clientId);
                 }
             });
         }
         
-        return filteredSubscriptions;
+        return subscriptions;
 
     } catch (error) {
         console.error("Error getting subscriptions from Firestore: ", String(error));
