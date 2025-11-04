@@ -68,7 +68,7 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
         // Fetch client data and attach it
         const clientIds = [...new Set(allSubscriptions.map(s => s.clientId))];
         if (clientIds.length > 0) {
-            const clientsSnapshot = await db.collection('clients').where(FieldPath.documentId(), 'in', clientIds).get();
+            const clientsSnapshot = await db.collection('clients').where(FieldValue.documentId(), 'in', clientIds).get();
             const clientsData = new Map(clientsSnapshot.docs.map(doc => [doc.id, doc.data() as Client]));
             allSubscriptions.forEach(sub => {
                 if (clientsData.has(sub.clientId)) {
@@ -77,10 +77,11 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
             });
         }
         
+        // Filter in code to handle cases where isDeleted might be undefined
         if (includeDeleted) {
-            return allSubscriptions.filter(s => s.isDeleted);
+            return allSubscriptions.filter(s => s.isDeleted === true);
         } else {
-            return allSubscriptions.filter(s => !s.isDeleted);
+            return allSubscriptions.filter(s => s.isDeleted !== true);
         }
 
     } catch (error) {
@@ -696,5 +697,3 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
-
-    
