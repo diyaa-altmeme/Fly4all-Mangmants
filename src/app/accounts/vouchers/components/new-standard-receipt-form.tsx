@@ -120,33 +120,26 @@ export default function NewStandardReceiptForm({ onVoucherAdded, isEditing, init
       <div className="p-6 space-y-6 flex-grow">
       
         <div className="grid md:grid-cols-2 gap-6 items-start">
+            <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                    <Label htmlFor="date">التاريخ</Label>
+                    <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
+                    {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="currency">العملة</Label>
+                    <Controller name="currency" control={control} render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                {(navData?.settings?.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    )} />
+                </div>
+            </div>
+            
             <div className="space-y-1.5">
-                <Label htmlFor="date">التاريخ</Label>
-                <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
-                {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-                <Label htmlFor="currency">العملة</Label>
-                <Controller name="currency" control={control} render={({ field }) => (
-                     <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                            {(navData?.settings?.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
-                        </SelectContent>
-                     </Select>
-                )} />
-            </div>
-             <div className="space-y-1.5">
-                <Label htmlFor="from">استلام من</Label>
-                 <Controller name="from" control={control} render={({ field }) => ( <Autocomplete searchAction="all" value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل أو مورد..." /> )}/>
-                {errors.from && <p className="text-destructive text-sm mt-1">{errors.from.message}</p>}
-            </div>
-            <div className="space-y-1.5">
-                <Label htmlFor="toBox">إيداع في صندوق</Label>
-                <Controller name="toBox" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="اختر صندوق..." /></SelectTrigger><SelectContent>{(navData?.boxes || []).map(box => <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>)}</SelectContent></Select>)} />
-                {errors.toBox && <p className="text-destructive text-sm mt-1">{errors.toBox.message}</p>}
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
                 <Label htmlFor="amount">المبلغ المستلم</Label>
                 <Controller
                     name="amount"
@@ -157,6 +150,19 @@ export default function NewStandardReceiptForm({ onVoucherAdded, isEditing, init
                 />
                 {errors.amount && <p className="text-destructive text-sm mt-1">{errors.amount.message}</p>}
             </div>
+
+            <div className="space-y-1.5">
+                <Label htmlFor="from">استلام من</Label>
+                 <Controller name="from" control={control} render={({ field }) => ( <Autocomplete searchAction="all" value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل أو مورد..." /> )}/>
+                {errors.from && <p className="text-destructive text-sm mt-1">{errors.from.message}</p>}
+            </div>
+            
+            <div className="space-y-1.5">
+                <Label htmlFor="toBox">إيداع في صندوق</Label>
+                <Controller name="toBox" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="اختر صندوق..." /></SelectTrigger><SelectContent>{(navData?.boxes || []).map(box => <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>)}</SelectContent></Select>)} />
+                {errors.toBox && <p className="text-destructive text-sm mt-1">{errors.toBox.message}</p>}
+            </div>
+
         </div>
         
         <div className="space-y-1.5">

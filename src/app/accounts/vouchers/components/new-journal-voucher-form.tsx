@@ -48,7 +48,7 @@ interface NewJournalVoucherFormProps {
 
 const AmountInput = ({ ...props }: React.ComponentProps<typeof NumericInput>) => (
     <div className="relative">
-        <NumericInput placeholder="0.00" {...props} />
+        <NumericInput {...props} />
     </div>
 );
 
@@ -161,7 +161,7 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
                          <Controller
                             name="exchangeRate"
                             control={control}
-                            render={({ field }) => <NumericInput placeholder="0.00" {...field} onValueChange={field.onChange} />}
+                            render={({ field }) => <NumericInput {...field} onValueChange={field.onChange} />}
                         />
                    </div>
                 )}

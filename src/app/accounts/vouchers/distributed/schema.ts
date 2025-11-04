@@ -27,18 +27,18 @@ export const createDistributedReceiptSchema = (
     companyAmount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val >= 0, { message: "مبلغ الشركة لا يمكن أن يكون سالبًا."}).optional(),
     distributions: z.object(dynamicFields),
   }).refine((data) => {
-    const totalDistributedFromList = Object.values(data.distributions).reduce((sum, item: any) => {
+    const totalDistributionsFromList = Object.values(data.distributions).reduce((sum, item: any) => {
         return sum + (item.enabled ? (Number(item.amount) || 0) : 0);
     }, 0);
     
-    // If there's no distribution at all, the check is irrelevant as `companyAmount` will equal `totalAmount`.
-    if (totalDistributedFromList === 0) {
+    // If there are no distributions, this check is not needed. The companyAmount will equal totalAmount.
+    if (totalDistributionsFromList === 0) {
         return true;
     }
     
     const companyAmount = data.companyAmount || 0;
-    const totalDistributed = totalDistributedFromList + companyAmount;
-
+    const totalDistributed = totalDistributionsFromList + companyAmount;
+    
     // Use a small tolerance for floating point comparisons
     return Math.abs(totalDistributed - data.totalAmount) < 0.01;
   }, {
