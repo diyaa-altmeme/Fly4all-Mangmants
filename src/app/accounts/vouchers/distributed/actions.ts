@@ -5,7 +5,7 @@ import { getDb } from "@/lib/firebase-admin";
 import type { DistributedReceiptInput } from './schema';
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
-import type { AppSettings, JournalEntry, JournalVoucher } from "@/lib/types";
+import type { AppSettings, JournalEntry as LegacyJournalEntry, JournalVoucher } from "@/lib/types";
 import { getSettings } from "@/app/settings/actions";
 import { getNextVoucherNumber } from "@/lib/sequences";
 import { FieldValue } from "firebase-admin/firestore";
@@ -57,14 +57,17 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
         }
         
         // 3. The distributed amounts are credited to their respective accounts.
+        const distributionDescriptions: string[] = [];
         Object.entries(data.distributions || {})
             .forEach(([channelId, distData]) => {
                  if (distData?.amount && Number(distData.amount) > 0) {
                     const channelSettings = distributedVoucherSettings.distributionChannels?.find(c => c.id === channelId);
+                    const description = `توزيع إلى: ${channelSettings?.label || 'حساب توزيع'}`;
+                    distributionDescriptions.push(`${channelSettings?.label}: ${distData.amount}`);
                     creditEntries.push({
                         accountId: channelSettings?.accountId || 'unknown_distribution_account',
                         amount: Number(distData.amount),
-                        description: `توزيع إلى ${channelSettings?.label || 'حساب توزيع'}`
+                        description: description
                     });
                 }
             });
@@ -79,13 +82,15 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
             ...data,
             date: data.date.toISOString(),
         }
+
+        const mainDescription = `سند قبض موزع. الإجمالي: ${data.totalAmount}. للعميل: ${data.companyAmount}. توزيعات: ${distributionDescriptions.join(', ')}`;
         
         batch.set(journalVoucherRef, {
             invoiceNumber,
             date: data.date.toISOString(),
             currency: data.currency,
             exchangeRate: data.exchangeRate || null,
-            notes: data.notes || '',
+            notes: mainDescription,
             createdBy: user.uid,
             officer: officerName,
             createdAt: new Date().toISOString(),
@@ -163,14 +168,17 @@ export async function updateDistributedVoucher(voucherId: string, data: Distribu
             });
         }
         
+        const distributionDescriptions: string[] = [];
         Object.entries(data.distributions || {})
             .forEach(([channelId, distData]) => {
                  if (distData?.amount && Number(distData.amount) > 0) {
                     const channelSettings = distributedVoucherSettings.distributionChannels?.find(c => c.id === channelId);
+                    const description = `توزيع إلى: ${channelSettings?.label || 'حساب توزيع'}`;
+                    distributionDescriptions.push(`${channelSettings?.label}: ${distData.amount}`);
                     creditEntries.push({
                         accountId: channelSettings?.accountId || 'unknown_distribution_account',
                         amount: Number(distData.amount),
-                        description: `توزيع إلى ${channelSettings?.label || 'حساب توزيع'}`
+                        description: description
                     });
                 }
             });
@@ -184,12 +192,14 @@ export async function updateDistributedVoucher(voucherId: string, data: Distribu
             ...data,
             date: data.date.toISOString(),
         }
+
+        const mainDescription = `تعديل سند قبض موزع. الإجمالي: ${data.totalAmount}. للعميل: ${data.companyAmount}. توزيعات: ${distributionDescriptions.join(', ')}`;
         
         await journalVoucherRef.update({
             date: data.date.toISOString(),
             currency: data.currency,
             exchangeRate: data.exchangeRate || null,
-            notes: data.notes || '',
+            notes: mainDescription,
             debitEntries: debitEntries,
             creditEntries: creditEntries,
             originalData: dataToSave,
