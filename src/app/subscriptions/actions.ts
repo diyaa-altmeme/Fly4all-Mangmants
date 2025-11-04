@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -58,25 +57,25 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
     try {
         let query: FirebaseFirestore.Query = db.collection('subscriptions');
         
-        // This is a more robust way to handle the boolean `isDeleted` field,
-        // as it correctly includes documents where the field might not exist yet.
-        if (includeDeleted) {
-            query = query.where('isDeleted', '==', true);
-        } else {
-            // We want documents where `isDeleted` is explicitly false OR where it doesn't exist.
-            // Firestore doesn't support a direct OR on different fields, but for a single
-            // field check like this, `!= true` works as intended. It fetches docs where
-            // isDeleted is `false` or `null` (or non-existent).
-            query = query.where('isDeleted', '!=', true);
-        }
-
+        // Only sort by date. Filtering for `isDeleted` will be done in the code.
+        // This avoids the complex index requirement.
         const snapshot = await query.orderBy('purchaseDate', 'desc').get();
         
         if (snapshot.empty) {
             return [];
         }
 
-        const subscriptions = snapshot.docs.map(doc => processDoc(doc) as Subscription);
+        const allSubscriptions = snapshot.docs.map(doc => processDoc(doc) as Subscription);
+
+        // Filter in code
+        const subscriptions = allSubscriptions.filter(sub => {
+            if (includeDeleted) {
+                return sub.isDeleted === true;
+            }
+            // A subscription is considered "not deleted" if isDeleted is false or doesn't exist (for old records)
+            return sub.isDeleted !== true;
+        });
+
 
         // Fetch client data and attach it
         const clientIds = [...new Set(subscriptions.map(s => s.clientId).filter(Boolean))];
@@ -701,4 +700,3 @@ export async function revalidateSubscriptionsPath() {
     revalidatePath('/subscriptions');
 }
 
-    
