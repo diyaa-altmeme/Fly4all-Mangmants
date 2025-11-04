@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
@@ -62,8 +63,10 @@ const detectBrowserLocale = (): Locale => {
 };
 
 export const TranslationProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
+  // Initialize with a non-browser-dependent default
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
 
+  // Defer browser-specific logic to useEffect
   useEffect(() => {
     const initialLocale = detectBrowserLocale();
     setLocaleState(initialLocale);
@@ -132,4 +135,3 @@ export const useTranslation = (): TranslationContextValue => {
   }
   return context;
 };
-
