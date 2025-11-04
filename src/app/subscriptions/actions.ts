@@ -56,9 +56,8 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
     }
 
     try {
-        let query: FirebaseFirestore.Query = db.collection('subscriptions').orderBy('purchaseDate', 'desc');
-
-        const snapshot = await query.get();
+        // Fetch all subscriptions without filtering by isDeleted at the query level
+        const snapshot = await db.collection('subscriptions').orderBy('purchaseDate', 'desc').get();
         if (snapshot.empty) {
             return [];
         }
@@ -66,7 +65,7 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
         const allSubscriptions: Subscription[] = snapshot.docs.map(doc => processDoc(doc) as Subscription);
 
         // Fetch client data and attach it
-        const clientIds = [...new Set(allSubscriptions.map(s => s.clientId))];
+        const clientIds = [...new Set(allSubscriptions.map(s => s.clientId).filter(Boolean))];
         if (clientIds.length > 0) {
             const clientsSnapshot = await db.collection('clients').where(FieldValue.documentId(), 'in', clientIds).get();
             const clientsData = new Map(clientsSnapshot.docs.map(doc => [doc.id, doc.data() as Client]));
@@ -77,12 +76,11 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
             });
         }
         
-        // Filter in code to handle cases where isDeleted might be undefined
-        if (includeDeleted) {
-            return allSubscriptions.filter(s => s.isDeleted === true);
-        } else {
-            return allSubscriptions.filter(s => s.isDeleted !== true);
-        }
+        // Post-filter in code
+        return allSubscriptions.filter(s => {
+            const isMarkedDeleted = s.isDeleted === true;
+            return includeDeleted ? isMarkedDeleted : !isMarkedDeleted;
+        });
 
     } catch (error) {
         console.error("Error getting subscriptions from Firestore: ", String(error));
@@ -193,7 +191,6 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             throw new Error("Revenue account for subscriptions or a general revenue account must be defined in finance settings.");
         }
         
-        // Create Revenue Journal Voucher directly
         const revenueVoucherRef = db.collection('journal-vouchers').doc();
         mainBatch.set(revenueVoucherRef, {
             invoiceNumber: await getNextVoucherNumber('SUB_REV'),
@@ -204,11 +201,9 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             officer: user.name,
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
-            voucherType: 'journal_from_subscription',
-            sourceType: 'subscription',
-            sourceId: subscriptionRef.id,
-            debitEntries: [{ accountId: finalSubscriptionData.clientId, amount: totalSale }],
-            creditEntries: [{ accountId: revenueAccountId, amount: totalSale }],
+            voucherType: "subscription",
+            debitEntries: [{ accountId: finalSubscriptionData.clientId, amount: totalSale, description: `دين اشتراك ${finalSubscriptionData.serviceName}` }],
+            creditEntries: [{ accountId: revenueAccountId, amount: totalSale, description: `إيراد اشتراك ${finalSubscriptionData.serviceName}` }],
             originalData: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id },
         });
 
@@ -228,11 +223,9 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                 officer: user.name,
                 createdAt: FieldValue.serverTimestamp(),
                 updatedAt: FieldValue.serverTimestamp(),
-                voucherType: 'journal_from_subscription_cost',
-                sourceType: 'subscription_cost',
-                sourceId: subscriptionRef.id,
-                debitEntries: [{ accountId: costAccountId, amount: totalPurchase }],
-                creditEntries: [{ accountId: finalSubscriptionData.supplierId, amount: totalPurchase }],
+                voucherType: "subscription_cost",
+                debitEntries: [{ accountId: costAccountId, amount: totalPurchase, description: `تكلفة خدمة ${finalSubscriptionData.serviceName}` }],
+                creditEntries: [{ accountId: finalSubscriptionData.supplierId, amount: totalPurchase, description: `مستحقات المورد عن ${finalSubscriptionData.serviceName}` }],
                 originalData: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id },
            });
         }
@@ -697,4 +690,5 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
 
