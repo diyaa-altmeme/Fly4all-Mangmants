@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createDistributedReceiptSchema, type DistributedReceiptInput } from '@/app/accounts/vouchers/distributed/schema';
 import { useToast } from "@/hooks/use-toast";
@@ -49,16 +49,14 @@ interface NewDistributedReceiptFormProps {
     initialData?: DistributedReceiptInput & { id?: string };
 }
 
-// A robust function to parse different decimal and thousands formats
-const parseNumericValue = (value: string | number | undefined): number | undefined => {
-    if (value === undefined || value === null || value === '') return undefined;
-    if (typeof value === 'number') return isNaN(value) ? undefined : value;
+const parseNumericValue = (value: string | number | undefined): number => {
+    if (value === undefined || value === null || value === '') return 0;
+    if (typeof value === 'number') return isNaN(value) ? 0 : value;
     
-    // Standardize decimal separator to a period and remove thousands separators
-    const sanitized = value.replace(/,/g, '');
+    const sanitized = String(value).replace(/,/g, '');
     
     const num = parseFloat(sanitized);
-    return isNaN(num) ? undefined : num;
+    return isNaN(num) ? 0 : num;
 };
 
 
@@ -130,18 +128,19 @@ export default function NewDistributedReceiptForm({
 
   React.useEffect(() => {
     const subscription = watch((value, { name, type }) => {
-      // Logic for one-way calculation: totalAmount -> distributions -> companyAmount
+      // Logic for calculation: totalAmount -> distributions -> companyAmount
       if (name?.startsWith('distributions.') || name === 'totalAmount') {
         const currentValues = getValues();
-        const totalAmount = parseNumericValue(String(currentValues.totalAmount)) || 0;
+        const totalAmount = parseNumericValue(currentValues.totalAmount);
         const totalDist = Object.values(currentValues.distributions || {}).reduce(
-          (sum, item: any) => sum + (parseNumericValue(String(item.amount)) || 0),
+          (sum, item: any) => sum + parseNumericValue(item.amount),
           0
         );
         const newCompanyAmount = totalAmount - totalDist;
         
-        // Only update if the calculated value is different to avoid re-renders
-        if (newCompanyAmount !== (parseNumericValue(String(currentValues.companyAmount)) || 0)) {
+        const currentCompanyAmount = parseNumericValue(getValues('companyAmount'));
+
+        if (newCompanyAmount !== currentCompanyAmount) {
           setValue('companyAmount', newCompanyAmount, { shouldValidate: true });
         }
       }
@@ -242,7 +241,7 @@ export default function NewDistributedReceiptForm({
                         {errors.companyAmount && <p className="text-sm font-medium text-destructive text-center pt-2">{errors.companyAmount.message}</p>}
                     </div>
                      <div className="md:col-span-full space-y-1.5">
-                        <Textarea {...register('details')} placeholder="التفاصيل..."/>
+                        <Textarea {...register('details')}/>
                         <FormMessage>{errors.details?.message}</FormMessage>
                     </div>
                 </div>
@@ -266,4 +265,3 @@ export default function NewDistributedReceiptForm({
     </Form>
   );
 }
-
