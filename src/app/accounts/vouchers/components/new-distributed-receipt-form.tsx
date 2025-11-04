@@ -116,59 +116,55 @@ export default function NewDistributedReceiptForm({
 
   React.useEffect(() => {
     const subscription = watch((value, { name, type }) => {
-      if (name?.startsWith('distributions.') || name === 'totalAmount') {
         const currentValues = getValues();
-        const totalDist = Object.values(currentValues.distributions || {}).reduce((sum, item: any) => sum + (item.enabled ? (Number(item.amount) || 0) : 0), 0);
-        const newCompanyAmount = (Number(currentValues.totalAmount) || 0) - totalDist;
-        
-        if (newCompanyAmount !== (Number(currentValues.companyAmount) || 0)) {
-           setValue('companyAmount', newCompanyAmount >= 0 ? newCompanyAmount : 0, { shouldValidate: true });
-        }
-      } else if (name === 'companyAmount') {
-        const currentValues = getValues();
-        const companyAmount = Number(currentValues.companyAmount) || 0;
         const totalAmount = Number(currentValues.totalAmount) || 0;
-        const totalDistributions = Object.values(currentValues.distributions || {}).reduce((sum, item: any) => sum + (Number(item.amount) || 0), 0);
-        
-        const remainingForDistribution = totalAmount - companyAmount;
-        
-        if (totalDistributions > 0 && remainingForDistribution >= 0) {
-            const ratio = remainingForDistribution / totalDistributions;
-            const newDistributions = { ...currentValues.distributions };
-            let calculatedTotalDist = 0;
 
-            Object.keys(newDistributions).forEach((key, index, arr) => {
-                const oldAmount = Number(currentValues.distributions[key]?.amount || 0);
-                let newAmount = oldAmount * ratio;
-
-                if (index === arr.length - 1) { // Adjust last element for rounding
-                    const sumOfOthers = Object.values(newDistributions).slice(0, -1).reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
-                    newAmount = remainingForDistribution - sumOfOthers;
-                }
-                
-                newDistributions[key].amount = Math.max(0, parseFloat(newAmount.toFixed(2)));
-                calculatedTotalDist += newDistributions[key].amount;
-            });
-
-            // Final check due to potential rounding issues
-            const finalDifference = remainingForDistribution - calculatedTotalDist;
-            if (Math.abs(finalDifference) < 0.05 && Object.keys(newDistributions).length > 0) {
-                const lastKey = Object.keys(newDistributions).pop();
-                if(lastKey) newDistributions[lastKey].amount += finalDifference;
-            }
+        if (name?.startsWith('distributions.') || name === 'totalAmount') {
+            const totalDist = Object.values(currentValues.distributions || {}).reduce((sum, item: any) => sum + (item.enabled ? (Number(item.amount) || 0) : 0), 0);
+            const newCompanyAmount = totalAmount - totalDist;
             
-            setValue('distributions', newDistributions, { shouldValidate: true });
-        } else if (totalDistributions === 0 && remainingForDistribution > 0 && settings.distributionChannels && settings.distributionChannels.length > 0) {
-            // If all distributions are 0, distribute equally
-            const numChannels = settings.distributionChannels.length;
-            const amountPerChannel = remainingForDistribution / numChannels;
-             const newDistributions = { ...currentValues.distributions };
-             settings.distributionChannels.forEach(channel => {
-                 newDistributions[channel.id].amount = amountPerChannel;
-             });
-             setValue('distributions', newDistributions, { shouldValidate: true });
+            if (newCompanyAmount !== (Number(currentValues.companyAmount) || 0)) {
+               setValue('companyAmount', newCompanyAmount >= 0 ? newCompanyAmount : 0, { shouldValidate: true });
+            }
+        } else if (name === 'companyAmount') {
+            const companyAmount = Number(currentValues.companyAmount) || 0;
+            const remainingForDistribution = totalAmount - companyAmount;
+            
+            const totalDistributions = Object.values(currentValues.distributions || {}).reduce((sum, item: any) => sum + (Number(item.amount) || 0), 0);
+
+            if (totalDistributions > 0 && remainingForDistribution >= 0) {
+                const ratio = remainingForDistribution / totalDistributions;
+                const newDistributions = { ...currentValues.distributions };
+                let calculatedTotalDist = 0;
+
+                Object.keys(newDistributions).forEach((key, index, arr) => {
+                    const oldAmount = Number(currentValues.distributions[key]?.amount || 0);
+                    let newAmount = oldAmount * ratio;
+                    
+                    newDistributions[key].amount = Math.max(0, parseFloat(newAmount.toFixed(2)));
+                });
+                
+                // Final check for rounding issues
+                const finalCalculatedTotal = Object.values(newDistributions).reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
+                const finalDifference = remainingForDistribution - finalCalculatedTotal;
+
+                if (Math.abs(finalDifference) > 0.001 && Object.keys(newDistributions).length > 0) {
+                     const lastKey = Object.keys(newDistributions).pop();
+                     if(lastKey) newDistributions[lastKey].amount += finalDifference;
+                }
+
+                setValue('distributions', newDistributions, { shouldValidate: true });
+
+            } else if (totalDistributions === 0 && remainingForDistribution > 0 && settings.distributionChannels && settings.distributionChannels.length > 0) {
+                const numChannels = settings.distributionChannels.length;
+                const amountPerChannel = remainingForDistribution / numChannels;
+                const newDistributions = { ...currentValues.distributions };
+                settings.distributionChannels.forEach(channel => {
+                    newDistributions[channel.id].amount = amountPerChannel;
+                });
+                setValue('distributions', newDistributions, { shouldValidate: true });
+            }
         }
-      }
     });
     return () => subscription.unsubscribe();
   }, [watch, setValue, getValues, settings.distributionChannels]);
@@ -290,4 +286,3 @@ export default function NewDistributedReceiptForm({
     </Form>
   );
 }
-
