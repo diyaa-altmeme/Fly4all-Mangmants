@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Client, Supplier, Box, User, AppSettings, Exchange } from '@/lib/types';
@@ -61,7 +62,7 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
                 clients,
                 suppliers,
                 boxes,
-                users,
+                users: users as User[],
                 exchanges,
                 settings,
             });
