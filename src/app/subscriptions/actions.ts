@@ -6,7 +6,7 @@ import { getDb } from '@/lib/firebase-admin';
 import type { Subscription, SubscriptionInstallment, Payment, SubscriptionStatus, JournalEntry, Client, Supplier } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { addMonths, format, parseISO, endOfDay, isWithinInterval, startOfDay } from 'date-fns';
-import { FieldValue, FieldPath } from "firebase-admin/firestore";
+import { FieldValue } from "firebase-admin/firestore";
 import { getSettings } from '@/app/settings/actions';
 import { createNotification } from '../notifications/actions';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
@@ -125,9 +125,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     const settings = await getSettings();
     const financeSettings = normalizeFinanceAccounts(settings.financeAccounts);
     
-    const subSettings = settings.subscriptionSettings;
-
-    const batch = db.batch();
+    const mainBatch = db.batch();
     const subscriptionRef = db.collection('subscriptions').doc();
 
     try {
@@ -151,7 +149,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             isDeleted: false,
             updatedAt: new Date().toISOString(),
         };
-        batch.set(subscriptionRef, finalSubscriptionData);
+        mainBatch.set(subscriptionRef, finalSubscriptionData);
 
         // Generate installments based on payment method
         const installmentsToCreate: Omit<SubscriptionInstallment, 'id'>[] = [];
@@ -186,23 +184,31 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
 
         installmentsToCreate.forEach(instData => {
             const installmentRef = db.collection('subscription_installments').doc();
-            batch.set(installmentRef, instData);
+            mainBatch.set(installmentRef, instData);
         });
 
-        // Use general revenue account as a fallback
         const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
         if (!revenueAccountId) {
             throw new Error("Revenue account for subscriptions or a general revenue account must be defined in finance settings.");
         }
-
-        await postJournalEntry({
+        
+        // Create Revenue Journal Voucher directly
+        const revenueVoucherRef = db.collection('journal-vouchers').doc();
+        mainBatch.set(revenueVoucherRef, {
+            invoiceNumber: await getNextVoucherNumber('SUB_REV'),
+            date: finalSubscriptionData.startDate,
+            currency: finalSubscriptionData.currency,
+            notes: `إيراد اشتراك خدمة ${finalSubscriptionData.serviceName}`,
+            createdBy: user.uid,
+            officer: user.name,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+            voucherType: 'journal_from_subscription',
             sourceType: 'subscription',
             sourceId: subscriptionRef.id,
-            description: `إيراد اشتراك خدمة ${finalSubscriptionData.serviceName}`,
-            entries: [
-                { accountId: finalSubscriptionData.clientId, debit: totalSale, credit: 0, currency: finalSubscriptionData.currency },
-                { accountId: revenueAccountId, debit: 0, credit: totalSale, currency: finalSubscriptionData.currency }
-            ]
+            debitEntries: [{ accountId: finalSubscriptionData.clientId, amount: totalSale }],
+            creditEntries: [{ accountId: revenueAccountId, amount: totalSale }],
+            originalData: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id },
         });
 
         if (totalPurchase > 0) {
@@ -210,27 +216,36 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
            if (!costAccountId) {
                throw new Error("Cost account for subscriptions or a general expense account must be defined in finance settings.");
            }
-           await postJournalEntry({
+           
+           const costVoucherRef = db.collection('journal-vouchers').doc();
+           mainBatch.set(costVoucherRef, {
+                invoiceNumber: await getNextVoucherNumber('SUB_COST'),
+                date: finalSubscriptionData.purchaseDate,
+                currency: finalSubscriptionData.currency,
+                notes: `تكلفة اشتراك خدمة ${finalSubscriptionData.serviceName}`,
+                createdBy: user.uid,
+                officer: user.name,
+                createdAt: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp(),
+                voucherType: 'journal_from_subscription_cost',
                 sourceType: 'subscription_cost',
                 sourceId: subscriptionRef.id,
-                description: `تكلفة اشتراك خدمة ${finalSubscriptionData.serviceName}`,
-                entries: [
-                    { accountId: costAccountId, debit: totalPurchase, credit: 0, currency: finalSubscriptionData.currency },
-                    { accountId: finalSubscriptionData.supplierId, debit: 0, credit: totalPurchase, currency: finalSubscriptionData.currency }
-                ]
-            });
+                debitEntries: [{ accountId: costAccountId, amount: totalPurchase }],
+                creditEntries: [{ accountId: finalSubscriptionData.supplierId, amount: totalPurchase }],
+                originalData: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id },
+           });
         }
         
-        batch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });
+        mainBatch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });
         if (finalSubscriptionData.supplierId) {
-            batch.update(db.collection('clients').doc(finalSubscriptionData.supplierId), { useCount: FieldValue.increment(1) });
+            mainBatch.update(db.collection('clients').doc(finalSubscriptionData.supplierId), { useCount: FieldValue.increment(1) });
         }
         if(finalSubscriptionData.boxId) {
-             batch.update(db.collection('boxes').doc(finalSubscriptionData.boxId), { useCount: FieldValue.increment(1) });
+             mainBatch.update(db.collection('boxes').doc(finalSubscriptionData.boxId), { useCount: FieldValue.increment(1) });
         }
 
 
-        await batch.commit();
+        await mainBatch.commit();
 
         await createAuditLog({
             userId: user.uid,
