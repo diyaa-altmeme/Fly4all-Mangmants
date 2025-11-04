@@ -121,7 +121,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     if (!db) return { success: false, error: "Database not available." };
     
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated" };
+    if (!user || !('role' in user)) return { success: false, error: "User not authenticated" };
     
     const settings = await getSettings();
     const financeSettings = normalizeFinanceAccounts(settings.financeAccounts);
@@ -697,3 +697,4 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
