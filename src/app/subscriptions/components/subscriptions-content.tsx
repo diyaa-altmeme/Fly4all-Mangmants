@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -13,6 +12,7 @@ import { produce } from 'immer';
 import { useToast } from '@/hooks/use-toast';
 import SubscriptionsSettingsDialog from './subscriptions-settings-dialog';
 import { revalidateSubscriptionsPath } from '../actions';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 interface SubscriptionsContentProps {
     initialSubscriptions: Subscription[];
@@ -53,6 +53,3 @@ export default function SubscriptionsContent({ initialSubscriptions, initialInst
         </Card>
     );
 }
-
-
-    
