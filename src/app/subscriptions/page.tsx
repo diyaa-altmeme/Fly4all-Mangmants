@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { Suspense, useState, useEffect, useCallback } from 'react';
@@ -9,7 +10,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import SubscriptionsContent from './components/subscriptions-content';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { Subscription, SubscriptionInstallment } from '@/lib/types';
-
+import { PageContainer, PageHeader, PageSection } from '@/components/layout/page-structure';
 
 function SubscriptionsDataContainer() {
     const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
@@ -51,7 +52,7 @@ function SubscriptionsDataContainer() {
             </Alert>
         );
     }
-
+    
     return (
         <SubscriptionsContent
             initialSubscriptions={subscriptions}
@@ -63,18 +64,17 @@ function SubscriptionsDataContainer() {
 
 export default function SubscriptionsPage() {
     return (
-        <div className="space-y-6">
-            <div className="px-0 sm:px-6">
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">إدارة الاشتراكات</h1>
-                <p className="text-muted-foreground">عرض وإدارة جميع الاشتراكات الدورية في مكان واحد.</p>
-            </div>
-            <Card>
-                <CardContent className="pt-6">
-                    <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-                        <SubscriptionsDataContainer />
-                    </Suspense>
-                </CardContent>
-            </Card>
-        </div>
+        <PageContainer>
+            <PageHeader
+                title="إدارة الاشتراكات"
+                description="عرض وإدارة جميع الاشتراكات الدورية في مكان واحد."
+            />
+            <PageSection>
+                <Suspense fallback={<Skeleton className="h-96 w-full rounded-xl" />}>
+                    <SubscriptionsDataContainer />
+                </Suspense>
+            </PageSection>
+        </PageContainer>
     );
 }
+

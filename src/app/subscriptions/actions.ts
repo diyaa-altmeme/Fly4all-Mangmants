@@ -3,7 +3,7 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { Subscription, SubscriptionInstallment, Payment, SubscriptionStatus, JournalEntry, Client, Supplier } from '@/lib/types';
+import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus, JournalEntry, Client, Supplier } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { addMonths, format, parseISO, endOfDay, isWithinInterval, startOfDay } from 'date-fns';
 import { FieldValue } from "firebase-admin/firestore";
@@ -689,5 +689,6 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
 
 
