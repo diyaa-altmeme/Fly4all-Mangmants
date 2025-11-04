@@ -57,12 +57,8 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
 
     try {
         const query = db.collection('subscriptions').orderBy('purchaseDate', 'desc');
-        
         const snapshot = await query.get();
-        
-        if (snapshot.empty) {
-            return [];
-        }
+        if (snapshot.empty) return [];
 
         const allSubscriptions = snapshot.docs.map(doc => processDoc(doc) as Subscription);
 
@@ -70,12 +66,19 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
             return includeDeleted ? sub.isDeleted === true : !sub.isDeleted;
         });
 
-
-        // Fetch client data and attach it
         const clientIds = [...new Set(subscriptions.map(s => s.clientId).filter(Boolean))];
         if (clientIds.length > 0) {
-            const clientsSnapshot = await db.collection('clients').where(admin.firestore.FieldPath.documentId(), 'in', clientIds).get();
-            const clientsData = new Map(clientsSnapshot.docs.map(doc => [doc.id, doc.data() as Client]));
+            const chunks = [];
+            for (let i = 0; i < clientIds.length; i += 30) {
+                chunks.push(clientIds.slice(i, i + 30));
+            }
+            const clientsData = new Map<string, Client>();
+            for (const chunk of chunks) {
+                const clientsSnapshot = await db.collection('clients').where(admin.firestore.FieldPath.documentId(), 'in', chunk).get();
+                clientsSnapshot.forEach(doc => {
+                    clientsData.set(doc.id, doc.data() as Client);
+                });
+            }
             subscriptions.forEach(sub => {
                 if (clientsData.has(sub.clientId)) {
                     sub.client = clientsData.get(sub.clientId);
@@ -189,46 +192,57 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             mainBatch.set(installmentRef, instData);
         });
 
+        // == Journal Entries ==
         const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
-        if (!revenueAccountId) {
-            console.warn("Revenue account for subscriptions is not defined, skipping journal entry.");
+        const arAccountId = financeSettings.receivableAccountId;
+        
+        if (!revenueAccountId || !arAccountId) {
+            console.warn("Revenue or AR account for subscriptions is not defined, skipping main journal entry.");
         } else {
-            const revenueVoucherRef = db.collection('journal-vouchers').doc();
-            mainBatch.set(revenueVoucherRef, {
-                invoiceNumber: await getNextVoucherNumber('SUB_REV'),
-                date: finalSubscriptionData.startDate,
+            const partnerShareAmount = subscriptionData.hasPartner && subscriptionData.partnerId && subscriptionData.partnerSharePercentage 
+                ? profit * (subscriptionData.partnerSharePercentage / 100) 
+                : 0;
+            const alrawdatainShare = profit - partnerShareAmount;
+
+            const creditEntries: JournalEntry[] = [
+                { accountId: revenueAccountId, amount: alrawdatainShare, description: `إيراد اشتراك ${finalSubscriptionData.serviceName}` }
+            ];
+
+            if (partnerShareAmount > 0) {
+                 creditEntries.push({ accountId: 'partner_payable_account', amount: partnerShareAmount, description: `حصة شريك من اشتراك` });
+            }
+
+            await postJournalEntry({
+                sourceType: 'subscription',
+                sourceId: subscriptionRef.id,
+                description: `إثبات دين اشتراك ${finalSubscriptionData.serviceName}`,
+                amount: totalSale,
                 currency: finalSubscriptionData.currency,
-                notes: `إيراد اشتراك خدمة ${finalSubscriptionData.serviceName}`,
-                createdBy: user.uid,
-                officer: user.name,
-                createdAt: FieldValue.serverTimestamp(),
-                updatedAt: FieldValue.serverTimestamp(),
-                voucherType: "subscription",
-                debitEntries: [{ accountId: finalSubscriptionData.clientId, amount: totalSale, description: `دين اشتراك ${finalSubscriptionData.serviceName}` }],
-                creditEntries: [{ accountId: revenueAccountId, amount: totalSale, description: `إيراد اشتراك ${finalSubscriptionData.serviceName}` }],
-                originalData: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id },
+                date: new Date(finalSubscriptionData.startDate),
+                userId: user.uid,
+                debitAccountId: arAccountId,
+                creditEntries: creditEntries,
+                meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
             });
         }
         
-        if (totalPurchase > 0) {
+        if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
            const costAccountId = financeSettings.expenseMap?.subscriptions || financeSettings.generalExpenseId;
-           if (!costAccountId) {
-                console.warn("Cost account for subscriptions is not defined, skipping journal entry.");
+           const apAccountId = financeSettings.payableAccountId;
+           if (!costAccountId || !apAccountId) {
+                console.warn("Cost or AP account for subscriptions is not defined, skipping cost journal entry.");
            } else {
-               const costVoucherRef = db.collection('journal-vouchers').doc();
-               mainBatch.set(costVoucherRef, {
-                    invoiceNumber: await getNextVoucherNumber('SUB_COST'),
-                    date: finalSubscriptionData.purchaseDate,
+               await postJournalEntry({
+                    sourceType: 'subscription_cost',
+                    sourceId: subscriptionRef.id,
+                    description: `تكلفة اشتراك خدمة ${finalSubscriptionData.serviceName}`,
+                    amount: totalPurchase,
                     currency: finalSubscriptionData.currency,
-                    notes: `تكلفة اشتراك خدمة ${finalSubscriptionData.serviceName}`,
-                    createdBy: user.uid,
-                    officer: user.name,
-                    createdAt: FieldValue.serverTimestamp(),
-                    updatedAt: FieldValue.serverTimestamp(),
-                    voucherType: "subscription_cost",
-                    debitEntries: [{ accountId: costAccountId, amount: totalPurchase, description: `تكلفة خدمة ${finalSubscriptionData.serviceName}` }],
-                    creditEntries: [{ accountId: finalSubscriptionData.supplierId, amount: totalPurchase, description: `مستحقات المورد عن ${finalSubscriptionData.serviceName}` }],
-                    originalData: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id },
+                    date: new Date(finalSubscriptionData.purchaseDate),
+                    userId: user.uid,
+                    debitAccountId: costAccountId,
+                    creditAccountId: apAccountId,
+                    meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
                });
            }
         }
