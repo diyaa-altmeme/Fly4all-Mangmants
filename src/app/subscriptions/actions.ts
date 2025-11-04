@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -56,7 +57,8 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
     }
 
     try {
-        const query = db.collection('subscriptions').orderBy('purchaseDate', 'desc');
+        let query = db.collection('subscriptions').orderBy('purchaseDate', 'desc');
+        
         const snapshot = await query.get();
         if (snapshot.empty) return [];
 
@@ -68,19 +70,20 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
 
         const clientIds = [...new Set(subscriptions.map(s => s.clientId).filter(Boolean))];
         if (clientIds.length > 0) {
-            const chunks = [];
+            const chunks: string[][] = [];
             for (let i = 0; i < clientIds.length; i += 30) {
                 chunks.push(clientIds.slice(i, i + 30));
             }
             const clientsData = new Map<string, Client>();
             for (const chunk of chunks) {
+                if(chunk.length === 0) continue;
                 const clientsSnapshot = await db.collection('clients').where(admin.firestore.FieldPath.documentId(), 'in', chunk).get();
                 clientsSnapshot.forEach(doc => {
                     clientsData.set(doc.id, doc.data() as Client);
                 });
             }
             subscriptions.forEach(sub => {
-                if (clientsData.has(sub.clientId)) {
+                if (sub.clientId && clientsData.has(sub.clientId)) {
                     sub.client = clientsData.get(sub.clientId);
                 }
             });
@@ -196,20 +199,30 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
         const arAccountId = financeSettings.receivableAccountId;
         
-        if (!revenueAccountId || !arAccountId) {
-            console.warn("Revenue or AR account for subscriptions is not defined, skipping main journal entry.");
+        if (!arAccountId) {
+             console.warn("AR account for subscriptions is not defined, skipping main journal entry.");
         } else {
-            const partnerShareAmount = subscriptionData.hasPartner && subscriptionData.partnerId && subscriptionData.partnerSharePercentage 
+            const creditEntries: JournalEntry[] = [];
+            
+            const partnerShareAmount = (subscriptionData.hasPartner && subscriptionData.partnerId && subscriptionData.partnerSharePercentage) 
                 ? profit * (subscriptionData.partnerSharePercentage / 100) 
                 : 0;
             const alrawdatainShare = profit - partnerShareAmount;
 
-            const creditEntries: JournalEntry[] = [
-                { accountId: revenueAccountId, amount: alrawdatainShare, description: `إيراد اشتراك ${finalSubscriptionData.serviceName}` }
-            ];
+            if (alrawdatainShare > 0) {
+                 creditEntries.push({
+                    accountId: revenueAccountId || 'revenue_subscriptions', // Fallback to a default if general is also missing
+                    amount: alrawdatainShare,
+                    description: `إيراد اشتراك ${finalSubscriptionData.serviceName}`
+                });
+            }
 
-            if (partnerShareAmount > 0) {
-                 creditEntries.push({ accountId: 'partner_payable_account', amount: partnerShareAmount, description: `حصة شريك من اشتراك` });
+            if (partnerShareAmount > 0 && subscriptionData.partnerId) {
+                 creditEntries.push({
+                    accountId: subscriptionData.partnerId, // The partner's liability account is their own ID
+                    amount: partnerShareAmount,
+                    description: `حصة شريك من اشتراك`
+                });
             }
 
             await postJournalEntry({
@@ -220,7 +233,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                 currency: finalSubscriptionData.currency,
                 date: new Date(finalSubscriptionData.startDate),
                 userId: user.uid,
-                debitAccountId: arAccountId,
+                debitAccountId: finalSubscriptionData.clientId,
                 creditEntries: creditEntries,
                 meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
             });
@@ -241,7 +254,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                     date: new Date(finalSubscriptionData.purchaseDate),
                     userId: user.uid,
                     debitAccountId: costAccountId,
-                    creditAccountId: apAccountId,
+                    creditAccountId: finalSubscriptionData.supplierId, // Supplier is now the AP account
                     meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
                });
            }
@@ -364,7 +377,7 @@ export async function paySubscriptionInstallment(
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+    if (!user || !('role' in user)) return { success: false, error: "User not authenticated." };
 
     const installmentDocRef = db.collection('subscription_installments').doc(installmentId);
     
@@ -389,10 +402,11 @@ export async function paySubscriptionInstallment(
                 sourceType: "journal_from_installment",
                 sourceId: installmentId,
                 description: `سداد دفعة اشتراك خدمة: ${subscriptionData.serviceName}`,
-                entries: [
+                 entries: [
                     { accountId: boxId, debit: totalAmountToCreditToClient, credit: 0, currency: paymentCurrency },
                     { accountId: subscriptionData.clientId, debit: 0, credit: totalAmountToCreditToClient, currency: paymentCurrency }
-                ]
+                ],
+                meta: { installmentId, subscriptionId: subscriptionData.id }
             });
             
             let remainingPaymentToApply = paymentAmount;
@@ -494,7 +508,7 @@ export async function deletePayment(paymentId: string) {
             
             const subscriptionRef = db.collection('subscriptions').doc(installment.subscriptionId);
             const journalRef = db.collection('journal-vouchers').doc(payment.journalVoucherId!);
-            
+
             const originalJournalDoc = await transaction.get(journalRef);
             if (!originalJournalDoc.exists) throw new Error("Original journal voucher not found.");
             const originalJournal = originalJournalDoc.data() as any;

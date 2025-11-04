@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
@@ -84,7 +85,7 @@ function splitEntries(entries: StoredEntry[]): {
       const debitEntry: LegacyJournalEntry = {
         accountId: entry.accountId,
         amount: entry.debit,
-        description: entry.description ?? entry.note,
+        description: entry.description ?? entry.note ?? '',
       };
       if (entry.relationId) debitEntry.relationId = entry.relationId;
       debitEntries.push(debitEntry);
@@ -94,7 +95,7 @@ function splitEntries(entries: StoredEntry[]): {
        const creditEntry: LegacyJournalEntry = {
         accountId: entry.accountId,
         amount: entry.credit,
-        description: entry.description ?? entry.note,
+        description: entry.description ?? entry.note ?? '',
       };
        if (entry.relationId) creditEntry.relationId = entry.relationId;
        creditEntries.push(creditEntry);
@@ -109,7 +110,7 @@ function resolveCurrency(entries: JournalEntry[]): Currency {
   return (first?.currency as Currency) || 'USD';
 }
 
-export async function postJournalEntry(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts) {
+export async function postJournalEntry(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts): Promise<string> {
   const db = await getDb();
 
   if (!payload.entries || !Array.isArray(payload.entries) || payload.entries.length === 0) {
@@ -203,7 +204,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
         debit: entry.debit,
         credit: entry.credit,
         amount: entry.amount,
-        description: entry.description ?? entry.note,
+        description: entry.description ?? entry.note ?? '',
         currency: entry.currency,
         accountType: entry.accountType,
         type: entry.debit > 0 ? 'debit' : 'credit',
