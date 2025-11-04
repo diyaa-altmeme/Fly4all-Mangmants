@@ -1,5 +1,6 @@
 
 
+
 import React, { Suspense } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal, ArrowLeft, Loader2 } from 'lucide-react';
@@ -54,3 +55,5 @@ export default async function DeletedSubscriptionsPage() {
     </div>
   );
 }
+
+    
