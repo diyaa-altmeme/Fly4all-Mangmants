@@ -34,7 +34,7 @@ export default function NewDistributedReceiptDialog({
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const { toast } = useToast();
-  const { data: navData, loaded: isDataLoaded, fetchData } = useVoucherNav();
+  const { data: navData, loaded: isDataLoaded, fetchData, refreshData } = useVoucherNav();
   
   const voucherSettings = navData?.settings.voucherSettings?.distributed;
   const [dialogDimensions, setDialogDimensions] = useState<{ width?: string, height?: string }>({
@@ -67,7 +67,7 @@ export default function NewDistributedReceiptDialog({
 
   const handleSettingsSaved = async () => {
     toast({ title: 'تم حفظ الإعدادات بنجاح' });
-    await fetchData(true); // Force refetch all settings
+    await refreshData();
     setShowSettings(false);
   };
   
@@ -150,4 +150,3 @@ export default function NewDistributedReceiptDialog({
     </Dialog>
   );
 }
-
