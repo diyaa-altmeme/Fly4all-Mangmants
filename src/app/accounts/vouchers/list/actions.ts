@@ -8,12 +8,16 @@ import { getSettings } from '@/app/settings/actions';
 import { parseISO } from 'date-fns';
 import { createAuditLog } from '@/app/system/activity-log/actions';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getVoucherTypeLabel, normalizeVoucherType } from '@/lib/accounting/voucher-types';
+import type { NormalizedVoucherType } from '@/lib/accounting/voucher-types';
 
 export type Voucher = JournalVoucher & {
     voucherTypeLabel: string;
     companyName?: string;
     phone?: string;
     boxName?: string;
+    normalizedType: NormalizedVoucherType;
+    rawSourceType?: string;
 };
 
 // Helper function to process dates, which might be Timestamps
@@ -84,17 +88,6 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
             .get();
         
         const allVouchers: Voucher[] = [];
-        
-        const getVoucherTypeLabel = (type: string) => {
-            switch(type) {
-                case 'journal_from_standard_receipt': return 'سند قبض عادي';
-                case 'journal_from_distributed_receipt': return 'سند قبض مخصص';
-                case 'journal_from_payment': return 'سند دفع';
-                case 'journal_from_expense': return 'سند مصاريف';
-                case 'journal_voucher': return 'قيد محاسبي';
-                default: return type;
-            }
-        };
 
         journalVouchersSnapshot.forEach(doc => {
             const data = processVoucherData(doc);
@@ -123,15 +116,20 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
             
             const boxId = originalData.boxId || originalData.toBox || data.creditEntries?.find((e: any) => boxesMap.has(e.accountId))?.accountId || data.debitEntries?.find((e: any) => boxesMap.has(e.accountId))?.accountId || '';
 
-            allVouchers.push({ 
-                ...data, 
+            const rawSourceType = data.originalData?.sourceType || data.sourceType || data.voucherType;
+            const normalizedType = normalizeVoucherType(rawSourceType || data.voucherType);
+
+            allVouchers.push({
+                ...data,
                 id: doc.id,
-                voucherTypeLabel: getVoucherTypeLabel(data.voucherType),
+                voucherTypeLabel: getVoucherTypeLabel(normalizedType),
                 companyName: companyName,
                 phone: phone,
                 officer: usersMap.get(data.createdBy) || data.officer || 'غير معروف',
                 boxName: boxesMap.get(boxId) || 'N/A',
-                totalAmount: totalDebit, 
+                totalAmount: totalDebit,
+                normalizedType,
+                rawSourceType,
             });
         });
 
