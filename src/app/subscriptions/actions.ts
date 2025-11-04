@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -188,23 +189,33 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             batch.set(installmentRef, instData);
         });
 
+        // Use general revenue account as a fallback
+        const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
+        if (!revenueAccountId) {
+            throw new Error("Revenue account for subscriptions or a general revenue account must be defined in finance settings.");
+        }
+
         await postJournalEntry({
             sourceType: 'subscription',
             sourceId: subscriptionRef.id,
             description: `إيراد اشتراك خدمة ${finalSubscriptionData.serviceName}`,
             entries: [
                 { accountId: finalSubscriptionData.clientId, debit: totalSale, credit: 0, currency: finalSubscriptionData.currency },
-                { accountId: financeSettings.revenueMap.subscriptions, debit: 0, credit: totalSale, currency: finalSubscriptionData.currency }
+                { accountId: revenueAccountId, debit: 0, credit: totalSale, currency: finalSubscriptionData.currency }
             ]
         });
 
         if (totalPurchase > 0) {
+           const costAccountId = financeSettings.expenseMap?.subscriptions || financeSettings.generalExpenseId;
+           if (!costAccountId) {
+               throw new Error("Cost account for subscriptions or a general expense account must be defined in finance settings.");
+           }
            await postJournalEntry({
                 sourceType: 'subscription_cost',
                 sourceId: subscriptionRef.id,
                 description: `تكلفة اشتراك خدمة ${finalSubscriptionData.serviceName}`,
                 entries: [
-                    { accountId: financeSettings.expenseMap.subscriptions, debit: totalPurchase, credit: 0, currency: finalSubscriptionData.currency },
+                    { accountId: costAccountId, debit: totalPurchase, credit: 0, currency: finalSubscriptionData.currency },
                     { accountId: finalSubscriptionData.supplierId, debit: 0, credit: totalPurchase, currency: finalSubscriptionData.currency }
                 ]
             });
