@@ -56,7 +56,6 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
     }
 
     try {
-        // Fetch all subscriptions without filtering by isDeleted at the query level
         const snapshot = await db.collection('subscriptions').orderBy('purchaseDate', 'desc').get();
         if (snapshot.empty) {
             return [];
