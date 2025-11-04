@@ -88,11 +88,11 @@ export default function DistributedSettingsForm({
   });
   
   const onSubmit = async (data: DistributedVoucherSettings) => {
-    const result = await updateSettings({ voucherSettings: { distributed: data } });
+    const result = await updateSettings({ voucherSettings: { ...navData?.settings.voucherSettings, distributed: data } });
     if (result.success) {
         toast({ title: "تم حفظ الإعدادات بنجاح" });
         if (onSaveSuccess) {
-            onSaveSuccess();
+            await onSaveSuccess();
         }
     } else {
         toast({ title: "خطأ", description: result.error, variant: 'destructive' });
