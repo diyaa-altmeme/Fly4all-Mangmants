@@ -246,12 +246,15 @@
         "items": {
           "clients": "ادارة العلاقات",
           "campaigns": "الحملات",
-          "chat": "المحادثات"
+          "chat": "المحادثات",
+          "settings": "إعدادات العلاقات",
+          "import": "استيراد العلاقات"
         }
       },
       "vouchers": {
         "title": "السندات",
         "items": {
+          "center": "مركز السندات",
           "records": "سجل السندات",
           "settings": "الإعدادات",
           "standardReceipt": "سند قبض عادي",
@@ -265,7 +268,10 @@
         "title": "العمليات المحاسبية",
         "items": {
           "bookings": "حجوزات الطيران",
+          "bookingsDeleted": "الحجوزات المحذوفة",
+          "bookingsFlyChanges": "تغييرات الرحلات",
           "visas": "طلبات الفيزا",
+          "visasDeleted": "طلبات الفيزا المحذوفة",
           "remittances": "الحوالات"
         }
       },
@@ -273,8 +279,11 @@
         "title": "الأعمال المخصصة",
         "items": {
           "subscriptions": "الاشتراكات",
+          "subscriptionsDeleted": "الاشتراكات المحذوفة",
           "segments": "السكمنت",
+          "segmentsDeleted": "السكمنت المحذوف",
           "exchanges": "البورصات",
+          "exchangesReport": "تقارير البورصات",
           "profitSharing": "توزيع الحصص",
           "flightAnalysis": "تحليل الطيران"
         }
@@ -282,10 +291,15 @@
       "reports": {
         "title": "التقارير والأدوات",
         "items": {
+          "overview": "مركز التقارير",
           "debts": "تقرير الأرصدة",
           "accountStatement": "كشف حساب",
+          "accountStatementDashboard": "لوحة كشف الحساب",
+          "boxes": "تقرير الصناديق",
           "profitLoss": "الأرباح والخسائر",
           "profitability": "تحليل الربحية",
+          "financeOverview": "نظرة عامة مالية",
+          "financeDashboard": "لوحة التحكم المالية",
           "cashFlow": "التدفق النقدي",
           "smartReconciliation": "التدقيق الذكي"
         }
@@ -297,8 +311,10 @@
           "suppliers": "الموردين",
           "profile": "الملف الشخصي",
           "profits": "الأرباح",
+          "profitsManual": "تسجيل أرباح يدوي",
           "notifications": "الإشعارات",
-          "assets": "إدارة الأصول"
+          "assets": "إدارة الأصول",
+          "support": "الدعم"
         }
       },
       "system": {
@@ -306,13 +322,22 @@
         "items": {
           "generalSettings": "الإعدادات العامة",
           "accountingGuide": "الدليل المحاسبي والربط المالي",
+          "chartOfAccounts": "شجرة الحسابات",
+          "settingsFinance": "إعدادات المالية",
+          "settingsFinanceTools": "إعدادات الأدوات المالية",
+          "clientPermissions": "صلاحيات العملاء",
+          "appearance": "المظهر",
+          "themes": "الثيمات",
+          "invoiceSequences": "تسلسل الفواتير",
           "users": "الموظفين والصلاحيات",
           "financeTools": "الأدوات المالية",
+          "financeToolsAudit": "التدقيق الذكي للأدوات",
           "templates": "قوالب الرسائل",
           "activityLog": "سجل النشاطات",
           "errorLog": "سجل الأخطاء",
           "dataAudit": "تدقيق البيانات",
-          "deletedLog": "سجل المحذوفات"
+          "deletedLog": "سجل المحذوفات",
+          "setupAdmin": "إعداد المشرف"
         }
       }
     }

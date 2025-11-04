@@ -21,7 +21,7 @@ import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-paym
 import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
 import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
 import { useVoucherNav } from "@/context/voucher-nav-context";
-import { ChevronDown, FileDown, GitBranch, FileUp, Banknote, BookUser, ListChecks, Settings } from "lucide-react";
+import { ChevronDown, FileDown, GitBranch, FileUp, Banknote, BookUser } from "lucide-react";
 import { useTranslation } from "@/i18n";
 
 const NavLink = ({ href, children, active, className }: { href: string; children: React.ReactNode; active: boolean; className?: string }) => (
@@ -86,10 +86,7 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
   const { t } = useTranslation();
   const onDataChanged = () => router.refresh();
 
-  const menuItems = [
-    { href: "/accounts/vouchers/list", labelKey: "navigation.groups.vouchers.items.records", icon: ListChecks },
-    { href: "/settings", labelKey: "navigation.groups.vouchers.items.settings", icon: Settings },
-  ];
+  const menuItems = navConfig.vouchers.items;
 
   const voucherDialogs = [
     { Dialog: NewStandardReceiptDialog, labelKey: "navigation.groups.vouchers.items.standardReceipt", icon: FileDown, onSave: onDataChanged },
@@ -115,8 +112,8 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
         })}
         <DropdownMenuSeparator />
         {menuItems.map(item => (
-          <MobileSubItem key={item.href} href={item.href} icon={item.icon}>
-            {t(item.labelKey)}
+          <MobileSubItem key={item.id} href={item.href} icon={item.icon}>
+            {t(item.titleKey)}
           </MobileSubItem>
         ))}
       </div>
@@ -138,9 +135,9 @@ const CreateVoucherMenuItems = ({ isMobile = false }: { isMobile?: boolean }) =>
       })}
       <DropdownMenuSeparator />
       {menuItems.map(item => (
-        <DropdownMenuItem asChild key={item.href}>
+        <DropdownMenuItem asChild key={item.id}>
           <Link href={item.href} className="flex w-full items-center justify-between">
-            <span>{t(item.labelKey)}</span>
+            <span>{t(item.titleKey)}</span>
             <item.icon className="h-4 w-4" />
           </Link>
         </DropdownMenuItem>

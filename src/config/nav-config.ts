@@ -35,7 +35,12 @@ import {
   Landmark,
   Box,
   User,
-  BellRing
+  BellRing,
+  FileDown,
+  RefreshCcw,
+  Trash2,
+  LifeBuoy,
+  Palette,
 } from "lucide-react";
 
 export type NavLinkConfig = {
@@ -98,14 +103,45 @@ export const navConfig: {
         titleKey: "navigation.groups.relations.items.chat",
         href: "/chat",
         icon: MessageSquare,
-      }
+      },
+      {
+        id: "relationsSettings",
+        titleKey: "navigation.groups.relations.items.settings",
+        href: "/relations/settings",
+        icon: Settings,
+      },
+      {
+        id: "relationsImport",
+        titleKey: "navigation.groups.relations.items.import",
+        href: "/relations/settings/import",
+        icon: FileDown,
+      },
     ],
   },
   vouchers: {
     id: "vouchers",
     titleKey: "navigation.groups.vouchers.title",
     icon: FileText,
-    items: [], // Populated dynamically in the navigation component
+    items: [
+      {
+        id: "center",
+        titleKey: "navigation.groups.vouchers.items.center",
+        href: "/accounts/vouchers",
+        icon: FileText,
+      },
+      {
+        id: "records",
+        titleKey: "navigation.groups.vouchers.items.records",
+        href: "/accounts/vouchers/list",
+        icon: NotebookText,
+      },
+      {
+        id: "settings",
+        titleKey: "navigation.groups.vouchers.items.settings",
+        href: "/settings",
+        icon: Settings,
+      },
+    ],
   },
   operations: {
     id: "operations",
@@ -119,10 +155,28 @@ export const navConfig: {
         icon: Plane,
       },
       {
+        id: "bookingsDeleted",
+        titleKey: "navigation.groups.operations.items.bookingsDeleted",
+        href: "/bookings/deleted-bookings",
+        icon: Trash2,
+      },
+      {
+        id: "bookingsFlyChanges",
+        titleKey: "navigation.groups.operations.items.bookingsFlyChanges",
+        href: "/bookings/fly-changes",
+        icon: RefreshCcw,
+      },
+      {
         id: "visas",
         titleKey: "navigation.groups.operations.items.visas",
         href: "/visas",
         icon: CreditCard,
+      },
+      {
+        id: "visasDeleted",
+        titleKey: "navigation.groups.operations.items.visasDeleted",
+        href: "/visas/deleted-visas",
+        icon: Trash2,
       },
       {
         id: "remittances",
@@ -144,16 +198,34 @@ export const navConfig: {
         icon: Repeat,
       },
       {
+        id: "subscriptionsDeleted",
+        titleKey: "navigation.groups.customBusiness.items.subscriptionsDeleted",
+        href: "/subscriptions/deleted-subscriptions",
+        icon: Trash2,
+      },
+      {
         id: "segments",
         titleKey: "navigation.groups.customBusiness.items.segments",
         href: "/segments",
         icon: Layers3,
       },
       {
+        id: "segmentsDeleted",
+        titleKey: "navigation.groups.customBusiness.items.segmentsDeleted",
+        href: "/segments/deleted-segments",
+        icon: Trash2,
+      },
+      {
         id: "exchanges",
         titleKey: "navigation.groups.customBusiness.items.exchanges",
         href: "/exchanges",
         icon: Waypoints,
+      },
+      {
+        id: "exchangesReport",
+        titleKey: "navigation.groups.customBusiness.items.exchangesReport",
+        href: "/exchanges/report",
+        icon: FileBarChart,
       },
       {
         id: "profitSharing",
@@ -175,6 +247,12 @@ export const navConfig: {
     icon: BarChart3,
     items: [
       {
+        id: "overview",
+        titleKey: "navigation.groups.reports.items.overview",
+        href: "/reports",
+        icon: BarChart3,
+      },
+      {
         id: "debts",
         titleKey: "navigation.groups.reports.items.debts",
         href: "/reports/debts",
@@ -187,6 +265,18 @@ export const navConfig: {
         icon: NotebookText,
       },
       {
+        id: "accountStatementDashboard",
+        titleKey: "navigation.groups.reports.items.accountStatementDashboard",
+        href: "/reports/account-statement/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        id: "boxes",
+        titleKey: "navigation.groups.reports.items.boxes",
+        href: "/reports/boxes",
+        icon: Box,
+      },
+      {
         id: "profitLoss",
         titleKey: "navigation.groups.reports.items.profitLoss",
         href: "/reports/profit-loss",
@@ -197,6 +287,18 @@ export const navConfig: {
         titleKey: "navigation.groups.reports.items.profitability",
         href: "/reports/profitability-analysis",
         icon: PieChart,
+      },
+      {
+        id: "financeOverview",
+        titleKey: "navigation.groups.reports.items.financeOverview",
+        href: "/finance/overview",
+        icon: AreaChart,
+      },
+      {
+        id: "financeDashboard",
+        titleKey: "navigation.groups.reports.items.financeDashboard",
+        href: "/dashboard/finance",
+        icon: AreaChart,
       },
       {
         id: "cashFlow",
@@ -242,6 +344,12 @@ export const navConfig: {
         icon: AreaChart,
       },
       {
+        id: "profitsManual",
+        titleKey: "navigation.groups.additionalFeatures.items.profitsManual",
+        href: "/profits/manual",
+        icon: NotebookText,
+      },
+      {
         id: "notifications",
         titleKey: "navigation.groups.additionalFeatures.items.notifications",
         href: "/notifications",
@@ -252,7 +360,13 @@ export const navConfig: {
         titleKey: "navigation.groups.additionalFeatures.items.assets",
         href: "/settings/assets",
         icon: Wallet,
-      }
+      },
+      {
+        id: "support",
+        titleKey: "navigation.groups.additionalFeatures.items.support",
+        href: "/support",
+        icon: LifeBuoy,
+      },
     ],
   },
   system: {
@@ -273,6 +387,48 @@ export const navConfig: {
         icon: GitBranch,
       },
       {
+        id: "chartOfAccounts",
+        titleKey: "navigation.groups.system.items.chartOfAccounts",
+        href: "/settings/accounting/chart-of-accounts",
+        icon: GitBranch,
+      },
+      {
+        id: "settingsFinance",
+        titleKey: "navigation.groups.system.items.settingsFinance",
+        href: "/settings/finance",
+        icon: Calculator,
+      },
+      {
+        id: "settingsFinanceTools",
+        titleKey: "navigation.groups.system.items.settingsFinanceTools",
+        href: "/settings/finance-tools",
+        icon: FileCog,
+      },
+      {
+        id: "clientPermissions",
+        titleKey: "navigation.groups.system.items.clientPermissions",
+        href: "/settings/client-permissions",
+        icon: Users,
+      },
+      {
+        id: "appearance",
+        titleKey: "navigation.groups.system.items.appearance",
+        href: "/settings/appearance",
+        icon: Palette,
+      },
+      {
+        id: "themes",
+        titleKey: "navigation.groups.system.items.themes",
+        href: "/settings/themes",
+        icon: Layers3,
+      },
+      {
+        id: "invoiceSequences",
+        titleKey: "navigation.groups.system.items.invoiceSequences",
+        href: "/settings/invoice-sequences",
+        icon: NotebookText,
+      },
+      {
         id: "users",
         titleKey: "navigation.groups.system.items.users",
         href: "/users",
@@ -283,6 +439,12 @@ export const navConfig: {
         titleKey: "navigation.groups.system.items.financeTools",
         href: "/finance-tools",
         icon: Landmark,
+      },
+      {
+        id: "financeToolsAudit",
+        titleKey: "navigation.groups.system.items.financeToolsAudit",
+        href: "/finance-tools/ai-audit",
+        icon: Wand2,
       },
       {
         id: "templates",
@@ -313,7 +475,13 @@ export const navConfig: {
         titleKey: "navigation.groups.system.items.deletedLog",
         href: "/system/deleted-log",
         icon: FileX2,
-      }
+      },
+      {
+        id: "setupAdmin",
+        titleKey: "navigation.groups.system.items.setupAdmin",
+        href: "/setup-admin",
+        icon: User,
+      },
     ],
   },
 };
