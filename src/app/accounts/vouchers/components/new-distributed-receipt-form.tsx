@@ -49,6 +49,19 @@ interface NewDistributedReceiptFormProps {
     initialData?: DistributedReceiptInput & { id?: string };
 }
 
+// A robust function to parse different decimal and thousands formats
+const parseNumericValue = (value: string | number | undefined): number | undefined => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value === 'number') return isNaN(value) ? undefined : value;
+    
+    // Standardize decimal separator to a period and remove thousands separators
+    const sanitized = value.replace(/,/g, '');
+    
+    const num = parseFloat(sanitized);
+    return isNaN(num) ? undefined : num;
+};
+
+
 export default function NewDistributedReceiptForm({ 
     settings, 
     selectedCurrency,
@@ -117,57 +130,24 @@ export default function NewDistributedReceiptForm({
 
   React.useEffect(() => {
     const subscription = watch((value, { name, type }) => {
+      // Logic for one-way calculation: totalAmount -> distributions -> companyAmount
+      if (name?.startsWith('distributions.') || name === 'totalAmount') {
         const currentValues = getValues();
-        const totalAmount = Number(currentValues.totalAmount) || 0;
-
-        if (name?.startsWith('distributions.') || name === 'totalAmount') {
-            const totalDist = Object.values(currentValues.distributions || {}).reduce((sum, item: any) => sum + (item.enabled ? (Number(item.amount) || 0) : 0), 0);
-            const newCompanyAmount = totalAmount - totalDist;
-            
-            if (newCompanyAmount !== (Number(currentValues.companyAmount) || 0)) {
-               setValue('companyAmount', newCompanyAmount >= 0 ? newCompanyAmount : 0, { shouldValidate: true });
-            }
-        } else if (name === 'companyAmount') {
-            const companyAmount = Number(currentValues.companyAmount) || 0;
-            const remainingForDistribution = totalAmount - companyAmount;
-            
-            const totalDistributions = Object.values(currentValues.distributions || {}).reduce((sum, item: any) => sum + (Number(item.amount) || 0), 0);
-
-            if (totalDistributions > 0 && remainingForDistribution >= 0) {
-                const ratio = remainingForDistribution / totalDistributions;
-                const newDistributions = { ...currentValues.distributions };
-                let calculatedTotalDist = 0;
-
-                Object.keys(newDistributions).forEach((key, index, arr) => {
-                    const oldAmount = Number(currentValues.distributions[key]?.amount || 0);
-                    let newAmount = oldAmount * ratio;
-                    
-                    newDistributions[key].amount = Math.max(0, parseFloat(newAmount.toFixed(2)));
-                });
-                
-                const finalCalculatedTotal = Object.values(newDistributions).reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
-                const finalDifference = remainingForDistribution - finalCalculatedTotal;
-
-                if (Math.abs(finalDifference) > 0.001 && Object.keys(newDistributions).length > 0) {
-                     const lastKey = Object.keys(newDistributions).pop();
-                     if(lastKey) newDistributions[lastKey].amount += finalDifference;
-                }
-
-                setValue('distributions', newDistributions, { shouldValidate: true });
-
-            } else if (totalDistributions === 0 && remainingForDistribution > 0 && settings.distributionChannels && settings.distributionChannels.length > 0) {
-                const numChannels = settings.distributionChannels.length;
-                const amountPerChannel = remainingForDistribution / numChannels;
-                const newDistributions = { ...currentValues.distributions };
-                settings.distributionChannels.forEach(channel => {
-                    newDistributions[channel.id].amount = amountPerChannel;
-                });
-                setValue('distributions', newDistributions, { shouldValidate: true });
-            }
+        const totalAmount = parseNumericValue(String(currentValues.totalAmount)) || 0;
+        const totalDist = Object.values(currentValues.distributions || {}).reduce(
+          (sum, item: any) => sum + (parseNumericValue(String(item.amount)) || 0),
+          0
+        );
+        const newCompanyAmount = totalAmount - totalDist;
+        
+        // Only update if the calculated value is different to avoid re-renders
+        if (newCompanyAmount !== (parseNumericValue(String(currentValues.companyAmount)) || 0)) {
+          setValue('companyAmount', newCompanyAmount, { shouldValidate: true });
         }
+      }
     });
     return () => subscription.unsubscribe();
-  }, [watch, setValue, getValues, settings.distributionChannels]);
+  }, [watch, setValue, getValues]);
 
 
   const onSubmit = async (data: z.infer<typeof dynamicSchema>) => {
@@ -251,11 +231,11 @@ export default function NewDistributedReceiptForm({
                 
                     <div className="md:col-span-full pt-4 border-t">
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
-                            <div className="space-y-1.5"><Label>المبلغ المسدد لحساب الدافع</Label><Controller control={control} name="companyAmount" render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} />} /><FormMessage /></div>
+                            <div className="space-y-1.5"><Label>المبلغ المسدد لحساب الدافع</Label><Controller control={control} name="companyAmount" render={({field}) => <AmountInput readOnly currency={watchedCurrency} {...field} onValueChange={field.onChange} />} /><FormMessage /></div>
                             {(settings.distributionChannels || []).map((channel) => (
                                 <div key={channel.id} className="space-y-1.5">
-                                    <Label>{channel.label}</Label>
-                                    <Controller control={control} name={`distributions.${channel.id}.amount`} render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} />} />
+                                <Label>{channel.label}</Label>
+                                <Controller control={control} name={`distributions.${channel.id}.amount`} render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} />} />
                                 </div>
                             ))}
                         </div>
@@ -286,3 +266,4 @@ export default function NewDistributedReceiptForm({
     </Form>
   );
 }
+
