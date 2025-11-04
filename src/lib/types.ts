@@ -62,10 +62,10 @@ export interface FinanceAccountsMap {
 // === القيود المحاسبية ===
 export interface JournalEntry {
   accountId: string;            // معرف الحساب
-  amount?: number;              // القيمة المستخدمة في debitEntries/creditEntries
+  amount: number;              // القيمة المستخدمة في debitEntries/creditEntries
   debit?: number;               // المدين
   credit?: number;              // الدائن
-  description?: string;         // الوصف
+  description: string;         // الوصف
   currency?: Currency;          // العملة
   relationId?: string;          // معرف العلاقة (عميل/مورد)
   companyId?: string;           // معرف الشركة
@@ -105,27 +105,6 @@ export interface JournalVoucher {
   meta?: Record<string, any> | null;
   entries?: JournalEntry[];   // تمثيل الإدخالات الحديث (debit/credit)
 }
-
-// === نوع العلاقة ===
-export type RelationKind = "client" | "supplier" | "both";
-
-// === إعدادات حسابات النظام ===
-export interface FinanceAccountsMap {}
-
-// === القيود المحاسبية ===
-export type JournalEntry = {
-  accountId: string;            // معرف الحساب
-  debit: number;               // المدين
-  credit: number;             // الدائن
-  description?: string;       // الوصف
-  currency: Currency;         // العملة
-  relationId?: string;        // معرف العلاقة (عميل/مورد)
-  companyId?: string;        // معرف الشركة
-  sourceType?: string;       // نوع المصدر (تذاكر، تأشيرات، الخ)
-  sourceId?: string;         // معرف المصدر
-  boxId?: string;           // الصندوق المستخدم
-  createDate?: Date;        // تاريخ الإنشاء
-};
 
 // === الصناديق ===
 export interface Box {
@@ -274,6 +253,7 @@ export type FinancialTransactionSource =
   | 'standard_receipt'
   | 'manualExpense'
   | 'installment'
+  | 'journal_from_installment'
   | 'other';
 
 export type FinancialTransaction = {
@@ -456,22 +436,12 @@ export type StructuredDescription = {
     notes?: string;
 };
 
-export type ReportCurrencySummary = {
-  currency: string;
-  label?: string;
-  symbol?: string;
-  openingBalance: number;
-  totalDebit: number;
-  totalCredit: number;
-  finalBalance: number;
-};
-
 export type ReportTransaction = {
   id: string;
   invoiceNumber: string;
   date: string;
   description: string | StructuredDescription;
-  type?: string;
+  type: string;
   normalizedType?: NormalizedVoucherType;
   rawVoucherType?: string;
   rawSourceType?: string;
@@ -509,6 +479,16 @@ export type ReportInfo = {
   accountType: AccountType;
   balanceMode: 'asset' | 'liability';
   currencyBreakdown?: ReportCurrencySummary[];
+};
+
+export type ReportCurrencySummary = {
+  currency: string;
+  label?: string;
+  symbol?: string;
+  openingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  finalBalance: number;
 };
 
 
@@ -818,35 +798,6 @@ export type ThemeCustomizationSettings = ThemeConfig & {
   };
 }
 
-export interface FinanceAccountsMap {}
-
-// === Chart of Accounts ===
-export interface ChartAccount {
-  id: string;
-  code: string;                 // مثل: "1-1-2-2"
-  name: string;                 // مثل: "العملاء/الموردين (مزدوج)"
-  type: AccountType;
-  parentId: string | null;
-  parentCode?: string | null;
-  isLeaf: boolean;
-  description?: string;
-  createdAt: FirebaseFirestore.Timestamp | number | Date;
-  updatedAt: FirebaseFirestore.Timestamp | number | Date;
-}
-
-// === العلاقات (عميل/مورد/كلاهما) ===
-export type RelationKind = "client" | "supplier" | "both";
-
-export interface Relation {
-  id: string;
-  name: string;
-  type: RelationKind;           // client | supplier | both
-  accountId?: string;           // يربط العلاقة بحساب أبّ (AR/AP/Hybrid)
-  companyId?: string;
-  createdAt: any;
-  updatedAt: any;
-}
-
 export type AppSettings = {
     currencySettings?: CurrencySettings;
     exchangeRateTemplate?: string;
@@ -1088,12 +1039,6 @@ export type DebtsReportData = {
 // This is a Zod-like declaration, it can't be imported directly.
 // This is a placeholder for the schema type.
 export type DistributedReceiptInput = any;
-
-export type JournalEntry = {
-    accountId: string;
-    amount: number;
-    description: string;
-}
 
 export type JournalVoucher = {
     id: string;
@@ -1533,3 +1478,4 @@ export interface PostJournalInput {
   sourceRoute?: string;
 }
 
+    
