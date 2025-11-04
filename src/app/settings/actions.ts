@@ -9,6 +9,7 @@ import { createAuditLog } from '../system/activity-log/actions';
 import { defaultSettingsData } from '@/lib/defaults';
 import { cache } from 'react';
 import { produce } from 'immer';
+import _ from 'lodash';
 
 // Mock function until google drive is implemented
 async function testGoogleDriveConnection(): Promise<HealthCheckResult> {
@@ -37,54 +38,8 @@ export const getSettings = cache(async (): Promise<AppSettings> => {
         if (settingsDoc.exists) {
             const dbSettings = settingsDoc.data() as AppSettings;
             
-            const finalSettings = produce(defaultSettingsData, draft => {
-                // Merge top-level keys, except for nested objects we handle manually
-                for (const key in dbSettings) {
-                    if (Object.prototype.hasOwnProperty.call(dbSettings, key) && !['currencySettings', 'theme', 'voucherSettings', 'relationSections'].includes(key)) {
-                        (draft as any)[key] = (dbSettings as any)[key];
-                    }
-                }
-
-                // Deep merge for currencySettings
-                if (dbSettings.currencySettings) {
-                    const savedCurrencies = dbSettings.currencySettings.currencies || [];
-                    const defaultCurrencies = defaultSettingsData.currencySettings.currencies;
-                    const allCurrencyCodes = new Set([...savedCurrencies.map(c => c.code), ...defaultCurrencies.map(c => c.code)]);
-
-                    const mergedCurrencies = Array.from(allCurrencyCodes).map(code => {
-                        return savedCurrencies.find(c => c.code === code) || defaultCurrencies.find(c => c.code === code)!;
-                    });
-                    
-                    draft.currencySettings = {
-                        ...defaultSettingsData.currencySettings,
-                        ...dbSettings.currencySettings,
-                        currencies: mergedCurrencies,
-                        exchangeRates: {
-                            ...(defaultSettingsData.currencySettings?.exchangeRates || {}),
-                            ...(dbSettings.currencySettings.exchangeRates || {}),
-                        }
-                    };
-                } else {
-                    draft.currencySettings = defaultSettingsData.currencySettings;
-                }
-                
-                // Deep merge for theme
-                draft.theme = {
-                    ...defaultSettingsData.theme,
-                    ...(dbSettings.theme || {}),
-                };
-                
-                 // Deep merge for voucherSettings
-                draft.voucherSettings = {
-                    ...defaultSettingsData.voucherSettings,
-                    ...(dbSettings.voucherSettings || {}),
-                };
-
-                 // Ensure relationSections exists
-                draft.relationSections = dbSettings.relationSections && dbSettings.relationSections.length > 0 
-                    ? dbSettings.relationSections 
-                    : defaultSettingsData.relationSections;
-            });
+            // Deep merge DB settings over default settings to ensure all keys exist
+            const finalSettings = _.merge({}, defaultSettingsData, dbSettings);
             
             finalSettings.databaseStatus = { isDatabaseConnected: true };
             return finalSettings;
@@ -111,25 +66,9 @@ export async function updateSettings(settingsData: Partial<AppSettings>): Promis
     const settingsRef = db.collection('settings').doc(SETTINGS_DOC_ID);
 
     try {
-        const oldSettings = await getSettings();
-        
-        // Deep merge using immer's produce
-        const newSettings = produce(oldSettings, draft => {
-            for (const key in settingsData) {
-                if (Object.prototype.hasOwnProperty.call(settingsData, key)) {
-                    const k = key as keyof AppSettings;
-                    if (typeof (settingsData as any)[k] === 'object' && (settingsData as any)[k] !== null && !Array.isArray((settingsData as any)[k])) {
-                        // Deep merge for nested objects like theme, voucherSettings, etc.
-                        (draft as any)[k] = { ...((draft as any)[k] || {}), ...(settingsData as any)[k] };
-                    } else {
-                        // Overwrite for primitive values or arrays
-                        (draft as any)[k] = (settingsData as any)[k];
-                    }
-                }
-            }
-        });
-
-        await settingsRef.set(newSettings, { merge: true });
+        // We no longer need to fetch old settings first, as Firestore's `set` with `merge: true`
+        // performs a deep merge on the server side.
+        await settingsRef.set(settingsData, { merge: true });
         
         await createAuditLog({
             userId: user.uid,
