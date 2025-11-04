@@ -16,7 +16,9 @@ interface InvoiceTemplateProps {
 export default function InvoiceTemplate({ subscription, settings, installments = [] }: InvoiceTemplateProps) {
     const purchaseDate = parseISO(subscription.purchaseDate);
     const startDate = parseISO(subscription.startDate);
-    const endDate = addMonths(startDate, subscription.numberOfInstallments);
+    // Fix: Ensure numberOfInstallments is a valid number, otherwise default to a value (e.g., 12).
+    const numberOfInstallments = typeof subscription.numberOfInstallments === 'number' ? subscription.numberOfInstallments : 12;
+    const endDate = addMonths(startDate, numberOfInstallments);
     const unitPrice = subscription.unitPrice || 0;
     const quantity = subscription.quantity || 1;
     const discount = subscription.discount || 0;
