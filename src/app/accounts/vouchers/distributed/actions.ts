@@ -19,7 +19,7 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
         return { success: false, error: "Database not available." };
     }
 
-    if (!user) {
+    if (!user || !('role' in user)) {
         return { success: false, error: "User not authenticated." };
     }
 
@@ -37,39 +37,40 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
         const journalVoucherRef = db.collection('journal-vouchers').doc();
         const invoiceNumber = await getNextVoucherNumber('DS');
         
-        const creditEntries: JournalEntry[] = [];
-        const debitEntries: JournalEntry[] = [];
+        const creditEntries: LegacyJournalEntry[] = [];
+        const debitEntries: LegacyJournalEntry[] = [];
 
-        // The entire received amount goes into the main box.
+        // 1. The entire received amount goes into the main box (Debit).
         debitEntries.push({
             accountId: data.boxId,
             amount: data.totalAmount,
-            description: `استلام إجمالي مبلغ من ${data.accountId}` // Will be resolved to name later
+            description: `استلام إجمالي مبلغ من ${data.accountId}`
         });
 
-        // The portion that settles the client's debt is credited to their account.
+        // 2. The portion that settles the client's debt is credited to their account.
         if (data.companyAmount > 0) {
             creditEntries.push({
                 accountId: data.accountId,
                 amount: data.companyAmount,
-                description: `تسوية جزء من حسابهم`,
+                description: `تسوية جزء من حساب العميل`,
             });
         }
         
-        // The distributed amounts are credited to their respective accounts.
-        Object.entries(data.distributions)
-            .filter(([, distData]) => distData?.enabled && distData?.amount > 0)
+        // 3. The distributed amounts are credited to their respective accounts.
+        Object.entries(data.distributions || {})
             .forEach(([channelId, distData]) => {
-                const channelSettings = distributedVoucherSettings.distributionChannels?.find(c => c.id === channelId);
-                creditEntries.push({
-                    accountId: channelSettings?.accountId || 'unknown_distribution_account',
-                    amount: Number(distData.amount),
-                    description: `توزيع إلى ${channelSettings?.label || 'حساب توزيع'}`
-                });
+                 if (distData?.amount && Number(distData.amount) > 0) {
+                    const channelSettings = distributedVoucherSettings.distributionChannels?.find(c => c.id === channelId);
+                    creditEntries.push({
+                        accountId: channelSettings?.accountId || 'unknown_distribution_account',
+                        amount: Number(distData.amount),
+                        description: `توزيع إلى ${channelSettings?.label || 'حساب توزيع'}`
+                    });
+                }
             });
         
-        // Ensure the journal entry is balanced.
-        const totalCredit = creditEntries.reduce((sum, entry) => sum + entry.amount, 0);
+        // 4. Ensure the journal entry is balanced.
+        const totalCredit = creditEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
         if (Math.abs(totalCredit - data.totalAmount) > 0.01) {
            return { success: false, error: "مجموع مبالغ التوزيع وحصة الشركة لا يساوي المبلغ المستلم." };
         }
@@ -135,9 +136,7 @@ export async function updateDistributedVoucher(voucherId: string, data: Distribu
         return { success: false, error: "User not authenticated." };
     }
 
-    // This logic is nearly identical to create, but it updates an existing document.
-    // It's a full overwrite of the journal entry based on new form data.
-     try {
+    try {
         const appSettings = (await getSettings()) as AppSettings;
         const distributedVoucherSettings = appSettings.voucherSettings?.distributed;
 
@@ -147,8 +146,8 @@ export async function updateDistributedVoucher(voucherId: string, data: Distribu
         
         const journalVoucherRef = db.collection('journal-vouchers').doc(voucherId);
         
-        const creditEntries: JournalEntry[] = [];
-        const debitEntries: JournalEntry[] = [];
+        const creditEntries: LegacyJournalEntry[] = [];
+        const debitEntries: LegacyJournalEntry[] = [];
 
         debitEntries.push({
             accountId: data.boxId,
@@ -160,22 +159,23 @@ export async function updateDistributedVoucher(voucherId: string, data: Distribu
             creditEntries.push({
                 accountId: data.accountId,
                 amount: data.companyAmount,
-                description: `تسوية جزء من حسابهم`,
+                description: `تسوية جزء من حساب العميل`,
             });
         }
         
-        Object.entries(data.distributions)
-            .filter(([, distData]) => distData?.enabled && distData?.amount > 0)
+        Object.entries(data.distributions || {})
             .forEach(([channelId, distData]) => {
-                const channelSettings = distributedVoucherSettings.distributionChannels?.find(c => c.id === channelId);
-                creditEntries.push({
-                    accountId: channelSettings?.accountId || 'unknown_distribution_account',
-                    amount: Number(distData.amount),
-                    description: `توزيع إلى ${channelSettings?.label || 'حساب توزيع'}`
-                });
+                 if (distData?.amount && Number(distData.amount) > 0) {
+                    const channelSettings = distributedVoucherSettings.distributionChannels?.find(c => c.id === channelId);
+                    creditEntries.push({
+                        accountId: channelSettings?.accountId || 'unknown_distribution_account',
+                        amount: Number(distData.amount),
+                        description: `توزيع إلى ${channelSettings?.label || 'حساب توزيع'}`
+                    });
+                }
             });
         
-        const totalCredit = creditEntries.reduce((sum, entry) => sum + entry.amount, 0);
+        const totalCredit = creditEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
         if (Math.abs(totalCredit - data.totalAmount) > 0.01) {
            return { success: false, error: "مجموع مبالغ التوزيع وحصة الشركة لا يساوي المبلغ المستلم." };
         }
@@ -218,5 +218,3 @@ export async function updateDistributedVoucher(voucherId: string, data: Distribu
         return { success: false, error: error.message };
     }
 }
-
-    

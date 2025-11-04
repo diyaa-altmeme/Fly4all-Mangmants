@@ -71,7 +71,7 @@ export default function NewDistributedReceiptForm({
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
   const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
-  const { data: navData, loaded: isDataLoaded } = useVoucherNav();
+  const { data: navData, loaded: isDataLoaded, refreshData } = useVoucherNav();
   
   const dynamicSchema = React.useMemo(() => {
     return createDistributedReceiptSchema(settings?.distributionChannels);
@@ -79,7 +79,10 @@ export default function NewDistributedReceiptForm({
   
   const form = useForm<z.infer<typeof dynamicSchema>>({
     resolver: zodResolver(dynamicSchema),
-    defaultValues: isEditing && initialData ? { ...initialData } : {
+    defaultValues: isEditing && initialData ? {
+      ...initialData,
+      date: initialData.date ? parseISO(initialData.date as any) : new Date(),
+    } : {
       date: new Date(),
       currency: selectedCurrency,
       exchangeRate: 0,
@@ -87,7 +90,7 @@ export default function NewDistributedReceiptForm({
       notes: '',
       companyAmount: 0,
       distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
-        acc[channel.id] = { enabled: true, amount: 0 };
+        acc[channel.id] = { amount: 0 };
         return acc;
       }, {} as any),
       boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
@@ -95,53 +98,49 @@ export default function NewDistributedReceiptForm({
   });
 
   React.useEffect(() => {
-    const defaultValues = isEditing && initialData
-        ? { ...initialData }
-        : {
-            date: new Date(),
-            currency: selectedCurrency,
-            exchangeRate: 0,
-            totalAmount: 0,
-            notes: '',
-            companyAmount: 0,
-            distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
-                acc[channel.id] = { enabled: true, amount: 0 };
-                return acc;
-            }, {} as any),
-            boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
-            userId: (currentUser && 'uid' in currentUser) ? currentUser.uid : '',
-        };
-    form.reset(defaultValues as any);
-  }, [settings, isEditing, initialData, selectedCurrency, currentUser, form]);
+    if (isDataLoaded) {
+      const defaultValues = isEditing && initialData
+          ? { 
+              ...initialData,
+              date: initialData.date ? parseISO(initialData.date as any) : new Date(),
+            }
+          : {
+              date: new Date(),
+              currency: selectedCurrency,
+              exchangeRate: 0,
+              totalAmount: 0,
+              notes: '',
+              companyAmount: 0,
+              distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
+                  acc[channel.id] = { amount: 0 };
+                  return acc;
+              }, {} as any),
+              boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
+              userId: (currentUser && 'uid' in currentUser) ? currentUser.uid : '',
+          };
+      form.reset(defaultValues as any);
+    }
+  }, [settings, isEditing, initialData, selectedCurrency, currentUser, form, isDataLoaded]);
 
   const { isSubmitting, watch, control, setValue, getValues, register, formState: { errors } } = form;
   const watchedCurrency = watch('currency');
 
   React.useEffect(() => {
-    if (currentUser && 'role' in currentUser && !isEditing) {
-        form.setValue('userId', currentUser.uid);
-        if(currentUser.boxId) {
-            form.setValue('boxId', currentUser.boxId);
-        }
-    }
-  }, [isEditing, form, currentUser]);
-
-  React.useEffect(() => {
-    const subscription = watch((value, { name, type }) => {
-      // Logic for calculation: totalAmount -> distributions -> companyAmount
+    const subscription = watch((value, { name }) => {
       if (name?.startsWith('distributions.') || name === 'totalAmount') {
         const currentValues = getValues();
         const totalAmount = parseNumericValue(currentValues.totalAmount);
+        
         const totalDist = Object.values(currentValues.distributions || {}).reduce(
           (sum, item: any) => sum + parseNumericValue(item.amount),
           0
         );
+
         const newCompanyAmount = totalAmount - totalDist;
-        
         const currentCompanyAmount = parseNumericValue(getValues('companyAmount'));
 
         if (newCompanyAmount !== currentCompanyAmount) {
-          setValue('companyAmount', newCompanyAmount, { shouldValidate: true });
+            setValue('companyAmount', newCompanyAmount, { shouldValidate: true });
         }
       }
     });
@@ -151,8 +150,16 @@ export default function NewDistributedReceiptForm({
 
   const onSubmit = async (data: z.infer<typeof dynamicSchema>) => {
     try {
+        const payload = {
+            ...data,
+            distributions: Object.entries(data.distributions).reduce((acc, [key, value]) => {
+                acc[key] = { amount: parseNumericValue((value as any).amount), enabled: true };
+                return acc;
+            }, {} as any)
+        };
+
         if(isEditing && initialData?.id) {
-            const result = await updateDistributedVoucher(initialData.id, data);
+            const result = await updateDistributedVoucher(initialData.id, payload);
             if (result.success) {
                 toast({ title: 'تم تحديث السند بنجاح' });
                  if (onVoucherUpdated) onVoucherUpdated({});
@@ -160,17 +167,17 @@ export default function NewDistributedReceiptForm({
                  toast({ title: "خطأ في التحديث", description: result.error, variant: 'destructive' });
             }
         } else {
-             const result = await createDistributedVoucher(data);
+             const result = await createDistributedVoucher(payload);
             if (result.success) {
-            toast({ title: "تم إنشاء السند بنجاح" });
-            if(onVoucherAdded) onVoucherAdded(result);
-            form.reset();
+                toast({ title: "تم إنشاء السند بنجاح" });
+                if(onVoucherAdded) onVoucherAdded(result);
+                form.reset();
             } else {
-            toast({ title: "خطأ في الحفظ", description: result.error, variant: 'destructive' });
+                toast({ title: "خطأ في الحفظ", description: result.error, variant: 'destructive' });
             }
         }
     } catch(e: any) {
-         toast({ title: "خطأ", description: e.message, variant: 'destructive' });
+         toast({ title: "خطأ", description: e.message, variant: "destructive" });
     }
   };
   
@@ -189,8 +196,8 @@ export default function NewDistributedReceiptForm({
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5 p-4 border rounded-lg bg-muted/30">
                     <div className="flex items-center gap-2">
                         <Label className="whitespace-nowrap">التاريخ</Label>
-                        <Controller control={control} name="date" render={({ field }) => ( <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, 'yyyy-MM-dd') : <span>اختر تاريخ</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsCalendarOpen(false);}} /></PopoverContent></Popover>)} />
-                        <FormMessage />
+                        <Controller control={control} name="date" render={({ field }) => ( <Popover><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, 'yyyy-MM-dd') : <span>اختر تاريخ</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d);}} /></PopoverContent></Popover>)} />
+                        {errors.date && <p className="text-sm text-destructive h-4">{errors.date.message}</p>}
                     </div>
                      <div className="flex items-center gap-2">
                         <Label className="whitespace-nowrap">العملة</Label>
@@ -205,7 +212,7 @@ export default function NewDistributedReceiptForm({
                     </div>
                     <FormItem className="flex items-center gap-2">
                         <Label className="whitespace-nowrap">الحساب الدافع</Label>
-                        <Controller control={control} name="accountId" render={({ field }) => (<FormControl><Autocomplete searchAction='clients' value={field.value} onValueChange={field.onChange} placeholder="ابحث عن حساب..."/></FormControl>)} />
+                        <Controller control={control} name="accountId" render={({ field }) => (<FormControl><Autocomplete searchAction='all' value={field.value} onValueChange={field.onChange} placeholder="ابحث عن حساب..."/></FormControl>)} />
                         <FormMessage />
                     </FormItem>
                 </div>
@@ -234,7 +241,7 @@ export default function NewDistributedReceiptForm({
                             {(settings.distributionChannels || []).map((channel) => (
                                 <div key={channel.id} className="space-y-1.5">
                                 <Label>{channel.label}</Label>
-                                <Controller control={control} name={`distributions.${channel.id}.amount`} render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} />} />
+                                <Controller control={control} name={`distributions.${channel.id}.amount`} render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={v => field.onChange(v || 0)} />} />
                                 </div>
                             ))}
                         </div>
@@ -250,6 +257,7 @@ export default function NewDistributedReceiptForm({
             <DialogFooter className="pt-4 flex-col sm:flex-row gap-2 sticky bottom-0 bg-background py-4 px-6 -mx-6 -mb-6 border-t">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4"/> <span>المستخدم: {currentUser?.name || '...'}</span></div>
+                    <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4"/> <span>الصندوق: {boxName}</span></div>
                     <div className="flex items-center gap-1.5"><Hash className="h-4 w-4"/> <span>الرقم العام: (تلقائي)</span></div>
                 </div>
                 <div className="flex-grow"></div>
