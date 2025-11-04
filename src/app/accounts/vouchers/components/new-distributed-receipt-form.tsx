@@ -42,7 +42,6 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
 
 interface NewDistributedReceiptFormProps {
     settings: DistributedVoucherSettings;
-    selectedCurrency: Currency;
     onVoucherAdded?: (voucher: any) => void;
     onVoucherUpdated?: (voucher: any) => void;
     isEditing?: boolean;
@@ -51,7 +50,6 @@ interface NewDistributedReceiptFormProps {
 
 export default function NewDistributedReceiptForm({ 
     settings, 
-    selectedCurrency,
     onVoucherAdded, 
     isEditing,
     initialData,
@@ -73,7 +71,7 @@ export default function NewDistributedReceiptForm({
       date: initialData.date ? parseISO(initialData.date as any) : new Date(),
     } : {
       date: new Date(),
-      currency: selectedCurrency,
+      currency: navData?.settings.currencySettings?.defaultCurrency || 'USD',
       exchangeRate: 0,
       totalAmount: 0,
       notes: '',
@@ -83,33 +81,9 @@ export default function NewDistributedReceiptForm({
         return acc;
       }, {} as any),
       boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
+      userId: (currentUser && 'uid' in currentUser) ? currentUser.uid : '',
     }
   });
-
-  React.useEffect(() => {
-    if (isDataLoaded) {
-      const defaultValues = isEditing && initialData
-          ? { 
-              ...initialData,
-              date: initialData.date ? parseISO(initialData.date as any) : new Date(),
-            }
-          : {
-              date: new Date(),
-              currency: selectedCurrency,
-              exchangeRate: 0,
-              totalAmount: 0,
-              notes: '',
-              companyAmount: 0,
-              distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
-                  acc[channel.id] = { amount: 0 };
-                  return acc;
-              }, {} as any),
-              boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
-              userId: (currentUser && 'uid' in currentUser) ? currentUser.uid : '',
-          };
-      form.reset(defaultValues as any);
-    }
-  }, [settings, isEditing, initialData, selectedCurrency, currentUser, form, isDataLoaded]);
 
   const { isSubmitting, watch, control, setValue, getValues, register, formState: { errors } } = form;
   const watchedCurrency = watch('currency');
@@ -122,6 +96,7 @@ export default function NewDistributedReceiptForm({
 
   React.useEffect(() => {
     const subscription = watch((value, { name, type }) => {
+      // Recalculate company amount whenever total or any distribution amount changes
       if (name?.startsWith('distributions.') || name === 'totalAmount') {
         const currentValues = getValues();
         const totalAmount = Number(currentValues.totalAmount) || 0;
@@ -133,9 +108,7 @@ export default function NewDistributedReceiptForm({
 
         const newCompanyAmount = totalAmount - totalDist;
         
-        if (newCompanyAmount !== (Number(currentValues.companyAmount) || 0)) {
-            setValue('companyAmount', newCompanyAmount >= 0 ? newCompanyAmount : 0, { shouldValidate: true });
-        }
+        setValue('companyAmount', newCompanyAmount >= 0 ? newCompanyAmount : 0, { shouldValidate: true });
       }
     });
     return () => subscription.unsubscribe();
@@ -282,3 +255,4 @@ export default function NewDistributedReceiptForm({
     </Form>
   );
 }
+

@@ -42,12 +42,13 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 
     // When the external value prop changes, update the internal state
     React.useEffect(() => {
-        // Only format on blur, not while typing
-        const activeElement = document.activeElement;
-        if (activeElement !== ref) {
+        const numericVal = parseNumericValue(value);
+        const currentDisplayNumericVal = parseNumericValue(displayValue);
+        
+        if (numericVal !== currentDisplayNumericVal) {
             setDisplayValue(formatValue(value));
         }
-    }, [value, ref]);
+    }, [value]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const rawValue = e.target.value;
@@ -117,3 +118,4 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 NumericInput.displayName = "NumericInput";
 
 export { NumericInput };
+
