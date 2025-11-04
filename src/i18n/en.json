@@ -246,12 +246,15 @@
         "items": {
           "clients": "Relationship management",
           "campaigns": "Campaigns",
-          "chat": "Conversations"
+          "chat": "Conversations",
+          "settings": "Relationship settings",
+          "import": "Import relationships"
         }
       },
       "vouchers": {
         "title": "Vouchers",
         "items": {
+          "center": "Voucher center",
           "records": "Voucher records",
           "settings": "Settings",
           "standardReceipt": "Standard receipt",
@@ -265,7 +268,10 @@
         "title": "Accounting operations",
         "items": {
           "bookings": "Flight bookings",
+          "bookingsDeleted": "Deleted bookings",
+          "bookingsFlyChanges": "Flight changes",
           "visas": "Visa requests",
+          "visasDeleted": "Deleted visa requests",
           "remittances": "Remittances"
         }
       },
@@ -273,8 +279,11 @@
         "title": "Custom business",
         "items": {
           "subscriptions": "Subscriptions",
+          "subscriptionsDeleted": "Deleted subscriptions",
           "segments": "Segments",
+          "segmentsDeleted": "Deleted segments",
           "exchanges": "Exchanges",
+          "exchangesReport": "Exchange reports",
           "profitSharing": "Share distribution",
           "flightAnalysis": "Flight analysis"
         }
@@ -282,10 +291,15 @@
       "reports": {
         "title": "Reports & tools",
         "items": {
+          "overview": "Reports hub",
           "debts": "Balance report",
           "accountStatement": "Account statement",
+          "accountStatementDashboard": "Account statement dashboard",
+          "boxes": "Cash box report",
           "profitLoss": "Profit & loss",
           "profitability": "Profitability analysis",
+          "financeOverview": "Financial overview",
+          "financeDashboard": "Financial dashboard",
           "cashFlow": "Cash flow",
           "smartReconciliation": "Smart reconciliation"
         }
@@ -297,8 +311,10 @@
           "suppliers": "Suppliers",
           "profile": "Profile",
           "profits": "Profits",
+          "profitsManual": "Manual profit entries",
           "notifications": "Notifications",
-          "assets": "Asset management"
+          "assets": "Asset management",
+          "support": "Support"
         }
       },
       "system": {
@@ -306,13 +322,22 @@
         "items": {
           "generalSettings": "General settings",
           "accountingGuide": "Chart of accounts & financial mapping",
+          "chartOfAccounts": "Accounts tree",
+          "settingsFinance": "Finance settings",
+          "settingsFinanceTools": "Financial tools settings",
+          "clientPermissions": "Client permissions",
+          "appearance": "Appearance",
+          "themes": "Themes",
+          "invoiceSequences": "Invoice sequences",
           "users": "Staff & permissions",
           "financeTools": "Financial tools",
+          "financeToolsAudit": "Tools audit assistant",
           "templates": "Message templates",
           "activityLog": "Activity log",
           "errorLog": "Error log",
           "dataAudit": "Data audit",
-          "deletedLog": "Deleted records"
+          "deletedLog": "Deleted records",
+          "setupAdmin": "Admin setup"
         }
       }
     }

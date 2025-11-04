@@ -98,7 +98,7 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
         setIsEditOpen(true);
     };
 
-    const label = mapVoucherLabel(transaction.sourceType || transaction.voucherType || transaction.type);
+    const label = mapVoucherLabel(transaction.normalizedType || transaction.sourceType || transaction.voucherType || transaction.type);
 
     return (
         <>
