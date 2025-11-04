@@ -42,6 +42,7 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
 
 interface NewDistributedReceiptFormProps {
     settings: DistributedVoucherSettings;
+    selectedCurrency: Currency;
     onVoucherAdded?: (voucher: any) => void;
     onVoucherUpdated?: (voucher: any) => void;
     isEditing?: boolean;
@@ -50,6 +51,7 @@ interface NewDistributedReceiptFormProps {
 
 export default function NewDistributedReceiptForm({ 
     settings, 
+    selectedCurrency,
     onVoucherAdded, 
     isEditing,
     initialData,
@@ -68,7 +70,7 @@ export default function NewDistributedReceiptForm({
     resolver: zodResolver(dynamicSchema),
     defaultValues: isEditing && initialData ? { ...initialData } : {
       date: new Date(),
-      currency: navData?.settings.currencySettings?.defaultCurrency || 'USD',
+      currency: selectedCurrency,
       exchangeRate: 0,
       totalAmount: 0,
       notes: '',
@@ -81,6 +83,25 @@ export default function NewDistributedReceiptForm({
     }
   });
   
+  // Effect to reset form when settings change (after saving in dialog)
+  React.useEffect(() => {
+      const defaultValues = isEditing && initialData ? { ...initialData } : {
+        date: new Date(),
+        currency: selectedCurrency,
+        exchangeRate: 0,
+        totalAmount: 0,
+        notes: '',
+        companyAmount: 0,
+        distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
+          acc[channel.id] = { enabled: true, amount: 0 };
+          return acc;
+        }, {} as any),
+        boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
+        userId: (currentUser && 'uid' in currentUser) ? currentUser.uid : '',
+      };
+      form.reset(defaultValues as any);
+  }, [settings, isEditing, initialData, selectedCurrency, currentUser, form]);
+
   const { isSubmitting, watch, control, setValue, getValues, register, formState: { errors } } = form;
   const watchedDistributions = watch('distributions');
   const totalAmount = watch('totalAmount');
@@ -155,7 +176,7 @@ export default function NewDistributedReceiptForm({
                         <Controller control={control} name="date" render={({ field }) => ( <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}><PopoverTrigger asChild><Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, 'yyyy-MM-dd') : <span>اختر تاريخ</span>}<CalendarIcon className="ms-auto h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={(d) => {if(d) field.onChange(d); setIsCalendarOpen(false);}} /></PopoverContent></Popover>)} />
                         <FormMessage />
                     </div>
-                    <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-2">
                         <Label className="whitespace-nowrap">العملة</Label>
                         <Controller name="currency" control={control} render={({ field }) => (
                             <Select onValueChange={field.onChange} value={field.value}>
