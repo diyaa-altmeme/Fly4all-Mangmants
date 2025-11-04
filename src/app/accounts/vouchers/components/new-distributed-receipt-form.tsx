@@ -49,17 +49,6 @@ interface NewDistributedReceiptFormProps {
     initialData?: DistributedReceiptInput & { id?: string };
 }
 
-const parseNumericValue = (value: string | number | undefined): number => {
-    if (value === undefined || value === null || value === '') return 0;
-    if (typeof value === 'number') return isNaN(value) ? 0 : value;
-    
-    const sanitized = String(value).replace(/,/g, '');
-    
-    const num = parseFloat(sanitized);
-    return isNaN(num) ? 0 : num;
-};
-
-
 export default function NewDistributedReceiptForm({ 
     settings, 
     selectedCurrency,
@@ -86,7 +75,7 @@ export default function NewDistributedReceiptForm({
       date: new Date(),
       currency: selectedCurrency,
       exchangeRate: 0,
-      totalAmount: undefined,
+      totalAmount: 0,
       notes: '',
       companyAmount: 0,
       distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
@@ -108,7 +97,7 @@ export default function NewDistributedReceiptForm({
               date: new Date(),
               currency: selectedCurrency,
               exchangeRate: 0,
-              totalAmount: undefined,
+              totalAmount: 0,
               notes: '',
               companyAmount: 0,
               distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
@@ -133,22 +122,20 @@ export default function NewDistributedReceiptForm({
 
   React.useEffect(() => {
     const subscription = watch((value, { name, type }) => {
-      // Avoid feedback loops and unnecessary recalculations
-      if (type !== 'change' || name === 'companyAmount') return;
+      if (name?.startsWith('distributions.') || name === 'totalAmount') {
+        const currentValues = getValues();
+        const totalAmount = Number(currentValues.totalAmount) || 0;
+        
+        const totalDist = Object.values(currentValues.distributions || {}).reduce(
+          (sum, item: any) => sum + (Number(item.amount) || 0),
+          0
+        );
 
-      const currentValues = getValues();
-      const totalAmount = parseNumericValue(currentValues.totalAmount);
-      
-      const totalDist = Object.values(currentValues.distributions || {}).reduce(
-        (sum, item: any) => sum + parseNumericValue(item.amount),
-        0
-      );
-
-      const newCompanyAmount = totalAmount - totalDist;
-      
-      // Only update if the value is different to prevent re-renders
-      if (Math.abs(newCompanyAmount - parseNumericValue(currentValues.companyAmount)) > 0.001) {
-          setValue('companyAmount', newCompanyAmount >= 0 ? newCompanyAmount : 0, { shouldValidate: true });
+        const newCompanyAmount = totalAmount - totalDist;
+        
+        if (newCompanyAmount !== (Number(currentValues.companyAmount) || 0)) {
+            setValue('companyAmount', newCompanyAmount >= 0 ? newCompanyAmount : 0, { shouldValidate: true });
+        }
       }
     });
     return () => subscription.unsubscribe();
@@ -159,10 +146,12 @@ export default function NewDistributedReceiptForm({
     try {
         const payload = {
             ...data,
-            distributions: Object.entries(data.distributions).reduce((acc, [key, value]) => {
-                acc[key] = { amount: parseNumericValue((value as any).amount), enabled: true };
-                return acc;
-            }, {} as any)
+            distributions: Object.fromEntries(
+                Object.entries(data.distributions).map(([key, value]) => [
+                    key,
+                    { amount: Number((value as any).amount) || 0, enabled: true }
+                ])
+            )
         };
 
         if(isEditing && initialData?.id) {
@@ -230,31 +219,44 @@ export default function NewDistributedReceiptForm({
                     <Banknote className="h-5 w-5 text-primary"/>
                     <h3 className="text-lg font-semibold">التفاصيل المالية والتوزيع</h3>
                 </div>
-                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-5 p-4 border rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-2">
-                      <Label className="whitespace-nowrap">إجمالي المبلغ</Label>
-                      <FormField control={control} name="totalAmount" render={({ field }) => (<FormItem className="w-full"><Controller control={control} name="totalAmount" render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={field.onChange} />} /><FormMessage /></FormItem>)} />
+                 <div className="grid grid-cols-1 gap-x-4 gap-y-5 p-4 border rounded-lg bg-muted/30">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField control={control} name="totalAmount" render={({ field }) => (<FormItem><div className="flex items-center justify-between"><Label>إجمالي المبلغ</Label><FormMessage /></div><Controller control={control} name="totalAmount" render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={(v) => field.onChange(v || 0)} />} /></FormItem>)} />
+                        {watchedCurrency === 'USD' && 
+                            <FormField control={control} name="exchangeRate" render={({ field }) => (<FormItem><div className="flex items-center justify-between"><Label>سعر الصرف</Label><FormMessage /></div><Controller control={control} name="exchangeRate" render={({field}) => <AmountInput currency="IQD" {...field} onValueChange={(v) => field.onChange(v || 0)} />} /></FormItem>)} />
+                        }
                     </div>
-                    {watchedCurrency === 'USD' && 
-                      <div className="flex items-center gap-2">
-                        <Label className="whitespace-nowrap">سعر الصرف</Label>
-                        <FormField control={control} name="exchangeRate" render={({ field }) => (<FormItem className="w-full"><Controller control={control} name="exchangeRate" render={({field}) => <AmountInput currency="IQD" {...field} onValueChange={field.onChange} />} /><FormMessage /></FormItem>)} />
-                      </div>
-                    }
-                
-                    <div className="md:col-span-full pt-4 border-t">
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
-                            <div className="space-y-1.5"><Label>المبلغ المسدد لحساب الدافع</Label><Controller control={control} name="companyAmount" render={({field}) => <AmountInput readOnly currency={watchedCurrency} {...field} onValueChange={field.onChange} />} /><FormMessage /></div>
-                            {(settings.distributionChannels || []).map((channel) => (
-                                <div key={channel.id} className="space-y-1.5">
-                                <Label>{channel.label}</Label>
-                                <Controller control={control} name={`distributions.${channel.id}.amount`} render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={v => field.onChange(v || 0)} />} />
-                                </div>
-                            ))}
-                        </div>
-                        {errors.companyAmount && <p className="text-sm font-medium text-destructive text-center pt-2">{errors.companyAmount.message}</p>}
+
+                    <Separator className="my-4"/>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
+                        <FormField control={control} name="companyAmount" render={({ field }) => (
+                            <FormItem>
+                                <Label>المبلغ المسدد لحساب الدافع</Label>
+                                <Controller control={control} name="companyAmount" render={({field}) => <AmountInput readOnly currency={watchedCurrency} {...field} onValueChange={field.onChange} />} />
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        {(settings.distributionChannels || []).map((channel) => (
+                            <FormField
+                                key={channel.id}
+                                control={control}
+                                name={`distributions.${channel.id}.amount`}
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <Label>{channel.label}</Label>
+                                        <Controller
+                                            control={control}
+                                            name={`distributions.${channel.id}.amount`}
+                                            render={({field}) => <AmountInput currency={watchedCurrency} {...field} onValueChange={(v) => field.onChange(v || 0)} />}
+                                        />
+                                    </FormItem>
+                                )}
+                            />
+                        ))}
                     </div>
-                     <div className="md:col-span-full space-y-1.5">
+                     <div className="col-span-full">
+                        <Label>التفاصيل</Label>
                         <Textarea {...register('details')}/>
                         <FormMessage>{errors.details?.message}</FormMessage>
                     </div>
