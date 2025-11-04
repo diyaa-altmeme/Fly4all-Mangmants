@@ -113,15 +113,21 @@ export async function updateSettings(settingsData: Partial<AppSettings>): Promis
     try {
         const oldSettings = await getSettings();
         
-        // Use a proper merge to avoid overwriting nested objects
-        const newSettings = {
-            ...oldSettings,
-            ...settingsData,
-            // Explicitly merge nested objects if they exist in the payload
-            ...(settingsData.theme && { theme: { ...oldSettings.theme, ...settingsData.theme } }),
-            ...(settingsData.currencySettings && { currencySettings: { ...oldSettings.currencySettings, ...settingsData.currencySettings } }),
-            ...(settingsData.voucherSettings && { voucherSettings: { ...oldSettings.voucherSettings, ...settingsData.voucherSettings } }),
-        };
+        // Deep merge using immer's produce
+        const newSettings = produce(oldSettings, draft => {
+            for (const key in settingsData) {
+                if (Object.prototype.hasOwnProperty.call(settingsData, key)) {
+                    const k = key as keyof AppSettings;
+                    if (typeof (settingsData as any)[k] === 'object' && (settingsData as any)[k] !== null && !Array.isArray((settingsData as any)[k])) {
+                        // Deep merge for nested objects like theme, voucherSettings, etc.
+                        (draft as any)[k] = { ...((draft as any)[k] || {}), ...(settingsData as any)[k] };
+                    } else {
+                        // Overwrite for primitive values or arrays
+                        (draft as any)[k] = (settingsData as any)[k];
+                    }
+                }
+            }
+        });
 
         await settingsRef.set(newSettings, { merge: true });
         
