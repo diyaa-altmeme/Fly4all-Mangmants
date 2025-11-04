@@ -1,13 +1,11 @@
 
-
 import React, { Suspense } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Terminal } from 'lucide-react';
 import { getSubscriptions, getSubscriptionInstallmentsForAll } from './actions';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import SubscriptionsContent from './components/subscriptions-content';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PageContainer, PageHeader, PageSection } from '@/components/layout/page-structure';
+import { revalidatePath } from 'next/cache';
 
 async function SubscriptionsDataContainer() {
     const [subscriptions, installments, error] = await Promise.all([
@@ -42,18 +40,10 @@ async function SubscriptionsDataContainer() {
 
 export default function SubscriptionsPage() {
     return (
-        <PageContainer>
-            <PageHeader
-                title="إدارة الاشتراكات"
-                description="عرض وإدارة جميع الاشتراكات الدورية في مكان واحد."
-            />
-            <PageSection className="p-0">
-                <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
-                    <SubscriptionsDataContainer />
-                </Suspense>
-            </PageSection>
-        </PageContainer>
+        <div className="w-full h-full">
+            <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
+                <SubscriptionsDataContainer />
+            </Suspense>
+        </div>
     );
 }
-
-    
