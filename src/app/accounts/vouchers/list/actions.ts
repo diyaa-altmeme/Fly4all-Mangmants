@@ -78,17 +78,7 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
         const boxesMap = new Map(boxes.map(b => [b.id, b.name]));
         const usersMap = new Map(users.map((u: any) => [u.uid, u.name]));
         
-        // Filter for specific voucher types
-        const relevantVoucherTypes = [
-            'journal_from_standard_receipt',
-            'journal_from_distributed_receipt',
-            'journal_from_payment',
-            'journal_from_expense',
-            'journal_voucher'
-        ];
-
         const journalVouchersSnapshot = await db.collection('journal-vouchers')
-            .where('voucherType', 'in', relevantVoucherTypes)
             .orderBy('createdAt', 'desc')
             .limit(500)
             .get();
@@ -114,7 +104,6 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
             const totalDebit = data.debitEntries?.reduce((sum: number, entry: any) => sum + (entry.amount || 0), 0) || 0;
 
             
-            // Try to find a meaningful main party for the transaction
             const mainDebitPartyId = data.debitEntries?.[0]?.accountId;
             const mainCreditPartyId = data.creditEntries?.[0]?.accountId;
             
@@ -142,19 +131,18 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
                 phone: phone,
                 officer: usersMap.get(data.createdBy) || data.officer || 'غير معروف',
                 boxName: boxesMap.get(boxId) || 'N/A',
-                // For simplicity in the main table, we might just show total movement
                 totalAmount: totalDebit, 
             });
         });
 
         // Add a secondary, stable sort key (the ID) to prevent hydration mismatches.
         return allVouchers.sort((a, b) => {
-            const dateA = a.createdAt ? parseISO(a.createdAt).getTime() : parseISO(a.date).getTime();
-            const dateB = b.createdAt ? parseISO(b.createdAt).getTime() : parseISO(a.date).getTime();
+            const dateA = a.createdAt ? parseISO(a.createdAt as string).getTime() : parseISO(a.date).getTime();
+            const dateB = b.createdAt ? parseISO(b.createdAt as string).getTime() : parseISO(a.date).getTime();
             if (dateB !== dateA) {
                 return dateB - dateA;
             }
-            return b.id.localeCompare(a.id);
+            return b.id!.localeCompare(a.id!);
         });
 
     } catch (error) {
