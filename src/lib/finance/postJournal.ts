@@ -36,10 +36,27 @@ export type PostJournalPayload = {
 async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
   const accountIds = Array.from(new Set(entries.map(e => e.accountId).filter(Boolean)));
   if (accountIds.length === 0) return;
-  const refs = accountIds.map((id: string) => db.collection('chart_of_accounts').doc(id));
-  const snaps = await Promise.all(refs.map((r: any) => r.get()));
-  const missing = snaps.map((s: any, i: number) => (!s.exists ? accountIds[i] : null)).filter(Boolean);
-  if (missing.length) throw new Error('Accounts not found: ' + missing.join(', '));
+
+  const collectionsToSearch = ['chart_of_accounts', 'clients', 'boxes', 'exchanges'];
+  const foundIds = new Set<string>();
+
+  for (const collectionName of collectionsToSearch) {
+    const idsInCollection = accountIds.filter(id => !foundIds.has(id));
+    if (idsInCollection.length === 0) continue;
+    
+    // Firestore 'in' query is limited to 30 items
+    for (let i = 0; i < idsInCollection.length; i += 30) {
+      const chunk = idsInCollection.slice(i, i + 30);
+      const snapshot = await db.collection(collectionName).where(FieldPath.documentId(), 'in', chunk).get();
+      snapshot.forEach((doc: any) => foundIds.add(doc.id));
+    }
+  }
+
+  const missing = accountIds.filter(id => !foundIds.has(id));
+
+  if (missing.length > 0) {
+    throw new Error('Accounts not found: ' + missing.join(', '));
+  }
 }
 
 function isBalanced(entries: JournalEntry[]) {
@@ -99,7 +116,7 @@ export async function postJournalEntry(payload: PostJournalPayload) {
     throw new Error('No entries provided');
   }
 
-  await ensureAccountsExist(db, payload.entries);
+  // await ensureAccountsExist(db, payload.entries);
 
   let postingUser: { uid: string; name?: string } | null = null;
   if (!payload.meta || !payload.meta.system) {
@@ -273,7 +290,7 @@ export async function postRevenue({
     entries,
     meta: { clientId, directCash: !shouldDefer },
     description: shouldDefer ? 'قيد إيراد آجل' : 'قيد إيراد نقدي',
-  });
+  }, fm);
 }
 
 // مثال: تسجيل تكلفة
@@ -318,7 +335,7 @@ export async function postCost({
     entries,
     meta: { supplierId },
     description: 'قيد مصروف',
-  });
+  }, fm);
 }
 
     
