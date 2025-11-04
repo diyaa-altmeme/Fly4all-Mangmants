@@ -132,28 +132,15 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, onVoucherUpdated
       
         <div className="grid md:grid-cols-2 gap-6 items-start">
              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1.5">
-                        <Label htmlFor="date">التاريخ</Label>
-                        <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
-                        {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
-                    </div>
-                     <div className="space-y-1.5">
-                        <Label htmlFor="currency">العملة</Label>
-                        <Controller name="currency" control={control} render={({ field }) => (
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    {(navData?.settings?.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        )} />
-                    </div>
-                 </div>
                  <div className="space-y-1.5">
                     <Label htmlFor="payeeId">اسم المستفيد</Label>
                      <Controller name="payeeId" control={control} render={({ field }) => ( <Autocomplete options={payeeOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن مورد..." /> )}/>
                     {errors.payeeId && <p className="text-sm text-destructive mt-1">{errors.payeeId.message}</p>}
+                </div>
+                 <div className="space-y-1.5">
+                    <Label htmlFor="fund">الصندوق</Label>
+                    <Controller control={control} name="fund" render={({ field }) => ( <Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue placeholder="اختر الصندوق..." /></SelectTrigger><SelectContent>{(navData?.boxes || []).map(box => <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>)}</SelectContent></Select> )} />
+                    {errors.fund && <p className="text-sm text-destructive mt-1">{errors.fund.message}</p>}
                 </div>
                  <div className="space-y-1.5">
                     <Label htmlFor="purpose">الغرض من الدفع</Label>
@@ -161,10 +148,23 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, onVoucherUpdated
                 </div>
              </div>
              <div className="space-y-4">
-                <div className="space-y-1.5">
-                    <Label htmlFor="fund">الصندوق</Label>
-                    <Controller control={control} name="fund" render={({ field }) => ( <Select value={field.value} onValueChange={field.onChange}><SelectTrigger><SelectValue placeholder="اختر الصندوق..." /></SelectTrigger><SelectContent>{(navData?.boxes || []).map(box => <SelectItem key={box.id} value={box.id}>{box.name}</SelectItem>)}</SelectContent></Select> )} />
-                    {errors.fund && <p className="text-sm text-destructive mt-1">{errors.fund.message}</p>}
+                <div className="flex gap-2">
+                    <div className="space-y-1.5 flex-grow">
+                        <Label htmlFor="date">التاريخ</Label>
+                        <Controller control={control} name="date" render={({ field }) => ( <DateTimePicker date={field.value} setDate={field.onChange} /> )}/>
+                        {errors.date && <p className="text-sm text-destructive mt-1">{errors.date.message}</p>}
+                    </div>
+                    <div className="space-y-1.5 w-32">
+                        <Label htmlFor="currency">العملة</Label>
+                        <Controller name="currency" control={control} render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {(navData?.settings?.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        )} />
+                    </div>
                 </div>
                  <div className="space-y-1.5">
                     <Label htmlFor="totalAmount">المبلغ المدفوع</Label>
@@ -218,4 +218,3 @@ export default function NewPaymentVoucherForm({ onVoucherAdded, onVoucherUpdated
     </form>
   );
 }
-

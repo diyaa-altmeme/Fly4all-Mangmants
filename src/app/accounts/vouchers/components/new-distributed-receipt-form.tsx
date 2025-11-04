@@ -82,24 +82,25 @@ export default function NewDistributedReceiptForm({
       boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
     }
   });
-  
-  // Effect to reset form when settings change (after saving in dialog)
+
   React.useEffect(() => {
-      const defaultValues = isEditing && initialData ? { ...initialData } : {
-        date: new Date(),
-        currency: selectedCurrency,
-        exchangeRate: 0,
-        totalAmount: 0,
-        notes: '',
-        companyAmount: 0,
-        distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
-          acc[channel.id] = { enabled: true, amount: 0 };
-          return acc;
-        }, {} as any),
-        boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
-        userId: (currentUser && 'uid' in currentUser) ? currentUser.uid : '',
-      };
-      form.reset(defaultValues as any);
+    const defaultValues = isEditing && initialData
+        ? { ...initialData }
+        : {
+            date: new Date(),
+            currency: selectedCurrency,
+            exchangeRate: 0,
+            totalAmount: 0,
+            notes: '',
+            companyAmount: 0,
+            distributions: (settings.distributionChannels || []).reduce((acc, channel) => {
+                acc[channel.id] = { enabled: true, amount: 0 };
+                return acc;
+            }, {} as any),
+            boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
+            userId: (currentUser && 'uid' in currentUser) ? currentUser.uid : '',
+        };
+    form.reset(defaultValues as any);
   }, [settings, isEditing, initialData, selectedCurrency, currentUser, form]);
 
   const { isSubmitting, watch, control, setValue, getValues, register, formState: { errors } } = form;
@@ -144,7 +145,6 @@ export default function NewDistributedReceiptForm({
                     newDistributions[key].amount = Math.max(0, parseFloat(newAmount.toFixed(2)));
                 });
                 
-                // Final check for rounding issues
                 const finalCalculatedTotal = Object.values(newDistributions).reduce((sum: number, item: any) => sum + (Number(item.amount) || 0), 0);
                 const finalDifference = remainingForDistribution - finalCalculatedTotal;
 

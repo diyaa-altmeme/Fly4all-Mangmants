@@ -10,7 +10,7 @@ import type { Currency } from "@/lib/types";
 const parseNumericValue = (value: string): number | undefined => {
     if (typeof value !== 'string' || value.trim() === '') return undefined;
     // Standardize decimal separator to a period and remove thousands separators
-    const sanitized = value.replace(/,/g, ''); // Remove commas before parsing
+    const sanitized = value.replace(/,/g, '');
     
     const num = parseFloat(sanitized);
     return isNaN(num) ? undefined : num;
@@ -34,7 +34,12 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         if (num === null || num === undefined || num === '') return '';
         const numericVal = typeof num === 'string' ? parseNumericValue(num) : num;
         if (numericVal === undefined) return String(num); // Return original string if not parsable
-        return new Intl.NumberFormat('en-US').format(numericVal);
+        // Use options to allow for decimals
+        const options: Intl.NumberFormatOptions = {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2,
+        };
+        return new Intl.NumberFormat('en-US', options).format(numericVal);
     };
     
     const [displayValue, setDisplayValue] = React.useState<string>(formatValue(value));
@@ -52,13 +57,20 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       const regex = allowNegative ? /^-?\d*\.?\d*$/ : /^\d*\.?\d*$/;
 
       if (regex.test(sanitized) || sanitized === '') {
+        setDisplayValue(sanitized); // Show sanitized value directly to allow typing decimals
         const numericVal = parseNumericValue(sanitized);
-        setDisplayValue(numericVal !== undefined ? formatValue(numericVal) : sanitized);
-
         if (onValueChange) {
             onValueChange(numericVal);
         }
       }
+    };
+    
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+        const numericVal = parseNumericValue(e.target.value);
+        setDisplayValue(formatValue(numericVal));
+        if (props.onBlur) {
+            props.onBlur(e);
+        }
     };
     
     const inputProps = {
@@ -66,9 +78,10 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         ref,
         type: "text" as const,
         inputMode: "decimal" as const,
-        placeholder: "0.00",
+        placeholder: "",
         value: displayValue || '',
-        onChange: handleChange
+        onChange: handleChange,
+        onBlur: handleBlur,
     };
     
     if (currency) {
