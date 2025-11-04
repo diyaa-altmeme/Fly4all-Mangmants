@@ -2,7 +2,7 @@
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import { getSettings } from "@/app/settings/actions";
 import { getNextVoucherNumber } from "@/lib/sequences";
 import type { JournalVoucher, JournalEntry as LegacyJournalEntry, FinanceAccountsMap } from "../types";
@@ -109,7 +109,7 @@ function resolveCurrency(entries: JournalEntry[]): Currency {
   return (first?.currency as Currency) || 'USD';
 }
 
-export async function postJournalEntry(payload: PostJournalPayload) {
+export async function postJournalEntry(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts) {
   const db = await getDb();
 
   if (!payload.entries || !Array.isArray(payload.entries) || payload.entries.length === 0) {
@@ -132,13 +132,13 @@ export async function postJournalEntry(payload: PostJournalPayload) {
     throw new Error('Entries are not balanced (debit != credit)');
   }
   
-  const finance = await getFinanceMap();
+  const finance = fa || await getFinanceMap();
 
   if (finance?.preventDirectCashRevenue) {
     const cashId = finance.defaultCashId;
     if (cashId) {
       for (const e of payload.entries) {
-        if (e.accountId === cashId && inferAccountCategory(e.accountId, finance) === 'revenue') {
+        if (e.accountId === cashId && inferAccountCategory(e.accountId, finance || null) === 'revenue') {
              throw new Error('Direct cash posting is disabled by finance settings');
         }
       }
@@ -154,7 +154,7 @@ export async function postJournalEntry(payload: PostJournalPayload) {
     const debit = Number(entry.debit) || 0;
     const credit = Number(entry.credit) || 0;
     const amount = debit > 0 ? debit : credit;
-    const description = entry.note ?? (entry as any).description;
+    const description = entry.note ?? (entry as any).description ?? payload.description ?? '';
     const accountType = inferAccountCategory(entry.accountId, finance || null);
     
     const finalEntry: StoredEntry = {
@@ -337,5 +337,3 @@ export async function postCost({
     description: 'قيد مصروف',
   }, fm);
 }
-
-    
