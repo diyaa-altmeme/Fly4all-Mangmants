@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -47,6 +48,10 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
     const users = await getUsers();
     const usersMap = new Map(users.map(u => [u.uid, u.name]));
     
+    // This is temporary until a better account source is available
+    const clientsData = (await getClients({ all: true })).clients;
+    const allAccounts = clientsData.map(c => ({ value: c.id, label: c.name }));
+
     const allVouchersSnap = await db.collection('journal-vouchers').orderBy('date', 'asc').get();
 
     const openingBalances: Record<string, number> = {};
@@ -123,9 +128,6 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
         (v.creditEntries || []).forEach(entry => processEntry(entry, 'credit'));
     });
     
-    // This is temporary until a better account source is available
-    const clientsData = (await getClients({ all: true })).clients;
-    const allAccounts = clientsData.map(c => ({ value: c.id, label: c.name }));
 
     const filteredRows = voucherType && voucherType.length > 0
         ? reportRows.filter(r => (r.voucherType && voucherType.includes(r.voucherType)) || (r.sourceType && voucherType.includes(r.sourceType)))
