@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -77,6 +76,8 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
         
         // Post-filter in code
         return allSubscriptions.filter(s => {
+            // If isDeleted is explicitly true, it's deleted.
+            // If isDeleted is explicitly false, or if it's undefined/null (for older records), it's not deleted.
             const isMarkedDeleted = s.isDeleted === true;
             return includeDeleted ? isMarkedDeleted : !isMarkedDeleted;
         });
@@ -689,6 +690,7 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
 
 
 

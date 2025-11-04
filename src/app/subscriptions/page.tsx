@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { Suspense, useState, useEffect, useCallback } from 'react';
@@ -20,6 +19,7 @@ function SubscriptionsDataContainer() {
 
     const fetchData = useCallback(async () => {
         setLoading(true);
+        setError(null);
         try {
             const [refreshedSubscriptions, refreshedInstallments] = await Promise.all([
                 getSubscriptions(),
@@ -77,4 +77,3 @@ export default function SubscriptionsPage() {
         </PageContainer>
     );
 }
-
