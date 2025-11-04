@@ -1,5 +1,4 @@
 
-
 import { z } from "zod";
 import type { DistributedVoucherSettings } from "../settings/components/distributed-settings-form";
 
@@ -28,17 +27,16 @@ export const createDistributedReceiptSchema = (
     companyAmount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val >= 0, { message: "مبلغ الشركة لا يمكن أن يكون سالبًا."}).optional(),
     distributions: z.object(dynamicFields),
   }).refine((data) => {
-    // This validation only applies if there is any distribution.
     const totalDistributedFromList = Object.values(data.distributions).reduce((sum, item: any) => {
         return sum + (item.enabled ? (Number(item.amount) || 0) : 0);
     }, 0);
-    const companyAmount = data.companyAmount || 0;
     
-    // If no distribution is made, the check is not necessary.
-    if (totalDistributedFromList === 0 && companyAmount === 0 && data.totalAmount > 0) {
+    // If there's no distribution at all, the check is irrelevant as `companyAmount` will equal `totalAmount`.
+    if (totalDistributedFromList === 0) {
         return true;
     }
     
+    const companyAmount = data.companyAmount || 0;
     const totalDistributed = totalDistributedFromList + companyAmount;
 
     // Use a small tolerance for floating point comparisons
