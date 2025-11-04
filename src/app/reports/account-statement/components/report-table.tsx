@@ -75,6 +75,7 @@ const DetailedDescription = ({ description }: { description: ReportTransaction['
                     ))}
                 </div>
             )}
+             {description.notes && <p className="text-xs text-muted-foreground mt-1">{description.notes}</p>}
         </div>
     );
 };
@@ -107,7 +108,7 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                 <TableCell className="px-2 py-3 space-y-1">
                     <Badge variant="outline" className="mr-1">{label}</Badge>
                 </TableCell>
-                <TableCell className="px-2 py-3 text-right text-xs">{typeof transaction.description === 'string' ? transaction.description : <DetailedDescription description={transaction.description} />}</TableCell>
+                <TableCell className="px-2 py-3 text-right text-xs"><DetailedDescription description={transaction.description} /></TableCell>
                 <TableCell className="px-2 py-3 text-right text-xs">{transaction.notes}</TableCell>
                 <TableCell className="px-2 py-3 font-mono font-bold text-red-600 text-center">
                     {transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}

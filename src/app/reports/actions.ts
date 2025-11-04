@@ -71,15 +71,22 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
                     if (v.voucherType === 'journal_from_distributed_receipt') {
                         const totalReceived = `الإجمالي: ${v.originalData.totalAmount} ${v.currency}`;
                         const selfReceipt = `سداد للدافع: ${v.originalData.companyAmount} ${v.currency}`;
+                        
+                        // Find the client name for the description title
+                        const clientName = allAccounts.find(acc => acc.value === v.originalData.accountId)?.label || v.originalData.accountId;
+
                         const distributions = Object.entries(v.originalData.distributions || {})
                             .filter(([, distData]: [string, any]) => distData.amount > 0)
-                            .map(([key, distData]: [string, any]) => ({
-                                name: v.creditEntries.find(e => e.accountId === key)?.description || key,
-                                amount: `${distData.amount} ${v.currency}`
-                            }));
+                            .map(([key, distData]: [string, any]) => {
+                                 const distAccount = v.creditEntries.find(e => e.accountId === key);
+                                return {
+                                    name: distAccount?.description || key,
+                                    amount: `${distData.amount} ${v.currency}`
+                                }
+                            });
                         
                         description = {
-                            title: `سند قبض موزع من ${v.originalData.accountId}`,
+                            title: `سند قبض موزع من ${clientName}`,
                             totalReceived,
                             selfReceipt,
                             distributions,
@@ -115,6 +122,10 @@ export async function getAccountStatement(filters: { accountId: string; dateFrom
         (v.debitEntries || []).forEach(entry => processEntry(entry, 'debit'));
         (v.creditEntries || []).forEach(entry => processEntry(entry, 'credit'));
     });
+    
+    // This is temporary until a better account source is available
+    const clientsData = (await getClients({ all: true })).clients;
+    const allAccounts = clientsData.map(c => ({ value: c.id, label: c.name }));
 
     const filteredRows = voucherType && voucherType.length > 0
         ? reportRows.filter(r => (r.voucherType && voucherType.includes(r.voucherType)) || (r.sourceType && voucherType.includes(r.sourceType)))
