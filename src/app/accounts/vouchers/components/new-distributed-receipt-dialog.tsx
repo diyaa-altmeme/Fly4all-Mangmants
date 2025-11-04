@@ -36,7 +36,13 @@ export default function NewDistributedReceiptDialog({
   const { toast } = useToast();
   const { data: navData, loaded: isDataLoaded, fetchData, refreshData } = useVoucherNav();
   
-  const voucherSettings = navData?.settings.voucherSettings?.distributed;
+  // Use a state for settings that can be updated
+  const [voucherSettings, setVoucherSettings] = useState(navData?.settings.voucherSettings?.distributed);
+
+  useEffect(() => {
+    setVoucherSettings(navData?.settings.voucherSettings?.distributed);
+  }, [navData]);
+
   const [dialogDimensions, setDialogDimensions] = useState<{ width?: string, height?: string }>({
     width: voucherSettings?.dialogWidth || '1200px',
     height: voucherSettings?.dialogHeight || '700px',
@@ -128,7 +134,7 @@ export default function NewDistributedReceiptDialog({
                         onDimensionsChange={setDialogDimensions}
                     />
                  </div>
-            ) : !voucherSettings?.distributionChannels?.length ? (
+            ) : !voucherSettings?.distributionChannels || voucherSettings.distributionChannels.length === 0 ? (
                  <div className="p-8 text-center">
                      <Alert variant="destructive">
                          <Terminal className="h-4 w-4" />

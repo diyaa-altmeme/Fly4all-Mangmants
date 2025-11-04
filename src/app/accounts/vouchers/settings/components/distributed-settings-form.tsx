@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
@@ -37,7 +36,7 @@ export type DistributedVoucherSettings = z.infer<typeof formSchema>;
 
 interface DistributedSettingsFormProps {
     initialSettings?: DistributedVoucherSettings;
-    onSaveSuccess?: () => void;
+    onSaveSuccess?: () => Promise<void>;
     onDimensionsChange?: (dims: { width?: string, height?: string }) => void;
 }
 
@@ -89,7 +88,8 @@ export default function DistributedSettingsForm({
   });
   
   const onSubmit = async (data: DistributedVoucherSettings) => {
-    const result = await updateSettings({ voucherSettings: { ...navData?.settings.voucherSettings, distributed: data } });
+    if (!navData) return;
+    const result = await updateSettings({ voucherSettings: { ...navData.settings.voucherSettings, distributed: data } });
     if (result.success) {
         if (onSaveSuccess) {
             await onSaveSuccess();
@@ -98,15 +98,6 @@ export default function DistributedSettingsForm({
         toast({ title: "خطأ", description: result.error, variant: 'destructive' });
     }
   };
-
-  const handleResetDimensions = async () => {
-    form.setValue('dialogWidth', '1200px');
-    form.setValue('dialogHeight', '700px');
-    if (onDimensionsChange) {
-        onDimensionsChange({ width: '1200px', height: '700px' });
-    }
-    await onSubmit(form.getValues());
-  }
 
   return (
     <Card className="mt-4 border-none shadow-none">
@@ -129,7 +120,7 @@ export default function DistributedSettingsForm({
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                        <AlertDialogAction onClick={handleResetDimensions} className={cn(buttonVariants({ variant: 'destructive' }))}>نعم، قم بالإعادة</AlertDialogAction>
+                                        <AlertDialogAction onClick={() => {if(onDimensionsChange) onDimensionsChange({width: '1200px', height: '700px'})}} className={cn(buttonVariants({ variant: 'destructive' }))}>نعم، قم بالإعادة</AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
