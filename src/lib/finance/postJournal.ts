@@ -99,6 +99,8 @@ export async function postJournalEntry(payload: PostJournalPayload) {
     throw new Error('No entries provided');
   }
 
+  await ensureAccountsExist(db, payload.entries);
+
   let postingUser: { uid: string; name?: string } | null = null;
   if (!payload.meta || !payload.meta.system) {
     const user = await getCurrentUserFromSession();
