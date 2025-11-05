@@ -207,76 +207,58 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         });
 
         // == Journal Entries ==
-        const costEntries: JournalEntry[] = [];
-        if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
-            const costAccountId = financeSettings.expenseMap?.subscriptions || financeSettings.generalExpenseId;
-            if (!costAccountId) {
-                throw new Error("Cost account for subscriptions is not defined in finance settings.");
-            }
-            costEntries.push({
-                accountId: costAccountId,
-                debit: totalPurchase,
-                credit: 0,
-                currency: finalSubscriptionData.currency,
-                description: `تكلفة اشتراك ${finalSubscriptionData.serviceName}`
-            });
-            costEntries.push({
-                accountId: finalSubscriptionData.supplierId,
-                debit: 0,
-                credit: totalPurchase,
-                currency: finalSubscriptionData.currency,
-                description: `إثبات دين للمورد عن اشتراك`
-            });
-        }
+        const entries: JournalEntry[] = [];
         
-        const partnerShareAmount = (subscriptionData.hasPartner && subscriptionData.partnerId && subscriptionData.partnerSharePercentage) 
-            ? profit * (subscriptionData.partnerSharePercentage / 100) 
-            : 0;
-        const alrawdatainShare = profit - partnerShareAmount;
-
-        const revenueEntries: JournalEntry[] = [];
-        // Debit the client for the total sale amount
-        revenueEntries.push({
+        // 1. Debit Client for total sale amount
+        entries.push({
             accountId: finalSubscriptionData.clientId,
             debit: totalSale,
             credit: 0,
             currency: finalSubscriptionData.currency,
-            description: `دين اشتراك خدمة: ${finalSubscriptionData.serviceName}`,
+            description: `دين اشتراك: ${finalSubscriptionData.serviceName}`
         });
 
-        if (alrawdatainShare > 0) {
-             const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
-             if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined in finance settings.");
-             revenueEntries.push({
-                accountId: revenueAccountId,
-                amount: alrawdatainShare,
-                credit: alrawdatainShare,
-                debit: 0,
-                currency: finalSubscriptionData.currency,
-                description: `إيراد اشتراك ${finalSubscriptionData.serviceName}`
-            });
-        }
+        // 2. Credit Revenue Account for total sale amount
+        const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
+        if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined.");
+        entries.push({
+            accountId: revenueAccountId,
+            debit: 0,
+            credit: totalSale,
+            currency: finalSubscriptionData.currency,
+            description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}`
+        });
 
-        if (partnerShareAmount > 0 && subscriptionData.partnerId) {
-             revenueEntries.push({
-                accountId: subscriptionData.partnerId,
-                amount: partnerShareAmount,
-                credit: partnerShareAmount,
-                debit: 0,
+        // 3. Debit Expense Account for total purchase cost
+        if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
+            const costAccountId = financeSettings.expenseMap?.subscriptions || financeSettings.generalExpenseId;
+            if (!costAccountId) throw new Error("Cost account for subscriptions is not defined.");
+            
+            entries.push({
+                accountId: costAccountId,
+                debit: totalPurchase,
+                credit: 0,
                 currency: finalSubscriptionData.currency,
-                description: `حصة شريك من اشتراك`
+                description: `تكلفة اشتراك: ${finalSubscriptionData.serviceName}`
+            });
+
+            // 4. Credit Supplier for total purchase cost
+            entries.push({
+                accountId: finalSubscriptionData.supplierId,
+                debit: 0,
+                credit: totalPurchase,
+                currency: finalSubscriptionData.currency,
+                description: `دين للمورد عن اشتراك: ${finalSubscriptionData.serviceName}`
             });
         }
         
-        const combinedEntries = [...costEntries, ...revenueEntries];
-
         await postJournalEntry({
             sourceType: 'subscription',
             sourceId: subscriptionRef.id,
             description: `قيد متكامل لاشتراك ${finalSubscriptionData.serviceName}`,
             date: new Date(finalSubscriptionData.purchaseDate),
             userId: user.uid,
-            entries: combinedEntries,
+            entries: entries,
             meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
         });
         
@@ -418,7 +400,7 @@ export async function paySubscriptionInstallment(
             const discountAmount = discount || 0;
             const totalAmountToCreditToClient = paymentAmount + discountAmount;
             
-            const journalVoucherId = await postJournalEntry({
+            await postJournalEntry({
                 sourceType: "subscription_installment",
                 sourceId: installmentId,
                 description: `سداد دفعة اشتراك خدمة: ${subscriptionData.serviceName}`,
@@ -472,7 +454,6 @@ export async function paySubscriptionInstallment(
                         discount: discountApplied,
                         currency: inst.currency,
                         date: new Date().toISOString(),
-                        journalVoucherId: journalVoucherId,
                         paidBy: user.name,
                     });
                 }
@@ -531,7 +512,7 @@ export async function deletePayment(paymentId: string) {
 
             const originalJournalDoc = await transaction.get(journalRef);
             if (!originalJournalDoc.exists) throw new Error("Original journal voucher not found.");
-            const originalJournal = originalJournalDoc.data() as any;
+            const originalJournal = originalJournalDoc.data() as LegacyJournalEntry;
 
             await postJournalEntry({
                 sourceType: 'subscription_reversal',
@@ -782,3 +763,4 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+

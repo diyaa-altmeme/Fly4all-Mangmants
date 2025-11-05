@@ -346,5 +346,3 @@ export async function postCost({
     description: 'قيد مصروف',
   }, fm);
 }
-
-    
