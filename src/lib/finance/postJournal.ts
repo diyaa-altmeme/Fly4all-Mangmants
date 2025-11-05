@@ -6,7 +6,7 @@ import { getDb } from "@/lib/firebase-admin";
 import { FieldValue, FieldPath } from "firebase-admin/firestore";
 import { getSettings } from "@/app/settings/actions";
 import { getNextVoucherNumber } from "@/lib/sequences";
-import type { JournalVoucher, JournalEntry as LegacyJournalEntry, FinanceAccountsMap } from "../types";
+import type { JournalVoucher, JournalEntry as LegacyJournalEntry, FinanceAccountsMap, Currency } from "../types";
 import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
 import { inferAccountCategory, type AccountCategory } from '@/lib/finance/account-categories';
 import { getCurrentUserFromSession } from "../auth/actions";
@@ -23,6 +23,7 @@ export type JournalEntry = {
   companyId?: string;
   note?: string;
   accountType?: string;
+  amount?: number;
 };
 
 export type PostJournalPayload = {
@@ -32,6 +33,11 @@ export type PostJournalPayload = {
   entries: JournalEntry[];
   meta?: Record<string, any>;
   description?: string;
+  debitAccountId?: string;
+  creditAccountId?: string;
+  creditEntries?: JournalEntry[];
+  amount?: number;
+  userId?: string;
 };
 
 async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
@@ -53,7 +59,7 @@ async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
     }
   }
 
-  const missing = accountIds.filter(id => !foundIds.has(id));
+  const missing = accountIds.filter(id => !foundIds.has(id) && !id.startsWith('expense_') && !id.startsWith('revenue_'));
 
   if (missing.length > 0) {
     // Silently fail for now or create placeholder accounts
@@ -119,7 +125,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
     throw new Error('No entries provided');
   }
 
-  // await ensureAccountsExist(db, payload.entries);
+  await ensureAccountsExist(db, payload.entries);
 
   let postingUser: { uid: string; name?: string } | null = null;
   if (!payload.meta || !payload.meta.system) {
@@ -340,3 +346,5 @@ export async function postCost({
     description: 'قيد مصروف',
   }, fm);
 }
+
+    
