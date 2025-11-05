@@ -140,12 +140,6 @@ export const navConfig: {
         icon: FileBarChart,
       },
       {
-        id: "records",
-        titleKey: "navigation.groups.vouchers.items.records",
-        href: "/accounts/vouchers/list",
-        icon: NotebookText,
-      },
-      {
         id: "settings",
         titleKey: "navigation.groups.vouchers.items.settings",
         href: "/settings",
@@ -495,5 +489,3 @@ export const navConfig: {
     ],
   },
 };
-
-    

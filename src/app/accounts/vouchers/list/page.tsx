@@ -1,270 +1,490 @@
-'use client';
-
-import * as React from 'react';
-import type {
-  Voucher,
-  Client,
-  Supplier,
+import type { LucideIcon } from "lucide-react";
+import {
+  LayoutDashboard,
+  PlusCircle,
+  Ticket,
+  CreditCard,
+  Repeat,
+  ArrowRightLeft,
+  Layers3,
+  Package,
+  FileText,
+  Wallet,
+  Boxes,
+  BarChart3,
+  Share2,
+  Wand2,
+  AreaChart,
+  Users,
+  Briefcase,
+  MessageSquare,
+  Settings,
+  ListChecks,
+  Plane,
+  GitBranch,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Banknote,
+  BookUser,
+  FileCog,
+  Network,
+  Calculator,
+  Users2,
+  Contact,
+  FileBarChart,
+  FileTerminal,
+  FileCheck2,
+  FileX2,
+  PenSquare,
+  Landmark,
   Box,
   User,
-  AppSettings,
-  VoucherListSettings,
-  Exchange,
-} from '@/lib/types';
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from '@/components/ui/card';
-import {
-  Search,
-  Loader2,
-  RefreshCw,
-} from 'lucide-react';
-import VouchersTable from './components/vouchers-table';
-import { useToast } from '@/hooks/use-toast';
-import { Input } from '@/components/ui/input';
-import { useDebounce } from '@/hooks/use-debounce';
-import { getAllVouchers } from './actions';
-import { updateSettings } from '@/app/settings/actions';
-import VouchersListSettingsDialog from './components/vouchers-list-settings-dialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useVoucherNav } from '@/context/voucher-nav-context';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { DEFAULT_VOUCHER_TABS_ORDER, getVoucherTypeLabel } from '@/lib/accounting/voucher-types';
-import type { NormalizedVoucherType } from '@/lib/accounting/voucher-types';
+  BellRing,
+  FileDown,
+  RefreshCcw,
+  Trash2,
+  LifeBuoy,
+  Palette,
+  NotebookText,
+  Waypoints,
+  PieChart,
+  BookCopy,
+  Building,
+} from "lucide-react";
 
-
-const VouchersListContent = () => {
-  const { toast } = useToast();
-  const [vouchers, setVouchers] = React.useState<Voucher[]>([]);
-  const {data: navData, loaded: isDataLoaded, fetchData} = useVoucherNav();
-  const [loading, setLoading] = React.useState(true);
-  
-  const [voucherListSettings, setVoucherListSettings] =
-    React.useState<VoucherListSettings | undefined>();
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [activeTab, setActiveTab] = React.useState<'all' | NormalizedVoucherType>('all');
-  const debouncedSearchTerm = useDebounce(searchTerm, 300);
-
-  const fetchVouchers = React.useCallback(async () => {
-    if (!isDataLoaded || !navData) return;
-    setLoading(true);
-    try {
-        const vouchersData = await getAllVouchers(
-            navData.clients,
-            navData.suppliers,
-            navData.boxes,
-            navData.users,
-            navData.settings
-        );
-         setVouchers(vouchersData || []);
-
-    } catch (error: any) {
-         toast({
-            title: 'خطأ',
-            description: error.message || 'فشل في تحميل البيانات.',
-            variant: 'destructive',
-        });
-    } finally {
-        setLoading(false);
-    }
-  }, [isDataLoaded, navData, toast]);
-
-  React.useEffect(() => {
-    fetchVouchers();
-  }, [fetchVouchers]);
-  
-  React.useEffect(() => {
-      if(navData?.settings?.voucherSettings?.listSettings) {
-          setVoucherListSettings(navData.settings.voucherSettings.listSettings);
-      }
-  }, [navData]);
-
-  const handleSettingsChanged = async (newSettings: VoucherListSettings) => {
-    if (!navData?.settings) return;
-    const result = await updateSettings({
-      voucherSettings: { ...navData.settings.voucherSettings, listSettings: newSettings },
-    });
-    if (result.success) {
-      setVoucherListSettings(newSettings);
-      toast({ title: 'تم تحديث إعدادات العرض' });
-      fetchData(); // Refetch all context data
-    } else {
-      toast({
-        title: 'خطأ',
-        description: result.error,
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const searchedVouchers = React.useMemo(() => {
-    return vouchers.filter((v) => {
-      if (!debouncedSearchTerm) return true;
-      const term = debouncedSearchTerm.toLowerCase();
-      return (
-        v.invoiceNumber?.toLowerCase().includes(term) ||
-        v.companyName?.toLowerCase().includes(term) ||
-        v.officer?.toLowerCase().includes(term) ||
-        v.notes?.toLowerCase().includes(term)
-      );
-    });
-  }, [vouchers, debouncedSearchTerm]);
-
-  const tabData = React.useMemo(() => {
-    const map = new Map<string, Voucher[]>();
-    map.set('all', searchedVouchers);
-    searchedVouchers.forEach((voucher) => {
-      const key = voucher.normalizedType || 'other';
-      if (!map.has(key)) {
-        map.set(key, []);
-      }
-      map.get(key)!.push(voucher);
-    });
-    return map;
-  }, [searchedVouchers]);
-
-  const tabDefinitions = React.useMemo(() => {
-    const counts = new Map<string, number>();
-    counts.set('all', searchedVouchers.length);
-    searchedVouchers.forEach((voucher) => {
-      const key = voucher.normalizedType || 'other';
-      counts.set(key, (counts.get(key) || 0) + 1);
-    });
-
-    const presentTypes = Array.from(counts.keys()).filter((key) => key !== 'all') as NormalizedVoucherType[];
-    const ordered = [
-      ...DEFAULT_VOUCHER_TABS_ORDER.filter((type) => presentTypes.includes(type) && counts.get(type) !== undefined),
-      ...presentTypes.filter((type) => !DEFAULT_VOUCHER_TABS_ORDER.includes(type)),
-    ];
-
-    return [
-      { id: 'all' as const, label: 'كل السندات', count: counts.get('all') || 0 },
-      ...ordered.map((type) => ({
-        id: type,
-        label: getVoucherTypeLabel(type),
-        count: counts.get(type) || 0,
-      })),
-    ];
-  }, [searchedVouchers]);
-
-  React.useEffect(() => {
-    if (activeTab !== 'all' && !tabData.has(activeTab)) {
-      setActiveTab('all');
-    }
-  }, [activeTab, tabData]);
-
-  if (loading || !isDataLoaded || !voucherListSettings) {
-    return (
-      <Card>
-        <CardHeader className="flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-10 w-64" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-96 w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="بحث في السندات..."
-            className="ps-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => fetchVouchers()}
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            title="تحديث البيانات"
-          >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="h-4 w-4" />
-            )}
-          </Button>
-
-          <VouchersListSettingsDialog
-            settings={voucherListSettings}
-            onSettingsChanged={handleSettingsChanged}
-          />
-        </div>
-      </CardHeader>
-
-      <CardContent>
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => setActiveTab(value as 'all' | NormalizedVoucherType)}
-          className="space-y-4"
-        >
-          <TabsList className="w-full overflow-x-auto flex gap-2">
-            {tabDefinitions.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className="flex items-center gap-2 whitespace-nowrap"
-              >
-                <span>{tab.label}</span>
-                <Badge variant="secondary" className="font-mono text-[11px]">
-                  {tab.count}
-                </Badge>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {tabDefinitions.map((tab) => {
-            const vouchersForTab = tab.id === 'all'
-              ? tabData.get('all') || []
-              : tabData.get(tab.id as string) || [];
-            return (
-              <TabsContent key={tab.id} value={tab.id} className="mt-4">
-                {vouchersForTab.length > 0 ? (
-                  <VouchersTable
-                    vouchers={vouchersForTab}
-                    onDataChanged={fetchVouchers}
-                    settings={voucherListSettings}
-                  />
-                ) : (
-                  <div className="py-10 text-center text-muted-foreground">
-                    لا توجد سندات ضمن هذا التصنيف بناءً على معايير البحث الحالية.
-                  </div>
-                )}
-              </TabsContent>
-            );
-          })}
-        </Tabs>
-      </CardContent>
-    </Card>
-  );
+export type NavLinkConfig = {
+  id: string;
+  titleKey: string;
+  href: string;
+  icon: LucideIcon;
 };
 
-export default function VouchersListPage() {
-  return (
-    <div className="space-y-6">
-      <CardHeader className="px-0 sm:px-6">
-        <CardTitle>📑 سجل السندات الموحد</CardTitle>
-        <CardDescription>
-          عرض جميع السندات والحركات المالية في النظام مع إمكانية الفلترة والبحث.
-        </CardDescription>
-      </CardHeader>
-      <VouchersListContent />
-    </div>
-  );
-}
+export type NavMenuConfig = {
+  id: string;
+  titleKey: string;
+  icon: LucideIcon;
+  items: NavLinkConfig[];
+};
+
+export const navConfig: {
+  mainNav: NavLinkConfig[];
+  relations: NavMenuConfig;
+  vouchers: NavMenuConfig;
+  operations: NavMenuConfig;
+  customBusiness: NavMenuConfig;
+  reports: NavMenuConfig;
+  additionalFeatures: NavMenuConfig;
+  system: NavMenuConfig;
+} = {
+  mainNav: [
+    {
+      id: "dashboard",
+      titleKey: "navigation.main.dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      id: "accounts",
+      titleKey: "navigation.main.accounts",
+      href: "/accounts",
+      icon: Wallet,
+    },
+  ],
+  relations: {
+    id: "relations",
+    titleKey: "navigation.groups.relations.title",
+    icon: Contact,
+    items: [
+      {
+        id: "clients",
+        titleKey: "navigation.groups.relations.items.clients",
+        href: "/clients",
+        icon: Users2,
+      },
+      {
+        id: "campaigns",
+        titleKey: "navigation.groups.relations.items.campaigns",
+        href: "/campaigns",
+        icon: MessageSquare,
+      },
+      {
+        id: "chat",
+        titleKey: "navigation.groups.relations.items.chat",
+        href: "/chat",
+        icon: MessageSquare,
+      },
+      {
+        id: "relationsSettings",
+        titleKey: "navigation.groups.relations.items.settings",
+        href: "/relations/settings",
+        icon: Settings,
+      },
+      {
+        id: "relationsImport",
+        titleKey: "navigation.groups.relations.items.import",
+        href: "/relations/settings/import",
+        icon: FileDown,
+      },
+    ],
+  },
+  vouchers: {
+    id: "vouchers",
+    titleKey: "navigation.groups.vouchers.title",
+    icon: FileText,
+    items: [
+      {
+        id: "log",
+        titleKey: "navigation.groups.vouchers.items.log",
+        href: "/accounts/vouchers/log",
+        icon: FileBarChart,
+      },
+      {
+        id: "settings",
+        titleKey: "navigation.groups.vouchers.items.settings",
+        href: "/settings",
+        icon: Settings,
+      },
+    ],
+  },
+  operations: {
+    id: "operations",
+    titleKey: "navigation.groups.operations.title",
+    icon: Calculator,
+    items: [
+      {
+        id: "bookings",
+        titleKey: "navigation.groups.operations.items.bookings",
+        href: "/bookings",
+        icon: Plane,
+      },
+      {
+        id: "bookingsDeleted",
+        titleKey: "navigation.groups.operations.items.bookingsDeleted",
+        href: "/bookings/deleted-bookings",
+        icon: Trash2,
+      },
+      {
+        id: "bookingsFlyChanges",
+        titleKey: "navigation.groups.operations.items.bookingsFlyChanges",
+        href: "/bookings/fly-changes",
+        icon: RefreshCcw,
+      },
+      {
+        id: "visas",
+        titleKey: "navigation.groups.operations.items.visas",
+        href: "/visas",
+        icon: CreditCard,
+      },
+      {
+        id: "visasDeleted",
+        titleKey: "navigation.groups.operations.items.visasDeleted",
+        href: "/visas/deleted-visas",
+        icon: Trash2,
+      },
+      {
+        id: "remittances",
+        titleKey: "navigation.groups.operations.items.remittances",
+        href: "/accounts/remittances",
+        icon: ArrowRightLeft,
+      },
+    ],
+  },
+  customBusiness: {
+    id: "customBusiness",
+    titleKey: "navigation.groups.customBusiness.title",
+    icon: Briefcase,
+    items: [
+      {
+        id: "subscriptions",
+        titleKey: "navigation.groups.customBusiness.items.subscriptions",
+        href: "/subscriptions",
+        icon: Repeat,
+      },
+      {
+        id: "subscriptionsDeleted",
+        titleKey: "navigation.groups.customBusiness.items.subscriptionsDeleted",
+        href: "/subscriptions/deleted-subscriptions",
+        icon: Trash2,
+      },
+      {
+        id: "segments",
+        titleKey: "navigation.groups.customBusiness.items.segments",
+        href: "/segments",
+        icon: Layers3,
+      },
+      {
+        id: "segmentsDeleted",
+        titleKey: "navigation.groups.customBusiness.items.segmentsDeleted",
+        href: "/segments/deleted-segments",
+        icon: Trash2,
+      },
+      {
+        id: "exchanges",
+        titleKey: "navigation.groups.customBusiness.items.exchanges",
+        href: "/exchanges",
+        icon: Waypoints,
+      },
+      {
+        id: "exchangesReport",
+        titleKey: "navigation.groups.customBusiness.items.exchangesReport",
+        href: "/exchanges/report",
+        icon: FileBarChart,
+      },
+      {
+        id: "profitSharing",
+        titleKey: "navigation.groups.customBusiness.items.profitSharing",
+        href: "/profit-sharing",
+        icon: Share2,
+      },
+      {
+        id: "flightAnalysis",
+        titleKey: "navigation.groups.customBusiness.items.flightAnalysis",
+        href: "/reports/flight-analysis",
+        icon: Plane,
+      }
+    ]
+  },
+  reports: {
+    id: "reports",
+    titleKey: "navigation.groups.reports.title",
+    icon: BarChart3,
+    items: [
+      {
+        id: "overview",
+        titleKey: "navigation.groups.reports.items.overview",
+        href: "/reports",
+        icon: BarChart3,
+      },
+      {
+        id: "debts",
+        titleKey: "navigation.groups.reports.items.debts",
+        href: "/reports/debts",
+        icon: BookCopy,
+      },
+      {
+        id: "accountStatement",
+        titleKey: "navigation.groups.reports.items.accountStatement",
+        href: "/reports/account-statement",
+        icon: NotebookText,
+      },
+      {
+        id: "accountStatementDashboard",
+        titleKey: "navigation.groups.reports.items.accountStatementDashboard",
+        href: "/reports/account-statement/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        id: "boxes",
+        titleKey: "navigation.groups.reports.items.boxes",
+        href: "/reports/boxes",
+        icon: Box,
+      },
+      {
+        id: "profitLoss",
+        titleKey: "navigation.groups.reports.items.profitLoss",
+        href: "/reports/profit-loss",
+        icon: FileBarChart,
+      },
+      {
+        id: "profitability",
+        titleKey: "navigation.groups.reports.items.profitability",
+        href: "/reports/profitability-analysis",
+        icon: PieChart,
+      },
+      {
+        id: "financeOverview",
+        titleKey: "navigation.groups.reports.items.financeOverview",
+        href: "/finance/overview",
+        icon: AreaChart,
+      },
+      {
+        id: "financeDashboard",
+        titleKey: "navigation.groups.reports.items.financeDashboard",
+        href: "/dashboard/finance",
+        icon: AreaChart,
+      },
+      {
+        id: "cashFlow",
+        titleKey: "navigation.groups.reports.items.cashFlow",
+        href: "/reports/cash-flow",
+        icon: Waypoints,
+      },
+      {
+        id: "smartReconciliation",
+        titleKey: "navigation.groups.reports.items.smartReconciliation",
+        href: "/reconciliation",
+        icon: Wand2,
+      },
+    ],
+  },
+  additionalFeatures: {
+    id: "additionalFeatures",
+    titleKey: "navigation.groups.additionalFeatures.title",
+    icon: Briefcase,
+    items: [
+      {
+        id: "boxes",
+        titleKey: "navigation.groups.additionalFeatures.items.boxes",
+        href: "/boxes",
+        icon: Box,
+      },
+      {
+        id: "suppliers",
+        titleKey: "navigation.groups.additionalFeatures.items.suppliers",
+        href: "/suppliers",
+        icon: Building,
+      },
+      {
+        id: "profile",
+        titleKey: "navigation.groups.additionalFeatures.items.profile",
+        href: "/profile",
+        icon: User,
+      },
+      {
+        id: "profits",
+        titleKey: "navigation.groups.additionalFeatures.items.profits",
+        href: "/profits",
+        icon: AreaChart,
+      },
+      {
+        id: "profitsManual",
+        titleKey: "navigation.groups.additionalFeatures.items.profitsManual",
+        href: "/profits/manual",
+        icon: NotebookText,
+      },
+      {
+        id: "notifications",
+        titleKey: "navigation.groups.additionalFeatures.items.notifications",
+        href: "/notifications",
+        icon: BellRing,
+      },
+      {
+        id: "assets",
+        titleKey: "navigation.groups.additionalFeatures.items.assets",
+        href: "/settings/assets",
+        icon: Wallet,
+      },
+      {
+        id: "support",
+        titleKey: "navigation.groups.additionalFeatures.items.support",
+        href: "/support",
+        icon: LifeBuoy,
+      },
+    ],
+  },
+  system: {
+    id: "system",
+    titleKey: "navigation.groups.system.title",
+    icon: Network,
+    items: [
+      {
+        id: "generalSettings",
+        titleKey: "navigation.groups.system.items.generalSettings",
+        href: "/settings",
+        icon: Settings,
+      },
+      {
+        id: "accountingGuide",
+        titleKey: "navigation.groups.system.items.accountingGuide",
+        href: "/settings/accounting",
+        icon: GitBranch,
+      },
+      {
+        id: "chartOfAccounts",
+        titleKey: "navigation.groups.system.items.chartOfAccounts",
+        href: "/settings/accounting/chart-of-accounts",
+        icon: GitBranch,
+      },
+      {
+        id: "settingsFinance",
+        titleKey: "navigation.groups.system.items.settingsFinance",
+        href: "/settings/finance",
+        icon: Calculator,
+      },
+      {
+        id: "settingsFinanceTools",
+        titleKey: "navigation.groups.system.items.settingsFinanceTools",
+        href: "/settings/finance-tools",
+        icon: FileCog,
+      },
+      {
+        id: "clientPermissions",
+        titleKey: "navigation.groups.system.items.clientPermissions",
+        href: "/settings/client-permissions",
+        icon: Users,
+      },
+      {
+        id: "appearance",
+        titleKey: "navigation.groups.system.items.appearance",
+        href: "/settings/appearance",
+        icon: Palette,
+      },
+      {
+        id: "themes",
+        titleKey: "navigation.groups.system.items.themes",
+        href: "/settings/themes",
+        icon: Layers3,
+      },
+      {
+        id: "invoiceSequences",
+        titleKey: "navigation.groups.system.items.invoiceSequences",
+        href: "/settings/invoice-sequences",
+        icon: NotebookText,
+      },
+      {
+        id: "users",
+        titleKey: "navigation.groups.system.items.users",
+        href: "/users",
+        icon: Users,
+      },
+      {
+        id: "financeTools",
+        titleKey: "navigation.groups.system.items.financeTools",
+        href: "/finance-tools",
+        icon: Landmark,
+      },
+      {
+        id: "financeToolsAudit",
+        titleKey: "navigation.groups.system.items.financeToolsAudit",
+        href: "/finance-tools/ai-audit",
+        icon: Wand2,
+      },
+      {
+        id: "templates",
+        titleKey: "navigation.groups.system.items.templates",
+        href: "/templates",
+        icon: PenSquare,
+      },
+      {
+        id: "activityLog",
+        titleKey: "navigation.groups.system.items.activityLog",
+        href: "/system/activity-log",
+        icon: FileTerminal,
+      },
+      {
+        id: "errorLog",
+        titleKey: "navigation.groups.system.items.errorLog",
+        href: "/system/error-log",
+        icon: FileCog,
+      },
+      {
+        id: "dataAudit",
+        titleKey: "navigation.groups.system.items.dataAudit",
+        href: "/system/data-audit",
+        icon: FileCheck2,
+      },
+      {
+        id: "deletedLog",
+        titleKey: "navigation.groups.system.items.deletedLog",
+        href: "/system/deleted-log",
+        icon: FileX2,
+      },
+      {
+        id: "setupAdmin",
+        titleKey: "navigation.groups.system.items.setupAdmin",
+        href: "/setup-admin",
+        icon: User,
+      },
+    ],
+  },
+};

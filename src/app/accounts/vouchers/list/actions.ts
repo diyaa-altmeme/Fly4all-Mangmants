@@ -1,354 +1,490 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  LayoutDashboard,
+  PlusCircle,
+  Ticket,
+  CreditCard,
+  Repeat,
+  ArrowRightLeft,
+  Layers3,
+  Package,
+  FileText,
+  Wallet,
+  Boxes,
+  BarChart3,
+  Share2,
+  Wand2,
+  AreaChart,
+  Users,
+  Briefcase,
+  MessageSquare,
+  Settings,
+  ListChecks,
+  Plane,
+  GitBranch,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Banknote,
+  BookUser,
+  FileCog,
+  Network,
+  Calculator,
+  Users2,
+  Contact,
+  FileBarChart,
+  FileTerminal,
+  FileCheck2,
+  FileX2,
+  PenSquare,
+  Landmark,
+  Box,
+  User,
+  BellRing,
+  FileDown,
+  RefreshCcw,
+  Trash2,
+  LifeBuoy,
+  Palette,
+  NotebookText,
+  Waypoints,
+  PieChart,
+  BookCopy,
+  Building,
+} from "lucide-react";
 
-
-'use server';
-
-import { getDb } from '@/lib/firebase-admin';
-import type { ReceiptVoucher, Client, Supplier, AppSettings, Box, User, JournalVoucher, JournalEntry } from '@/lib/types';
-import { revalidatePath } from 'next/cache';
-import { getSettings } from '@/app/settings/actions';
-import { parseISO } from 'date-fns';
-import { createAuditLog } from '@/app/system/activity-log/actions';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
-import { getVoucherTypeLabel, normalizeVoucherType } from '@/lib/accounting/voucher-types';
-import type { NormalizedVoucherType } from '@/lib/accounting/voucher-types';
-
-export type Voucher = JournalVoucher & {
-    voucherTypeLabel: string;
-    companyName?: string;
-    phone?: string;
-    boxName?: string;
-    normalizedType: NormalizedVoucherType;
-    rawSourceType?: string;
+export type NavLinkConfig = {
+  id: string;
+  titleKey: string;
+  href: string;
+  icon: LucideIcon;
 };
 
-// Helper function to process dates, which might be Timestamps
-const processVoucherData = (doc: FirebaseFirestore.DocumentSnapshot): any => {
-    const data = doc.data() as any;
-    if (!data) return null;
-
-    // Create a deep copy to avoid mutating the original data
-    const safeData = JSON.parse(JSON.stringify({ ...data, id: doc.id }));
-
-    for (const key in safeData) {
-        if (safeData[key] && (safeData[key].hasOwnProperty('_seconds') || typeof safeData[key].toDate === 'function')) {
-            safeData[key] = new Date(safeData[key]._seconds * 1000 || safeData[key].toDate()).toISOString();
-        }
-    }
-    
-    // Deep check for nested dates, especially in originalData
-    if (safeData.originalData && typeof safeData.originalData === 'object') {
-        for (const key in safeData.originalData) {
-             if (safeData.originalData[key] && (safeData.originalData[key].hasOwnProperty('_seconds') || safeData.originalData[key].toDate === 'function')) {
-                safeData.originalData[key] = new Date(safeData.originalData[key]._seconds * 1000 || safeData.originalData[key].toDate()).toISOString();
-            }
-        }
-    }
-
-    return safeData;
+export type NavMenuConfig = {
+  id: string;
+  titleKey: string;
+  icon: LucideIcon;
+  items: NavLinkConfig[];
 };
 
-export const getVoucherById = async (id: string): Promise<any | null> => {
-    const db = await getDb();
-    if (!db) return null;
-
-    // The primary collection for all operations is now journal-vouchers
-    const docRef = db.collection('journal-vouchers').doc(id);
-    const doc = await docRef.get();
-
-    if (doc.exists) {
-        return processVoucherData(doc);
-    }
-    
-    return null;
+export const navConfig: {
+  mainNav: NavLinkConfig[];
+  relations: NavMenuConfig;
+  vouchers: NavMenuConfig;
+  operations: NavMenuConfig;
+  customBusiness: NavMenuConfig;
+  reports: NavMenuConfig;
+  additionalFeatures: NavMenuConfig;
+  system: NavMenuConfig;
+} = {
+  mainNav: [
+    {
+      id: "dashboard",
+      titleKey: "navigation.main.dashboard",
+      href: "/dashboard",
+      icon: LayoutDashboard,
+    },
+    {
+      id: "accounts",
+      titleKey: "navigation.main.accounts",
+      href: "/accounts",
+      icon: Wallet,
+    },
+  ],
+  relations: {
+    id: "relations",
+    titleKey: "navigation.groups.relations.title",
+    icon: Contact,
+    items: [
+      {
+        id: "clients",
+        titleKey: "navigation.groups.relations.items.clients",
+        href: "/clients",
+        icon: Users2,
+      },
+      {
+        id: "campaigns",
+        titleKey: "navigation.groups.relations.items.campaigns",
+        href: "/campaigns",
+        icon: MessageSquare,
+      },
+      {
+        id: "chat",
+        titleKey: "navigation.groups.relations.items.chat",
+        href: "/chat",
+        icon: MessageSquare,
+      },
+      {
+        id: "relationsSettings",
+        titleKey: "navigation.groups.relations.items.settings",
+        href: "/relations/settings",
+        icon: Settings,
+      },
+      {
+        id: "relationsImport",
+        titleKey: "navigation.groups.relations.items.import",
+        href: "/relations/settings/import",
+        icon: FileDown,
+      },
+    ],
+  },
+  vouchers: {
+    id: "vouchers",
+    titleKey: "navigation.groups.vouchers.title",
+    icon: FileText,
+    items: [
+      {
+        id: "log",
+        titleKey: "navigation.groups.vouchers.items.log",
+        href: "/accounts/vouchers/log",
+        icon: FileBarChart,
+      },
+      {
+        id: "settings",
+        titleKey: "navigation.groups.vouchers.items.settings",
+        href: "/settings",
+        icon: Settings,
+      },
+    ],
+  },
+  operations: {
+    id: "operations",
+    titleKey: "navigation.groups.operations.title",
+    icon: Calculator,
+    items: [
+      {
+        id: "bookings",
+        titleKey: "navigation.groups.operations.items.bookings",
+        href: "/bookings",
+        icon: Plane,
+      },
+      {
+        id: "bookingsDeleted",
+        titleKey: "navigation.groups.operations.items.bookingsDeleted",
+        href: "/bookings/deleted-bookings",
+        icon: Trash2,
+      },
+      {
+        id: "bookingsFlyChanges",
+        titleKey: "navigation.groups.operations.items.bookingsFlyChanges",
+        href: "/bookings/fly-changes",
+        icon: RefreshCcw,
+      },
+      {
+        id: "visas",
+        titleKey: "navigation.groups.operations.items.visas",
+        href: "/visas",
+        icon: CreditCard,
+      },
+      {
+        id: "visasDeleted",
+        titleKey: "navigation.groups.operations.items.visasDeleted",
+        href: "/visas/deleted-visas",
+        icon: Trash2,
+      },
+      {
+        id: "remittances",
+        titleKey: "navigation.groups.operations.items.remittances",
+        href: "/accounts/remittances",
+        icon: ArrowRightLeft,
+      },
+    ],
+  },
+  customBusiness: {
+    id: "customBusiness",
+    titleKey: "navigation.groups.customBusiness.title",
+    icon: Briefcase,
+    items: [
+      {
+        id: "subscriptions",
+        titleKey: "navigation.groups.customBusiness.items.subscriptions",
+        href: "/subscriptions",
+        icon: Repeat,
+      },
+      {
+        id: "subscriptionsDeleted",
+        titleKey: "navigation.groups.customBusiness.items.subscriptionsDeleted",
+        href: "/subscriptions/deleted-subscriptions",
+        icon: Trash2,
+      },
+      {
+        id: "segments",
+        titleKey: "navigation.groups.customBusiness.items.segments",
+        href: "/segments",
+        icon: Layers3,
+      },
+      {
+        id: "segmentsDeleted",
+        titleKey: "navigation.groups.customBusiness.items.segmentsDeleted",
+        href: "/segments/deleted-segments",
+        icon: Trash2,
+      },
+      {
+        id: "exchanges",
+        titleKey: "navigation.groups.customBusiness.items.exchanges",
+        href: "/exchanges",
+        icon: Waypoints,
+      },
+      {
+        id: "exchangesReport",
+        titleKey: "navigation.groups.customBusiness.items.exchangesReport",
+        href: "/exchanges/report",
+        icon: FileBarChart,
+      },
+      {
+        id: "profitSharing",
+        titleKey: "navigation.groups.customBusiness.items.profitSharing",
+        href: "/profit-sharing",
+        icon: Share2,
+      },
+      {
+        id: "flightAnalysis",
+        titleKey: "navigation.groups.customBusiness.items.flightAnalysis",
+        href: "/reports/flight-analysis",
+        icon: Plane,
+      }
+    ]
+  },
+  reports: {
+    id: "reports",
+    titleKey: "navigation.groups.reports.title",
+    icon: BarChart3,
+    items: [
+      {
+        id: "overview",
+        titleKey: "navigation.groups.reports.items.overview",
+        href: "/reports",
+        icon: BarChart3,
+      },
+      {
+        id: "debts",
+        titleKey: "navigation.groups.reports.items.debts",
+        href: "/reports/debts",
+        icon: BookCopy,
+      },
+      {
+        id: "accountStatement",
+        titleKey: "navigation.groups.reports.items.accountStatement",
+        href: "/reports/account-statement",
+        icon: NotebookText,
+      },
+      {
+        id: "accountStatementDashboard",
+        titleKey: "navigation.groups.reports.items.accountStatementDashboard",
+        href: "/reports/account-statement/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        id: "boxes",
+        titleKey: "navigation.groups.reports.items.boxes",
+        href: "/reports/boxes",
+        icon: Box,
+      },
+      {
+        id: "profitLoss",
+        titleKey: "navigation.groups.reports.items.profitLoss",
+        href: "/reports/profit-loss",
+        icon: FileBarChart,
+      },
+      {
+        id: "profitability",
+        titleKey: "navigation.groups.reports.items.profitability",
+        href: "/reports/profitability-analysis",
+        icon: PieChart,
+      },
+      {
+        id: "financeOverview",
+        titleKey: "navigation.groups.reports.items.financeOverview",
+        href: "/finance/overview",
+        icon: AreaChart,
+      },
+      {
+        id: "financeDashboard",
+        titleKey: "navigation.groups.reports.items.financeDashboard",
+        href: "/dashboard/finance",
+        icon: AreaChart,
+      },
+      {
+        id: "cashFlow",
+        titleKey: "navigation.groups.reports.items.cashFlow",
+        href: "/reports/cash-flow",
+        icon: Waypoints,
+      },
+      {
+        id: "smartReconciliation",
+        titleKey: "navigation.groups.reports.items.smartReconciliation",
+        href: "/reconciliation",
+        icon: Wand2,
+      },
+    ],
+  },
+  additionalFeatures: {
+    id: "additionalFeatures",
+    titleKey: "navigation.groups.additionalFeatures.title",
+    icon: Briefcase,
+    items: [
+      {
+        id: "boxes",
+        titleKey: "navigation.groups.additionalFeatures.items.boxes",
+        href: "/boxes",
+        icon: Box,
+      },
+      {
+        id: "suppliers",
+        titleKey: "navigation.groups.additionalFeatures.items.suppliers",
+        href: "/suppliers",
+        icon: Building,
+      },
+      {
+        id: "profile",
+        titleKey: "navigation.groups.additionalFeatures.items.profile",
+        href: "/profile",
+        icon: User,
+      },
+      {
+        id: "profits",
+        titleKey: "navigation.groups.additionalFeatures.items.profits",
+        href: "/profits",
+        icon: AreaChart,
+      },
+      {
+        id: "profitsManual",
+        titleKey: "navigation.groups.additionalFeatures.items.profitsManual",
+        href: "/profits/manual",
+        icon: NotebookText,
+      },
+      {
+        id: "notifications",
+        titleKey: "navigation.groups.additionalFeatures.items.notifications",
+        href: "/notifications",
+        icon: BellRing,
+      },
+      {
+        id: "assets",
+        titleKey: "navigation.groups.additionalFeatures.items.assets",
+        href: "/settings/assets",
+        icon: Wallet,
+      },
+      {
+        id: "support",
+        titleKey: "navigation.groups.additionalFeatures.items.support",
+        href: "/support",
+        icon: LifeBuoy,
+      },
+    ],
+  },
+  system: {
+    id: "system",
+    titleKey: "navigation.groups.system.title",
+    icon: Network,
+    items: [
+      {
+        id: "generalSettings",
+        titleKey: "navigation.groups.system.items.generalSettings",
+        href: "/settings",
+        icon: Settings,
+      },
+      {
+        id: "accountingGuide",
+        titleKey: "navigation.groups.system.items.accountingGuide",
+        href: "/settings/accounting",
+        icon: GitBranch,
+      },
+      {
+        id: "chartOfAccounts",
+        titleKey: "navigation.groups.system.items.chartOfAccounts",
+        href: "/settings/accounting/chart-of-accounts",
+        icon: GitBranch,
+      },
+      {
+        id: "settingsFinance",
+        titleKey: "navigation.groups.system.items.settingsFinance",
+        href: "/settings/finance",
+        icon: Calculator,
+      },
+      {
+        id: "settingsFinanceTools",
+        titleKey: "navigation.groups.system.items.settingsFinanceTools",
+        href: "/settings/finance-tools",
+        icon: FileCog,
+      },
+      {
+        id: "clientPermissions",
+        titleKey: "navigation.groups.system.items.clientPermissions",
+        href: "/settings/client-permissions",
+        icon: Users,
+      },
+      {
+        id: "appearance",
+        titleKey: "navigation.groups.system.items.appearance",
+        href: "/settings/appearance",
+        icon: Palette,
+      },
+      {
+        id: "themes",
+        titleKey: "navigation.groups.system.items.themes",
+        href: "/settings/themes",
+        icon: Layers3,
+      },
+      {
+        id: "invoiceSequences",
+        titleKey: "navigation.groups.system.items.invoiceSequences",
+        href: "/settings/invoice-sequences",
+        icon: NotebookText,
+      },
+      {
+        id: "users",
+        titleKey: "navigation.groups.system.items.users",
+        href: "/users",
+        icon: Users,
+      },
+      {
+        id: "financeTools",
+        titleKey: "navigation.groups.system.items.financeTools",
+        href: "/finance-tools",
+        icon: Landmark,
+      },
+      {
+        id: "financeToolsAudit",
+        titleKey: "navigation.groups.system.items.financeToolsAudit",
+        href: "/finance-tools/ai-audit",
+        icon: Wand2,
+      },
+      {
+        id: "templates",
+        titleKey: "navigation.groups.system.items.templates",
+        href: "/templates",
+        icon: PenSquare,
+      },
+      {
+        id: "activityLog",
+        titleKey: "navigation.groups.system.items.activityLog",
+        href: "/system/activity-log",
+        icon: FileTerminal,
+      },
+      {
+        id: "errorLog",
+        titleKey: "navigation.groups.system.items.errorLog",
+        href: "/system/error-log",
+        icon: FileCog,
+      },
+      {
+        id: "dataAudit",
+        titleKey: "navigation.groups.system.items.dataAudit",
+        href: "/system/data-audit",
+        icon: FileCheck2,
+      },
+      {
+        id: "deletedLog",
+        titleKey: "navigation.groups.system.items.deletedLog",
+        href: "/system/deleted-log",
+        icon: FileX2,
+      },
+      {
+        id: "setupAdmin",
+        titleKey: "navigation.groups.system.items.setupAdmin",
+        href: "/setup-admin",
+        icon: User,
+      },
+    ],
+  },
 };
-
-
-// This function fetches all types of vouchers and combines them.
-export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], boxes: Box[], users: User[], settings: AppSettings): Promise<Voucher[]> => {
-    try {
-        const db = await getDb();
-        if (!db) {
-            console.log("Database not available, returning empty list of vouchers.");
-            return [];
-        }
-
-        const accountsMap = new Map<string, string>();
-        clients.forEach(c => accountsMap.set(c.id, c.name));
-        suppliers.forEach(s => accountsMap.set(s.id, s.name));
-        boxes.forEach(b => accountsMap.set(b.id, b.name));
-        settings.voucherSettings?.expenseAccounts?.forEach(account => {
-            accountsMap.set(`expense_${account.id}`, account.name);
-        });
-        
-        const boxesMap = new Map(boxes.map(b => [b.id, b.name]));
-        const usersMap = new Map(users.map((u: any) => [u.uid, u.name]));
-        
-        const journalVouchersSnapshot = await db.collection('journal-vouchers')
-            .orderBy('createdAt', 'desc')
-            .limit(500)
-            .get();
-        
-        const allVouchers: Voucher[] = [];
-
-        journalVouchersSnapshot.forEach(doc => {
-            const data = processVoucherData(doc);
-            if (!data || data.isDeleted) return; // Skip deleted vouchers
-            
-            const description = data.notes || '';
-            const totalDebit = data.debitEntries?.reduce((sum: number, entry: any) => sum + (entry.amount || 0), 0) || 0;
-
-            
-            const mainDebitPartyId = data.debitEntries?.[0]?.accountId;
-            const mainCreditPartyId = data.creditEntries?.[0]?.accountId;
-            
-            let mainPartyId = 'multiple';
-            const originalData = data.originalData || {};
-
-            if (originalData.from) mainPartyId = originalData.from;
-            else if (originalData.payeeId) mainPartyId = originalData.payeeId;
-            else if (originalData.toSupplierId) mainPartyId = originalData.toSupplierId;
-            else if (originalData.accountId) mainPartyId = originalData.accountId;
-            else if (data.voucherType?.includes('receipt')) mainPartyId = mainCreditPartyId;
-            else if (data.voucherType?.includes('payment') || data.voucherType?.includes('expense')) mainPartyId = mainDebitPartyId;
-
-            const partyInfo = clients.find(c => c.id === mainPartyId) || suppliers.find(s => s.id === mainPartyId);
-            const companyName = partyInfo?.name || originalData.companyName || originalData.from || originalData.payee || accountsMap.get(mainPartyId) || 'حركات متعددة';
-            const phone = partyInfo?.phone || originalData.phoneNumber;
-            
-            const boxId = originalData.boxId || originalData.toBox || data.creditEntries?.find((e: any) => boxesMap.has(e.accountId))?.accountId || data.debitEntries?.find((e: any) => boxesMap.has(e.accountId))?.accountId || '';
-
-            const rawSourceType = data.originalData?.sourceType || data.sourceType || data.voucherType;
-            const normalizedType = normalizeVoucherType(rawSourceType || data.voucherType);
-
-            allVouchers.push({
-                ...data,
-                id: doc.id,
-                voucherTypeLabel: getVoucherTypeLabel(normalizedType),
-                companyName: companyName,
-                phone: phone,
-                officer: usersMap.get(data.createdBy) || data.officer || 'غير معروف',
-                boxName: boxesMap.get(boxId) || 'N/A',
-                totalAmount: totalDebit,
-                normalizedType,
-                rawSourceType,
-            });
-        });
-
-        // Add a secondary, stable sort key (the ID) to prevent hydration mismatches.
-        return allVouchers.sort((a, b) => {
-            const dateA = a.createdAt ? parseISO(a.createdAt as string).getTime() : parseISO(a.date).getTime();
-            const dateB = b.createdAt ? parseISO(b.createdAt as string).getTime() : parseISO(a.date).getTime();
-            if (dateB !== dateA) {
-                return dateB - dateA;
-            }
-            return b.id!.localeCompare(a.id!);
-        });
-
-    } catch (error) {
-        console.error("Error getting all vouchers: ", String(error));
-        return [];
-    }
-};
-
-export async function deleteVoucher(id: string): Promise<{ success: boolean; error?: string }> {
-    const db = await getDb();
-    if (!db) return { success: false, error: "Database not available." };
-    const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    const batch = db.batch();
-    
-    try {
-        const voucherRef = db.collection('journal-vouchers').doc(id);
-        const voucherDoc = await voucherRef.get();
-        if (!voucherDoc.exists) {
-             throw new Error("Voucher not found");
-        }
-        const voucherData = voucherDoc.data();
-        const voucherNumber = voucherData?.invoiceNumber || id;
-        
-        const originalDataSource = voucherData?.originalData?.sourceType || voucherData?.sourceType;
-        const originalDataId = voucherData?.originalData?.sourceId || voucherData?.sourceId;
-
-        if (originalDataSource && originalDataId) {
-            let collectionName = '';
-            if (originalDataSource === 'booking') collectionName = 'bookings';
-            else if (originalDataSource === 'visa') collectionName = 'visaBookings';
-            else if (originalDataSource === 'subscription') collectionName = 'subscriptions';
-            
-            if (collectionName) {
-                const sourceRef = db.collection(collectionName).doc(originalDataId);
-                batch.update(sourceRef, { isDeleted: true, deletedAt: new Date().toISOString() });
-            }
-        }
-
-        // Soft delete the journal voucher itself
-        batch.update(voucherRef, { isDeleted: true, deletedAt: new Date().toISOString() });
-        
-        await batch.commit();
-
-        await createAuditLog({
-            userId: user.uid,
-            userName: user.name,
-            action: 'DELETE',
-            targetType: 'VOUCHER',
-            description: `حذف السند رقم: ${voucherNumber}`,
-        });
-
-        revalidatePath('/accounts/vouchers/list');
-        revalidatePath('/bookings'); // In case a booking was deleted
-        revalidatePath('/visas'); // In case a visa booking was deleted
-        revalidatePath('/reports', 'layout');
-
-        return { success: true };
-    } catch (error: any) {
-        console.error(`Error deleting voucher ${id}:`, error);
-        return { success: false, error: "فشل حذف السند." };
-    }
-}
-
-export async function permanentDeleteVoucher(id: string): Promise<{ success: boolean; error?: string }> {
-    const db = await getDb();
-    if (!db) return { success: false, error: "Database not available." };
-    const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    const batch = db.batch();
-    
-    try {
-        const voucherRef = db.collection('journal-vouchers').doc(id);
-        const voucherDoc = await voucherRef.get();
-        if (!voucherDoc.exists) {
-             throw new Error("Voucher not found");
-        }
-        const voucherData = voucherDoc.data();
-        const voucherNumber = voucherData?.invoiceNumber || id;
-        
-        const originalDataSource = voucherData?.originalData?.sourceType || voucherData?.sourceType;
-        const originalDataId = voucherData?.originalData?.sourceId || voucherData?.sourceId;
-
-        if (originalDataSource && originalDataId) {
-            let collectionName = '';
-            if (originalDataSource === 'booking') collectionName = 'bookings';
-            else if (originalDataSource === 'visa') collectionName = 'visaBookings';
-            else if (originalDataSource === 'subscription') collectionName = 'subscriptions';
-            
-            if (collectionName) {
-                const sourceRef = db.collection(collectionName).doc(originalDataId);
-                batch.delete(sourceRef);
-            }
-        }
-
-        batch.delete(voucherRef);
-        
-        await batch.commit();
-
-        await createAuditLog({
-            userId: user.uid,
-            userName: user.name,
-            action: 'DELETE',
-            targetType: 'VOUCHER',
-            description: `حذف السند نهائياً رقم: ${voucherNumber}`,
-        });
-
-        revalidatePath('/accounts/vouchers/list');
-        revalidatePath('/accounts/vouchers/log');
-        revalidatePath('/bookings');
-        revalidatePath('/visas');
-        revalidatePath('/reports', 'layout');
-
-        return { success: true };
-    } catch (error: any) {
-        console.error(`Error permanently deleting voucher ${id}:`, error);
-        return { success: false, error: "فشل الحذف النهائي للسند." };
-    }
-}
-
-export async function updateVoucher(id: string, data: Partial<JournalVoucher>): Promise<{ success: boolean; error?: string }> {
-     const db = await getDb();
-     if (!db) return { success: false, error: "Database not available." };
-     const user = await getCurrentUserFromSession();
-     if (!user) return { success: false, error: "Unauthorized" };
-
-     try {
-        const dataToUpdate: Partial<JournalVoucher> & { updatedAt: string } = {
-            ...JSON.parse(JSON.stringify(data)),
-            updatedAt: new Date().toISOString(),
-        };
-        
-        // Ensure date is stored as a string if it's a Date object
-        if (dataToUpdate.date instanceof Date) {
-            dataToUpdate.date = dataToUpdate.date.toISOString();
-        }
-
-        await db.collection('journal-vouchers').doc(id).update(dataToUpdate);
-        
-        await createAuditLog({
-            userId: user.uid,
-            userName: user.name,
-            action: 'UPDATE',
-            targetType: 'VOUCHER',
-            description: `عدل بيانات السند (ID: ${id}).`,
-        });
-
-        revalidatePath('/accounts/vouchers/list');
-        revalidatePath('/reports/account-statement');
-        return { success: true };
-     } catch (error: any) {
-        console.error(`Error updating voucher ${id}:`, String(error));
-        return { success: false, error: "فشل تحديث السند." };
-     }
-}
-
-export async function deleteAllVouchers(): Promise<{ success: boolean; error?: string }> {
-    const db = await getDb();
-    if (!db) return { success: false, error: "Database not available." };
-    const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    const collections = [
-        'journal-vouchers',
-    ];
-
-    try {
-        for (const collectionName of collections) {
-            try {
-                const snapshot = await db.collection(collectionName).select().get();
-                if (snapshot.empty) {
-                    continue;
-                }
-
-                const batchSize = 400; // Firestore batch limit
-                for (let i = 0; i < snapshot.docs.length; i += batchSize) {
-                    const batch = db.batch();
-                    const chunk = snapshot.docs.slice(i, i + batchSize);
-                    chunk.forEach(doc => {
-                        batch.delete(doc.ref);
-                    });
-                    await batch.commit();
-                }
-            } catch (e) {
-                // If a collection doesn't exist, it's fine, just skip it.
-                if ((e as any).code === 5) {
-                    console.log(`Collection ${collectionName} not found, skipping deletion.`);
-                    continue;
-                }
-                throw e; // Re-throw other errors
-            }
-        }
-        
-        await createAuditLog({
-            userId: user.uid,
-            userName: user.name,
-            action: 'DELETE',
-            targetType: 'VOUCHER',
-            description: `حذف جميع السندات من النظام.`,
-        });
-
-        revalidatePath('/accounts/vouchers/list');
-        return { success: true };
-    } catch (error: any) {
-        console.error(`Error deleting all vouchers:`, String(error));
-        return { success: false, error: "فشل حذف جميع السندات." };
-    }
-}
