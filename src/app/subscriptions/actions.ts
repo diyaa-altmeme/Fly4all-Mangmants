@@ -399,7 +399,7 @@ export async function paySubscriptionInstallment(
             const totalAmountToCreditToClient = paymentAmount + discountAmount;
             
             await postJournalEntry({
-                sourceType: "subscription_installment",
+                sourceType: 'subscription_installment',
                 sourceId: installmentId,
                 description: `سداد دفعة اشتراك خدمة: ${subscriptionData.serviceName}`,
                  entries: [
@@ -649,10 +649,13 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
         const batch = db.batch();
         const subscriptionRef = db.collection('subscriptions').doc(id);
 
+        const now = new Date().toISOString();
+        const deletedBy = user.name;
+
         batch.update(subscriptionRef, {
             isDeleted: true,
-            deletedAt: new Date().toISOString(),
-            deletedBy: user.name,
+            deletedAt: now,
+            deletedBy: deletedBy,
         });
 
         // Also soft-delete associated journal vouchers
@@ -663,10 +666,9 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
         journalVouchersSnap.forEach(doc => {
             batch.update(doc.ref, { 
                 isDeleted: true,
-                deletedAt: new Date().toISOString() 
+                deletedAt: now 
             });
         });
-
 
         await batch.commit();
 
@@ -696,11 +698,27 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
     if (!user) return { success: false, error: "User not authenticated." };
 
     try {
-        await db.collection('subscriptions').doc(id).update({
+        const batch = db.batch();
+        const subscriptionRef = db.collection('subscriptions').doc(id);
+        
+        batch.update(subscriptionRef, {
             isDeleted: false,
             deletedAt: FieldValue.delete(),
             deletedBy: FieldValue.delete(),
         });
+        
+        const journalVouchersSnap = await db.collection('journal-vouchers')
+            .where('originalData.subscriptionId', '==', id)
+            .get();
+        
+        journalVouchersSnap.forEach(doc => {
+            batch.update(doc.ref, {
+                isDeleted: false,
+                deletedAt: FieldValue.delete(),
+            });
+        });
+        
+        await batch.commit();
 
         await createAuditLog({
             userId: user.uid,
@@ -761,6 +779,5 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
-
 
 
