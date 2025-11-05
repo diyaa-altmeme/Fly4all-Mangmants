@@ -57,9 +57,12 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
     }
 
     try {
-        let query = db.collection('subscriptions').orderBy('purchaseDate', 'desc');
+        let query: FirebaseFirestore.Query = db.collection('subscriptions');
         
-        const snapshot = await query.get();
+        // This is a more robust way to handle the filtering. 
+        // Instead of using a '!=' query which requires an index, we fetch all and filter in code.
+        const snapshot = await query.orderBy('purchaseDate', 'desc').get();
+
         if (snapshot.empty) return [];
 
         const allSubscriptions = snapshot.docs.map(doc => processDoc(doc) as Subscription);
@@ -68,13 +71,16 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
             return includeDeleted ? sub.isDeleted === true : !sub.isDeleted;
         });
 
+        // Batch fetch client data to enrich subscriptions
         const clientIds = [...new Set(subscriptions.map(s => s.clientId).filter(Boolean))];
         if (clientIds.length > 0) {
-            const chunks: string[][] = [];
-            for (let i = 0; i < clientIds.length; i += 30) {
+             const chunks: string[][] = [];
+             for (let i = 0; i < clientIds.length; i += 30) {
                 chunks.push(clientIds.slice(i, i + 30));
             }
+
             const clientsData = new Map<string, Client>();
+
             for (const chunk of chunks) {
                 if(chunk.length === 0) continue;
                 const clientsSnapshot = await db.collection('clients').where(admin.firestore.FieldPath.documentId(), 'in', chunk).get();
@@ -82,6 +88,7 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
                     clientsData.set(doc.id, doc.data() as Client);
                 });
             }
+            
             subscriptions.forEach(sub => {
                 if (sub.clientId && clientsData.has(sub.clientId)) {
                     sub.client = clientsData.get(sub.clientId);
@@ -645,13 +652,29 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
     if (!user) return { success: false, error: "User not authenticated." };
 
     try {
-        await db.collection('subscriptions').doc(id).update({
+        const batch = db.batch();
+        const subscriptionRef = db.collection('subscriptions').doc(id);
+
+        batch.update(subscriptionRef, {
             isDeleted: true,
             deletedAt: new Date().toISOString(),
-            deletedBy: user.name, // Record who deleted it
+            deletedBy: user.name,
         });
-        revalidatePath('/subscriptions');
-        revalidatePath('/subscriptions/deleted-subscriptions');
+
+        // Also soft-delete associated journal vouchers
+        const journalVouchersSnap = await db.collection('journal-vouchers')
+            .where('originalData.subscriptionId', '==', id)
+            .get();
+
+        journalVouchersSnap.forEach(doc => {
+            batch.update(doc.ref, { 
+                isDeleted: true,
+                deletedAt: new Date().toISOString() 
+            });
+        });
+
+
+        await batch.commit();
 
         await createAuditLog({
             userId: user.uid,
@@ -660,6 +683,10 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
             targetType: 'SUBSCRIPTION',
             description: `حذف الاشتراك (ID: ${id})`,
         });
+
+        revalidatePath('/subscriptions');
+        revalidatePath('/subscriptions/deleted-subscriptions');
+        revalidatePath('/reports/account-statement');
 
         return { success: true };
     } catch (e: any) {
