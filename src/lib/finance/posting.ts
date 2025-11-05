@@ -49,7 +49,7 @@ async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
     // Firestore 'in' query is limited to 30 items
     for (let i = 0; i < idsInCollection.length; i += 30) {
       const chunk = idsInCollection.slice(i, i + 30);
-      const snapshot = await db.collection(collectionName).where(FieldPath.documentId(), 'in', chunk).get();
+      const snapshot = await db.collection(collectionName).where(admin.firestore.FieldPath.documentId(), 'in', chunk).get();
       snapshot.forEach((doc: any) => foundIds.add(doc.id));
     }
   }
@@ -182,6 +182,16 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
 
   const createdBy = payload.meta?.createdBy || postingUser?.uid || 'system';
   const officer = payload.meta?.officer || postingUser?.name || 'system';
+  
+  const originalDataPayload = {
+      sourceType: payload.sourceType,
+      sourceId: payload.sourceId,
+      ...payload.meta,
+  };
+   // Ensure subscriptionId is correctly placed for deletion/restoration logic
+  if (payload.sourceType === 'subscription' && !originalDataPayload.subscriptionId) {
+      originalDataPayload.subscriptionId = payload.sourceId;
+  }
 
   await voucherRef.set({
     id: voucherRef.id,
@@ -200,7 +210,6 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
     creditEntries,
     isAudited: false,
     isConfirmed: true,
-    meta: payload.meta || null,
     entries: storedEntries.map(entry => ({
       accountId: entry.accountId,
       debit: entry.debit,
@@ -213,11 +222,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
       accountType: entry.accountType,
       type: entry.debit > 0 ? 'debit' : 'credit',
     })),
-    originalData: {
-      sourceType: payload.sourceType,
-      sourceId: payload.sourceId,
-      ...payload.meta,
-    },
+    originalData: originalDataPayload,
   } as any);
 
   return voucherRef.id;
@@ -284,7 +289,7 @@ export async function postRevenue({
     },
   ];
 
-  return postJournalEntries({
+  return postJournalEntry({
     sourceType,
     sourceId,
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
@@ -329,7 +334,7 @@ export async function postCost({
     },
   ];
 
-  return postJournalEntries({
+  return postJournalEntry({
     sourceType,
     sourceId,
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
@@ -340,3 +345,8 @@ export async function postCost({
 }
 
     
+import * as admin from 'firebase-admin';
+const FieldPath = admin.firestore.FieldPath;
+
+export { postJournalEntries } from './postJournal';
+```

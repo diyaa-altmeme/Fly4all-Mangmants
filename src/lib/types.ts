@@ -125,7 +125,7 @@ export interface Debt {
   dueDate: string;
   notes: string;
   status: PaymentStatus;
-}
+};
 
 export type CompanyPaymentType = 'cash' | 'credit';
 
@@ -239,38 +239,6 @@ export type Payment = {
   paidBy?: string;
   notes?: string;
 };
-
-export type FinancialTransactionSource =
-  | 'subscription'
-  | 'voucher'
-  | 'ticket'
-  | 'visa'
-  | 'group'
-  | 'remittance'
-  | 'payment'
-  | 'expense'
-  | 'revenue'
-  | 'standard_receipt'
-  | 'manualExpense'
-  | 'installment'
-  | 'journal_from_installment'
-  | 'other';
-
-export type FinancialTransaction = {
-  id?: string;
-  companyId?: string;
-  sourceType: FinancialTransactionSource;
-  sourceId?: string;
-  date?: string | Date;
-  currency: Currency;
-  debitAccountId: string;
-  creditAccountId: string;
-  amount: number;
-  description?: string;
-  reference?: string;
-  createdBy?: string;
-};
-
 
 export type AttendanceLog = {
     month: string; // e.g., '2024-05'
@@ -1059,19 +1027,6 @@ export type DebtsReportData = {
 // This is a placeholder for the schema type.
 export type DistributedReceiptInput = any;
 
-export type JournalEntry = {
-    accountId: string;
-    amount: number;
-    description?: string;
-    debit?: number;
-    credit?: number;
-    currency?: Currency;
-    relationId?: string;
-    companyId?: string;
-    accountType?: string;
-    type?: 'debit' | 'credit';
-}
-
 export type JournalVoucher = {
     id: string;
     invoiceNumber: string;
@@ -1509,3 +1464,4 @@ export interface PostJournalInput {
   sourceId: string;
   sourceRoute?: string;
 }
+```

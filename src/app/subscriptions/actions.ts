@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -61,8 +60,6 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
     try {
         let query: FirebaseFirestore.Query = db.collection('subscriptions');
         
-        // This is a more robust way to handle the filtering. 
-        // Instead of using a '!=' query which requires an index, we fetch all and filter in code.
         const snapshot = await query.orderBy('purchaseDate', 'desc').get();
 
         if (snapshot.empty) return [];
@@ -521,7 +518,7 @@ export async function deletePayment(paymentId: string) {
                     { accountId: originalJournal.debitEntries[0].accountId, debit: 0, credit: payment.amount + (payment.discount || 0), currency: payment.currency as Currency }
                 ]
             });
-
+            
             const totalAmountToReverse = payment.amount + (payment.discount || 0);
 
             transaction.update(subscriptionRef, { paidAmount: FieldValue.increment(-totalAmountToReverse), status: 'Active' });
@@ -779,5 +776,4 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
-
-
+    
