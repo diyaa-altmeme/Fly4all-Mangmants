@@ -255,7 +255,8 @@
         "title": "السندات",
         "items": {
           "center": "مركز السندات",
-          "records": "سجل السندات",
+          "log": "سجل السندات",
+          "records": "قائمة السندات",
           "settings": "الإعدادات",
           "standardReceipt": "سند قبض عادي",
           "distributedReceipt": "سند قبض مخصص",
