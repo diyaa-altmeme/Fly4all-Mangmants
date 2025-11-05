@@ -1,4 +1,5 @@
 
+
 /**
  * @fileoverview Core reconciliation logic.
  * This file contains the algorithm for matching transactions between two account statements.
@@ -73,6 +74,7 @@ export type ReconciliationSettings = {
         aggregationKey: string;
         aggregationValueField: string;
     };
+    importFieldsSettings?: any;
 };
 
 export const defaultSettings: ReconciliationSettings = {
@@ -173,7 +175,7 @@ export function performReconciliation(
     
     const allRecords = [...matched, ...partialMatch, ...missingInCompany, ...missingInSupplier];
     const finalRecords = allRecords.map(rec => {
-        const finalRec: ReconciledRecord = { status: rec.status, details: rec.notes, priceDifference: rec.priceDifference };
+        const finalRec: ReconciledRecord = { status: rec.status, details: rec.details, priceDifference: rec.priceDifference };
         enabledFields.forEach(field => {
             finalRec[field.id] = rec[field.id];
         });

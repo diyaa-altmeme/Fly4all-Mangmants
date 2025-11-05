@@ -1464,4 +1464,3 @@ export interface PostJournalInput {
   sourceId: string;
   sourceRoute?: string;
 }
-```
