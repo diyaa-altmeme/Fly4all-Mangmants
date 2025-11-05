@@ -4,7 +4,7 @@
 import { getDb } from '@/lib/firebase-admin';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import type { Currency, FinanceAccountsMap, JournalEntry as LegacyJournalEntry } from '@/lib/types';
-import type { FinanceAccountsMap } from '@/lib/types';
+import type { FinanceAccountsMap as FinanceAccountsMapType } from '@/lib/types';
 import {
   normalizeFinanceAccounts,
   type NormalizedFinanceAccounts,
@@ -68,7 +68,7 @@ function splitEntries(entries: StoredEntry[]): {
       debitEntries.push({
         accountId: entry.accountId,
         amount: entry.debit,
-        description: entry.description ?? entry.note,
+        description: entry.description ?? entry.note ?? '',
         currency: entry.currency,
         relationId: entry.relationId,
         companyId: entry.companyId,
@@ -80,7 +80,7 @@ function splitEntries(entries: StoredEntry[]): {
       creditEntries.push({
         accountId: entry.accountId,
         amount: entry.credit,
-        description: entry.description ?? entry.note,
+        description: entry.description ?? entry.note ?? '',
         currency: entry.currency,
         relationId: entry.relationId,
         companyId: entry.companyId,
@@ -104,40 +104,29 @@ export async function postJournalEntries(payload: PostJournalPayload, fa?: Norma
     throw new Error('No entries provided');
   }
 
-  // Permission check: unless caller set meta.system === true, require user has vouchers:create
   let postingUser: { uid: string; name?: string } | null = null;
   if (!payload.meta || !payload.meta.system) {
     const user = await getCurrentUserFromSession();
     if (!user) throw new Error('Authentication required to post journal entries');
-    // deny clients
     if ('isClient' in user && user.isClient) throw new Error('Insufficient permissions');
     const allowed = user.role === 'admin' || (user.permissions && user.permissions.includes('vouchers:create'));
     if (!allowed) throw new Error('User lacks vouchers:create permission');
     postingUser = { uid: user.uid, name: user.name };
   }
 
-  // Validation and checks
-  // 1) balanced
   if (!isBalanced(payload.entries)) {
     throw new Error('Entries are not balanced (debit != credit)');
   }
-
-  // 2) accounts exist
-  await ensureAccountsExist(db, payload.entries);
-
-  // 3) optional finance map checks
-  if (!fa) {
-    try { fa = await getFinanceMap(); } catch (e) { /* ignore */ }
-  }
-
-  const finance = fa;
+  
+  const finance = fa || await getFinanceMap();
 
   if (finance?.preventDirectCashRevenue) {
-    // guard: prevent direct cash posting when flagged (caller should pass fa if needed)
     const cashId = finance.defaultCashId;
     if (cashId) {
       for (const e of payload.entries) {
-        if (e.accountId === cashId) throw new Error('Direct cash posting is disabled by finance settings');
+        if (e.accountId === cashId && inferAccountCategory(e.accountId, finance || null) === 'revenue') {
+             throw new Error('Direct cash posting is disabled by finance settings');
+        }
       }
     }
   }
@@ -226,7 +215,7 @@ export async function getFinanceMap(): Promise<NormalizedFinanceAccounts> {
   const db = await getDb();
   const ref = db.collection("settings").doc("app_settings");
   const snap = await ref.get();
-  const fmRaw = (snap.data()?.financeAccounts || {}) as FinanceAccountsMap;
+  const fmRaw = (snap.data()?.financeAccounts || {}) as FinanceAccountsMapType;
   const fm = normalizeFinanceAccounts(fmRaw);
   _cache = { at: now, map: fm };
   return fm;
@@ -284,18 +273,6 @@ export async function postRevenue({
     meta: { clientId, directCash: !shouldDefer },
     description: shouldDefer ? 'قيد إيراد آجل' : 'قيد إيراد نقدي',
   }, fm);
-  return db.collection("journal-vouchers").add({
-    date,
-    currency,
-    sourceType,
-    sourceId,
-    lines: [
-      { accountId: debitAccountId, debit: amount, credit: 0 },
-      { accountId: revenueAccountId, debit: 0, credit: amount },
-    ],
-    meta: { clientId, directCash: !shouldDefer },
-    createdAt: new Date(),
-  });
 }
 
 // مثال: تسجيل تكلفة
@@ -342,3 +319,5 @@ export async function postCost({
     description: 'قيد مصروف',
   }, fm);
 }
+
+    
