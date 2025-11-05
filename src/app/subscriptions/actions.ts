@@ -393,7 +393,7 @@ export async function paySubscriptionInstallment(
             const subscriptionRef = db.collection('subscriptions').doc(installment.subscriptionId);
             const subscriptionDoc = await transaction.get(subscriptionRef);
             if (!subscriptionDoc.exists) throw new Error("Subscription not found!");
-            const subscriptionData = subscriptionDoc.data() as Subscription;
+            const subscriptionData = { id: subscriptionDoc.id, ...subscriptionDoc.data() } as Subscription;
 
             const allInstallmentsSnapshot = await transaction.get(db.collection('subscription_installments').where('subscriptionId', '==', installment.subscriptionId));
             
@@ -763,4 +763,5 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
 
