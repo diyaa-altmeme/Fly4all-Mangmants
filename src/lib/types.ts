@@ -1027,6 +1027,34 @@ export type DebtsReportData = {
 // This is a placeholder for the schema type.
 export type DistributedReceiptInput = any;
 
+export type JournalEntry = {
+    accountId: string;
+    amount: number;
+    description?: string;
+    debit?: number;
+    credit?: number;
+    currency?: Currency;
+    relationId?: string;
+    companyId?: string;
+    accountType?: string;
+    type?: 'debit' | 'credit';
+}
+
+export type FinancialTransaction = {
+  id?: string;
+  sourceType: string;
+  sourceId?: string;
+  date?: string | Date;
+  currency: Currency;
+  debitAccountId: string;
+  creditAccountId: string;
+  amount: number;
+  description?: string;
+  reference?: string;
+  companyId?: string;
+  createdBy?: string;
+};
+
 export type JournalVoucher = {
     id: string;
     invoiceNumber: string;
