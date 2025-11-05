@@ -213,6 +213,15 @@ export default function ReportGenerator({
   const { toast } = useToast();
   const { hasPermission } = useAuth();
 
+  const resolvedRelationKind = useMemo(() => {
+    if (accountType !== "relation" || !filters.accountId) return undefined;
+    const isClient = clients.some((client) => client.id === filters.accountId);
+    if (isClient) return "client" as const;
+    const isSupplier = suppliers.some((supplier) => supplier.id === filters.accountId);
+    if (isSupplier) return "supplier" as const;
+    return undefined;
+  }, [accountType, filters.accountId, clients, suppliers]);
+
   const firestoreIndexUrl =
     error && error.startsWith("FIRESTORE_INDEX_URL::")
       ? error.split("::")[1]
@@ -314,6 +323,9 @@ export default function ReportGenerator({
         dateFrom: filters.dateRange?.from,
         dateTo: filters.dateRange?.to,
         voucherType: Array.from(filters.typeFilter),
+        accountType,
+        relationKind: resolvedRelationKind,
+        includeDeleted: false,
       });
 
       setTransactions(data || []);

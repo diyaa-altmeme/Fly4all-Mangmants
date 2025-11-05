@@ -113,8 +113,13 @@ export default function ReportTimeline({ transactions }: ReportTimelineProps) {
                         ? tx.description
                         : tx.description?.title}
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {tx.notes}
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      {tx.otherParty && (
+                        <div>
+                          مقابل: <span className="font-medium text-foreground/80">{tx.otherParty}</span>
+                        </div>
+                      )}
+                      {tx.notes && <div>{tx.notes}</div>}
                     </div>
                     <div className="text-xs font-mono flex items-center justify-between">
                       <span className="text-red-600">
