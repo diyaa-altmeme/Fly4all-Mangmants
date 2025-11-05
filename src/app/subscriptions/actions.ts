@@ -196,22 +196,21 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         });
 
         // == Journal Entries ==
-        const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
         const arAccountId = financeSettings.receivableAccountId;
-        
         if (!arAccountId) {
              console.warn("AR account for subscriptions is not defined, skipping main journal entry.");
         } else {
             const creditEntries: JournalEntry[] = [];
-            
             const partnerShareAmount = (subscriptionData.hasPartner && subscriptionData.partnerId && subscriptionData.partnerSharePercentage) 
                 ? profit * (subscriptionData.partnerSharePercentage / 100) 
                 : 0;
             const alrawdatainShare = profit - partnerShareAmount;
 
             if (alrawdatainShare > 0) {
+                 const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
+                 if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined.");
                  creditEntries.push({
-                    accountId: revenueAccountId || 'revenue_subscriptions', // Fallback to a default if general is also missing
+                    accountId: revenueAccountId,
                     amount: alrawdatainShare,
                     description: `إيراد اشتراك ${finalSubscriptionData.serviceName}`
                 });
@@ -219,7 +218,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
 
             if (partnerShareAmount > 0 && subscriptionData.partnerId) {
                  creditEntries.push({
-                    accountId: subscriptionData.partnerId, // The partner's liability account is their own ID
+                    accountId: subscriptionData.partnerId,
                     amount: partnerShareAmount,
                     description: `حصة شريك من اشتراك`
                 });
@@ -241,9 +240,8 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         
         if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
            const costAccountId = financeSettings.expenseMap?.subscriptions || financeSettings.generalExpenseId;
-           const apAccountId = financeSettings.payableAccountId;
-           if (!costAccountId || !apAccountId) {
-                console.warn("Cost or AP account for subscriptions is not defined, skipping cost journal entry.");
+           if (!costAccountId) {
+                console.warn("Cost account for subscriptions is not defined, skipping cost journal entry.");
            } else {
                await postJournalEntry({
                     sourceType: 'subscription_cost',
@@ -254,7 +252,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                     date: new Date(finalSubscriptionData.purchaseDate),
                     userId: user.uid,
                     debitAccountId: costAccountId,
-                    creditAccountId: finalSubscriptionData.supplierId, // Supplier is now the AP account
+                    creditAccountId: finalSubscriptionData.supplierId,
                     meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
                });
            }
@@ -307,7 +305,7 @@ export const getSubscriptionInstallments = cache(async (subscriptionId: string):
     try {
         const snapshot = await db.collection('subscription_installments')
             .where('subscriptionId', '==', subscriptionId)
-            .orderBy('dueDate', 'asc') // This requires a composite index
+            .orderBy('dueDate', 'asc')
             .get();
         
         if (snapshot.empty) return [];
@@ -650,14 +648,25 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
         await db.collection('subscriptions').doc(id).update({
             isDeleted: true,
             deletedAt: new Date().toISOString(),
+            deletedBy: user.name, // Record who deleted it
         });
         revalidatePath('/subscriptions');
         revalidatePath('/subscriptions/deleted-subscriptions');
+
+        await createAuditLog({
+            userId: user.uid,
+            userName: user.name,
+            action: 'DELETE',
+            targetType: 'SUBSCRIPTION',
+            description: `حذف الاشتراك (ID: ${id})`,
+        });
+
         return { success: true };
     } catch (e: any) {
         return { success: false, error: e.message };
     }
 }
+
 
 export async function restoreSubscription(id: string): Promise<{ success: boolean; error?: string }> {
     const db = await getDb();
@@ -669,7 +678,17 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
         await db.collection('subscriptions').doc(id).update({
             isDeleted: false,
             deletedAt: FieldValue.delete(),
+            deletedBy: FieldValue.delete(),
         });
+
+        await createAuditLog({
+            userId: user.uid,
+            userName: user.name,
+            action: 'UPDATE',
+            targetType: 'SUBSCRIPTION',
+            description: `استعاد الاشتراك المحذوف (ID: ${id})`,
+        });
+
         revalidatePath('/subscriptions');
         revalidatePath('/subscriptions/deleted-subscriptions');
         return { success: true };
