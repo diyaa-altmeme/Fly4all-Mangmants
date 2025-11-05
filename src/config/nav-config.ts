@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -123,12 +124,6 @@ export const navConfig: {
     titleKey: "navigation.groups.vouchers.title",
     icon: FileText,
     items: [
-      {
-        id: "center",
-        titleKey: "navigation.groups.vouchers.items.center",
-        href: "/accounts/vouchers",
-        icon: FileText,
-      },
       {
         id: "journal-vouchers",
         titleKey: "navigation.groups.vouchers.items.journalVouchers",
