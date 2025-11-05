@@ -24,6 +24,7 @@ export type JournalEntry = {
   note?: string;
   accountType?: string;
   amount?: number;
+  description?: string;
 };
 
 export type PostJournalPayload = {
@@ -162,7 +163,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
     const debit = Number(entry.debit) || 0;
     const credit = Number(entry.credit) || 0;
     const amount = debit > 0 ? debit : credit;
-    const description = entry.note ?? (entry as any).description ?? payload.description ?? '';
+    const description = entry.note ?? entry.description ?? payload.description ?? '';
     const accountType = inferAccountCategory(entry.accountId, finance || null);
     
     const finalEntry: StoredEntry = {
@@ -291,7 +292,7 @@ export async function postRevenue({
     },
   ];
 
-  await postJournalEntries({
+  return postJournalEntry({
     sourceType,
     sourceId,
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
@@ -336,7 +337,7 @@ export async function postCost({
     },
   ];
 
-  await postJournalEntries({
+  return postJournalEntry({
     sourceType,
     sourceId,
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
