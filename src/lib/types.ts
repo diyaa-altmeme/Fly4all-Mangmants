@@ -895,8 +895,9 @@ export type Subscription = {
     updatedAt?: string;
     isDeleted?: boolean;
     deletedAt?: string;
+    deletedBy?: string;
     installments?: SubscriptionInstallment[]; // For client-side joining
-    hasPartner?: boolean;
+    hasPartner: boolean;
     partnerId?: string;
     partnerName?: string;
     partnerSharePercentage?: number;
