@@ -13,7 +13,7 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { cache } from 'react';
-import { postJournalEntry } from '@/lib/finance/postJournal';
+import { postJournalEntry, getFinanceMap } from '@/lib/finance/postJournal';
 import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
 import * as admin from 'firebase-admin';
 
@@ -137,8 +137,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     const user = await getCurrentUserFromSession();
     if (!user || !('role' in user)) return { success: false, error: "User not authenticated" };
     
-    const settings = await getSettings();
-    const financeSettings = normalizeFinanceAccounts(settings.financeAccounts);
+    const financeSettings = await getFinanceMap();
     
     const mainBatch = db.batch();
     const subscriptionRef = db.collection('subscriptions').doc();
@@ -231,18 +230,20 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                 });
             }
 
-            await postJournalEntry({
-                sourceType: 'subscription',
-                sourceId: subscriptionRef.id,
-                description: `إثبات دين اشتراك ${finalSubscriptionData.serviceName}`,
-                amount: totalSale,
-                currency: finalSubscriptionData.currency,
-                date: new Date(finalSubscriptionData.startDate),
-                userId: user.uid,
-                debitAccountId: finalSubscriptionData.clientId,
-                creditEntries: creditEntries,
-                meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
-            });
+            if (creditEntries.length > 0) {
+                await postJournalEntry({
+                    sourceType: 'subscription',
+                    sourceId: subscriptionRef.id,
+                    description: `إثبات دين اشتراك ${finalSubscriptionData.serviceName}`,
+                    amount: totalSale,
+                    currency: finalSubscriptionData.currency,
+                    date: new Date(finalSubscriptionData.startDate),
+                    userId: user.uid,
+                    debitAccountId: finalSubscriptionData.clientId,
+                    creditEntries: creditEntries,
+                    meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
+                });
+            }
         }
         
         if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
@@ -408,8 +409,8 @@ export async function paySubscriptionInstallment(
                 sourceId: installmentId,
                 description: `سداد دفعة اشتراك خدمة: ${subscriptionData.serviceName}`,
                  entries: [
-                    { accountId: boxId, debit: totalAmountToCreditToClient, credit: 0, currency: paymentCurrency },
-                    { accountId: subscriptionData.clientId, debit: 0, credit: totalAmountToCreditToClient, currency: paymentCurrency }
+                    { accountId: boxId, debit: totalAmountToCreditToClient, credit: 0, currency: paymentCurrency, description: `استلام دفعة من ${subscriptionData.clientName}` },
+                    { accountId: subscriptionData.clientId, debit: 0, credit: totalAmountToCreditToClient, currency: paymentCurrency, description: `تسديد قسط عن خدمة ${subscriptionData.serviceName}` }
                 ],
                 meta: { installmentId, subscriptionId: subscriptionData.id }
             });
