@@ -3,7 +3,7 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus, JournalEntry, Client, Supplier } from '@/lib/types';
+import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus, JournalEntry as LegacyJournalEntry, Client, Supplier } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { addMonths, format, parseISO, endOfDay, isWithinInterval, startOfDay } from 'date-fns';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -13,7 +13,7 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { cache } from 'react';
-import { postJournalEntry, getFinanceMap } from '@/lib/finance/postJournal';
+import { postJournalEntry, getFinanceMap, type JournalEntry } from '@/lib/finance/postJournal';
 import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
 import * as admin from 'firebase-admin';
 
@@ -138,6 +138,9 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     if (!user || !('role' in user)) return { success: false, error: "User not authenticated" };
     
     const financeSettings = await getFinanceMap();
+    if (!financeSettings.receivableAccountId) {
+        return { success: false, error: "حساب الذمم المدينة (AR) غير محدد في إعدادات الربط المالي. يرجى مراجعة الإعدادات." };
+    }
     
     const mainBatch = db.batch();
     const subscriptionRef = db.collection('subscriptions').doc();
@@ -202,13 +205,18 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         });
 
         // == Journal Entries ==
+        const journalEntries: JournalEntry[] = [];
         const arAccountId = financeSettings.receivableAccountId;
-        if (!arAccountId) {
-             throw new Error("حساب الذمم المدينة (AR) غير محدد في إعدادات الربط المالي. يرجى مراجعة الإعدادات.");
-        }
 
-        const creditEntries: JournalEntry[] = [];
-        
+        // Debit the client for the total sale amount
+        journalEntries.push({
+            accountId: finalSubscriptionData.clientId,
+            debit: totalSale,
+            credit: 0,
+            currency: finalSubscriptionData.currency,
+            description: `دين اشتراك خدمة: ${finalSubscriptionData.serviceName}`,
+        });
+
         // Partner Share Calculation
         const partnerShareAmount = (subscriptionData.hasPartner && subscriptionData.partnerId && subscriptionData.partnerSharePercentage) 
             ? profit * (subscriptionData.partnerSharePercentage / 100) 
@@ -217,34 +225,37 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
 
         if (alrawdatainShare > 0) {
              const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
-             if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined.");
-             creditEntries.push({
+             if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined in finance settings.");
+             journalEntries.push({
                 accountId: revenueAccountId,
                 amount: alrawdatainShare,
+                credit: alrawdatainShare,
+                debit: 0,
+                currency: finalSubscriptionData.currency,
                 description: `إيراد اشتراك ${finalSubscriptionData.serviceName}`
             });
         }
 
         if (partnerShareAmount > 0 && subscriptionData.partnerId) {
-             creditEntries.push({
+             journalEntries.push({
                 accountId: subscriptionData.partnerId,
                 amount: partnerShareAmount,
+                credit: partnerShareAmount,
+                debit: 0,
+                currency: finalSubscriptionData.currency,
                 description: `حصة شريك من اشتراك`
             });
         }
-        
+
         // Main Journal Entry for the sale
-        if (creditEntries.length > 0) {
+        if (journalEntries.length > 0) {
             await postJournalEntry({
                 sourceType: 'subscription',
                 sourceId: subscriptionRef.id,
                 description: `إثبات دين اشتراك ${finalSubscriptionData.serviceName}`,
-                amount: totalSale,
-                currency: finalSubscriptionData.currency,
                 date: new Date(finalSubscriptionData.startDate),
                 userId: user.uid,
-                debitAccountId: finalSubscriptionData.clientId, // Debit the client
-                creditEntries: creditEntries,
+                entries: journalEntries,
                 meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
             });
         }
@@ -258,12 +269,12 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                     sourceType: 'subscription_cost',
                     sourceId: subscriptionRef.id,
                     description: `تكلفة اشتراك خدمة ${finalSubscriptionData.serviceName}`,
-                    amount: totalPurchase,
-                    currency: finalSubscriptionData.currency,
                     date: new Date(finalSubscriptionData.purchaseDate),
                     userId: user.uid,
-                    debitAccountId: costAccountId,
-                    creditAccountId: finalSubscriptionData.supplierId,
+                    entries: [
+                        { accountId: costAccountId, debit: totalPurchase, credit: 0, currency: finalSubscriptionData.currency },
+                        { accountId: finalSubscriptionData.supplierId, debit: 0, credit: totalPurchase, currency: finalSubscriptionData.currency },
+                    ],
                     meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
                });
            }
@@ -300,9 +311,9 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         revalidatePath('/subscriptions');
 
         return { success: true, id: subscriptionRef.id };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error adding subscription: ", String(error));
-        return { success: false, error: "Failed to add subscription." };
+        return { success: false, error: error.message || "Failed to add subscription." };
     }
 }
 
@@ -527,8 +538,8 @@ export async function deletePayment(paymentId: string) {
                 sourceId: payment.journalVoucherId!,
                 description: `عكس قيد سداد دفعة رقم: ${originalJournal.invoiceNumber}`,
                 entries: [
-                    { accountId: originalJournal.creditEntries[0].accountId, debit: payment.amount + (payment.discount || 0), credit: 0, currency: payment.currency },
-                    { accountId: originalJournal.debitEntries[0].accountId, debit: 0, credit: payment.amount + (payment.discount || 0), currency: payment.currency }
+                    { accountId: originalJournal.creditEntries[0].accountId, debit: payment.amount + (payment.discount || 0), credit: 0, currency: payment.currency as Currency },
+                    { accountId: originalJournal.debitEntries[0].accountId, debit: 0, credit: payment.amount + (payment.discount || 0), currency: payment.currency as Currency }
                 ]
             });
 
@@ -578,7 +589,7 @@ export async function updatePayment(paymentId: string, newData: { amount?: numbe
 
             if (Math.abs(amountDifference) > 0.01) {
                 const originalJournalDoc = await transaction.get(originalJournalRef);
-                const originalJournal = originalJournalDoc.data() as JournalVoucher;
+                const originalJournal = originalJournalDoc.data() as LegacyJournalEntry;
                 const notes = `تعديل دفعة اشتراك: ${oldPayment.id}`;
 
                 await postJournalEntry({
@@ -771,7 +782,3 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
-
-    
-
-    
