@@ -130,6 +130,12 @@ export const navConfig: {
         icon: FileText,
       },
       {
+        id: "journal-vouchers",
+        titleKey: "navigation.groups.vouchers.items.journalVouchers",
+        href: "/journal-vouchers",
+        icon: BookCopy,
+      },
+      {
         id: "log",
         titleKey: "navigation.groups.vouchers.items.log",
         href: "/accounts/vouchers/log",

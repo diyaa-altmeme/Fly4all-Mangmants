@@ -255,6 +255,7 @@
         "title": "Vouchers",
         "items": {
           "center": "Voucher center",
+          "journalVouchers": "Journal Vouchers",
           "log": "Voucher log",
           "records": "Voucher table",
           "settings": "Settings",
