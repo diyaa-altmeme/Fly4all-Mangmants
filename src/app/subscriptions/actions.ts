@@ -151,6 +151,10 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         const profit = totalSale - totalPurchase;
         const newInvoiceNumber = await getNextVoucherNumber('SUB');
         
+        const partnerSharePercentage = subscriptionData.hasPartner ? (subscriptionData.partnerSharePercentage || 0) : 0;
+        const partnerShare = profit * (partnerSharePercentage / 100);
+        const alrawdatainShare = profit - partnerShare;
+
         const { installments, deferredDueDate, ...coreSubscriptionData } = subscriptionData;
 
         const finalSubscriptionData: Omit<Subscription, 'id'> = {
@@ -210,7 +214,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
         if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined.");
 
-        // Debit Client for total sale, Credit Revenue for total sale
+        // Debit Client for total sale
         entries.push({
             accountId: finalSubscriptionData.clientId,
             debit: totalSale,
@@ -218,13 +222,22 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             currency: finalSubscriptionData.currency,
             description: `دين اشتراك: ${finalSubscriptionData.serviceName}`
         });
-        entries.push({
-            accountId: revenueAccountId,
-            debit: 0,
-            credit: totalSale,
-            currency: finalSubscriptionData.currency,
-            description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}`
-        });
+
+        // Credit Revenue & Partner Payable
+        if (finalSubscriptionData.hasPartner && finalSubscriptionData.partnerId && partnerShare > 0) {
+            const partnerPayableAccount = financeSettings.payableAccountId; // Assume partners are treated as suppliers
+            if (!partnerPayableAccount) throw new Error("Accounts Payable account not defined for partner share.");
+            
+            // Credit company share to revenue
+            entries.push({ accountId: revenueAccountId, debit: 0, credit: alrawdatainShare, currency: finalSubscriptionData.currency, description: `إيراد حصة الشركة من اشتراك: ${finalSubscriptionData.serviceName}` });
+            // Credit partner share to their payable account
+            entries.push({ accountId: partnerPayableAccount, debit: 0, credit: partnerShare, currency: finalSubscriptionData.currency, description: `حصة الشريك ${finalSubscriptionData.partnerName} من اشتراك`, relationId: finalSubscriptionData.partnerId });
+
+        } else {
+            // Credit total profit to revenue
+            entries.push({ accountId: revenueAccountId, debit: 0, credit: totalSale, currency: finalSubscriptionData.currency, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` });
+        }
+
 
         // If there's a cost, Debit Expense and Credit Supplier
         if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
@@ -624,6 +637,7 @@ export async function updateSubscriptionStatus(subscriptionId: string, status: S
             action: 'UPDATE',
             targetType: 'SUBSCRIPTION',
             description: `غير حالة الاشتراك (ID: ${subscriptionId}) إلى ${status}`,
+            targetId: subscriptionId,
         });
 
         revalidatePath('/subscriptions');
@@ -672,6 +686,7 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
             action: 'DELETE',
             targetType: 'SUBSCRIPTION',
             description: `حذف الاشتراك (ID: ${id})`,
+            targetId: id,
         });
 
         revalidatePath('/subscriptions');
@@ -734,6 +749,7 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
             action: 'UPDATE',
             targetType: 'SUBSCRIPTION',
             description: `استعاد الاشتراك المحذوف (ID: ${id})`,
+            targetId: id,
         });
 
         revalidatePath('/subscriptions');
@@ -770,6 +786,7 @@ export async function permanentDeleteSubscription(subscriptionId: string): Promi
             action: 'DELETE',
             targetType: 'SUBSCRIPTION',
             description: `حذف الاشتراك بالكامل (ID: ${subscriptionId})`,
+            targetId: subscriptionId,
         });
         
         revalidatePath('/subscriptions');
@@ -787,4 +804,5 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
 
