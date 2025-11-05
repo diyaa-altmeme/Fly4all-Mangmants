@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useDebounce } from "@/hooks/use-debounce";
-import { getAllVouchers, permanentDeleteVoucher, type Voucher } from "../list/actions";
+import { getAllVouchers, permanentDeleteVoucher, type Voucher } from "./actions";
 import {
   DEFAULT_VOUCHER_TABS_ORDER,
   getVoucherTypeLabel,
