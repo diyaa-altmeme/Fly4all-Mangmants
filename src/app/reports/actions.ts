@@ -11,6 +11,7 @@ import { getUsers } from "../users/actions";
 import { getBoxes } from '@/app/boxes/actions';
 import { getSettings } from '@/app/settings/actions';
 import { getExchanges } from '@/app/exchanges/actions';
+import { normalizeVoucherType, type NormalizedVoucherType } from "@/lib/accounting/voucher-types";
 import { normalizeVoucherType } from "@/lib/accounting/voucher-types";
 
 const normalizeToDate = (value: unknown): Date | null => {
@@ -154,6 +155,166 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       if (!id) return undefined;
       return accountLabelMap.get(id) || STATIC_ACCOUNT_LABELS[id] || id;
     };
+
+    const resolveSourceRoute = (
+      type: NormalizedVoucherType | string | undefined,
+      sourceId?: string | null,
+      voucherId?: string,
+      meta?: Record<string, any>,
+      rawSourceType?: string,
+    ): string | undefined => {
+      if (!sourceId && !voucherId) return undefined;
+      const fallbackVoucherId = voucherId || sourceId || '';
+      switch (type) {
+        case 'booking':
+        case 'exchange':
+        case 'exchange_transaction':
+        case 'exchange_payment':
+        case 'exchange_adjustment':
+        case 'exchange_revenue':
+        case 'exchange_expense':
+        case 'refund':
+        case 'void':
+          return sourceId ? `/bookings/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
+        case 'visa':
+          return sourceId ? `/visas/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
+        case 'subscription': {
+          const subscriptionId = meta?.subscriptionId || meta?.subscription?.id || sourceId;
+          if ((rawSourceType || '').includes('installment')) {
+            const installmentId = meta?.installmentId || sourceId || voucherId;
+            return installmentId ? `/subscriptions?installment=${installmentId}` : '/subscriptions';
+          }
+          return subscriptionId ? `/subscriptions/${subscriptionId}` : '/subscriptions';
+        }
+        case 'segment': {
+          const periodId = meta?.periodId || meta?.segmentPeriodId;
+          if (periodId) {
+            return `/segments?period=${periodId}`;
+          }
+          return sourceId ? `/segments/${sourceId}` : '/segments';
+        }
+        case 'profit-sharing': {
+          const monthId = meta?.manualProfitId || meta?.profitMonthId || sourceId;
+          return monthId ? `/profit-sharing?month=${monthId}` : '/profit-sharing';
+        }
+        default:
+          return `/accounts/vouchers/${fallbackVoucherId}/edit`;
+      }
+    };
+
+    const docCache = new Map<string, any>();
+    const fetchDoc = async (collection: string, id?: string | null) => {
+      if (!id) return null;
+      const cacheKey = `${collection}:${id}`;
+      if (docCache.has(cacheKey)) {
+        return docCache.get(cacheKey);
+      }
+      const snapshot = await db.collection(collection).doc(id).get();
+      const data = snapshot.exists ? { id: snapshot.id, ...snapshot.data() } : null;
+      docCache.set(cacheKey, data);
+      return data;
+    };
+
+    const formatDateLabel = (value: unknown): string | undefined => {
+      const asDate = normalizeToDate(value);
+      if (!asDate) return undefined;
+      return new Intl.DateTimeFormat('ar-EG', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(asDate);
+    };
+
+    const formatAmountWithCurrency = (
+      value: number | null | undefined,
+      currency?: string | null,
+    ): string | undefined => {
+      if (value === null || value === undefined) return undefined;
+      const code = currency || 'USD';
+      const digits =
+        code === 'IQD'
+          ? { minimumFractionDigits: 0, maximumFractionDigits: 0 }
+          : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+      const formatted = new Intl.NumberFormat('en-US', digits).format(Number(value) || 0);
+      return `${formatted} ${code}`.trim();
+    };
+
+    type VoucherContext = {
+      description?: string | StructuredDescription;
+      notes?: string;
+      parties?: string[];
+    };
+
+    const resolveVoucherContext = async ({
+      normalizedType,
+      rawSourceType,
+      sourceId,
+      voucherId,
+      meta,
+      voucherCurrency,
+    }: {
+      normalizedType?: NormalizedVoucherType;
+      rawSourceType?: string;
+      sourceId?: string | null;
+      voucherId: string;
+      meta: Record<string, any>;
+      voucherCurrency: string;
+    }): Promise<VoucherContext | null> => {
+      if (!normalizedType) return null;
+      const safeMeta = meta || {};
+      const typeKey = normalizedType as string;
+
+      if (['booking', 'refund', 'exchange', 'void'].includes(typeKey)) {
+        const bookingId = safeMeta.bookingId || sourceId;
+        const booking = await fetchDoc('bookings', bookingId);
+        if (!booking) return null;
+        const passengers = Array.isArray(booking.passengers)
+          ? booking.passengers.map((p: any) => p?.name).filter(Boolean)
+          : [];
+        const passengerPreview = passengers.slice(0, 3).join('، ');
+        const passengerSuffix = passengers.length > 3 ? '…' : '';
+        const travelDate = formatDateLabel(booking.travelDate || booking.issueDate);
+        const descriptionParts = [
+          `حجز ${booking.pnr || booking.invoiceNumber || voucherId}`,
+          passengerPreview ? `(${passengerPreview}${passengerSuffix})` : null,
+          travelDate ? `- ${travelDate}` : null,
+        ].filter(Boolean);
+        const parties = [
+          booking.clientId ? getAccountLabel(booking.clientId) : booking.clientName,
+          booking.supplierId ? getAccountLabel(booking.supplierId) : booking.supplierName,
+        ].filter(Boolean) as string[];
+        const notesParts = [booking.route, booking.notes, safeMeta.notes].filter(Boolean);
+        return {
+          description: descriptionParts.join(' '),
+          notes: notesParts.join(' • ') || undefined,
+          parties,
+        };
+      }
+
+      if (typeKey === 'visa') {
+        const visaId = safeMeta.visaId || sourceId;
+        const visa = await fetchDoc('visaBookings', visaId);
+        if (!visa) return null;
+        const passengers = Array.isArray(visa.passengers)
+          ? visa.passengers.map((p: any) => p?.name).filter(Boolean)
+          : [];
+        const passengerPreview = passengers.slice(0, 3).join('، ');
+        const passengerSuffix = passengers.length > 3 ? '…' : '';
+        const submissionDate = formatDateLabel(visa.submissionDate);
+        const descriptionParts = [
+          `طلب فيزا ${visa.invoiceNumber || visaId}`,
+          passengerPreview ? `(${passengerPreview}${passengerSuffix})` : null,
+          submissionDate ? `- ${submissionDate}` : null,
+        ].filter(Boolean);
+        const parties = [
+          visa.clientId ? getAccountLabel(visa.clientId) : visa.clientName,
+          visa.supplierId ? getAccountLabel(visa.supplierId) : visa.supplierName,
+        ].filter(Boolean) as string[];
+        const notesParts = [visa.notes, safeMeta.notes].filter(Boolean);
+        return {
+          description: descriptionParts.join(' '),
+          notes: notesParts.join(' • ') || undefined,
+          parties,
 
     const resolveSourceRoute = (
       type: NormalizedVoucherType | string | undefined,
@@ -320,10 +481,395 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
                 }
             }
         };
+      }
 
-        (v.debitEntries || []).forEach(entry => processEntry(entry, 'debit'));
-        (v.creditEntries || []).forEach(entry => processEntry(entry, 'credit'));
-    });
+      if (typeKey === 'subscription') {
+        const subscriptionId = safeMeta.subscriptionId || safeMeta.subscription?.id || sourceId;
+        const subscription = subscriptionId ? await fetchDoc('subscriptions', subscriptionId) : null;
+        const rawSource = rawSourceType || '';
+        const installmentId =
+          safeMeta.installmentId ||
+          safeMeta.installment?.id ||
+          (rawSource.includes('installment') ? sourceId : undefined);
+        const installment = installmentId
+          ? await fetchDoc('subscription_installments', installmentId)
+          : null;
+        const currency =
+          subscription?.currency || installment?.currency || safeMeta.currency || voucherCurrency;
+        const parties = [
+          subscription?.clientId ? getAccountLabel(subscription.clientId) : subscription?.clientName,
+          subscription?.supplierId
+            ? getAccountLabel(subscription.supplierId)
+            : subscription?.supplierName,
+        ].filter(Boolean) as string[];
+        const baseNotes = [
+          subscription?.invoiceNumber ? `فاتورة ${subscription.invoiceNumber}` : null,
+          subscription?.startDate ? `بداية الخدمة: ${formatDateLabel(subscription.startDate)}` : null,
+          subscription?.endDate ? `نهاية الخدمة: ${formatDateLabel(subscription.endDate)}` : null,
+          subscription?.status ? `الحالة: ${subscription.status}` : null,
+        ].filter(Boolean) as string[];
+
+        if (installment) {
+          const dueLabel = formatDateLabel(installment.dueDate);
+          const installmentAmount = formatAmountWithCurrency(installment.amount, currency);
+          const notesParts = [
+            installmentAmount ? `مبلغ القسط: ${installmentAmount}` : null,
+            installment.status ? `حالة القسط: ${installment.status}` : null,
+            ...baseNotes,
+            subscription?.notes,
+            safeMeta.notes,
+          ].filter(Boolean);
+          return {
+            description: `سداد قسط اشتراك ${
+              subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId
+            }${dueLabel ? ` مستحق ${dueLabel}` : ''}`,
+            notes: notesParts.join(' • ') || undefined,
+            parties,
+          };
+        }
+
+        if (rawSource.includes('overpayment')) {
+          const notesParts = [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean);
+          return {
+            description: `رصيد إضافي لاشتراك ${
+              subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId
+            }`,
+            notes: notesParts.join(' • ') || undefined,
+            parties,
+          };
+        }
+
+        if (rawSource.includes('reversal')) {
+          const notesParts = [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean);
+          return {
+            description: `عكس دفعة اشتراك ${
+              subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId
+            }`,
+            notes: notesParts.join(' • ') || undefined,
+            parties,
+          };
+        }
+
+        if (rawSource.includes('adjustment')) {
+          const notesParts = [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean);
+          return {
+            description: `تعديل دفعة اشتراك ${
+              subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId
+            }`,
+            notes: notesParts.join(' • ') || undefined,
+            parties,
+          };
+        }
+
+        if (rawSource.includes('cost')) {
+          const notesParts = [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean);
+          return {
+            description: `تكلفة اشتراك ${
+              subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId
+            }`,
+            notes: notesParts.join(' • ') || undefined,
+            parties,
+          };
+        }
+
+        const saleAmount = formatAmountWithCurrency(subscription?.salePrice ?? safeMeta.salePrice, currency);
+        const costAmount = formatAmountWithCurrency(
+          subscription?.purchasePrice ?? safeMeta.purchasePrice,
+          currency,
+        );
+        const profitAmount = formatAmountWithCurrency(
+          subscription?.profit ??
+            (Number(subscription?.salePrice ?? 0) - Number(subscription?.purchasePrice ?? 0)),
+          currency,
+        );
+        const paidAmount = formatAmountWithCurrency(subscription?.paidAmount ?? safeMeta.paidAmount, currency);
+        const structured: StructuredDescription = {
+          title: `اشتراك ${subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId}`,
+          totalReceived: saleAmount ? `قيمة الاشتراك: ${saleAmount}` : undefined,
+          selfReceipt: profitAmount ? `الربح: ${profitAmount}` : undefined,
+          distributions: [
+            costAmount ? { name: 'التكلفة', amount: costAmount } : null,
+            paidAmount ? { name: 'المسدد', amount: paidAmount } : null,
+          ].filter(Boolean) as { name: string; amount: string }[],
+          notes: [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean).join(' • ') || undefined,
+        };
+        return {
+          description: structured,
+          parties,
+        };
+      }
+
+      if (typeKey === 'segment') {
+        const segmentId = safeMeta.segmentId || sourceId;
+        const segment = segmentId ? await fetchDoc('segments', segmentId) : null;
+        if (!segment) return null;
+        const currency = segment.currency || voucherCurrency;
+        const parties = [
+          segment.clientId ? getAccountLabel(segment.clientId) : segment.companyName,
+          segment.partnerName || (segment.partnerId ? getAccountLabel(segment.partnerId) : null),
+        ].filter(Boolean) as string[];
+        const total = formatAmountWithCurrency(segment.total, currency);
+        const companyShare = formatAmountWithCurrency(segment.alrawdatainShare, currency);
+        const partnerShare = formatAmountWithCurrency(segment.partnerShare, currency);
+        const ticketProfits = formatAmountWithCurrency(segment.ticketProfits, currency);
+        const otherProfits = formatAmountWithCurrency(segment.otherProfits, currency);
+        const fromLabel = formatDateLabel(segment.fromDate);
+        const toLabel = formatDateLabel(segment.toDate);
+        const period = [fromLabel, toLabel].filter(Boolean).join(' حتى ');
+        const structured: StructuredDescription = {
+          title: `سكمنت ${segment.companyName}`,
+          totalReceived: total ? `الإجمالي: ${total}` : undefined,
+          selfReceipt: companyShare ? `حصة الشركة: ${companyShare}` : undefined,
+          distributions: [
+            partnerShare ? { name: 'حصة الشركاء', amount: partnerShare } : null,
+            ticketProfits ? { name: 'أرباح التذاكر', amount: ticketProfits } : null,
+            otherProfits ? { name: 'أرباح أخرى', amount: otherProfits } : null,
+          ].filter(Boolean) as { name: string; amount: string }[],
+          notes: period ? `الفترة: ${period}` : undefined,
+        };
+        return {
+          description: structured,
+          parties,
+        };
+      }
+
+      if (typeKey === 'profit-sharing') {
+        const manualId = safeMeta.manualProfitId || sourceId;
+        if (manualId) {
+          const manual = await fetchDoc('manual_monthly_profits', manualId);
+          if (manual) {
+            const currency = manual.currency || voucherCurrency;
+            const total = formatAmountWithCurrency(manual.profit ?? manual.totalProfit, currency);
+            const partners = Array.isArray(manual.partners) ? manual.partners : [];
+            const distributions = partners
+              .map((p: any) => {
+                const partnerName =
+                  p.partnerName || (p.partnerId ? getAccountLabel(p.partnerId) : undefined);
+                const amount = formatAmountWithCurrency(p.amount ?? p.share, currency);
+                if (!partnerName || !amount) return null;
+                return { name: partnerName, amount };
+              })
+              .filter(Boolean) as { name: string; amount: string }[];
+            const parties = distributions.map((d) => d.name);
+            const fromLabel = formatDateLabel(manual.fromDate);
+            const toLabel = formatDateLabel(manual.toDate);
+            const period = [fromLabel, toLabel].filter(Boolean).join(' حتى ');
+            const structured: StructuredDescription = {
+              title: period ? `توزيع أرباح ${period}` : 'توزيع أرباح',
+              totalReceived: total ? `الإجمالي: ${total}` : undefined,
+              distributions: distributions.length ? distributions : undefined,
+              notes: manual.notes || undefined,
+            };
+            return {
+              description: structured,
+              parties,
+            };
+          }
+        }
+        if (sourceId) {
+          const share = await fetchDoc('profit_shares', sourceId);
+          if (share) {
+            const currency = share.currency || safeMeta.currency || voucherCurrency;
+            const amount = formatAmountWithCurrency(share.amount, currency);
+            const party =
+              share.partnerName || (share.partnerId ? getAccountLabel(share.partnerId) : undefined);
+            const notesParts = [amount ? `القيمة: ${amount}` : null, share.notes, safeMeta.notes].filter(Boolean);
+            return {
+              description: `حصة ${party || 'الشريك'} من أرباح ${share.profitMonthId || manualId || ''}`.trim(),
+              notes: notesParts.join(' • ') || undefined,
+              parties: party ? [party] : [],
+            };
+          }
+        }
+      }
+
+      return null;
+    };
+
+    for (const doc of allVouchersSnap.docs) {
+      const v = doc.data() as JournalVoucher;
+      const voucherMeta = (v as any)?.meta || (v.originalData?.meta ?? {});
+      const normalizedMeta =
+        typeof voucherMeta === 'object' && voucherMeta !== null
+          ? (voucherMeta as Record<string, any>)
+          : {};
+
+      const isSoftDeleted = Boolean(
+        v.isDeleted ||
+          v.deletedAt ||
+          normalizedMeta?.isDeleted ||
+          normalizedMeta?.status === 'deleted' ||
+          normalizedMeta?.deletedAt ||
+          v.originalData?.isDeleted ||
+          v.originalData?.meta?.isDeleted,
+      );
+
+      if (!includeDeleted && isSoftDeleted) {
+        continue;
+      }
+
+      const voucherDate = normalizeToDate(v.date) ?? normalizeToDate(v.createdAt) ?? new Date();
+
+      const rawSourceType = v.originalData?.sourceType || v.sourceType || v.voucherType;
+      const normalizedType = normalizeVoucherType(rawSourceType || v.voucherType);
+
+      const effectiveSourceId =
+        v.originalData?.sourceId || v.sourceId || normalizedMeta?.sourceId || doc.id;
+      const invoiceNumber =
+        v.invoiceNumber || normalizedMeta?.invoiceNumber || normalizedMeta?.reference || doc.id;
+      const officerName =
+        normalizedMeta?.officerName || usersMap.get(v.createdBy) || v.officer || v.createdBy;
+      const baseNotes = normalizedMeta?.description || normalizedMeta?.notes || v.notes || '';
+      const voucherCurrency = v.currency || 'USD';
+
+      const voucherContext = await resolveVoucherContext({
+        normalizedType,
+        rawSourceType,
+        sourceId: effectiveSourceId,
+        voucherId: doc.id,
+        meta: normalizedMeta,
+        voucherCurrency,
+      });
+
+      const processEntry = (entry: JournalEntry, direction: 'debit' | 'credit') => {
+        if (entry.accountId !== accountId) {
+          return;
+        }
+
+        const entryAmount = Number(entry.amount ?? entry.debit ?? entry.credit ?? 0);
+        const currency = entry.currency || voucherCurrency;
+        const signedAmount = (direction === 'debit' ? 1 : -1) * entryAmount;
+
+        if (dateFrom && voucherDate < dateFrom) {
+          openingBalances[currency] = (openingBalances[currency] || 0) + signedAmount;
+          return;
+        }
+
+        if ((dateFrom && voucherDate < dateFrom) || (dateTo && voucherDate > dateTo)) {
+          return;
+        }
+
+        let description: string | StructuredDescription;
+        if (normalizedType === 'distributed_receipt') {
+          const baseCurrency = currency;
+          const totalAmount = Number(
+            v.originalData?.totalAmount ?? normalizedMeta?.totalAmount ?? entryAmount ?? 0,
+          );
+          const companyAmount = Number(
+            v.originalData?.companyAmount ?? normalizedMeta?.companyAmount ?? 0,
+          );
+          const formattedTotal = new Intl.NumberFormat('en-US').format(totalAmount);
+          const formattedCompany = new Intl.NumberFormat('en-US').format(companyAmount);
+          const clientName =
+            accountLabelMap.get(
+              v.originalData?.accountId || normalizedMeta?.accountId || '',
+            ) || normalizedMeta?.clientName || '';
+
+          const rawDistributions = normalizedMeta?.distributions || v.originalData?.distributions || {};
+          const distributions = Object.entries(rawDistributions)
+            .map(([channelId, distData]: [string, any]) => {
+              const numericAmount = Number(distData?.amount || 0);
+              if (!numericAmount) return null;
+              const label =
+                distributionChannelLabel.get(channelId) ||
+                accountLabelMap.get(channelId) ||
+                distData?.name ||
+                channelId;
+              const formattedAmount = new Intl.NumberFormat('en-US').format(numericAmount);
+              const currencyCode = distData?.currency || baseCurrency;
+              return {
+                name: label,
+                amount: `${formattedAmount} ${currencyCode}`,
+              };
+            })
+            .filter(Boolean) as { name: string; amount: string }[];
+
+          description = {
+            title: clientName ? `سند قبض موزع من ${clientName}` : 'سند قبض موزع',
+            totalReceived: `الإجمالي: ${formattedTotal} ${baseCurrency}`,
+            selfReceipt:
+              companyAmount > 0 ? `سداد للدافع: ${formattedCompany} ${baseCurrency}` : undefined,
+            distributions,
+            notes: v.notes || normalizedMeta?.notes || '',
+          };
+        } else if (voucherContext?.description) {
+          description = voucherContext.description;
+        } else if (entry.description) {
+          description = entry.description;
+        } else if (baseNotes) {
+          description = baseNotes;
+        } else {
+          description = '';
+        }
+
+        const oppositeEntries = (direction === 'debit' ? v.creditEntries : v.debitEntries) || [];
+        const otherAccountIds = new Set(
+          oppositeEntries
+            .map((other) => other.accountId)
+            .filter((id) => id && id !== entry.accountId),
+        );
+
+        const otherPartySet = new Set<string>();
+        otherAccountIds.forEach((id) => {
+          const label = getAccountLabel(id);
+          if (label) otherPartySet.add(label);
+        });
+        [
+          normalizedMeta?.clientName,
+          normalizedMeta?.supplierName,
+          normalizedMeta?.companyName,
+          normalizedMeta?.partnerName,
+          normalizedMeta?.from,
+          normalizedMeta?.to,
+          normalizedMeta?.payee,
+        ]
+          .filter(Boolean)
+          .forEach((name) => otherPartySet.add(name as string));
+        (voucherContext?.parties || []).forEach((name) => {
+          if (name) otherPartySet.add(name);
+        });
+
+        const otherParty = Array.from(otherPartySet).join('، ');
+
+        const noteSources = [voucherContext?.notes, normalizedMeta?.notes, v.notes].filter(
+          (note): note is string => Boolean(note && note.trim()),
+        );
+        const notes = Array.from(new Set(noteSources)).join(' • ');
+
+        reportRows.push({
+          id: `${doc.id}_${direction}_${entry.accountId}_${reportRows.length}`,
+          date: voucherDate.toISOString(),
+          invoiceNumber,
+          description,
+          debit: direction === 'debit' ? entryAmount : 0,
+          credit: direction === 'credit' ? entryAmount : 0,
+          currency,
+          officer: officerName,
+          voucherType: normalizedType,
+          normalizedType,
+          rawVoucherType: v.voucherType,
+          sourceType: normalizedType,
+          rawSourceType,
+          sourceId: effectiveSourceId,
+          sourceRoute:
+            v.originalData?.sourceRoute ||
+            resolveSourceRoute(normalizedType, effectiveSourceId, doc.id, normalizedMeta, rawSourceType),
+          originalData: { ...v.originalData, meta: normalizedMeta },
+          notes,
+          direction,
+          amount: entryAmount,
+          type: normalizedType,
+          accountId: entry.accountId,
+          accountScope: resolvedAccountType,
+          relationKind: resolvedRelationKind,
+          createdAt: serializeDate(v.createdAt),
+          otherParty,
+        });
+      };
+
+      (v.debitEntries || []).forEach((entry) => processEntry(entry, 'debit'));
+      (v.creditEntries || []).forEach((entry) => processEntry(entry, 'credit'));
+    }
     
 
     const filteredRows = voucherType && voucherType.length > 0
