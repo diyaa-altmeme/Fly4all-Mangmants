@@ -222,10 +222,24 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             currency: finalSubscriptionData.currency,
             description: `دين اشتراك: ${finalSubscriptionData.serviceName}`
         });
+        
+        // Credit Supplier for total purchase cost
+        if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
+             const apAccountId = financeSettings.payableAccountId;
+             if (!apAccountId) throw new Error("Accounts Payable account not defined for subscription cost.");
+             entries.push({
+                accountId: finalSubscriptionData.supplierId,
+                debit: 0,
+                credit: totalPurchase,
+                currency: finalSubscriptionData.currency,
+                description: `دين للمورد عن اشتراك: ${finalSubscriptionData.serviceName}`
+            });
+        }
+
 
         // Credit Revenue & Partner Payable
         if (finalSubscriptionData.hasPartner && finalSubscriptionData.partnerId && partnerShare > 0) {
-            const partnerPayableAccount = financeSettings.payableAccountId; // Assume partners are treated as suppliers
+            const partnerPayableAccount = financeSettings.payableAccountId;
             if (!partnerPayableAccount) throw new Error("Accounts Payable account not defined for partner share.");
             
             // Credit company share to revenue
@@ -235,30 +249,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
 
         } else {
             // Credit total profit to revenue
-            entries.push({ accountId: revenueAccountId, debit: 0, credit: totalSale, currency: finalSubscriptionData.currency, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` });
-        }
-
-
-        // If there's a cost, Debit Expense and Credit Supplier
-        if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
-            const costAccountId = financeSettings.expenseMap?.subscriptions || financeSettings.generalExpenseId;
-            if (!costAccountId) throw new Error("Cost account for subscriptions is not defined.");
-            
-            entries.push({
-                accountId: costAccountId,
-                debit: totalPurchase,
-                credit: 0,
-                currency: finalSubscriptionData.currency,
-                description: `تكلفة اشتراك: ${finalSubscriptionData.serviceName}`
-            });
-
-            entries.push({
-                accountId: finalSubscriptionData.supplierId,
-                debit: 0,
-                credit: totalPurchase,
-                currency: finalSubscriptionData.currency,
-                description: `دين للمورد عن اشتراك: ${finalSubscriptionData.serviceName}`
-            });
+            entries.push({ accountId: revenueAccountId, debit: 0, credit: profit, currency: finalSubscriptionData.currency, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` });
         }
         
         await postJournalEntry({
@@ -806,3 +797,5 @@ export async function revalidateSubscriptionsPath() {
 }
 
 
+
+    
