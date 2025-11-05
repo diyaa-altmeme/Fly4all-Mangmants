@@ -399,7 +399,7 @@ export async function paySubscriptionInstallment(
             const totalAmountToCreditToClient = paymentAmount + discountAmount;
             
             const journalVoucherId = await postJournalEntry({
-                sourceType: "journal_from_installment",
+                sourceType: "subscription_installment",
                 sourceId: installmentId,
                 description: `سداد دفعة اشتراك خدمة: ${subscriptionData.serviceName}`,
                  entries: [
@@ -462,7 +462,7 @@ export async function paySubscriptionInstallment(
 
             if (remainingPaymentToApply > 0.01) {
                  await postJournalEntry({
-                    sourceType: 'overpayment',
+                    sourceType: 'subscription_overpayment',
                     sourceId: installment.subscriptionId,
                     description: `رصيد إضافي بعد سداد كل الدفعات لـ ${subscriptionData.clientName}`,
                     entries: [
@@ -514,7 +514,7 @@ export async function deletePayment(paymentId: string) {
             const originalJournal = originalJournalDoc.data() as any;
 
             await postJournalEntry({
-                sourceType: 'reversal',
+                sourceType: 'subscription_reversal',
                 sourceId: payment.journalVoucherId!,
                 description: `عكس قيد سداد دفعة رقم: ${originalJournal.invoiceNumber}`,
                 entries: [
@@ -573,7 +573,7 @@ export async function updatePayment(paymentId: string, newData: { amount?: numbe
                 const notes = `تعديل دفعة اشتراك: ${oldPayment.id}`;
 
                 await postJournalEntry({
-                    sourceType: 'adjustment',
+                    sourceType: 'subscription_adjustment',
                     sourceId: paymentId,
                     description: notes,
                     entries: [
