@@ -69,7 +69,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       console.error("Database not available");
       throw new Error("Database connection is not available.");
   }
-  const { accountId, dateFrom, dateTo, voucherType, accountType, relationKind, includeDeleted } = filters;
+  const { accountId, dateFrom, dateTo, voucherType, accountType, relationKind, includeDeleted = false } = filters;
 
   try {
     const [
@@ -472,8 +472,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         }
       }
       return null;
-    };
-    
+    }
     const resolveSourceRoute = (
       type: NormalizedVoucherType | string | undefined,
       sourceId?: string | null,
@@ -522,25 +521,16 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
 
     for (const doc of allVouchersSnap.docs) {
       const v = doc.data() as JournalVoucher;
+      
+      if (v.isDeleted === true && !includeDeleted) {
+        continue;
+      }
+      
       const voucherMeta = (v as any)?.meta || (v.originalData?.meta ?? {});
       const normalizedMeta =
         typeof voucherMeta === 'object' && voucherMeta !== null
           ? (voucherMeta as Record<string, any>)
           : {};
-
-      const isSoftDeleted = Boolean(
-        v.isDeleted ||
-          v.deletedAt ||
-          normalizedMeta?.isDeleted ||
-          normalizedMeta?.status === 'deleted' ||
-          normalizedMeta?.deletedAt ||
-          v.originalData?.isDeleted ||
-          v.originalData?.meta?.isDeleted,
-      );
-
-      if (!includeDeleted && isSoftDeleted) {
-        continue;
-      }
 
       const voucherDate = normalizeToDate(v.date) ?? normalizeToDate(v.createdAt) ?? new Date();
 
