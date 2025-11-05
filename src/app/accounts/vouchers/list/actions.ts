@@ -167,15 +167,19 @@ export async function deleteVoucher(id: string): Promise<{ success: boolean; err
         const voucherData = voucherDoc.data();
         const voucherNumber = voucherData?.invoiceNumber || id;
         
-        if (voucherData?.sourceType === 'booking' && voucherData?.sourceId) {
-            const bookingRef = db.collection('bookings').doc(voucherData.sourceId);
-            batch.update(bookingRef, { isDeleted: true, deletedAt: new Date().toISOString() });
-        } else if (voucherData?.sourceType === 'visa' && voucherData?.sourceId) {
-             const visaBookingRef = db.collection('visaBookings').doc(voucherData.sourceId);
-             batch.update(visaBookingRef, { isDeleted: true, deletedAt: new Date().toISOString() });
-        } else if (voucherData?.sourceType === 'subscription' && voucherData?.sourceId) {
-            const subscriptionRef = db.collection('subscriptions').doc(voucherData.sourceId);
-            batch.update(subscriptionRef, { isDeleted: true, deletedAt: new Date().toISOString() });
+        const originalDataSource = voucherData?.originalData?.sourceType || voucherData?.sourceType;
+        const originalDataId = voucherData?.originalData?.sourceId || voucherData?.sourceId;
+
+        if (originalDataSource && originalDataId) {
+            let collectionName = '';
+            if (originalDataSource === 'booking') collectionName = 'bookings';
+            else if (originalDataSource === 'visa') collectionName = 'visaBookings';
+            else if (originalDataSource === 'subscription') collectionName = 'subscriptions';
+            
+            if (collectionName) {
+                const sourceRef = db.collection(collectionName).doc(originalDataId);
+                batch.update(sourceRef, { isDeleted: true, deletedAt: new Date().toISOString() });
+            }
         }
 
         // Soft delete the journal voucher itself
@@ -200,6 +204,63 @@ export async function deleteVoucher(id: string): Promise<{ success: boolean; err
     } catch (error: any) {
         console.error(`Error deleting voucher ${id}:`, error);
         return { success: false, error: "فشل حذف السند." };
+    }
+}
+
+export async function permanentDeleteVoucher(id: string): Promise<{ success: boolean; error?: string }> {
+    const db = await getDb();
+    if (!db) return { success: false, error: "Database not available." };
+    const user = await getCurrentUserFromSession();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const batch = db.batch();
+    
+    try {
+        const voucherRef = db.collection('journal-vouchers').doc(id);
+        const voucherDoc = await voucherRef.get();
+        if (!voucherDoc.exists) {
+             throw new Error("Voucher not found");
+        }
+        const voucherData = voucherDoc.data();
+        const voucherNumber = voucherData?.invoiceNumber || id;
+        
+        const originalDataSource = voucherData?.originalData?.sourceType || voucherData?.sourceType;
+        const originalDataId = voucherData?.originalData?.sourceId || voucherData?.sourceId;
+
+        if (originalDataSource && originalDataId) {
+            let collectionName = '';
+            if (originalDataSource === 'booking') collectionName = 'bookings';
+            else if (originalDataSource === 'visa') collectionName = 'visaBookings';
+            else if (originalDataSource === 'subscription') collectionName = 'subscriptions';
+            
+            if (collectionName) {
+                const sourceRef = db.collection(collectionName).doc(originalDataId);
+                batch.delete(sourceRef);
+            }
+        }
+
+        batch.delete(voucherRef);
+        
+        await batch.commit();
+
+        await createAuditLog({
+            userId: user.uid,
+            userName: user.name,
+            action: 'DELETE',
+            targetType: 'VOUCHER',
+            description: `حذف السند نهائياً رقم: ${voucherNumber}`,
+        });
+
+        revalidatePath('/accounts/vouchers/list');
+        revalidatePath('/accounts/vouchers/log');
+        revalidatePath('/bookings');
+        revalidatePath('/visas');
+        revalidatePath('/reports', 'layout');
+
+        return { success: true };
+    } catch (error: any) {
+        console.error(`Error permanently deleting voucher ${id}:`, error);
+        return { success: false, error: "فشل الحذف النهائي للسند." };
     }
 }
 

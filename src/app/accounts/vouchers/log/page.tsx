@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -11,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useDebounce } from "@/hooks/use-debounce";
-import { getAllVouchers, type Voucher } from "../list/actions";
+import { getAllVouchers, permanentDeleteVoucher, type Voucher } from "../list/actions";
 import {
   DEFAULT_VOUCHER_TABS_ORDER,
   getVoucherTypeLabel,
@@ -31,7 +32,33 @@ import {
   Search,
   ArrowUpRight,
   FileText,
+  Trash2,
+  Plane,
+  CreditCard,
+  Repeat,
+  Layers3,
+  Share2,
+  GitBranch,
+  ArrowRightLeft,
+  ChevronsRightLeft,
+  Banknote,
+  BookUser,
+  FileDown,
+  FileUp,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 
 const formatCurrency = (value: number | undefined, currency: string) => {
   const amount = Number(value) || 0;
@@ -41,9 +68,39 @@ const formatCurrency = (value: number | undefined, currency: string) => {
   return `${new Intl.NumberFormat("en-US", options).format(amount)} ${currency}`;
 };
 
+const VoucherTypeIcon = ({ type }: { type?: string }) => {
+  const normalized = normalizeVoucherType(type) as NormalizedVoucherType;
+  const typeMap: Record<NormalizedVoucherType | 'other', React.ElementType> = {
+    standard_receipt: FileDown,
+    distributed_receipt: GitBranch,
+    payment: FileUp,
+    manualExpense: Banknote,
+    journal_voucher: BookUser,
+    remittance: ArrowRightLeft,
+    transfer: Repeat,
+    booking: Plane,
+    visa: CreditCard,
+    subscription: Repeat,
+    segment: Layers3,
+    'profit-sharing': Share2,
+    refund: RefreshCw,
+    exchange: RefreshCw,
+    void: FileText,
+    exchange_transaction: ChevronsRightLeft,
+    exchange_payment: ChevronsRightLeft,
+    exchange_adjustment: ChevronsRightLeft,
+    exchange_revenue: ChevronsRightLeft,
+    exchange_expense: ChevronsRightLeft,
+    other: FileText,
+  };
+  const Icon = typeMap[normalized] || FileText;
+  return <Icon className="h-5 w-5" />;
+};
+
+
 const VoucherLogPage = () => {
   const { toast } = useToast();
-  const { data: navData, loaded: isNavLoaded } = useVoucherNav();
+  const { data: navData, loaded: isNavLoaded, fetchData } = useVoucherNav();
   const [vouchers, setVouchers] = React.useState<Voucher[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -77,6 +134,16 @@ const VoucherLogPage = () => {
   React.useEffect(() => {
     fetchLog();
   }, [fetchLog]);
+  
+  const handleDeleteVoucher = async (voucherId: string) => {
+    const result = await permanentDeleteVoucher(voucherId);
+    if(result.success) {
+      toast({ title: 'تم الحذف النهائي للسند بنجاح' });
+      fetchLog(); // Refresh data
+    } else {
+      toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
+    }
+  }
 
   const searchedVouchers = React.useMemo(() => {
     if (!debouncedSearch) return vouchers;
@@ -121,7 +188,7 @@ const VoucherLogPage = () => {
     const groups = new Map<string, Voucher[]>();
     filteredByTab.forEach((voucher) => {
       const rawDate = voucher.createdAt || voucher.date;
-      const safeDate = rawDate ? parseISO(rawDate) : new Date();
+      const safeDate = rawDate ? parseISO(rawDate as string) : new Date();
       const dateKey = format(safeDate, "yyyy-MM-dd");
       const list = groups.get(dateKey) || [];
       list.push(voucher);
@@ -134,8 +201,8 @@ const VoucherLogPage = () => {
         entries: entries.sort((a, b) => {
           const dateA = a.createdAt || a.date;
           const dateB = b.createdAt || b.date;
-          const timeA = dateA ? parseISO(dateA).getTime() : 0;
-          const timeB = dateB ? parseISO(dateB).getTime() : 0;
+          const timeA = dateA ? parseISO(dateA as string).getTime() : 0;
+          const timeB = dateB ? parseISO(dateB as string).getTime() : 0;
           return timeB - timeA;
         }),
       }))
@@ -223,7 +290,7 @@ const VoucherLogPage = () => {
                       <div className="space-y-3">
                         {group.entries.map((voucher) => {
                           const rawDate = voucher.createdAt || voucher.date;
-                          const timestamp = rawDate ? parseISO(rawDate) : new Date();
+                          const timestamp = rawDate ? parseISO(rawDate as string) : new Date();
                           const voucherRoute = `/accounts/vouchers/${voucher.id}/edit`;
                           return (
                             <div
@@ -233,7 +300,8 @@ const VoucherLogPage = () => {
                               <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <Badge variant="outline" className="text-xs">
-                                    {getVoucherTypeLabel(voucher.normalizedType || "other")}
+                                     <VoucherTypeIcon type={voucher.normalizedType || 'other'} />
+                                     <span className="ms-1.5">{getVoucherTypeLabel(voucher.normalizedType || "other")}</span>
                                   </Badge>
                                   <span className="font-mono text-xs text-muted-foreground">#{voucher.invoiceNumber || voucher.id}</span>
                                 </div>
@@ -260,13 +328,34 @@ const VoucherLogPage = () => {
                               )}
                               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                                 <span>{format(timestamp, "HH:mm:ss")}</span>
-                                <Link
-                                  href={voucherRoute}
-                                  className="inline-flex items-center gap-1 text-primary hover:underline"
-                                >
-                                  عرض السند
-                                  <ArrowUpRight className="h-3.5 w-3.5" />
-                                </Link>
+                                <div className="flex items-center gap-1">
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                             <Button variant="ghost" size="sm" className="px-2 h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
+                                                <Trash2 className="h-3.5 w-3.5 me-1" />
+                                                حذف نهائي
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>هل أنت متأكد من الحذف النهائي؟</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    سيؤدي هذا الإجراء إلى حذف السند وكل السجلات الأصلية المرتبطة به بشكل دائم. لا يمكن التراجع عن هذا الإجراء.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteVoucher(voucher.id!)} className={cn(buttonVariants({variant: 'destructive'}))}>نعم، قم بالحذف النهائي</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                    <Button asChild variant="secondary" size="sm" className="px-2 h-7 text-xs">
+                                        <Link href={voucherRoute} className="inline-flex items-center gap-1">
+                                          عرض السند
+                                          <ArrowUpRight className="h-3.5 w-3.5" />
+                                        </Link>
+                                    </Button>
+                                </div>
                               </div>
                             </div>
                           );
@@ -285,4 +374,3 @@ const VoucherLogPage = () => {
 };
 
 export default VoucherLogPage;
-
