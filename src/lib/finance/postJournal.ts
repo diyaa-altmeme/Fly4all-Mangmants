@@ -62,9 +62,8 @@ async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
   const missing = accountIds.filter(id => !foundIds.has(id) && !id.startsWith('expense_') && !id.startsWith('revenue_'));
 
   if (missing.length > 0) {
-    // Silently fail for now or create placeholder accounts
     console.warn('The following accounts were not found and might need to be created:', missing.join(', '));
-    // throw new Error('Accounts not found: ' + missing.join(', '));
+    throw new Error('Accounts not found: ' + missing.join(', '));
   }
 }
 
@@ -77,7 +76,7 @@ function isBalanced(entries: JournalEntry[]) {
 
 type StoredEntry = JournalEntry & {
   amount: number;
-  description?: string;
+  description: string;
   accountType?: string;
 };
 
@@ -93,7 +92,7 @@ function splitEntries(entries: StoredEntry[]): {
       const debitEntry: LegacyJournalEntry = {
         accountId: entry.accountId,
         amount: entry.debit,
-        description: entry.description ?? entry.note ?? '',
+        description: entry.description,
       };
       if (entry.relationId) debitEntry.relationId = entry.relationId;
       debitEntries.push(debitEntry);
@@ -103,7 +102,7 @@ function splitEntries(entries: StoredEntry[]): {
        const creditEntry: LegacyJournalEntry = {
         accountId: entry.accountId,
         amount: entry.credit,
-        description: entry.description ?? entry.note ?? '',
+        description: entry.description,
       };
        if (entry.relationId) creditEntry.relationId = entry.relationId;
        creditEntries.push(creditEntry);
@@ -169,7 +168,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
     const finalEntry: StoredEntry = {
       ...entry, debit, credit, amount,
       currency: entry.currency || voucherCurrency,
-      description,
+      description: description || '',
       accountType,
     };
     if (!finalEntry.relationId) delete finalEntry.relationId;
@@ -212,7 +211,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
         debit: entry.debit,
         credit: entry.credit,
         amount: entry.amount,
-        description: entry.description ?? entry.note ?? '',
+        description: entry.description,
         currency: entry.currency,
         accountType: entry.accountType,
         type: entry.debit > 0 ? 'debit' : 'credit',
@@ -292,7 +291,7 @@ export async function postRevenue({
     },
   ];
 
-  return postJournalEntries({
+  await postJournalEntries({
     sourceType,
     sourceId,
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
@@ -337,7 +336,7 @@ export async function postCost({
     },
   ];
 
-  return postJournalEntries({
+  await postJournalEntries({
     sourceType,
     sourceId,
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
