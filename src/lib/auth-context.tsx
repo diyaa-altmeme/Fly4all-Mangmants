@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -27,6 +28,7 @@ interface AuthContextType {
   hasPermission: (permission: keyof typeof PERMISSIONS) => boolean;
   revalidateUser: () => Promise<void>;
   unreadChatCount: number;
+  error: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -121,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       setUser(result.user);
+      setLoading(false);
       return { success: true };
 
     } catch (error: any) {
@@ -143,9 +146,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             errorMessage = error.message;
         }
         setError(errorMessage);
+        setLoading(false); // Make sure loading is set to false on error
         return { success: false, error: errorMessage };
-    } finally {
-        setLoading(false);
     }
   }
 
