@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -91,7 +92,7 @@ export const getAllVouchers = async (clients: Client[], suppliers: Supplier[], b
 
         journalVouchersSnapshot.forEach(doc => {
             const data = processVoucherData(doc);
-            if (!data) return;
+            if (!data || data.isDeleted) return; // Skip deleted vouchers
             
             const description = data.notes || '';
             const totalDebit = data.debitEntries?.reduce((sum: number, entry: any) => sum + (entry.amount || 0), 0) || 0;
@@ -166,17 +167,19 @@ export async function deleteVoucher(id: string): Promise<{ success: boolean; err
         const voucherData = voucherDoc.data();
         const voucherNumber = voucherData?.invoiceNumber || id;
         
-        // If the voucher was created from a booking, delete the original booking too.
-        if (voucherData?.originalData?.bookingId) {
-            const bookingRef = db.collection('bookings').doc(voucherData.originalData.bookingId);
-            batch.delete(bookingRef);
-        } else if (voucherData?.originalData?.visaBookingId) {
-             const visaBookingRef = db.collection('visaBookings').doc(voucherData.originalData.visaBookingId);
-             batch.delete(visaBookingRef);
+        if (voucherData?.sourceType === 'booking' && voucherData?.sourceId) {
+            const bookingRef = db.collection('bookings').doc(voucherData.sourceId);
+            batch.update(bookingRef, { isDeleted: true, deletedAt: new Date().toISOString() });
+        } else if (voucherData?.sourceType === 'visa' && voucherData?.sourceId) {
+             const visaBookingRef = db.collection('visaBookings').doc(voucherData.sourceId);
+             batch.update(visaBookingRef, { isDeleted: true, deletedAt: new Date().toISOString() });
+        } else if (voucherData?.sourceType === 'subscription' && voucherData?.sourceId) {
+            const subscriptionRef = db.collection('subscriptions').doc(voucherData.sourceId);
+            batch.update(subscriptionRef, { isDeleted: true, deletedAt: new Date().toISOString() });
         }
 
-        // Delete the journal voucher itself
-        batch.delete(voucherRef);
+        // Soft delete the journal voucher itself
+        batch.update(voucherRef, { isDeleted: true, deletedAt: new Date().toISOString() });
         
         await batch.commit();
 
@@ -254,7 +257,7 @@ export async function deleteAllVouchers(): Promise<{ success: boolean; error?: s
                     continue;
                 }
 
-                const batchSize = 500;
+                const batchSize = 400; // Firestore batch limit
                 for (let i = 0; i < snapshot.docs.length; i += batchSize) {
                     const batch = db.batch();
                     const chunk = snapshot.docs.slice(i, i + batchSize);
@@ -264,11 +267,12 @@ export async function deleteAllVouchers(): Promise<{ success: boolean; error?: s
                     await batch.commit();
                 }
             } catch (e) {
+                // If a collection doesn't exist, it's fine, just skip it.
                 if ((e as any).code === 5) {
                     console.log(`Collection ${collectionName} not found, skipping deletion.`);
                     continue;
                 }
-                throw e;
+                throw e; // Re-throw other errors
             }
         }
         
