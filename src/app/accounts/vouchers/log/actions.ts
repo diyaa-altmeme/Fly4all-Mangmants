@@ -2,7 +2,7 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { JournalVoucher, Client, Supplier, Box, User, AppSettings } from '@/lib/types';
+import type { JournalVoucher, Client, Supplier, Box, User, AppSettings, BookingEntry, VisaBookingEntry, Subscription } from '@/lib/types';
 import { normalizeVoucherType } from '@/lib/accounting/voucher-types';
 import { parseISO } from 'date-fns';
 
@@ -101,7 +101,8 @@ export async function permanentDeleteVoucher(voucherId: string): Promise<{ succe
         
         // Delete the original source document if it exists
         if (voucherData.sourceType && voucherData.sourceId) {
-             const sourceRef = db.collection(`${voucherData.sourceType}s`).doc(voucherData.sourceId);
+             const sourceCollectionName = voucherData.sourceType.endsWith('s') ? voucherData.sourceType : `${voucherData.sourceType}s`;
+             const sourceRef = db.collection(sourceCollectionName).doc(voucherData.sourceId);
              const sourceDoc = await sourceRef.get();
              if (sourceDoc.exists) {
                  batch.delete(sourceRef);

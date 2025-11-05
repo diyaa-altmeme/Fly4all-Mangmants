@@ -4,7 +4,8 @@
 import { getDb } from '@/lib/firebase-admin';
 import type { JournalVoucher } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-
+import { createAuditLog } from '@/app/system/activity-log/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
 // This function is kept for any potential remaining dependencies,
 // but the main logic is now in log/actions.ts
@@ -36,8 +37,8 @@ export async function updateVoucher(id: string, data: any) {
             ...data,
             updatedAt: new Date().toISOString(),
         });
-        revalidatePath('/accounts/vouchers/list');
         revalidatePath('/accounts/vouchers/log');
+        revalidatePath('/accounts/vouchers/list');
         return { success: true };
     } catch(e: any) {
         return { success: false, error: e.message };
@@ -47,11 +48,50 @@ export async function updateVoucher(id: string, data: any) {
 export async function deleteVoucher(id: string): Promise<{ success: boolean, error?: string }> {
   const db = await getDb();
   if (!db) return { success: false, error: 'Database not available' };
+    const user = await getCurrentUserFromSession();
+    if (!user) return { success: false, error: "User not authenticated." };
+
 
   try {
-    await db.collection('journal-vouchers').doc(id).update({ isDeleted: true });
-    revalidatePath('/accounts/vouchers/list');
+    const batch = db.batch();
+    const voucherRef = db.collection('journal-vouchers').doc(id);
+    
+    // Mark the journal voucher as deleted
+    batch.update(voucherRef, { 
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+        deletedBy: user.name,
+    });
+    
+    const voucherSnap = await voucherRef.get();
+    if (voucherSnap.exists) {
+        const voucherData = voucherSnap.data() as JournalVoucher;
+        if (voucherData.sourceType && voucherData.sourceId) {
+             const sourceRef = db.collection(`${voucherData.sourceType}s`).doc(voucherData.sourceId);
+             const sourceDoc = await sourceRef.get();
+             if (sourceDoc.exists) {
+                 batch.update(sourceRef, { 
+                    isDeleted: true,
+                    deletedAt: new Date().toISOString(),
+                 });
+             }
+        }
+    }
+    
+    await batch.commit();
+
+    await createAuditLog({
+        userId: user.uid,
+        userName: user.name,
+        action: 'DELETE',
+        targetType: 'VOUCHER',
+        targetId: id,
+        description: `حذف السند رقم ${id}`,
+    });
+    
     revalidatePath('/accounts/vouchers/log');
+    revalidatePath('/accounts/vouchers/list');
+    revalidatePath('/reports/account-statement');
     return { success: true };
   } catch (e: any) {
     return { success: false, error: e.message };
