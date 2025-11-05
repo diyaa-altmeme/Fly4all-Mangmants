@@ -1,8 +1,9 @@
 
+
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getDb } from "@/lib/firebase-admin";
+import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import type { Currency, FinanceAccountsMap, JournalEntry as LegacyJournalEntry } from '@/lib/types';
 import type { FinanceAccountsMap as FinanceAccountsMapType } from '@/lib/types';
 import {
@@ -37,10 +38,28 @@ export type PostJournalPayload = {
 async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
   const accountIds = Array.from(new Set(entries.map(e => e.accountId).filter(Boolean)));
   if (accountIds.length === 0) return;
-  const refs = accountIds.map((id: string) => db.collection('chart_of_accounts').doc(id));
-  const snaps = await Promise.all(refs.map((r: any) => r.get()));
-  const missing = snaps.map((s: any, i: number) => (!s.exists ? accountIds[i] : null)).filter(Boolean);
-  if (missing.length) throw new Error('Accounts not found: ' + missing.join(', '));
+
+  const collectionsToSearch = ['chart_of_accounts', 'clients', 'boxes', 'exchanges'];
+  const foundIds = new Set<string>();
+
+  for (const collectionName of collectionsToSearch) {
+    const idsInCollection = accountIds.filter(id => !foundIds.has(id));
+    if (idsInCollection.length === 0) continue;
+    
+    // Firestore 'in' query is limited to 30 items
+    for (let i = 0; i < idsInCollection.length; i += 30) {
+      const chunk = idsInCollection.slice(i, i + 30);
+      const snapshot = await db.collection(collectionName).where(FieldPath.documentId(), 'in', chunk).get();
+      snapshot.forEach((doc: any) => foundIds.add(doc.id));
+    }
+  }
+
+  const missing = accountIds.filter(id => !foundIds.has(id) && !id.startsWith('expense_') && !id.startsWith('revenue_'));
+
+  if (missing.length > 0) {
+    console.warn('The following accounts were not found and might need to be created:', missing.join(', '));
+    throw new Error('Accounts not found: ' + missing.join(', '));
+  }
 }
 
 function isBalanced(entries: JournalEntry[]) {
@@ -97,7 +116,7 @@ function resolveCurrency(entries: JournalEntry[]): Currency {
   return (first?.currency as Currency) || 'USD';
 }
 
-export async function postJournalEntries(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts) {
+export async function postJournalEntry(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts): Promise<string> {
   const db = await getDb();
 
   if (!payload.entries || !Array.isArray(payload.entries) || payload.entries.length === 0) {
@@ -197,7 +216,7 @@ export async function postJournalEntries(payload: PostJournalPayload, fa?: Norma
     originalData: {
       sourceType: payload.sourceType,
       sourceId: payload.sourceId,
-      meta: payload.meta || null,
+      ...payload.meta,
     },
   } as any);
 

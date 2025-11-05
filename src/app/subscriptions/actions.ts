@@ -13,7 +13,7 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { cache } from 'react';
-import { getFinanceMap, type JournalEntry } from '@/lib/finance/postJournal';
+import { getFinanceMap, type JournalEntry } from '@/lib/finance/posting';
 import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
 import * as admin from 'firebase-admin';
 import { postJournalEntry } from '@/lib/finance/postJournal';
@@ -116,7 +116,7 @@ export const getSubscriptionById = cache(async (id: string): Promise<Subscriptio
             return null;
         }
         
-        const subscriptionData = processDoc(doc) as Subscription;
+        const subscriptionData = { id: doc.id, ...processDoc(doc) } as Subscription;
         
         const clientDoc = await db.collection('clients').doc(subscriptionData.clientId).get();
         if(clientDoc.exists) {
@@ -209,7 +209,10 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         // == Journal Entries ==
         const entries: JournalEntry[] = [];
         
-        // 1. Debit Client for total sale amount
+        const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
+        if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined.");
+
+        // Debit Client for total sale, Credit Revenue for total sale
         entries.push({
             accountId: finalSubscriptionData.clientId,
             debit: totalSale,
@@ -217,10 +220,6 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             currency: finalSubscriptionData.currency,
             description: `دين اشتراك: ${finalSubscriptionData.serviceName}`
         });
-
-        // 2. Credit Revenue Account for total sale amount
-        const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
-        if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined.");
         entries.push({
             accountId: revenueAccountId,
             debit: 0,
@@ -229,7 +228,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}`
         });
 
-        // 3. Debit Expense Account for total purchase cost
+        // If there's a cost, Debit Expense and Credit Supplier
         if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
             const costAccountId = financeSettings.expenseMap?.subscriptions || financeSettings.generalExpenseId;
             if (!costAccountId) throw new Error("Cost account for subscriptions is not defined.");
@@ -242,7 +241,6 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                 description: `تكلفة اشتراك: ${finalSubscriptionData.serviceName}`
             });
 
-            // 4. Credit Supplier for total purchase cost
             entries.push({
                 accountId: finalSubscriptionData.supplierId,
                 debit: 0,
@@ -763,5 +761,6 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
 
 
