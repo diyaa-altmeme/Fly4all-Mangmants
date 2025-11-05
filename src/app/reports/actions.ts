@@ -12,6 +12,7 @@ import { getBoxes } from '@/app/boxes/actions';
 import { getSettings } from '@/app/settings/actions';
 import { getExchanges } from '@/app/exchanges/actions';
 import { normalizeVoucherType, type NormalizedVoucherType } from "@/lib/accounting/voucher-types";
+import * as admin from 'firebase-admin';
 
 const normalizeToDate = (value: unknown): Date | null => {
   if (!value) return null;
@@ -59,7 +60,7 @@ const STATIC_ACCOUNT_LABELS: Record<string, string> = {
   expense_tickets: 'تكلفة التذاكر',
   expense_visa: 'تكلفة الفيزا',
   expense_subscriptions: 'تكلفة الاشتراكات',
-  expense_partners: 'مصاريف الشركاء',
+  expense_partners: 'مصروفات الشركاء',
 };
 
 export async function getAccountStatement(filters: AccountStatementFilters) {
@@ -470,7 +471,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
           }
         }
       }
-        return null;
+      return null;
     };
     
     const resolveSourceRoute = (
@@ -768,7 +769,7 @@ export async function getClientTransactions(clientId: string) {
                  const purchase = tx.originalData.purchasePrice || (tx.originalData.passengers || []).reduce((acc: number, p: any) => acc + (p.purchasePrice || 0), 0);
                  totalProfit += sale - purchase;
              }
-        } else if (tx.sourceType === 'standard_receipt' || tx.sourceType === 'payment') {
+        } else if (tx.sourceType === 'standard_receipt' || tx.sourceType === 'payment' || tx.sourceType === 'subscription_installment') {
             paidAmount += tx.credit;
         }
     });
