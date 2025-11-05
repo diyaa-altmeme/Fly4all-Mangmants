@@ -25,6 +25,7 @@ import {
   DEFAULT_VOUCHER_TABS_ORDER,
   getVoucherTypeLabel,
   type NormalizedVoucherType,
+  normalizeVoucherType,
 } from "@/lib/accounting/voucher-types";
 import {
   Loader2,
