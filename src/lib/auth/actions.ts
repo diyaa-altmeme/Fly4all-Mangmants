@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
@@ -133,13 +134,12 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 
         const sessionCookie = await authAdmin.createSessionCookie(idToken, { expiresIn });
         
-        const cookieStore = cookies();
-        cookieStore.set('session', sessionCookie, {
+        cookies().set('session', sessionCookie, {
             maxAge: expiresIn / 1000,
             httpOnly: true,
-            secure: true, 
+            secure: process.env.NODE_ENV === 'production',
             path: '/',
-            sameSite: 'none', 
+            sameSite: 'lax',
         });
 
         return { success: true, user: userInDb };

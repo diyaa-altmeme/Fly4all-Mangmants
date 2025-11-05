@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import type { Client, Supplier, Box, User, AppSettings, Exchange } from '@/lib/types';
@@ -52,7 +53,7 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
                 getExchanges(),
             ]);
 
-            const allRelations = allRelationsRes.clients;
+            const allRelations = allRelationsRes?.clients || [];
 
             const clients = allRelations.filter(r => r.relationType === 'client' || r.relationType === 'both');
             const suppliers = allRelations.filter(r => r.relationType === 'supplier' || r.relationType === 'both');
