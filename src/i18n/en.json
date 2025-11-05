@@ -255,7 +255,8 @@
         "title": "Vouchers",
         "items": {
           "center": "Voucher center",
-          "records": "Voucher records",
+          "log": "Voucher log",
+          "records": "Voucher table",
           "settings": "Settings",
           "standardReceipt": "Standard receipt",
           "distributedReceipt": "Distributed receipt",

@@ -462,6 +462,8 @@ export type ReportTransaction = {
   sourceId?: string;
   sourceRoute?: string;
   originalData?: any;
+  accountScope?: string;
+  relationKind?: string;
 };
 
 export type ReportInfo = {

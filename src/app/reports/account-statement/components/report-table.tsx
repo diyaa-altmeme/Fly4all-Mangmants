@@ -109,7 +109,14 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                     <Badge variant="outline" className="mr-1">{label}</Badge>
                 </TableCell>
                 <TableCell className="px-2 py-3 text-right text-xs"><DetailedDescription description={transaction.description} /></TableCell>
-                <TableCell className="px-2 py-3 text-right text-xs">{transaction.notes}</TableCell>
+                <TableCell className="px-2 py-3 text-right text-xs space-y-1">
+                    {transaction.otherParty && (
+                        <div className="font-medium text-foreground">
+                            مقابل: <span className="text-muted-foreground">{transaction.otherParty}</span>
+                        </div>
+                    )}
+                    {transaction.notes}
+                </TableCell>
                 <TableCell className="px-2 py-3 font-mono font-bold text-red-600 text-center">
                     {transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}
                 </TableCell>
