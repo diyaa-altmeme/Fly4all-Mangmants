@@ -1,10 +1,9 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import { unstable_cache } from 'next/cache';
-import type { BookingEntry } from '@/lib/types';
+import type { BookingEntry, Client } from '@/lib/types';
 import { postRevenue, postCost } from "@/lib/finance/posting";
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
@@ -64,40 +63,48 @@ export const getBookings = unstable_cache(async (options: {
 
 export async function addBooking(bookingData: any) {
   const user = await getCurrentUserFromSession();
-  if (!user) throw new Error("User not authenticated.");
+  if (!user || !('role' in user)) throw new Error("User not authenticated.");
+
+  const db = await getDb();
+  const bookingRef = db.collection('bookings').doc();
+  const clientDoc = await db.collection('clients').doc(bookingData.clientId).get();
+  if (!clientDoc.exists) throw new Error("Client not found.");
+  const client = clientDoc.data() as Client;
 
   const totalSale = bookingData.passengers.reduce((acc: number, p: any) => acc + (Number(p.salePrice) || 0), 0);
   const totalPurchase = bookingData.passengers.reduce((acc: number, p: any) => acc + (Number(p.purchasePrice) || 0), 0);
   const totalProfit = totalSale - totalPurchase;
   
-   const db = await getDb();
-   const bookingRef = db.collection('bookings').doc();
-
    await bookingRef.set({
        ...bookingData,
        id: bookingRef.id,
        enteredBy: user.name,
        enteredAt: new Date().toISOString(),
+       isDeleted: false,
    });
 
    await postRevenue({
-      sourceType: "tickets",
+      sourceType: "booking",
       sourceId: bookingRef.id,
       date: bookingData.issueDate,
       currency: bookingData.currency,
-      amount: totalProfit,
-      clientId: bookingData.clientId
+      amount: totalSale,
+      clientId: bookingData.clientId,
+      description: `إيراد حجز طيران PNR: ${bookingData.pnr} للعميل ${client.name}`,
+      meta: { ...bookingData, bookingId: bookingRef.id },
     });
 
     if (totalPurchase > 0) {
       await postCost({
-        costKey: "cost_tickets",
-        sourceType: "tickets",
+        costKey: "tickets",
+        sourceType: "booking",
         sourceId: bookingRef.id,
         date: bookingData.issueDate,
         currency: bookingData.currency,
         amount: totalPurchase,
-        supplierId: bookingData.supplierId
+        supplierId: bookingData.supplierId,
+        description: `تكلفة حجز طيران PNR: ${bookingData.pnr}`,
+        meta: { ...bookingData, bookingId: bookingRef.id },
       });
     }
 
@@ -112,6 +119,45 @@ export async function refundBooking(booking: BookingEntry, data: any, isNew: boo
 export async function exchangeBooking(booking: BookingEntry, data: any, isNew: boolean): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
 export async function voidBooking(booking: BookingEntry, data: any, isNew: boolean): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
 export async function addMultipleBookings(bookings: any[]): Promise<{ success: boolean; count: number; error?: string; newBookings?: BookingEntry[]}> { return { success: false, count: 0, error: 'Not implemented' }}
-export async function softDeleteBooking(id: string): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
-export async function restoreBooking(id: string): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
-export async function permanentDeleteBooking(id: string): Promise<{ success: boolean; error?: string}> { return { success: false, error: 'Not implemented' }}
+
+export async function softDeleteBooking(id: string): Promise<{ success: boolean; error?: string}> { 
+    const db = await getDb();
+    if (!db) return { success: false, error: "Database not available" };
+    const batch = db.batch();
+    const bookingRef = db.collection('bookings').doc(id);
+    batch.update(bookingRef, { isDeleted: true, deletedAt: new Date().toISOString() });
+    const vouchersSnap = await db.collection('journal-vouchers').where('originalData.bookingId', '==', id).get();
+    vouchersSnap.forEach(doc => {
+        batch.update(doc.ref, { isDeleted: true });
+    });
+    await batch.commit();
+    return { success: true };
+}
+
+export async function restoreBooking(id: string): Promise<{ success: boolean; error?: string}> { 
+    const db = await getDb();
+    if (!db) return { success: false, error: "Database not available" };
+    const batch = db.batch();
+    const bookingRef = db.collection('bookings').doc(id);
+    batch.update(bookingRef, { isDeleted: false, deletedAt: null });
+     const vouchersSnap = await db.collection('journal-vouchers').where('originalData.bookingId', '==', id).get();
+    vouchersSnap.forEach(doc => {
+        batch.update(doc.ref, { isDeleted: false });
+    });
+    await batch.commit();
+    return { success: true };
+}
+
+export async function permanentDeleteBooking(id: string): Promise<{ success: boolean; error?: string}> { 
+    const db = await getDb();
+    if (!db) return { success: false, error: "Database not available" };
+    const batch = db.batch();
+    const bookingRef = db.collection('bookings').doc(id);
+    batch.delete(bookingRef);
+    const vouchersSnap = await db.collection('journal-vouchers').where('originalData.bookingId', '==', id).get();
+    vouchersSnap.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+    await batch.commit();
+    return { success: true };
+}
