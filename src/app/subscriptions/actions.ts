@@ -204,46 +204,49 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         // == Journal Entries ==
         const arAccountId = financeSettings.receivableAccountId;
         if (!arAccountId) {
-             console.warn("AR account for subscriptions is not defined, skipping main journal entry.");
-        } else {
-            const creditEntries: JournalEntry[] = [];
-            const partnerShareAmount = (subscriptionData.hasPartner && subscriptionData.partnerId && subscriptionData.partnerSharePercentage) 
-                ? profit * (subscriptionData.partnerSharePercentage / 100) 
-                : 0;
-            const alrawdatainShare = profit - partnerShareAmount;
+             throw new Error("حساب الذمم المدينة (AR) غير محدد في إعدادات الربط المالي. يرجى مراجعة الإعدادات.");
+        }
 
-            if (alrawdatainShare > 0) {
-                 const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
-                 if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined.");
-                 creditEntries.push({
-                    accountId: revenueAccountId,
-                    amount: alrawdatainShare,
-                    description: `إيراد اشتراك ${finalSubscriptionData.serviceName}`
-                });
-            }
+        const creditEntries: JournalEntry[] = [];
+        
+        // Partner Share Calculation
+        const partnerShareAmount = (subscriptionData.hasPartner && subscriptionData.partnerId && subscriptionData.partnerSharePercentage) 
+            ? profit * (subscriptionData.partnerSharePercentage / 100) 
+            : 0;
+        const alrawdatainShare = profit - partnerShareAmount;
 
-            if (partnerShareAmount > 0 && subscriptionData.partnerId) {
-                 creditEntries.push({
-                    accountId: subscriptionData.partnerId,
-                    amount: partnerShareAmount,
-                    description: `حصة شريك من اشتراك`
-                });
-            }
+        if (alrawdatainShare > 0) {
+             const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
+             if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined.");
+             creditEntries.push({
+                accountId: revenueAccountId,
+                amount: alrawdatainShare,
+                description: `إيراد اشتراك ${finalSubscriptionData.serviceName}`
+            });
+        }
 
-            if (creditEntries.length > 0) {
-                await postJournalEntry({
-                    sourceType: 'subscription',
-                    sourceId: subscriptionRef.id,
-                    description: `إثبات دين اشتراك ${finalSubscriptionData.serviceName}`,
-                    amount: totalSale,
-                    currency: finalSubscriptionData.currency,
-                    date: new Date(finalSubscriptionData.startDate),
-                    userId: user.uid,
-                    debitAccountId: finalSubscriptionData.clientId,
-                    creditEntries: creditEntries,
-                    meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
-                });
-            }
+        if (partnerShareAmount > 0 && subscriptionData.partnerId) {
+             creditEntries.push({
+                accountId: subscriptionData.partnerId,
+                amount: partnerShareAmount,
+                description: `حصة شريك من اشتراك`
+            });
+        }
+        
+        // Main Journal Entry for the sale
+        if (creditEntries.length > 0) {
+            await postJournalEntry({
+                sourceType: 'subscription',
+                sourceId: subscriptionRef.id,
+                description: `إثبات دين اشتراك ${finalSubscriptionData.serviceName}`,
+                amount: totalSale,
+                currency: finalSubscriptionData.currency,
+                date: new Date(finalSubscriptionData.startDate),
+                userId: user.uid,
+                debitAccountId: finalSubscriptionData.clientId, // Debit the client
+                creditEntries: creditEntries,
+                meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
+            });
         }
         
         if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
@@ -768,5 +771,7 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+
+    
 
     
