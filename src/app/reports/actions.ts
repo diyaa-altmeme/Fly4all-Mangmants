@@ -12,7 +12,6 @@ import { getBoxes } from '@/app/boxes/actions';
 import { getSettings } from '@/app/settings/actions';
 import { getExchanges } from '@/app/exchanges/actions';
 import { normalizeVoucherType, type NormalizedVoucherType } from "@/lib/accounting/voucher-types";
-import { normalizeVoucherType } from "@/lib/accounting/voucher-types";
 
 const normalizeToDate = (value: unknown): Date | null => {
   if (!value) return null;
@@ -156,52 +155,6 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       return accountLabelMap.get(id) || STATIC_ACCOUNT_LABELS[id] || id;
     };
 
-    const resolveSourceRoute = (
-      type: NormalizedVoucherType | string | undefined,
-      sourceId?: string | null,
-      voucherId?: string,
-      meta?: Record<string, any>,
-      rawSourceType?: string,
-    ): string | undefined => {
-      if (!sourceId && !voucherId) return undefined;
-      const fallbackVoucherId = voucherId || sourceId || '';
-      switch (type) {
-        case 'booking':
-        case 'exchange':
-        case 'exchange_transaction':
-        case 'exchange_payment':
-        case 'exchange_adjustment':
-        case 'exchange_revenue':
-        case 'exchange_expense':
-        case 'refund':
-        case 'void':
-          return sourceId ? `/bookings/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
-        case 'visa':
-          return sourceId ? `/visas/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
-        case 'subscription': {
-          const subscriptionId = meta?.subscriptionId || meta?.subscription?.id || sourceId;
-          if ((rawSourceType || '').includes('installment')) {
-            const installmentId = meta?.installmentId || sourceId || voucherId;
-            return installmentId ? `/subscriptions?installment=${installmentId}` : '/subscriptions';
-          }
-          return subscriptionId ? `/subscriptions/${subscriptionId}` : '/subscriptions';
-        }
-        case 'segment': {
-          const periodId = meta?.periodId || meta?.segmentPeriodId;
-          if (periodId) {
-            return `/segments?period=${periodId}`;
-          }
-          return sourceId ? `/segments/${sourceId}` : '/segments';
-        }
-        case 'profit-sharing': {
-          const monthId = meta?.manualProfitId || meta?.profitMonthId || sourceId;
-          return monthId ? `/profit-sharing?month=${monthId}` : '/profit-sharing';
-        }
-        default:
-          return `/accounts/vouchers/${fallbackVoucherId}/edit`;
-      }
-    };
-
     const docCache = new Map<string, any>();
     const fetchDoc = async (collection: string, id?: string | null) => {
       if (!id) return null;
@@ -315,171 +268,6 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
           description: descriptionParts.join(' '),
           notes: notesParts.join(' • ') || undefined,
           parties,
-
-    const resolveSourceRoute = (
-      type: NormalizedVoucherType | string | undefined,
-      sourceId?: string | null,
-      voucherId?: string
-    ): string | undefined => {
-      if (!sourceId && !voucherId) return undefined;
-      const fallbackVoucherId = voucherId || sourceId || '';
-      switch (type) {
-        case 'booking':
-        case 'exchange':
-        case 'exchange_transaction':
-        case 'exchange_payment':
-        case 'exchange_adjustment':
-        case 'exchange_revenue':
-        case 'exchange_expense':
-        case 'refund':
-        case 'void':
-          return sourceId ? `/bookings/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
-        case 'visa':
-          return sourceId ? `/visas/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
-        case 'subscription':
-          return sourceId ? `/subscriptions/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
-        case 'segment':
-          return sourceId ? `/segments/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
-        case 'profit-sharing':
-          return sourceId ? `/profit-sharing/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
-        default:
-          return `/accounts/vouchers/${fallbackVoucherId}/edit`;
-      }
-    };
-
-    allVouchersSnap.forEach(doc => {
-        const v = doc.data() as JournalVoucher;
-        const voucherMeta = (v as any)?.meta || (v.originalData?.meta ?? {});
-        const normalizedMeta = typeof voucherMeta === 'object' && voucherMeta !== null ? voucherMeta as Record<string, any> : {};
-
-        const isSoftDeleted = Boolean(
-          v.isDeleted ||
-          v.deletedAt ||
-          normalizedMeta?.isDeleted ||
-          normalizedMeta?.status === 'deleted' ||
-          normalizedMeta?.deletedAt ||
-          v.originalData?.isDeleted ||
-          v.originalData?.meta?.isDeleted
-        );
-
-        if (!includeDeleted && isSoftDeleted) {
-          return;
-        }
-
-        const voucherDate = normalizeToDate(v.date) ?? normalizeToDate(v.createdAt) ?? new Date();
-
-        const rawSourceType = v.originalData?.sourceType || v.sourceType || v.voucherType;
-        const normalizedType = normalizeVoucherType(rawSourceType || v.voucherType);
-
-        const effectiveSourceId = v.originalData?.sourceId || v.sourceId || normalizedMeta?.sourceId || doc.id;
-        const invoiceNumber = v.invoiceNumber || normalizedMeta?.invoiceNumber || normalizedMeta?.reference || doc.id;
-        const officerName = normalizedMeta?.officerName || usersMap.get(v.createdBy) || v.officer || v.createdBy;
-        const baseNotes = normalizedMeta?.description || normalizedMeta?.notes || v.notes || '';
-
-        const processEntry = (entry: JournalEntry, type: 'debit' | 'credit') => {
-            if (entry.accountId === accountId) {
-                const amount = (type === 'debit' ? 1 : -1) * (entry.amount || 0);
-                const currency = v.currency || 'USD';
-
-                if (dateFrom && voucherDate < dateFrom) {
-                    openingBalances[currency] = (openingBalances[currency] || 0) + amount;
-                } else if ((!dateFrom || voucherDate >= dateFrom) && (!dateTo || voucherDate <= dateTo)) {
-
-                    let description: string | StructuredDescription = entry.description || baseNotes;
-                    if (!description) {
-                      description = normalizedMeta?.description || '';
-                    }
-
-                    if (normalizedType === 'distributed_receipt') {
-                        const baseCurrency = currency;
-                        const totalAmount = Number(v.originalData?.totalAmount ?? normalizedMeta?.totalAmount ?? entry.amount ?? 0);
-                        const companyAmount = Number(v.originalData?.companyAmount ?? normalizedMeta?.companyAmount ?? 0);
-                        const formattedTotal = new Intl.NumberFormat('en-US').format(totalAmount);
-                        const formattedCompany = new Intl.NumberFormat('en-US').format(companyAmount);
-                        const clientName = accountLabelMap.get(v.originalData?.accountId || normalizedMeta?.accountId || '') || normalizedMeta?.clientName || '';
-
-                        const rawDistributions = normalizedMeta?.distributions || v.originalData?.distributions || {};
-                        const distributions = Object.entries(rawDistributions)
-                            .map(([channelId, distData]: [string, any]) => {
-                                const numericAmount = Number(distData?.amount || 0);
-                                if (!numericAmount) return null;
-                                const label = distributionChannelLabel.get(channelId)
-                                    || accountLabelMap.get(channelId)
-                                    || distData?.name
-                                    || channelId;
-                                const formattedAmount = new Intl.NumberFormat('en-US').format(numericAmount);
-                                const currencyCode = distData?.currency || baseCurrency;
-                                return {
-                                    name: label,
-                                    amount: `${formattedAmount} ${currencyCode}`,
-                                };
-                            })
-                            .filter(Boolean) as { name: string; amount: string }[];
-
-                        description = {
-                            title: clientName ? `سند قبض موزع من ${clientName}` : 'سند قبض موزع',
-                            totalReceived: `الإجمالي: ${formattedTotal} ${baseCurrency}`,
-                            selfReceipt: companyAmount > 0 ? `سداد للدافع: ${formattedCompany} ${baseCurrency}` : undefined,
-                            distributions,
-                            notes: v.notes || normalizedMeta?.notes || '',
-                        };
-                    }
-
-                    const oppositeEntries = (type === 'debit' ? v.creditEntries : v.debitEntries) || [];
-                    const otherAccountIds = Array.from(new Set(
-                      oppositeEntries
-                        .map(other => other.accountId)
-                        .filter(id => id && id !== entry.accountId)
-                    ));
-
-                    const accountPartyNames = otherAccountIds
-                      .map(id => getAccountLabel(id))
-                      .filter(Boolean) as string[];
-
-                    const metaCandidates = [
-                      normalizedMeta?.clientName,
-                      normalizedMeta?.supplierName,
-                      normalizedMeta?.companyName,
-                      normalizedMeta?.partnerName,
-                      normalizedMeta?.from,
-                      normalizedMeta?.to,
-                      normalizedMeta?.payee,
-                    ].filter(Boolean) as string[];
-
-                    const otherPartyList = Array.from(new Set([...accountPartyNames, ...metaCandidates]));
-                    const otherParty = otherPartyList.join('، ');
-
-                    const notes = entry.description || normalizedMeta?.notes || v.notes || '';
-
-                    reportRows.push({
-                        id: `${doc.id}_${type}_${Math.random()}`,
-                        date: voucherDate.toISOString(),
-                        invoiceNumber,
-                        description,
-                        debit: type === 'debit' ? entry.amount || 0 : 0,
-                        credit: type === 'credit' ? entry.amount || 0 : 0,
-                        currency: currency,
-                        officer: officerName,
-                        voucherType: normalizedType,
-                        normalizedType,
-                        rawVoucherType: v.voucherType,
-                        sourceType: normalizedType,
-                        rawSourceType,
-                        sourceId: effectiveSourceId,
-                        sourceRoute: v.originalData?.sourceRoute || resolveSourceRoute(normalizedType, effectiveSourceId, doc.id),
-                        originalData: { ...v.originalData, meta: normalizedMeta },
-                        notes,
-                        direction: type,
-                        amount: entry.amount || 0,
-                        type: normalizedType,
-                        accountId: entry.accountId,
-                        accountScope: resolvedAccountType,
-                        relationKind: resolvedRelationKind,
-                        createdAt: serializeDate(v.createdAt),
-                        otherParty,
-                    });
-                }
-            }
         };
       }
 
@@ -585,8 +373,8 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         const paidAmount = formatAmountWithCurrency(subscription?.paidAmount ?? safeMeta.paidAmount, currency);
         const structured: StructuredDescription = {
           title: `اشتراك ${subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId}`,
-          totalReceived: saleAmount ? `قيمة الاشتراك: ${saleAmount}` : undefined,
-          selfReceipt: profitAmount ? `الربح: ${profitAmount}` : undefined,
+          totalReceived: saleAmount ? `قيمة الاشتراك: ${saleAmount}` : null,
+          selfReceipt: profitAmount ? `الربح: ${profitAmount}` : null,
           distributions: [
             costAmount ? { name: 'التكلفة', amount: costAmount } : null,
             paidAmount ? { name: 'المسدد', amount: paidAmount } : null,
@@ -618,8 +406,8 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         const period = [fromLabel, toLabel].filter(Boolean).join(' حتى ');
         const structured: StructuredDescription = {
           title: `سكمنت ${segment.companyName}`,
-          totalReceived: total ? `الإجمالي: ${total}` : undefined,
-          selfReceipt: companyShare ? `حصة الشركة: ${companyShare}` : undefined,
+          totalReceived: total ? `الإجمالي: ${total}` : null,
+          selfReceipt: companyShare ? `حصة الشركة: ${companyShare}` : null,
           distributions: [
             partnerShare ? { name: 'حصة الشركاء', amount: partnerShare } : null,
             ticketProfits ? { name: 'أرباح التذاكر', amount: ticketProfits } : null,
@@ -656,7 +444,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
             const period = [fromLabel, toLabel].filter(Boolean).join(' حتى ');
             const structured: StructuredDescription = {
               title: period ? `توزيع أرباح ${period}` : 'توزيع أرباح',
-              totalReceived: total ? `الإجمالي: ${total}` : undefined,
+              totalReceived: total ? `الإجمالي: ${total}` : null,
               distributions: distributions.length ? distributions : undefined,
               notes: manual.notes || undefined,
             };
@@ -682,8 +470,53 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
           }
         }
       }
-
-      return null;
+        return null;
+    };
+    
+    const resolveSourceRoute = (
+      type: NormalizedVoucherType | string | undefined,
+      sourceId?: string | null,
+      voucherId?: string,
+      meta?: Record<string, any>,
+      rawSourceType?: string,
+    ): string | undefined => {
+      if (!sourceId && !voucherId) return undefined;
+      const fallbackVoucherId = voucherId || sourceId || '';
+      switch (type) {
+        case 'booking':
+        case 'exchange':
+        case 'exchange_transaction':
+        case 'exchange_payment':
+        case 'exchange_adjustment':
+        case 'exchange_revenue':
+        case 'exchange_expense':
+        case 'refund':
+        case 'void':
+          return sourceId ? `/bookings/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
+        case 'visa':
+          return sourceId ? `/visas/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
+        case 'subscription': {
+          const subscriptionId = meta?.subscriptionId || meta?.subscription?.id || sourceId;
+          if ((rawSourceType || '').includes('installment')) {
+            const installmentId = meta?.installmentId || sourceId || voucherId;
+            return installmentId ? `/subscriptions?installment=${installmentId}` : '/subscriptions';
+          }
+          return subscriptionId ? `/subscriptions/${subscriptionId}` : '/subscriptions';
+        }
+        case 'segment': {
+          const periodId = meta?.periodId || meta?.segmentPeriodId;
+          if (periodId) {
+            return `/segments?period=${periodId}`;
+          }
+          return sourceId ? `/segments/${sourceId}` : '/segments';
+        }
+        case 'profit-sharing': {
+          const monthId = meta?.manualProfitId || meta?.profitMonthId || sourceId;
+          return monthId ? `/profit-sharing?month=${monthId}` : '/profit-sharing';
+        }
+        default:
+          return `/accounts/vouchers/${fallbackVoucherId}/edit`;
+      }
     };
 
     for (const doc of allVouchersSnap.docs) {
@@ -736,8 +569,8 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
           return;
         }
 
-        const entryAmount = Number(entry.amount ?? entry.debit ?? entry.credit ?? 0);
-        const currency = entry.currency || voucherCurrency;
+        const entryAmount = Number(entry.amount ?? (entry as any).debit ?? (entry as any).credit ?? 0);
+        const currency = (entry.currency as Currency) || voucherCurrency;
         const signedAmount = (direction === 'debit' ? 1 : -1) * entryAmount;
 
         if (dateFrom && voucherDate < dateFrom) {
@@ -788,7 +621,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
             title: clientName ? `سند قبض موزع من ${clientName}` : 'سند قبض موزع',
             totalReceived: `الإجمالي: ${formattedTotal} ${baseCurrency}`,
             selfReceipt:
-              companyAmount > 0 ? `سداد للدافع: ${formattedCompany} ${baseCurrency}` : undefined,
+              companyAmount > 0 ? `سداد للدافع: ${formattedCompany} ${baseCurrency}` : null,
             distributions,
             notes: v.notes || normalizedMeta?.notes || '',
           };
