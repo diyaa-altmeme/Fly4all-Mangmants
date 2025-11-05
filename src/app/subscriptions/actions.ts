@@ -643,29 +643,25 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
     const user = await getCurrentUserFromSession();
     if (!user) return { success: false, error: "User not authenticated." };
 
+    const batch = db.batch();
     try {
-        const batch = db.batch();
-        const subscriptionRef = db.collection('subscriptions').doc(id);
-
         const now = new Date().toISOString();
         const deletedBy = user.name;
 
-        batch.update(subscriptionRef, {
-            isDeleted: true,
-            deletedAt: now,
-            deletedBy: deletedBy,
+        // Soft delete the subscription itself
+        const subscriptionRef = db.collection('subscriptions').doc(id);
+        batch.update(subscriptionRef, { isDeleted: true, deletedAt: now, deletedBy });
+
+        // Soft delete associated installments
+        const installmentsSnap = await db.collection('subscription_installments').where('subscriptionId', '==', id).get();
+        installmentsSnap.forEach(doc => {
+            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
         });
 
-        // Also soft-delete associated journal vouchers
-        const journalVouchersSnap = await db.collection('journal-vouchers')
-            .where('originalData.subscriptionId', '==', id)
-            .get();
-
+        // Soft delete associated journal vouchers
+        const journalVouchersSnap = await db.collection('journal-vouchers').where('originalData.subscriptionId', '==', id).get();
         journalVouchersSnap.forEach(doc => {
-            batch.update(doc.ref, { 
-                isDeleted: true,
-                deletedAt: now 
-            });
+            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
         });
 
         await batch.commit();
@@ -684,6 +680,7 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
 
         return { success: true };
     } catch (e: any) {
+        console.error(`Error soft-deleting subscription ${id}:`, e);
         return { success: false, error: e.message };
     }
 }
@@ -695,24 +692,37 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
     const user = await getCurrentUserFromSession();
     if (!user) return { success: false, error: "User not authenticated." };
 
+    const batch = db.batch();
     try {
-        const batch = db.batch();
+        const restoredBy = user.name;
+
+        // Restore the subscription itself
         const subscriptionRef = db.collection('subscriptions').doc(id);
-        
-        batch.update(subscriptionRef, {
-            isDeleted: false,
+        batch.update(subscriptionRef, { 
+            isDeleted: false, 
             deletedAt: FieldValue.delete(),
             deletedBy: FieldValue.delete(),
+            restoredAt: new Date().toISOString(),
+            restoredBy: restoredBy,
+        });
+
+        // Restore associated installments
+        const installmentsSnap = await db.collection('subscription_installments').where('subscriptionId', '==', id).get();
+        installmentsSnap.forEach(doc => {
+            batch.update(doc.ref, { isDeleted: false, deletedAt: FieldValue.delete(), deletedBy: FieldValue.delete() });
         });
         
+        // Restore associated journal vouchers
         const journalVouchersSnap = await db.collection('journal-vouchers')
             .where('originalData.subscriptionId', '==', id)
+            .where('isDeleted', '==', true) // Only restore vouchers that were soft-deleted
             .get();
         
         journalVouchersSnap.forEach(doc => {
-            batch.update(doc.ref, {
-                isDeleted: false,
+            batch.update(doc.ref, { 
+                isDeleted: false, 
                 deletedAt: FieldValue.delete(),
+                deletedBy: FieldValue.delete(),
             });
         });
         
@@ -777,3 +787,4 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
+

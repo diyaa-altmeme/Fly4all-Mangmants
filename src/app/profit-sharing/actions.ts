@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getFinanceMap, postJournalEntries } from '@/lib/finance/posting';
@@ -8,6 +9,8 @@ import { cache } from 'react';
 import { format, parseISO } from 'date-fns';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { FieldValue } from "firebase-admin/firestore";
+import { createAuditLog } from '../system/activity-log/actions';
 
 export async function recordProfitShare(payoutId: string, partnerAccountId: string, amount: number) {
   if (amount <= 0) return;
@@ -131,7 +134,7 @@ export async function saveManualProfitDistribution(data: {
     partners: Omit<ProfitShare, 'id' | 'profitMonthId'>[];
 }): Promise<{ success: boolean; error?: string; }> {
     const db = await getDb();
-    if (!db) return { success: false, error: 'Database not available' };
+    if (!db) return { success: false, error: "Database not available" };
     const user = await getCurrentUserFromSession();
     if (!user || !('role' in user) || !user.boxId) return { success: false, error: "User not authenticated or box not assigned." };
 
@@ -266,12 +269,38 @@ export async function deleteProfitShare(id: string): Promise<{ success: boolean;
 
 export async function deleteManualProfitPeriod(id: string): Promise<{ success: boolean; error?: string }> {
     const db = await getDb();
-    if (!db) return { success: false, error: 'Database not available' };
+    if (!db) return { success: false, error: "Database not available" };
+    const user = await getCurrentUserFromSession();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const batch = db.batch();
     try {
-        await db.collection('manual_monthly_profits').doc(id).delete();
+        const periodRef = db.collection('manual_monthly_profits').doc(id);
+        batch.delete(periodRef);
+
+        const journalVouchersSnap = await db.collection('journal-vouchers')
+            .where('originalData.manualProfitId', '==', id)
+            .get();
+        journalVouchersSnap.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+
+        await createAuditLog({
+            userId: user.uid,
+            userName: user.name,
+            action: 'DELETE',
+            targetType: 'VOUCHER',
+            description: `حذف فترة توزيع أرباح يدوية (ID: ${id}) وجميع القيود المرتبطة بها.`,
+            targetId: id,
+        });
+
         revalidatePath('/profit-sharing');
+        revalidatePath('/reports/account-statement');
         return { success: true };
     } catch (e: any) {
+        console.error("Error deleting manual profit period:", e);
         return { success: false, error: e.message };
     }
 }
