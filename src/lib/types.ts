@@ -430,10 +430,10 @@ export type AccountType = 'group' | 'box' | 'client' | 'supplier' | 'expense' | 
 
 export type StructuredDescription = {
     title: string;
-    totalReceived?: string | null;
-    selfReceipt?: string | null;
+    totalReceived: string | null;
+    selfReceipt: string | null;
     distributions: { name: string; amount: string }[];
-    notes?: string;
+    notes: string;
 };
 
 export type ReportTransaction = {
@@ -896,6 +896,10 @@ export type Subscription = {
     isDeleted?: boolean;
     deletedAt?: string;
     installments?: SubscriptionInstallment[]; // For client-side joining
+    hasPartner?: boolean;
+    partnerId?: string;
+    partnerName?: string;
+    partnerSharePercentage?: number;
 };
 
 export type ReconciliationLog = {
@@ -1053,6 +1057,19 @@ export type DebtsReportData = {
 // This is a Zod-like declaration, it can't be imported directly.
 // This is a placeholder for the schema type.
 export type DistributedReceiptInput = any;
+
+export type JournalEntry = {
+    accountId: string;
+    amount: number;
+    description?: string;
+    debit?: number;
+    credit?: number;
+    currency?: Currency;
+    relationId?: string;
+    companyId?: string;
+    accountType?: string;
+    type?: 'debit' | 'credit';
+}
 
 export type JournalVoucher = {
     id: string;
@@ -1491,5 +1508,3 @@ export interface PostJournalInput {
   sourceId: string;
   sourceRoute?: string;
 }
-
-    
