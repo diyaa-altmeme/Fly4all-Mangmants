@@ -116,7 +116,7 @@ export interface Box {
 
 // === الديون ===
 export interface Debt {
-  id: string;
+  id:string;
   clientId: string;
   clientName: string;
   amount: number;
@@ -432,7 +432,7 @@ export type StructuredDescription = {
     title: string;
     totalReceived?: string | null;
     selfReceipt?: string | null;
-    distributions?: { name: string; amount: string }[];
+    distributions: { name: string; amount: string }[];
     notes?: string;
 };
 
@@ -464,6 +464,7 @@ export type ReportTransaction = {
   originalData?: any;
   accountScope?: string;
   relationKind?: string;
+  createdAt: string;
 };
 
 export type ReportInfo = {
@@ -477,7 +478,7 @@ export type ReportInfo = {
   totalDebitIQD: number;
   totalCreditIQD: number;
   finalBalanceIQD: number;
-  currency: Currency | 'both';
+  currency: Currency | "both";
   accountType: AccountType;
   balanceMode: 'asset' | 'liability';
   currencyBreakdown?: ReportCurrencySummary[];
@@ -800,6 +801,17 @@ export type ThemeCustomizationSettings = ThemeConfig & {
   };
 }
 
+export interface FinanceAccountsSettings {
+  receivableAccountId: string;
+  payableAccountId: string;
+  revenueAccountId: string;
+  expenseAccountId: string;
+  cashAccountId: string;
+  bankAccountId: string;
+  blockDirectCashRevenue: boolean;
+  revenueMap: Record<string, string>;
+}
+
 export type AppSettings = {
     currencySettings?: CurrencySettings;
     exchangeRateTemplate?: string;
@@ -813,7 +825,7 @@ export type AppSettings = {
     importFieldsSettings?: ImportFieldSettings;
     importLogicSettings?: ImportLogicSettings;
     relationSections?: RelationSection[];
-    financeAccounts?: FinanceAccountsMap;
+    financeAccounts?: FinanceAccountsSettings;
 };
 
 export type ExchangeRateLog = {

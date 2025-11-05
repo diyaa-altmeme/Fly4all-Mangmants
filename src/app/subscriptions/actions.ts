@@ -13,9 +13,11 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { cache } from 'react';
-import { postJournalEntry, getFinanceMap, type JournalEntry } from '@/lib/finance/postJournal';
+import { getFinanceMap, type JournalEntry } from '@/lib/finance/postJournal';
 import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
 import * as admin from 'firebase-admin';
+import { postJournalEntry } from '@/lib/finance/postJournal';
+
 
 const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
@@ -205,11 +207,36 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         });
 
         // == Journal Entries ==
-        const journalEntries: JournalEntry[] = [];
-        const arAccountId = financeSettings.receivableAccountId;
+        const costEntries: JournalEntry[] = [];
+        if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
+            const costAccountId = financeSettings.expenseMap?.subscriptions || financeSettings.generalExpenseId;
+            if (!costAccountId) {
+                throw new Error("Cost account for subscriptions is not defined in finance settings.");
+            }
+            costEntries.push({
+                accountId: costAccountId,
+                debit: totalPurchase,
+                credit: 0,
+                currency: finalSubscriptionData.currency,
+                description: `تكلفة اشتراك ${finalSubscriptionData.serviceName}`
+            });
+            costEntries.push({
+                accountId: finalSubscriptionData.supplierId,
+                debit: 0,
+                credit: totalPurchase,
+                currency: finalSubscriptionData.currency,
+                description: `إثبات دين للمورد عن اشتراك`
+            });
+        }
+        
+        const partnerShareAmount = (subscriptionData.hasPartner && subscriptionData.partnerId && subscriptionData.partnerSharePercentage) 
+            ? profit * (subscriptionData.partnerSharePercentage / 100) 
+            : 0;
+        const alrawdatainShare = profit - partnerShareAmount;
 
+        const revenueEntries: JournalEntry[] = [];
         // Debit the client for the total sale amount
-        journalEntries.push({
+        revenueEntries.push({
             accountId: finalSubscriptionData.clientId,
             debit: totalSale,
             credit: 0,
@@ -217,16 +244,10 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             description: `دين اشتراك خدمة: ${finalSubscriptionData.serviceName}`,
         });
 
-        // Partner Share Calculation
-        const partnerShareAmount = (subscriptionData.hasPartner && subscriptionData.partnerId && subscriptionData.partnerSharePercentage) 
-            ? profit * (subscriptionData.partnerSharePercentage / 100) 
-            : 0;
-        const alrawdatainShare = profit - partnerShareAmount;
-
         if (alrawdatainShare > 0) {
              const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
              if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined in finance settings.");
-             journalEntries.push({
+             revenueEntries.push({
                 accountId: revenueAccountId,
                 amount: alrawdatainShare,
                 credit: alrawdatainShare,
@@ -237,7 +258,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         }
 
         if (partnerShareAmount > 0 && subscriptionData.partnerId) {
-             journalEntries.push({
+             revenueEntries.push({
                 accountId: subscriptionData.partnerId,
                 amount: partnerShareAmount,
                 credit: partnerShareAmount,
@@ -246,39 +267,18 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                 description: `حصة شريك من اشتراك`
             });
         }
-
-        // Main Journal Entry for the sale
-        if (journalEntries.length > 0) {
-            await postJournalEntry({
-                sourceType: 'subscription',
-                sourceId: subscriptionRef.id,
-                description: `إثبات دين اشتراك ${finalSubscriptionData.serviceName}`,
-                date: new Date(finalSubscriptionData.startDate),
-                userId: user.uid,
-                entries: journalEntries,
-                meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
-            });
-        }
         
-        if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
-           const costAccountId = financeSettings.expenseMap?.subscriptions || financeSettings.generalExpenseId;
-           if (!costAccountId) {
-                console.warn("Cost account for subscriptions is not defined, skipping cost journal entry.");
-           } else {
-               await postJournalEntry({
-                    sourceType: 'subscription_cost',
-                    sourceId: subscriptionRef.id,
-                    description: `تكلفة اشتراك خدمة ${finalSubscriptionData.serviceName}`,
-                    date: new Date(finalSubscriptionData.purchaseDate),
-                    userId: user.uid,
-                    entries: [
-                        { accountId: costAccountId, debit: totalPurchase, credit: 0, currency: finalSubscriptionData.currency },
-                        { accountId: finalSubscriptionData.supplierId, debit: 0, credit: totalPurchase, currency: finalSubscriptionData.currency },
-                    ],
-                    meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
-               });
-           }
-        }
+        const combinedEntries = [...costEntries, ...revenueEntries];
+
+        await postJournalEntry({
+            sourceType: 'subscription',
+            sourceId: subscriptionRef.id,
+            description: `قيد متكامل لاشتراك ${finalSubscriptionData.serviceName}`,
+            date: new Date(finalSubscriptionData.purchaseDate),
+            userId: user.uid,
+            entries: combinedEntries,
+            meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
+        });
         
         mainBatch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });
         if (finalSubscriptionData.supplierId) {
