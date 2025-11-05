@@ -84,7 +84,7 @@ export const getClientById = async (id: string): Promise<Client | null> => {
 };
 
 export const getCurrentUserFromSession = async (): Promise<(User & { permissions?: string[] }) | (Client & { isClient: true }) | null> => {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('session');
 
     if (!sessionCookie?.value) return null;
@@ -134,7 +134,8 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 
         const sessionCookie = await authAdmin.createSessionCookie(idToken, { expiresIn });
         
-        cookies().set('session', sessionCookie, {
+        const cookieStore = await cookies();
+        cookieStore.set('session', sessionCookie, {
             maxAge: expiresIn / 1000,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
