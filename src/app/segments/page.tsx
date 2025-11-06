@@ -4,8 +4,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Search, Filter, Loader2, RefreshCw, History, GitBranch } from 'lucide-react';
-import type { SegmentEntry, Client, Supplier } from '@/lib/types';
+import { PlusCircle, Loader2, History, GitBranch, ChevronDown, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import type { Client, Supplier, SegmentEntry } from '@/lib/types';
 import { getSegments, deleteSegmentPeriod } from '@/app/segments/actions';
 import AddSegmentPeriodDialog from './add-segment-period-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -18,13 +18,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { ChevronDown, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
-import SegmentDetailsTable from '@/components/segments/segment-details-table';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { buttonVariants } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import EditSegmentPeriodDialog from './add-segment-period-dialog'; 
+import SegmentDetailsTable from '@/components/segments/segment-details-table';
+import EditSegmentPeriodDialog from './components/edit-segment-period-dialog';
 import ProtectedPage from '@/components/auth/protected-page';
+import { RefreshCw } from 'lucide-react';
 
 
 const StatCard = ({ title, value, currency, className, arrow }: { title: string; value: number; currency: string; className?: string, arrow?: 'up' | 'down' }) => (
@@ -35,6 +35,7 @@ const StatCard = ({ title, value, currency, className, arrow }: { title: string;
         </p>
     </div>
 );
+
 
 const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period: any, index: number, onDataChange: () => void, clients: Client[], suppliers: Supplier[] }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -78,7 +79,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
                     <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="p-1 text-center">
-                        <DropdownMenu>
+                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => e.stopPropagation()}><MoreHorizontal className='h-4 w-4'/></Button>
                             </DropdownMenuTrigger>
@@ -108,6 +109,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
+
                             </DropdownMenuContent>
                          </DropdownMenu>
                     </TableCell>
@@ -260,7 +262,7 @@ function SegmentsContent() {
                                     <TableHead className="text-center font-bold p-2">أرباح التذاكر</TableHead>
                                     <TableHead className="text-center font-bold p-2">أرباح أخرى</TableHead>
                                     <TableHead className="text-center font-bold p-2">حصة الروضتين</TableHead>
-                                    <TableHead className="text-center font-bold p-2">حصة الشريك</TableHead>
+                                    <TableHead className="font-bold text-center p-2">حصة الشريك</TableHead>
                                     <TableHead className="font-bold text-center p-2">الموظف</TableHead>
                                     <TableHead className="text-center p-2">الإجراءات</TableHead>
                                 </TableRow>
@@ -294,5 +296,3 @@ export default function SegmentsPage() {
         </ProtectedPage>
     );
 }
-
-    
