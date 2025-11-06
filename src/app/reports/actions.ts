@@ -135,7 +135,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
     const vouchersCollection = db.collection('journal-vouchers');
     const vouchersQuery = includeDeleted
       ? vouchersCollection
-      : vouchersCollection.where('isDeleted', '==', false);
+      : vouchersCollection.where('isDeleted', '!=', true);
     const allVouchersSnap = await vouchersQuery.orderBy('date', 'asc').get();
 
     const openingBalances: Record<string, number> = {};
@@ -322,7 +322,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         }
         
         // This is the new logic for the main subscription entry
-        const companyShare = subscription.hasPartner ? subscription.profit - (subscription.profit * (subscription.partnerSharePercentage / 100)) : subscription.profit;
+        const companyShare = (subscription?.hasPartner && subscription.partnerSharePercentage) ? subscription.profit - (subscription.profit * (subscription.partnerSharePercentage / 100)) : subscription.profit;
         const partnerShare = subscription.profit - companyShare;
         
         const saleAmount = formatAmountWithCurrency(subscription?.salePrice ?? safeMeta.salePrice, currency);
@@ -338,7 +338,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         
         const distributions: { name: string; amount: string }[] = [];
         if (costAmount) distributions.push({ name: 'التكلفة', amount: costAmount });
-        if (subscription.hasPartner) {
+        if (subscription?.hasPartner) {
             distributions.push({ name: `حصة الشركة`, amount: formatAmountWithCurrency(companyShare, currency)!});
             distributions.push({ name: `حصة الشريك ${subscription.partnerName}`, amount: formatAmountWithCurrency(partnerShare, currency)!});
         } else if (profitAmount) {
@@ -493,10 +493,6 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
     for (const doc of allVouchersSnap.docs) {
       const v = doc.data() as JournalVoucher;
       
-      if (v.isDeleted === true) {
-        continue;
-      }
-      
       const voucherMeta = (v as any)?.meta || (v.originalData?.meta ?? {});
       const normalizedMeta =
         typeof voucherMeta === 'object' && voucherMeta !== null
@@ -508,8 +504,8 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       const rawSourceType = v.originalData?.sourceType || v.sourceType || v.voucherType;
       const normalizedType = normalizeVoucherType(rawSourceType || v.voucherType);
       
-      if (normalizedType === 'subscription') {
-          const installments = v.originalData?.installments as SubscriptionInstallment[];
+      if (normalizedType === 'subscription' && v.originalData?.installments) {
+          const installments = v.originalData.installments as SubscriptionInstallment[];
           if (installments && Array.isArray(installments)) {
               installments.forEach((inst, index) => {
                   const instDate = normalizeToDate(inst.dueDate);
@@ -524,7 +520,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
                   reportRows.push({
                       id: `${doc.id}_installment_${index}`,
                       date: inst.dueDate,
-                      invoiceNumber: `${v.invoiceNumber}-${index + 1}`,
+                      invoiceNumber: v.invoiceNumber, // Use the subscription's invoice number
                       description: `القسط ${index + 1} من ${installments.length} - ${v.originalData.serviceName}`,
                       debit: accountId === v.originalData.clientId ? inst.amount : 0,
                       credit: 0,
@@ -539,15 +535,6 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
                       originalData: v.originalData,
                   });
               });
-              
-              // Now process payments for this subscription
-              const paymentEntries = [...(v.debitEntries || []), ...(v.creditEntries || [])];
-              paymentEntries.forEach(entry => {
-                  if (entry.accountId === accountId && v.sourceType !== 'subscription') {
-                       // This logic will be handled by the generic entry processing below
-                  }
-              });
-
               continue; // Skip the main voucher entry for subscriptions
           }
       }

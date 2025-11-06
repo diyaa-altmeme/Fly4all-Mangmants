@@ -3,7 +3,7 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus, JournalEntry as LegacyJournalEntry, Client, Supplier } from '@/lib/types';
+import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus, JournalVoucher, Client, Supplier } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { addMonths, format, parseISO, endOfDay, isWithinInterval, startOfDay } from 'date-fns';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -75,8 +75,8 @@ export async function getSubscriptions(includeDeleted = false): Promise<Subscrip
         const clientIds = [...new Set(subscriptions.map(s => s.clientId).filter(Boolean))];
         if (clientIds.length > 0) {
              const chunks: string[][] = [];
-             for (let i = 0; i < clientIds.length; i += 10) {
-                chunks.push(clientIds.slice(i, i + 10));
+             for (let i = 0; i < clientIds.length; i += 30) {
+                chunks.push(clientIds.slice(i, i + 30));
             }
 
             const clientsData = new Map<string, Client>();
@@ -323,7 +323,7 @@ export async function updateSubscription(subscriptionId: string, subscriptionDat
             oldInstallmentsSnap.forEach(doc => transaction.delete(doc.ref));
 
             // Delete old journal entries
-            const oldVouchersSnap = await db.collection('journal-vouchers').where('sourceId', '==', subscriptionId).where('sourceType', '==', 'subscription').get();
+            const oldVouchersSnap = await db.collection('journal-vouchers').where('originalData.subscriptionId', '==', subscriptionId).get();
             oldVouchersSnap.forEach(doc => transaction.delete(doc.ref));
 
             // Now, create new records (similar logic to addSubscription)
@@ -647,7 +647,7 @@ export async function deletePayment(paymentId: string) {
 
             const originalJournalDoc = await transaction.get(journalRef);
             if (!originalJournalDoc.exists) throw new Error("Original journal voucher not found.");
-            const originalJournal = originalJournalDoc.data() as LegacyJournalEntry;
+            const originalJournal = originalJournalDoc.data() as JournalVoucher;
 
             await postJournalEntry({
                 sourceType: 'subscription_reversal',
@@ -705,7 +705,7 @@ export async function updatePayment(paymentId: string, newData: { amount?: numbe
 
             if (Math.abs(amountDifference) > 0.01) {
                 const originalJournalDoc = await transaction.get(originalJournalRef);
-                const originalJournal = originalJournalDoc.data() as LegacyJournalEntry;
+                const originalJournal = originalJournalDoc.data() as JournalVoucher;
                 const notes = `تعديل دفعة اشتراك: ${oldPayment.id}`;
 
                 await postJournalEntry({
@@ -797,8 +797,7 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
             const installmentsSnap = await transaction.get(installmentsQuery);
 
             const voucherQuery = db.collection('journal-vouchers')
-                .where('originalData.subscriptionId', '==', id)
-                .where('sourceType', '==', 'subscription');
+                .where('originalData.subscriptionId', '==', id);
             const vouchersSnap = await transaction.get(voucherQuery);
 
             // THEN WRITE
@@ -974,5 +973,6 @@ export async function revalidateSubscriptionsPath() {
     
 
     
+
 
 
