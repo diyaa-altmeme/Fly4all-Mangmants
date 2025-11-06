@@ -214,7 +214,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
         if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined.");
 
-        // Debit Client for total sale
+        // 1. Debit Client for total sale
         entries.push({
             accountId: finalSubscriptionData.clientId,
             debit: totalSale,
@@ -224,7 +224,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             relationId: finalSubscriptionData.clientId,
         });
         
-        // Credit Supplier for total purchase cost
+        // 2. Credit Supplier for total purchase cost
         if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
              const apAccountId = financeSettings.payableAccountId;
              if (!apAccountId) throw new Error("Accounts Payable account not defined for subscription cost.");
@@ -238,16 +238,19 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             });
         }
 
-
-        // Credit Revenue & Partner Payable
+        // 3. Credit Revenue (Profit) distribution
         if (finalSubscriptionData.hasPartner && finalSubscriptionData.partnerId && partnerShareAmount > 0) {
             const partnerPayableAccount = financeSettings.payableAccountId;
             if (!partnerPayableAccount) throw new Error("Accounts Payable account not defined for partner share.");
             
             // Credit company share to revenue
-            entries.push({ accountId: revenueAccountId, debit: 0, credit: alrawdatainShare, currency: finalSubscriptionData.currency, description: `إيراد حصة الشركة من اشتراك: ${finalSubscriptionData.serviceName}` });
+            if (alrawdatainShare > 0) {
+                entries.push({ accountId: revenueAccountId, debit: 0, credit: alrawdatainShare, currency: finalSubscriptionData.currency, description: `إيراد حصة الشركة من اشتراك: ${finalSubscriptionData.serviceName}` });
+            }
             // Credit partner share to their payable account
-            entries.push({ accountId: finalSubscriptionData.partnerId, debit: 0, credit: partnerShareAmount, currency: finalSubscriptionData.currency, description: `حصة الشريك ${finalSubscriptionData.partnerName} من اشتراك`, relationId: finalSubscriptionData.partnerId });
+            if (partnerShareAmount > 0) {
+                entries.push({ accountId: finalSubscriptionData.partnerId, debit: 0, credit: partnerShareAmount, currency: finalSubscriptionData.currency, description: `حصة الشريك ${finalSubscriptionData.partnerName} من اشتراك`, relationId: finalSubscriptionData.partnerId });
+            }
 
         } else if (profit > 0){
             // Credit total profit to revenue
