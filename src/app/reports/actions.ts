@@ -493,7 +493,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
     for (const doc of allVouchersSnap.docs) {
       const v = doc.data() as JournalVoucher;
       
-      if (v.isDeleted === true && !includeDeleted) {
+      if (v.isDeleted === true) {
         continue;
       }
       
