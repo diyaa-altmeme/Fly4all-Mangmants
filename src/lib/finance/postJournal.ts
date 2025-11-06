@@ -1,16 +1,15 @@
 
-
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
-import { FieldValue, FieldPath } from "firebase-admin/firestore";
+import { FieldValue, FieldPath, Timestamp } from "firebase-admin/firestore";
+import * as admin from 'firebase-admin';
 import { getNextVoucherNumber } from "@/lib/sequences";
 import type { JournalEntry as LegacyJournalEntry, FinanceAccountsMap, Currency } from "../types";
 import { normalizeFinanceAccounts, type NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 import { inferAccountCategory, type AccountCategory } from '@/lib/finance/account-categories';
 import { getSettings } from "@/app/settings/actions";
 import { getCurrentUserFromSession } from "../auth/actions";
-import { Timestamp } from "firebase-admin/firestore";
 
 
 export type JournalEntry = {
@@ -354,107 +353,6 @@ export async function getFinanceMap(): Promise<NormalizedFinanceAccounts> {
   _cache = { at: now, map: fm };
   return fm;
 }
-
-// مثال: إنشاء قيد إيراد لوحدة معينة (tickets/visas/...)
-export async function postRevenue({
-  sourceType, sourceId, date, currency, amount,
-  clientId, // يُحفظ بالـ meta فقط (لا ننشئ حساب فرعي)
-}: {
-  sourceType: "tickets"|"visas"|"subscriptions"|"segments"|"profit_distribution";
-  sourceId: string;
-  date: string | Date;
-  currency: string;
-  amount: number;
-  clientId?: string;
-}) {
-  if (amount <= 0) return;
-
-  const fm = await getFinanceMap();
-
-  const revenueAccountId = fm.revenueMap?.[sourceType] || fm.generalRevenueId;
-  const arId = fm.receivableAccountId;
-  if (!revenueAccountId || !arId) {
-    throw new Error(`Missing mapping: revenue=${revenueAccountId} or AR=${arId}`);
-  }
-
-  const shouldDefer = fm.preventDirectCashRevenue && fm.defaultCashId;
-  const debitAccountId = shouldDefer ? arId : (fm.defaultCashId || arId);
-
-  const entries: JournalEntry[] = [
-    {
-      accountId: debitAccountId,
-      debit: amount,
-      credit: 0,
-      currency: currency as Currency,
-      note: shouldDefer ? 'إثبات إيراد آجل' : 'إثبات إيراد نقدي',
-      relationId: clientId,
-    },
-    {
-      accountId: revenueAccountId,
-      debit: 0,
-      credit: amount,
-      currency: currency as Currency,
-      note: 'قيد الإيراد',
-      relationId: clientId,
-    },
-  ];
-
-  return postJournalEntry({
-    sourceType,
-    sourceId,
-    date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
-    entries,
-    meta: { clientId, directCash: !shouldDefer },
-    description: shouldDefer ? 'قيد إيراد آجل' : 'قيد إيراد نقدي',
-  }, fm);
-}
-
-// مثال: تسجيل تكلفة
-export async function postCost({
-  costKey, // cost_tickets/cost_visas/...
-  sourceType, sourceId, date, currency, amount, supplierId
-}: {
-  costKey: keyof NonNullable<FinanceAccountsMap["expenseMap"]>;
-  sourceType: string; sourceId: string;
-  date: string|Date; currency: string; amount: number;
-  supplierId?: string;
-}) {
-  if (amount <= 0) return;
-  const fm = await getFinanceMap();
-  const expId = fm.expenseMap?.[costKey] || fm.generalExpenseId;
-  const apId = fm.payableAccountId;
-  if (!expId || !apId) throw new Error(`Missing mapping: expense=${expId} or AP=${apId}`);
-
-  const entries: JournalEntry[] = [
-    {
-      accountId: expId,
-      debit: amount,
-      credit: 0,
-      currency: currency as Currency,
-      note: 'تسجيل مصروف',
-      relationId: supplierId,
-    },
-    {
-      accountId: apId,
-      debit: 0,
-      credit: amount,
-      currency: currency as Currency,
-      note: 'تسجيل ذمم دائنة للمورد',
-      relationId: supplierId,
-    },
-  ];
-
-  return postJournalEntry({
-    sourceType,
-    sourceId,
-    date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
-    entries,
-    meta: { supplierId },
-    description: 'قيد مصروف',
-  }, fm);
-}
-
-const FieldPath = admin.firestore.FieldPath;
 
 export async function postJournalEntries(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts): Promise<string> {
     return postJournalEntry(payload, fa);
