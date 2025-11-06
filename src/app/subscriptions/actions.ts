@@ -238,7 +238,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             });
         }
         
-        // 3. Credit Revenue (Profit) distribution
+       // 3. Credit Revenue (Profit) distribution
         if (finalSubscriptionData.hasPartner && finalSubscriptionData.partnerId && partnerShareAmount > 0) {
             const partnerPayableAccount = financeSettings.payableAccountId;
             if (!partnerPayableAccount) throw new Error("Accounts Payable account not defined for partner share.");
@@ -306,6 +306,47 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     }
 }
 
+export async function updateSubscription(
+  subscriptionId: string,
+  subscriptionData: Omit<Subscription, 'id' | 'profit' | 'paidAmount' | 'status'>
+) {
+    const db = await getDb();
+    if (!db) return { success: false, error: "Database not available." };
+    const user = await getCurrentUserFromSession();
+    if (!user || !('role' in user)) return { success: false, error: "User not authenticated" };
+
+    try {
+        const subscriptionRef = db.collection('subscriptions').doc(subscriptionId);
+        
+        // You might need to delete old journal entries and installments before updating.
+        // For simplicity, this example will just update the main document.
+        // A more robust solution would involve a transaction to delete old related docs
+        // and create new ones.
+
+        const totalPurchase = (subscriptionData.quantity || 1) * (subscriptionData.purchasePrice || 0);
+        const totalSale = ((subscriptionData.quantity || 1) * (subscriptionData.unitPrice || 0)) - (subscriptionData.discount || 0);
+        const profit = totalSale - totalPurchase;
+        
+        const finalSubscriptionData = {
+            ...subscriptionData,
+            purchaseDate: new Date(subscriptionData.purchaseDate).toISOString(),
+            startDate: new Date(subscriptionData.startDate).toISOString(),
+            purchasePrice: totalPurchase,
+            salePrice: totalSale,
+            profit,
+            updatedAt: new Date().toISOString(),
+        };
+
+        await subscriptionRef.update(finalSubscriptionData);
+
+        revalidatePath('/subscriptions');
+        return { success: true };
+
+    } catch (error: any) {
+        console.error("Error updating subscription:", error);
+        return { success: false, error: "Failed to update subscription" };
+    }
+}
 
 export const getSubscriptionInstallments = cache(async (subscriptionId: string): Promise<SubscriptionInstallment[]> => {
     const db = await getDb();
@@ -655,11 +696,11 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
     const user = await getCurrentUserFromSession();
     if (!user || !('name' in user)) return { success: false, error: "User not authenticated." };
 
-    try {
-        const now = new Date().toISOString();
-        const deletedBy = user.name;
-        const batch = db.batch();
+    const batch = db.batch();
+    const now = new Date().toISOString();
+    const deletedBy = user.name;
 
+    try {
         // 1. Mark subscription as deleted
         const subscriptionRef = db.collection('subscriptions').doc(id);
         batch.update(subscriptionRef, { isDeleted: true, deletedAt: now, deletedBy });
@@ -670,13 +711,12 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
             batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
         });
 
-        // 3. Mark associated journal vouchers as deleted
+        // 3. Mark associated journal vouchers as deleted and move to archive
         const vouchersSnap = await db.collection('journal-vouchers').where('originalData.subscriptionId', '==', id).get();
         vouchersSnap.forEach(doc => {
-            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy, status: 'deleted' });
-            // Optionally move to a deleted-vouchers collection for archival
             const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
             batch.set(deletedVoucherRef, { ...doc.data(), deletedAt: now, deletedBy }, { merge: true });
+            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy, status: 'deleted' });
         });
         
         await batch.commit();

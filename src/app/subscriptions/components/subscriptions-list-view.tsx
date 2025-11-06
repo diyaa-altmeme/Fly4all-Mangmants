@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
@@ -6,7 +7,7 @@ import type { Subscription, SubscriptionInstallment, Payment, Currency, Subscrip
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Settings, History, MessageSquare, Trash2, Loader2, WalletCards, CheckCircle, CircleAlert, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import SubscriptionsSettingsDialog from '@/components/settings/subscriptions-settings';
+import SubscriptionsSettingsDialog from './subscriptions-settings-dialog';
 import { softDeleteSubscription } from '@/app/subscriptions/actions';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -43,6 +44,7 @@ import { Search } from 'lucide-react';
 import ManageInstallmentsDialog from '@/components/subscriptions/manage-installments-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
+import AddSubscriptionDialog from './add-subscription-dialog';
 
 const formatCurrency = (amount: number, currency: Currency) => {
     if (amount === null || amount === undefined) return '-';
@@ -181,7 +183,7 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients,
             <TableCell>{subscription.clientName}</TableCell>
             <TableCell>{subscription.supplierName}</TableCell>
             <TableCell>{partnerName}</TableCell>
-            <TableCell className="text-center font-mono font-bold text-red-600">{formatCurrency(subscription.purchasePrice, subscription.currency)}</TableCell>
+            <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.purchasePrice, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.salePrice, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-orange-600">{formatCurrency(totalDiscount, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-green-600">{formatCurrency(totalPaid, subscription.currency)}</TableCell>
@@ -194,6 +196,9 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients,
                   <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <AddSubscriptionDialog isEditing initialData={subscription} onSubscriptionUpdated={onDataChange}>
+                    <DropdownMenuItem onSelect={e => e.preventDefault()}><Edit className="me-2 h-4 w-4"/> تعديل</DropdownMenuItem>
+                  </AddSubscriptionDialog>
                   <ManageInstallmentsDialog subscription={subscription} onSuccess={onDataChange}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}><WalletCards className="me-2 h-4 w-4" />إدارة الأقساط</DropdownMenuItem>
                   </ManageInstallmentsDialog>
@@ -226,7 +231,7 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients,
                 <TableCell colSpan={15} className="p-0">
                     <div className="p-2 bg-muted/50">
                         <div className="p-4 bg-background rounded-md">
-                        <h4 className="font-semibold mb-2">جدول الدفعات او الاقساط</h4>
+                        <h4 className="font-semibold mb-2">جدول الأقساط</h4>
                          <InstallmentsTable 
                             installments={subscriptionInstallments}
                             subscription={subscription}
