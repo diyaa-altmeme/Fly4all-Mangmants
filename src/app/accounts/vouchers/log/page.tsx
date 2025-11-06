@@ -98,8 +98,7 @@ const VoucherTypeIcon = ({ type }: { type?: string }) => {
   return <Icon className="h-5 w-5" />;
 };
 
-
-const VoucherLogPage = () => {
+function VoucherLogContent() {
   const { toast } = useToast();
   const { data: navData, loaded: isNavLoaded, fetchData } = useVoucherNav();
   const [vouchers, setVouchers] = React.useState<Voucher[]>([]);
@@ -374,4 +373,10 @@ const VoucherLogPage = () => {
   );
 };
 
+const VoucherLogPage = () => {
+    return <VoucherLogContent />
+}
+
 export default VoucherLogPage;
+
+    
