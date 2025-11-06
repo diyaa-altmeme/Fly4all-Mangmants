@@ -3,12 +3,11 @@
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
-import { FieldValue, FieldPath } from "firebase-admin/firestore";
-import { getSettings } from "@/app/settings/actions";
+import { FieldPath } from "firebase-admin/firestore";
 import { getNextVoucherNumber } from "@/lib/sequences";
-import type { JournalVoucher, JournalEntry as LegacyJournalEntry, FinanceAccountsMap, Currency } from "../types";
-import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
-import { inferAccountCategory, type AccountCategory } from '@/lib/finance/account-categories';
+import type { JournalEntry as LegacyJournalEntry, FinanceAccountsMap, Currency } from "../types";
+import { normalizeFinanceAccounts, type NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
+import { inferAccountCategory } from '@/lib/finance/account-categories';
 import { getCurrentUserFromSession } from "../auth/actions";
 import { Timestamp } from "firebase-admin/firestore";
 
@@ -31,14 +30,57 @@ export type PostJournalPayload = {
   sourceType: string;          // "tickets" | "visas" | "subscriptions" | "segments" | "exchanges" | "profit-sharing" | ...
   sourceId: string;
   date?: number | Date;        // ms | Date
-  entries: JournalEntry[];
+  entries?: JournalEntry[];
   meta?: Record<string, any>;
   description?: string;
   debitAccountId?: string;
   creditAccountId?: string;
   creditEntries?: JournalEntry[];
   amount?: number;
+  currency?: Currency;
   userId?: string;
+};
+
+const DEFAULT_LEDGER_CURRENCY: Currency = 'USD';
+
+const buildEntriesFromLegacyPayload = (payload: PostJournalPayload): JournalEntry[] => {
+  const entries: JournalEntry[] = [];
+  const fallbackCurrency = payload.currency || (payload.meta?.currency as Currency) || DEFAULT_LEDGER_CURRENCY;
+  const fallbackDescription = payload.description || '';
+
+  if (payload.debitAccountId && (payload.amount ?? 0) !== 0) {
+    entries.push({
+      accountId: payload.debitAccountId,
+      debit: Number(payload.amount) || 0,
+      credit: 0,
+      currency: fallbackCurrency,
+      description: fallbackDescription,
+      relationId: payload.meta?.clientId || payload.meta?.relationId || undefined,
+      companyId: payload.meta?.companyId,
+    });
+  }
+
+  if (Array.isArray(payload.creditEntries)) {
+    for (const entry of payload.creditEntries) {
+      if (!entry.accountId) continue;
+      const explicitDebit = Number(entry.debit ?? 0) || 0;
+      const baseAmount = Number(entry.credit ?? entry.amount ?? explicitDebit ?? 0) || 0;
+      const credit = explicitDebit > 0 ? 0 : (Number(entry.credit ?? 0) || baseAmount);
+      const debit = explicitDebit > 0 ? explicitDebit : 0;
+      entries.push({
+        accountId: entry.accountId,
+        debit,
+        credit,
+        currency: (entry.currency as Currency) || fallbackCurrency,
+        description: entry.description ?? entry.note ?? fallbackDescription,
+        relationId: entry.relationId,
+        companyId: entry.companyId,
+        amount: baseAmount || credit || debit,
+      });
+    }
+  }
+
+  return entries.filter(e => !!e.accountId);
 };
 
 async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
@@ -52,9 +94,9 @@ async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
     const idsInCollection = accountIds.filter(id => !foundIds.has(id));
     if (idsInCollection.length === 0) continue;
     
-    // Firestore 'in' query is limited to 30 items
-    for (let i = 0; i < idsInCollection.length; i += 30) {
-      const chunk = idsInCollection.slice(i, i + 30);
+    // Firestore 'in' query is limited to 10 items per request
+    for (let i = 0; i < idsInCollection.length; i += 10) {
+      const chunk = idsInCollection.slice(i, i + 10);
       const snapshot = await db.collection(collectionName).where(FieldPath.documentId(), 'in', chunk).get();
       snapshot.forEach((doc: any) => foundIds.add(doc.id));
     }
@@ -121,11 +163,15 @@ function resolveCurrency(entries: JournalEntry[]): Currency {
 export async function postJournalEntry(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts): Promise<string> {
   const db = await getDb();
 
-  if (!payload.entries || !Array.isArray(payload.entries) || payload.entries.length === 0) {
+  const rawEntries = Array.isArray(payload.entries) && payload.entries.length > 0
+    ? payload.entries
+    : buildEntriesFromLegacyPayload(payload);
+
+  if (!rawEntries || rawEntries.length === 0) {
     throw new Error('No entries provided');
   }
 
-  await ensureAccountsExist(db, payload.entries);
+  await ensureAccountsExist(db, rawEntries);
 
   let postingUser: { uid: string; name?: string } | null = null;
   if (!payload.meta || !payload.meta.system) {
@@ -137,16 +183,16 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
     postingUser = { uid: user.uid, name: user.name };
   }
 
-  if (!isBalanced(payload.entries)) {
+  if (!isBalanced(rawEntries)) {
     throw new Error('Entries are not balanced (debit != credit)');
   }
-  
+
   const finance = fa || await getFinanceMap();
 
   if (finance?.preventDirectCashRevenue) {
     const cashId = finance.defaultCashId;
     if (cashId) {
-      for (const e of payload.entries) {
+      for (const e of rawEntries) {
         if (e.accountId === cashId && inferAccountCategory(e.accountId, finance || null) === 'revenue') {
              throw new Error('Direct cash posting is disabled by finance settings');
         }
@@ -157,9 +203,9 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
   const now = Timestamp.now();
   const voucherRef = db.collection('journal-vouchers').doc();
   const voucherNumber = await getNextVoucherNumber(payload.sourceType.toUpperCase());
-  const voucherCurrency = resolveCurrency(payload.entries);
+  const voucherCurrency = resolveCurrency(rawEntries);
 
-  const storedEntries = payload.entries.map((entry) => {
+  const storedEntries = rawEntries.map((entry) => {
     const debit = Number(entry.debit) || 0;
     const credit = Number(entry.credit) || 0;
     const amount = debit > 0 ? debit : credit;
@@ -188,45 +234,104 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
   const createdBy = payload.meta?.createdBy || postingUser?.uid || 'system';
   const officer = payload.meta?.officer || postingUser?.name || 'system';
 
-  await voucherRef.set({
-    id: voucherRef.id,
-    invoiceNumber: voucherNumber,
-    date: voucherDate,
-    currency: resolveCurrency(payload.entries),
-    notes: payload.description || '',
-    createdBy,
-    officer,
-    createdAt: now,
-    updatedAt: now,
-    voucherType: `journal_from_${payload.sourceType}`,
-    sourceType: payload.sourceType,
-    sourceId: payload.sourceId,
-    debitEntries,
-    creditEntries,
-    isAudited: false,
-    isConfirmed: true,
-    meta: payload.meta || null,
-    entries: storedEntries.map(entry => {
-      const e: any = {
+  const ledgerCollection = db.collection('journal-ledger');
+  const meta = payload.meta || {};
+  const metaClientId = meta.clientId || meta.client?.id || null;
+  const metaSupplierId = meta.supplierId || meta.supplier?.id || null;
+  const metaPartnerIds: string[] = Array.isArray(meta.partnerIds)
+    ? meta.partnerIds.filter((id: unknown): id is string => typeof id === 'string' && !!id)
+    : (meta.partnerId ? [meta.partnerId] : []);
+  const companyId = meta.companyId || meta.company?.id || null;
+
+  await db.runTransaction(async (transaction) => {
+    transaction.set(voucherRef, {
+      id: voucherRef.id,
+      invoiceNumber: voucherNumber,
+      date: voucherDate,
+      currency: resolveCurrency(rawEntries),
+      notes: payload.description || '',
+      createdBy,
+      officer,
+      createdAt: now,
+      updatedAt: now,
+      voucherType: `journal_from_${payload.sourceType}`,
+      sourceType: payload.sourceType,
+      sourceId: payload.sourceId,
+      debitEntries,
+      creditEntries,
+      isAudited: false,
+      isConfirmed: true,
+      meta: meta || null,
+      entries: storedEntries.map(entry => {
+        const e: any = {
+          accountId: entry.accountId,
+          debit: entry.debit,
+          credit: entry.credit,
+          amount: entry.amount,
+          description: entry.description,
+          currency: entry.currency,
+          accountType: entry.accountType,
+          type: entry.debit > 0 ? 'debit' : 'credit',
+        };
+        if (entry.relationId) e.relationId = entry.relationId;
+        if (entry.companyId) e.companyId = entry.companyId;
+        return e;
+      }),
+      originalData: {
+        sourceType: payload.sourceType,
+        sourceId: payload.sourceId,
+        meta: meta || null,
+      },
+      isDeleted: false,
+    } as any);
+
+    for (const entry of storedEntries) {
+      const ledgerRef = ledgerCollection.doc();
+      const relationId = entry.relationId || null;
+      const ledgerDoc: Record<string, any> = {
+        id: ledgerRef.id,
+        voucherId: voucherRef.id,
         accountId: entry.accountId,
+        accountType: entry.accountType,
         debit: entry.debit,
         credit: entry.credit,
         amount: entry.amount,
         description: entry.description,
         currency: entry.currency,
-        accountType: entry.accountType,
+        relationId,
+        companyId: companyId || entry.companyId || null,
+        createdAt: now,
+        updatedAt: now,
+        isDeleted: false,
+        deletedAt: null,
+        deletedBy: null,
+        restoredAt: null,
+        restoredBy: null,
         type: entry.debit > 0 ? 'debit' : 'credit',
+      };
+
+      if (entry.companyId && !ledgerDoc.companyId) {
+        ledgerDoc.companyId = entry.companyId;
       }
-      if(entry.relationId) e.relationId = entry.relationId;
-      if(entry.companyId) e.companyId = entry.companyId;
-      return e;
-    }),
-    originalData: {
-      sourceType: payload.sourceType,
-      sourceId: payload.sourceId,
-      meta: payload.meta || null,
-    },
-  } as any);
+
+      if (entry.accountType === 'client') {
+        const detectedClientId = relationId || (entry.accountId === metaClientId ? metaClientId : null);
+        if (detectedClientId) ledgerDoc.clientId = detectedClientId;
+      }
+
+      if (entry.accountType === 'supplier') {
+        const detectedSupplierId = relationId || (entry.accountId === metaSupplierId ? metaSupplierId : null);
+        if (detectedSupplierId) ledgerDoc.supplierId = detectedSupplierId;
+      }
+
+      const matchedPartnerId = metaPartnerIds.find((id) => id === relationId || id === entry.accountId);
+      if (matchedPartnerId) {
+        ledgerDoc.partnerId = matchedPartnerId;
+      }
+
+      transaction.set(ledgerRef, ledgerDoc);
+    }
+  });
 
   return voucherRef.id;
 }

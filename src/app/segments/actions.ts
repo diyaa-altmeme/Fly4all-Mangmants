@@ -142,36 +142,61 @@ export async function addSegmentEntries(
 
             mainBatch.set(segmentDocRef, dataToSave);
             
-             const creditEntries: JournalEntry[] = [];
+            const revenueAccountId = 'revenue_segments';
+            if(!revenueAccountId) throw new Error("Revenue account for segments is not defined.");
 
-            if (dataToSave.hasPartner && dataToSave.partnerId && dataToSave.partnerShare > 0) {
-                 creditEntries.push({
-                    accountId: dataToSave.partnerId,
-                    amount: dataToSave.partnerShare,
-                    description: `حصة الشريك ${dataToSave.partnerName}`
+            const entries: JournalEntry[] = [];
+
+            entries.push({
+                accountId: dataToSave.clientId,
+                debit: dataToSave.total,
+                credit: 0,
+                currency: dataToSave.currency,
+                description: `استحقاق أرباح سكمنت للفترة ${dataToSave.fromDate} - ${dataToSave.toDate}`,
+                relationId: dataToSave.clientId,
+            });
+
+            const supplierId = (entryData as any).supplierId as string | undefined;
+
+            const partnerShares = (dataToSave.partnerShares && dataToSave.partnerShares.length > 0)
+                ? dataToSave.partnerShares
+                : (dataToSave.hasPartner && dataToSave.partnerId ? [{ partnerId: dataToSave.partnerId, partnerName: dataToSave.partnerName, share: dataToSave.partnerShare }] : []);
+
+            partnerShares.forEach((share) => {
+                if (!share || !share.partnerId || !share.share) return;
+                entries.push({
+                    accountId: share.partnerId,
+                    debit: 0,
+                    credit: share.share,
+                    currency: dataToSave.currency,
+                    description: `حصة الشريك ${share.partnerName || ''}`.trim(),
+                    relationId: share.partnerId,
                 });
-            }
+            });
 
             if (dataToSave.alrawdatainShare > 0) {
-                 const revenueAccountId = 'revenue_segments';
-                 if(!revenueAccountId) throw new Error("Revenue account for segments is not defined.");
-                 creditEntries.push({
+                entries.push({
                     accountId: revenueAccountId,
-                    amount: dataToSave.alrawdatainShare,
-                    description: 'حصة الشركة من السكمنت'
+                    debit: 0,
+                    credit: dataToSave.alrawdatainShare,
+                    currency: dataToSave.currency,
+                    description: 'حصة الشركة من السكمنت',
                 });
             }
 
-             await postJournalEntry({
+            await postJournalEntry({
                 sourceType: 'segment',
                 sourceId: segmentDocRef.id,
                 description: `ربح سكمنت من ${dataToSave.companyName} للفترة من ${dataToSave.fromDate} إلى ${dataToSave.toDate}`,
-                amount: dataToSave.total,
-                currency: dataToSave.currency,
                 date: entryDate,
                 userId: user.uid,
-                debitAccountId: dataToSave.clientId,
-                creditEntries: creditEntries,
+                entries,
+                meta: {
+                    ...dataToSave,
+                    periodId,
+                    partnerIds: partnerShares.map(p => p.partnerId).filter(Boolean),
+                    supplierId: supplierId || undefined,
+                },
             });
         }
 
@@ -192,38 +217,72 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available.", count: 0 };
     try {
-        await checkSegmentPermission();
+        const user = await checkSegmentPermission();
         const snapshot = await db.collection('segments').where('periodId', '==', periodId).get();
         if (snapshot.empty) return { success: true, count: 0 };
 
-        const batch = db.batch();
         const segmentIds = snapshot.docs.map(doc => doc.id);
+        const now = new Date().toISOString();
+        const deletedBy = user.name || user.uid;
 
-        snapshot.docs.forEach(doc => {
-            if (permanent) {
-                 batch.delete(doc.ref);
-            } else {
-                 batch.update(doc.ref, { isDeleted: true, deletedAt: new Date().toISOString() });
+        await db.runTransaction(async (transaction) => {
+            snapshot.docs.forEach(doc => {
+                if (permanent) {
+                    transaction.delete(doc.ref);
+                } else {
+                    transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
+                }
+            });
+
+            const chunkSize = 10;
+            for (let i = 0; i < segmentIds.length; i += chunkSize) {
+                const chunk = segmentIds.slice(i, i + chunkSize);
+                const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
+                const voucherSnapshot = await transaction.get(voucherQuery);
+
+                for (const doc of voucherSnapshot.docs) {
+                    const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
+                    const ledgerSnapshot = await transaction.get(ledgerQuery);
+
+                    if (permanent) {
+                        ledgerSnapshot.forEach(ledgerDoc => transaction.delete(ledgerDoc.ref));
+                        transaction.delete(doc.ref);
+                        transaction.delete(db.collection('deleted-vouchers').doc(doc.id));
+                    } else {
+                        const voucherData = doc.data();
+                        transaction.set(db.collection('deleted-vouchers').doc(doc.id), {
+                            ...voucherData,
+                            id: doc.id,
+                            voucherId: doc.id,
+                            sourceType: voucherData?.sourceType || 'segment',
+                            sourceId: voucherData?.sourceId || doc.id,
+                            deletedAt: now,
+                            deletedBy,
+                            restoredAt: null,
+                            restoredBy: null,
+                        }, { merge: true });
+
+                        transaction.update(doc.ref, {
+                            isDeleted: true,
+                            deletedAt: now,
+                            deletedBy,
+                            status: 'deleted',
+                        });
+
+                        ledgerSnapshot.forEach(ledgerDoc => {
+                            transaction.update(ledgerDoc.ref, {
+                                isDeleted: true,
+                                deletedAt: now,
+                                deletedBy,
+                                restoredAt: null,
+                                restoredBy: null,
+                            });
+                        });
+                    }
+                }
             }
         });
-        
-        if (segmentIds.length > 0) {
-            // Firestore 'in' queries are limited to 30 items
-            for (let i = 0; i < segmentIds.length; i += 30) {
-                const chunk = segmentIds.slice(i, i + 30);
-                const voucherSnapshot = await db.collection('journal-vouchers').where('sourceId', 'in', chunk).get();
-                voucherSnapshot.forEach(doc => {
-                    if (permanent) {
-                        batch.delete(doc.ref);
-                    } else {
-                        batch.update(doc.ref, { isDeleted: true, deletedAt: new Date().toISOString() });
-                    }
-                });
-            }
-        }
 
-        await batch.commit();
-        
         revalidatePath('/segments');
         revalidatePath('/segments/deleted-segments');
         revalidatePath('/reports/account-statement');
@@ -238,33 +297,63 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available.", count: 0 };
     try {
-        await checkSegmentPermission();
+        const user = await checkSegmentPermission();
         const snapshot = await db.collection('segments')
             .where('periodId', '==', periodId)
             .where('isDeleted', '==', true)
             .get();
-        
+
         if (snapshot.empty) return { success: true, count: 0 };
 
-        const batch = db.batch();
         const segmentIds = snapshot.docs.map(doc => doc.id);
+        const restoredBy = user.name || user.uid;
+        const restoredAt = new Date().toISOString();
 
-        snapshot.docs.forEach(doc => {
-            batch.update(doc.ref, { isDeleted: false, deletedAt: FieldValue.delete() });
+        await db.runTransaction(async (transaction) => {
+            snapshot.docs.forEach(doc => {
+                transaction.update(doc.ref, {
+                    isDeleted: false,
+                    deletedAt: FieldValue.delete(),
+                    restoredAt,
+                    restoredBy,
+                });
+            });
+
+            const chunkSize = 10;
+            for (let i = 0; i < segmentIds.length; i += chunkSize) {
+                const chunk = segmentIds.slice(i, i + chunkSize);
+                const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
+                const voucherSnapshot = await transaction.get(voucherQuery);
+
+                for (const doc of voucherSnapshot.docs) {
+                    transaction.update(doc.ref, {
+                        isDeleted: false,
+                        deletedAt: FieldValue.delete(),
+                        restoredAt,
+                        restoredBy,
+                        status: 'restored',
+                    });
+
+                    const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
+                    const ledgerSnapshot = await transaction.get(ledgerQuery);
+                    ledgerSnapshot.forEach(ledgerDoc => {
+                        transaction.update(ledgerDoc.ref, {
+                            isDeleted: false,
+                            deletedAt: FieldValue.delete(),
+                            deletedBy: FieldValue.delete(),
+                            restoredAt,
+                            restoredBy,
+                        });
+                    });
+
+                    transaction.set(db.collection('deleted-vouchers').doc(doc.id), {
+                        restoredAt,
+                        restoredBy,
+                    }, { merge: true });
+                }
+            }
         });
 
-        if (segmentIds.length > 0) {
-             for (let i = 0; i < segmentIds.length; i += 30) {
-                const chunk = segmentIds.slice(i, i + 30);
-                const voucherSnapshot = await db.collection('journal-vouchers').where('sourceId', 'in', chunk).get();
-                voucherSnapshot.forEach(doc => {
-                    batch.update(doc.ref, { isDeleted: false, deletedAt: FieldValue.delete() });
-                });
-            }
-        }
-
-        await batch.commit();
-        
         revalidatePath('/segments');
         revalidatePath('/segments/deleted-segments');
         revalidatePath('/reports/account-statement');
