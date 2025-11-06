@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -30,7 +29,7 @@ import { addSubscription, updateSubscription } from '@/app/subscriptions/actions
 import {
   PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, Building, User as UserIcon, Wallet, Hash, AlertTriangle, CheckCircle, ArrowRight, X,
 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addMonths } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -209,12 +208,27 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
   const distributedAmount = (installmentsArray || []).reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
   const remainingToDistribute = totalSale - distributedAmount;
   
-  const supplierOptions = React.useMemo(() => (navData?.suppliers || []).map(s => ({ value: s.id, label: s.name })), [navData?.suppliers]);
-  const clientOptions = React.useMemo(() => (navData?.clients || []).map(c => ({ value: c.id, label: `${c.name} ${c.code ? `(${c.code})` : ''}` })), [navData?.clients]);
+  const supplierOptions = React.useMemo(() => {
+    if (!navData?.suppliers) return [];
+    return navData.suppliers.map(s => ({ value: s.id, label: s.name }))
+  }, [navData?.suppliers]);
+
+  const clientOptions = React.useMemo(() => {
+     if (!navData?.clients) return [];
+    return navData.clients.map(c => ({ value: c.id, label: `${c.name} ${c.code ? `(${c.code})` : ''}` }))
+  }, [navData?.clients]);
   
   const partnerOptions = React.useMemo(() => {
     if (!navData) return [];
-    return [...(navData.clients || []), ...(navData.suppliers || [])].map(p => ({value: p.id, label: p.name}));
+    const allRelations = [...(navData.clients || []), ...(navData.suppliers || [])];
+    const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+    return uniqueRelations.map(r => {
+        let labelPrefix = '';
+        if (r.relationType === 'client') labelPrefix = 'عميل: ';
+        else if (r.relationType === 'supplier') labelPrefix = 'مورد: ';
+        else if (r.relationType === 'both') labelPrefix = 'عميل ومورد: ';
+        return { value: r.id, label: `${labelPrefix}${r.name}` };
+    });
   }, [navData]);
 
   const handleGenerateInstallments = useCallback(() => {
@@ -428,3 +442,5 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
     </FormProvider>
   );
 }
+
+    
