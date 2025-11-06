@@ -160,9 +160,6 @@ export default function AddSubscriptionDialog({
   );
 }
 
-// Keeping NewSubscriptionForm in the same file as it's tightly coupled
-// with the dialog's state and logic.
-
 interface NewSubscriptionFormProps {
     isEditing?: boolean;
     initialData?: Subscription;
@@ -293,10 +290,10 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
                 )}/>
                 <div className="grid grid-cols-2 gap-4">
                         <FormField control={control} name="supplierId" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">المورد (المصدر)</FormLabel><FormControl><Autocomplete searchAction="suppliers" options={supplierOptions} value={field.value} onValueChange={field.onChange} placeholder="اختياري"/></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="font-bold">المورد (المصدر)</FormLabel><FormControl><Autocomplete options={supplierOptions} value={field.value} onValueChange={field.onChange} placeholder="اختياري"/></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={control} name="clientId" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">العميل (المستفيد)</FormLabel><FormControl><Autocomplete searchAction="clients" options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="font-bold">العميل (المستفيد)</FormLabel><FormControl><Autocomplete options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
                     <FormField control={control} name="purchaseDate" render={({ field }) => (
@@ -343,7 +340,73 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
                 </div>
             </Section>
         </div>
+        <Section title="الدفع والأقساط">
+          <FormField control={control} name="installmentMethod" render={({ field }) => (
+            <FormItem>
+                <FormControl>
+                    <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-3 gap-4">
+                        <Label className={cn("p-4 border rounded-lg cursor-pointer", field.value === 'upfront' && "bg-primary/10 border-primary")}>
+                            <RadioGroupItem value="upfront" className="sr-only" />
+                            <h4 className="font-bold">دفع مقدم</h4>
+                            <p className="text-xs text-muted-foreground">كامل المبلغ يستحق فوراً.</p>
+                        </Label>
+                        <Label className={cn("p-4 border rounded-lg cursor-pointer", field.value === 'deferred' && "bg-primary/10 border-primary")}>
+                            <RadioGroupItem value="deferred" className="sr-only" />
+                            <h4 className="font-bold">دفع مؤجل</h4>
+                            <p className="text-xs text-muted-foreground">كامل المبلغ يستحق في تاريخ محدد.</p>
+                        </Label>
+                        <Label className={cn("p-4 border rounded-lg cursor-pointer", field.value === 'installments' && "bg-primary/10 border-primary")}>
+                            <RadioGroupItem value="installments" className="sr-only" />
+                            <h4 className="font-bold">تقسيط</h4>
+                            <p className="text-xs text-muted-foreground">تقسيم المبلغ على دفعات شهرية.</p>
+                        </Label>
+                    </RadioGroup>
+                </FormControl>
+            </FormItem>
+          )}/>
 
+          {installmentMethod === 'deferred' && (
+              <FormField control={control} name="deferredDueDate" render={({ field }) => ( <FormItem className="mt-4"><FormLabel>تاريخ الاستحقاق المؤجل</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem> )} />
+          )}
+
+          {installmentMethod === 'installments' && (
+              <div className="mt-4 space-y-4">
+                  <div className="flex items-end gap-2 p-3 border rounded-lg bg-muted/30">
+                      <div className="space-y-1.5 flex-grow">
+                          <Label>عدد الأقساط</Label>
+                          <Input type="number" value={numInstallments} onChange={(e) => setNumInstallments(Number(e.target.value))} min="2" />
+                      </div>
+                      <Button type="button" onClick={handleGenerateInstallments}>توليد الأقساط</Button>
+                  </div>
+                  <div className="border rounded-lg max-h-60 overflow-y-auto">
+                      <Table>
+                          <TableHeader><TableRow><TableHead>تاريخ الاستحقاق</TableHead><TableHead>المبلغ</TableHead><TableHead className="w-12"></TableHead></TableRow></TableHeader>
+                          <TableBody>
+                              {fields.map((item, index) => (
+                                  <TableRow key={item.id}>
+                                      <TableCell>
+                                        <Controller control={control} name={`installments.${index}.dueDate`} render={({ field }) => <DateTimePicker date={field.value} setDate={field.onChange} />} />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Controller control={control} name={`installments.${index}.amount`} render={({ field }) => <NumericInput currency={watchedCurrency} value={field.value} onValueChange={v => field.onChange(v || 0)} />} />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="h-4 w-4 text-destructive"/></Button>
+                                      </TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </div>
+                   <div className="p-3 bg-muted rounded-lg grid grid-cols-2 gap-4 text-sm">
+                      <div className="font-bold">المبلغ الموزع: <span className="font-mono text-blue-600">{distributedAmount.toLocaleString()} {watchedCurrency}</span></div>
+                      <div className={cn("font-bold", Math.abs(remainingToDistribute) > 0.01 && "text-destructive")}>
+                          المبلغ المتبقي: <span className="font-mono">{remainingToDistribute.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {watchedCurrency}</span>
+                      </div>
+                  </div>
+              </div>
+          )}
+        </Section>
         <DialogFooter className="pt-4 mt-4 border-t">
           <Button type="submit" disabled={isSaving}>
             {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
@@ -355,3 +418,5 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
     </FormProvider>
   );
 }
+
+    
