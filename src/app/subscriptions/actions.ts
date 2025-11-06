@@ -789,15 +789,24 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
             const deletedBy = user.name;
             
             const subRef = db.collection('subscriptions').doc(id);
+            const subDoc = await transaction.get(subRef);
+            if (!subDoc.exists) throw new Error("Subscription not found.");
+
+            // READ FIRST
+            const installmentsQuery = db.collection('subscription_installments').where('subscriptionId', '==', id);
+            const installmentsSnap = await transaction.get(installmentsQuery);
+
+            const voucherQuery = db.collection('journal-vouchers')
+                .where('originalData.subscriptionId', '==', id)
+                .where('sourceType', '==', 'subscription');
+            const vouchersSnap = await transaction.get(voucherQuery);
+
+            // THEN WRITE
             transaction.update(subRef, { isDeleted: true, deletedAt: now, deletedBy });
 
-            const installmentsSnap = await db.collection('subscription_installments').where('subscriptionId', '==', id).get();
             installmentsSnap.forEach(doc => {
                 transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
             });
-            
-            const voucherQuery = db.collection('journal-vouchers').where('sourceId', '==', id).where('sourceType', '==', 'subscription');
-            const vouchersSnap = await transaction.get(voucherQuery);
             
             vouchersSnap.forEach(doc => {
                 transaction.update(doc.ref, { 
@@ -806,7 +815,6 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
                     deletedBy: deletedBy 
                 });
             });
-
         });
 
         await createAuditLog({
@@ -848,6 +856,16 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
                 throw new Error('Subscription not found');
             }
 
+            // READ FIRST
+            const installmentsQuery = db.collection('subscription_installments').where('subscriptionId', '==', id);
+            const installmentsSnap = await transaction.get(installmentsQuery);
+            
+            const vouchersQuery = db.collection('journal-vouchers')
+                .where('originalData.subscriptionId', '==', id)
+                .where('isDeleted', '==', true);
+            const vouchersSnap = await transaction.get(vouchersQuery);
+            
+            // THEN WRITE
             transaction.update(subscriptionRef, {
                 isDeleted: false,
                 deletedAt: FieldValue.delete(),
@@ -856,8 +874,6 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
                 restoredBy,
             });
 
-            const installmentsQuery = db.collection('subscription_installments').where('subscriptionId', '==', id);
-            const installmentsSnap = await transaction.get(installmentsQuery);
             installmentsSnap.forEach(doc => {
                 transaction.update(doc.ref, {
                     isDeleted: false,
@@ -868,11 +884,6 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
                 });
             });
 
-            const vouchersQuery = db.collection('journal-vouchers')
-                .where('originalData.subscriptionId', '==', id)
-                .where('isDeleted', '==', true);
-            const vouchersSnap = await transaction.get(vouchersQuery);
-
             for (const doc of vouchersSnap.docs) {
                 transaction.update(doc.ref, {
                     isDeleted: false,
@@ -882,6 +893,12 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
                     restoredBy,
                     status: 'restored',
                 });
+
+                 const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+                 transaction.set(deletedVoucherRef, {
+                    restoredAt,
+                    restoredBy,
+                }, { merge: true });
             }
         });
 
@@ -957,4 +974,5 @@ export async function revalidateSubscriptionsPath() {
     
 
     
+
 
