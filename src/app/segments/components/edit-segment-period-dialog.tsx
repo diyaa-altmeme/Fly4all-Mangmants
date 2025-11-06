@@ -54,6 +54,7 @@ const companyEntrySchema = z.object({
   hotels: z.coerce.number().int().nonnegative().default(0),
   groups: z.coerce.number().int().nonnegative().default(0),
   notes: z.string().optional(),
+  // Profit settings
   ticketProfitType: z.enum(['fixed', 'percentage']).default('percentage'),
   ticketProfitValue: z.coerce.number().min(0).default(50),
   visaProfitType: z.enum(['fixed', 'percentage']).default('percentage'),
@@ -68,9 +69,9 @@ const partnerSchema = z.object({
   id: z.string(),
   partnerId: z.string().min(1, "اختر شريكاً."),
   partnerName: z.string(),
-  partnerInvoiceNumber: z.string(), 
+  partnerInvoiceNumber: z.string(), // New field
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
-  amount: z.coerce.number(),
+  amount: z.coerce.number(), // This field is for calculation display, not direct input
 });
 
 const periodSchema = z.object({
@@ -91,6 +92,7 @@ type CompanyEntryFormValues = z.infer<typeof companyEntrySchema>;
 type PeriodFormValues = z.infer<typeof periodSchema>;
 export type PartnerShare = z.infer<typeof partnerSchema>;
 
+// Helpers
 function computeService(count: number, type: "fixed" | "percentage", value: number): number {
   if (!count || !value) return 0;
   return type === "fixed" ? count * value : count * (value / 100);
@@ -106,6 +108,7 @@ function computeCompanyTotal(d: any, companySettings?: Partial<SegmentSettings>)
     ].reduce((sum, val) => sum + val, 0);
   }
 
+// Sub-components
 const ServiceLine = ({ label, icon: Icon, color, countField, typeField, valueField }: any) => {
   const { control, watch } = useFormContext<CompanyEntryFormValues>();
   const count = watch(countField);
@@ -207,12 +210,14 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
         const partnerShareAmount = hasPartner 
             ? totalProfitForCompany * (100 - (alrawdatainSharePercentage || 0)) / 100
             : 0;
-
+    
         const alrawdatainShare = totalProfitForCompany - partnerShareAmount;
-
+    
         const partnerSharesWithInvoices = await Promise.all(
             (partners || []).map(async (p) => {
-                const partnerInvoiceNumber = await getNextVoucherNumber("PARTNER");
+                // If editing and the partner share already has an invoice number, keep it. Otherwise generate new.
+                const existingShare = editingEntry?.partnerShares?.find((ps:any) => ps.partnerId === p.partnerId);
+                const partnerInvoiceNumber = existingShare?.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER");
                 return {
                     partnerId: p.partnerId,
                     partnerName: p.partnerName,
@@ -224,7 +229,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
         
         onAdd({ 
             ...data,
-            companyInvoiceNumber: companyInvoiceNumber, 
+            companyInvoiceNumber: editingEntry ? editingEntry.companyInvoiceNumber : companyInvoiceNumber, 
             total: totalProfitForCompany,
             alrawdatainShare: alrawdatainShare,
             partnerShare: partnerShareAmount,
@@ -387,10 +392,8 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        const allRelations = [...(clients || []), ...(suppliers || [])];
-        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-        return uniqueRelations.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
-    }, [clients, suppliers]);
+        return clients.map(c => ({ value: c.id, label: `${c.name} (${c.code || 'N/A'})`, settings: c.segmentSettings }));
+    }, [clients]);
 
      const partnerOptions = useMemo(() => {
         const allRelations = [...clients, ...suppliers];
@@ -405,34 +408,34 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     }, [clients, suppliers]);
     
     const currencyOptions = useMemo(() => navData?.settings?.currencySettings?.currencies || [], [navData]);
-    const boxName = useMemo(() => (currentUser && 'boxId' in currentUser && currentUser.boxId) ? navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد' : 'غير محدد', [currentUser, navData?.boxes]);
+    const boxName = useMemo(() => (currentUser && 'role' in currentUser && currentUser.boxId) ? navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد' : 'غير محدد', [currentUser, navData?.boxes]);
+
 
     useEffect(() => {
         if (open) {
-            const defaultValues = {
-                periodId: existingPeriod?.periodId,
-                periodInvoiceNumber: existingPeriod?.invoiceNumber,
+            resetForm({
                 fromDate: existingPeriod?.fromDate ? parseISO(existingPeriod.fromDate) : null,
                 toDate: existingPeriod?.toDate ? parseISO(existingPeriod.toDate) : null,
                 entryDate: new Date(),
                 currency: existingPeriod?.entries?.[0]?.currency || navData?.settings?.currencySettings?.defaultCurrency || 'USD',
-                hasPartner: existingPeriod?.entries?.[0]?.hasPartner || false,
-                alrawdatainSharePercentage: existingPeriod?.entries?.[0]?.alrawdatainSharePercentage || navData?.settings?.segmentSettings?.alrawdatainSharePercentage || 50,
+                hasPartner: existingPeriod?.entries?.[0] ? existingPeriod.entries[0].hasPartner : false,
+                alrawdatainSharePercentage: existingPeriod?.entries?.[0] ? existingPeriod.entries[0].alrawdatainSharePercentage : 100,
                 partners: (existingPeriod?.entries?.[0]?.partnerShares || []).map((p: any) => ({
                     id: p.partnerId,
                     partnerId: p.partnerId,
                     partnerName: p.partnerName,
                     partnerInvoiceNumber: p.partnerInvoiceNumber || '',
-                    percentage: (p.share / (existingPeriod.entries[0]?.partnerShare || 1)) * 100, // Re-calculate percentage
+                    percentage: (p.share / (existingPeriod.entries[0]?.partnerShare || 1)) * 100, 
                     amount: p.share
                 })),
                 summaryEntries: existingPeriod?.entries.map((e: SegmentEntry) => ({...e})) || [],
-            };
-            resetForm(defaultValues);
+                periodId: existingPeriod?.periodId,
+            });
+           
             setEditingEntry(null);
         }
     }, [open, isEditing, existingPeriod, resetForm, navData]);
-
+    
     const grandTotalProfit = useMemo(() => (summaryFields || []).reduce((sum, e) => sum + (e.total || 0), 0), [summaryFields]);
     
     const { 
@@ -599,12 +602,100 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
                 <FormProvider {...periodForm}>
                     <form onSubmit={handlePeriodSubmit(handleSavePeriod)} className="flex flex-col flex-grow overflow-hidden">
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
-                            <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions} />
-                            <SummaryList onRemove={removeEntry} onEdit={handleEditEntry} />
+                             <Collapsible defaultOpen={true} className="p-4 border rounded-lg space-y-6 bg-background/50">
+                               <CollapsibleTrigger asChild>
+                                  <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</h3>
+                               </CollapsibleTrigger>
+                               <CollapsibleContent className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <FormField control={periodForm.control} name="fromDate" render={({ field }) => ( <FormItem><FormLabel>من تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
+                                        <FormField control={periodForm.control} name="toDate" render={({ field }) => ( <FormItem><FormLabel>إلى تاريخ</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
+                                         <FormField control={periodForm.control} name="entryDate" render={({ field }) => ( <FormItem><FormLabel>تاريخ الإضافة</FormLabel><DateTimePicker date={field.value} setDate={field.onChange} /></FormItem> )}/>
+                                        <FormField control={periodForm.control} name="currency" render={({ field }) => ( 
+                                            <FormItem>
+                                                <FormLabel>العملة</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        {currencyOptions.map(c => <SelectItem key={c.code} value={c.code}>{c.name}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormItem>
+                                        )}/>
+                                    </div>
+                                     <div className="pt-4 border-t mt-4">
+                                        <div className="space-y-5">
+                                            <div className="flex items-center justify-between border-b pb-2">
+                                                <FormField
+                                                control={periodForm.control}
+                                                name="hasPartner"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex items-center gap-3">
+                                                    <FormLabel className="font-semibold text-base">
+                                                        هل يوجد شركاء في الربح؟
+                                                    </FormLabel>
+                                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                                    </FormItem>
+                                                )}
+                                                />
+                                            </div>
+
+                                            {watchedPeriod.hasPartner && (
+                                                <>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                    <SummaryStat title="حصة الروضتين" value={alrawdatainSharePercentage} currency="%" className="bg-green-50 text-green-700 border-green-200" />
+                                                    <SummaryStat title="المتاح للشركاء" value={100 - alrawdatainSharePercentage} currency="%" className="bg-blue-50 text-blue-700 border-blue-200" />
+                                                    <SummaryStat title="الموزع للشركاء" value={totalPartnerPercentage} currency="%" className="bg-amber-50 text-amber-700 border-amber-200" />
+                                                    <SummaryStat title="المتبقي للتوزيع" value={100 - totalPartnerPercentage} currency="%" className={cn("border", Math.abs(100 - totalPartnerPercentage) > 0.01 ? "bg-red-50 text-red-700 border-red-300" : "bg-gray-50 text-gray-600 border-gray-200")} />
+                                                </div>
+
+                                                <div className="p-3 border rounded-lg bg-muted/10 space-y-3">
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 items-end">
+                                                    <div className="space-y-1.5"><Label>نسبة الروضتين (%)</Label><Controller control={periodForm.control} name="alrawdatainSharePercentage" render={({field}) => (<NumericInput {...field} onValueChange={(v) => field.onChange(v || 0)} className="h-9 text-center" /> )}/></div>
+                                                    <div className="space-y-1.5"><Label>الشريك</Label><Autocomplete options={partnerOptions} value={currentPartnerId} onValueChange={setCurrentPartnerId} placeholder="اختر الشريك..."/></div>
+                                                    <div className="space-y-1.5"><Label>النسبة (%)</Label><div className="relative"><NumericInput value={currentPercentage} onValueChange={setCurrentPercentage} className="h-9 pe-7 text-center" /><Percent className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /></div></div>
+                                                    <Button type="button" onClick={handleAddOrUpdatePartner} className="h-9 w-full md:w-auto">{editingPartnerIndex !== null ? "تحديث" : "إضافة"}</Button>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground text-end">الحصة المحسوبة: <span className="font-bold text-blue-600 font-mono ms-1">{partnerSharePreview.toFixed(2)}</span></p>
+                                                </div>
+
+                                                <div className="border rounded-lg overflow-hidden">
+                                                    <Table><TableHeader className="bg-muted/30"><TableRow><TableHead>فاتورة الشريك</TableHead><TableHead>الشريك</TableHead><TableHead className="text-center">النسبة</TableHead><TableHead className="w-24 text-center">الإجراءات</TableHead></TableRow></TableHeader>
+                                                    <TableBody>
+                                                    {partnerFields.length === 0 ? (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-4">لا يوجد شركاء مضافون بعد</TableCell></TableRow>) :
+                                                    (partnerFields.map((d, index) => (
+                                                        <TableRow key={d.id}>
+                                                            <TableCell className="font-mono">{d.partnerInvoiceNumber}</TableCell>
+                                                            <TableCell>{d.partnerName}</TableCell>
+                                                            <TableCell className="text-center font-mono">{Number(d.percentage).toFixed(2)}%</TableCell>
+                                                            <TableCell className="text-center">
+                                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => handleEditPartner(index)}><Pencil className="h-4 w-4"/></Button>
+                                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removePartner(index)}><Trash2 className="h-4 w-4" /></Button>
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )))}
+                                                    </TableBody>
+                                                    </Table>
+                                                </div>
+                                                </>
+                                            )}
+                                            </div>
+                                    </div>
+                               </CollapsibleContent>
+                            </Collapsible>
+                            <div className={cn(isDistributionLocked && "opacity-50 pointer-events-none")}>
+                                <AddCompanyToSegmentForm ref={addCompanyFormRef} onAdd={handleAddOrUpdateEntry} editingEntry={editingEntry} onCancelEdit={() => setEditingEntry(null)} allCompanyOptions={allCompanyOptions} partnerOptions={partnerOptions} />
+                            </div>
+                            <div className={cn(isDistributionLocked && "opacity-50 pointer-events-none")}>
+                                <SummaryList onRemove={removeEntry} onEdit={handleEditEntry} />
+                            </div>
                         </div>
                         <DialogFooter className="pt-4 border-t flex-row items-center justify-between sticky bottom-0 bg-background mt-auto">
-                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                             <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
                                 <SummaryStat title="إجمالي الربح" value={grandTotalProfit} currency={watchedPeriod.currency} />
+                                <SummaryStat title="حصة الروضتين" value={alrawdatainShareAmount} currency={watchedPeriod.currency} className="text-green-600" />
+                                <SummaryStat title="حصة الشركاء" value={amountForPartners} currency={watchedPeriod.currency} className="text-blue-600" />
+                                <SummaryStat title="المتبقي" value={remainderForPartners} currency={watchedPeriod.currency} className={cn(Math.abs(remainderForPartners) > 0.01 && 'text-destructive')} />
                             </div>
                             <div className="flex items-center gap-2">
                                 <Button type="submit" disabled={isSaving || summaryFields.length === 0}>
@@ -620,6 +711,3 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         </Dialog>
     );
 }
-
-
-    
