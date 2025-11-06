@@ -16,6 +16,14 @@ import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +55,7 @@ import {
   BookUser,
   FileDown,
   FileUp,
+  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -97,7 +106,7 @@ const VoucherTypeIcon = ({ type }: { type?: string }) => {
     other: FileText,
   };
   const Icon = typeMap[normalized] || FileText;
-  return <Icon className="h-5 w-5" />;
+  return <Icon className="h-4 w-4" />;
 };
 
 function VoucherLogContent() {
@@ -147,7 +156,7 @@ function VoucherLogContent() {
     }
   }
 
-  const searchedVouchers = React.useMemo(() => {
+  const filteredBySearch = React.useMemo(() => {
     if (!debouncedSearch) return vouchers;
     const term = debouncedSearch.toLowerCase();
     return vouchers.filter((voucher) => {
@@ -161,55 +170,11 @@ function VoucherLogContent() {
     });
   }, [vouchers, debouncedSearch]);
 
-  const tabDefinitions = React.useMemo(() => {
-    const counts = new Map<string, number>();
-    counts.set("all", searchedVouchers.length);
-    searchedVouchers.forEach((voucher) => {
-      const key = voucher.normalizedType || "other";
-      counts.set(key, (counts.get(key) || 0) + 1);
-    });
-
-    const presentTypes = Array.from(counts.keys()).filter((key) => key !== "all") as NormalizedVoucherType[];
-    const ordered = [
-      ...DEFAULT_VOUCHER_TABS_ORDER.filter((type) => presentTypes.includes(type) && counts.has(type)),
-      ...presentTypes.filter((type) => !DEFAULT_VOUCHER_TABS_ORDER.includes(type)),
-    ];
-
-    return [
-      { id: "all" as const, label: "جميع السندات", count: counts.get("all") || 0 },
-      ...ordered.map((type) => ({ id: type, label: getVoucherTypeLabel(type), count: counts.get(type) || 0 })),
-    ];
-  }, [searchedVouchers]);
-
-  const filteredByTab = React.useMemo(() => {
-    if (activeTab === "all") return searchedVouchers;
-    return searchedVouchers.filter((voucher) => (voucher.normalizedType || "other") === activeTab);
-  }, [searchedVouchers, activeTab]);
-
-  const groupedByDate = React.useMemo(() => {
-    const groups = new Map<string, Voucher[]>();
-    filteredByTab.forEach((voucher) => {
-      const rawDate = voucher.createdAt || voucher.date;
-      const safeDate = rawDate ? parseISO(rawDate as string) : new Date();
-      const dateKey = format(safeDate, "yyyy-MM-dd");
-      const list = groups.get(dateKey) || [];
-      list.push(voucher);
-      groups.set(dateKey, list);
-    });
-
-    return Array.from(groups.entries())
-      .map(([date, entries]) => ({
-        date,
-        entries: entries.sort((a, b) => {
-          const dateA = a.createdAt || a.date;
-          const dateB = b.createdAt || b.date;
-          const timeA = dateA ? parseISO(dateA as string).getTime() : 0;
-          const timeB = dateB ? parseISO(dateB as string).getTime() : 0;
-          return timeB - timeA;
-        }),
-      }))
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [filteredByTab]);
+  const filteredVouchers = React.useMemo(() => {
+    if (activeTab === "all") return filteredBySearch;
+    return filteredBySearch.filter((voucher) => (voucher.normalizedType || "other") === activeTab);
+  }, [filteredBySearch, activeTab]);
+  
 
   if (isLoading || !isNavLoaded) {
     return (
@@ -259,84 +224,60 @@ function VoucherLogContent() {
                 </div>
             </CardHeader>
             <CardContent className="space-y-4">
-                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-                <TabsList className="flex w-full flex-wrap justify-end gap-2">
-                    {tabDefinitions.map((tab) => (
-                    <TabsTrigger key={tab.id} value={tab.id} className="flex items-center gap-2">
-                        <span>{tab.label}</span>
-                        <Badge variant="secondary" className="rounded-full px-2 py-0 text-xs">
-                        {tab.count}
-                        </Badge>
-                    </TabsTrigger>
-                    ))}
-                </TabsList>
-                <TabsContent value={activeTab} className="mt-4">
-                    {groupedByDate.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-12 text-center text-muted-foreground">
-                        <FileText className="h-10 w-10" />
-                        <p>لا توجد سندات مطابقة للبحث الحالي.</p>
-                    </div>
-                    ) : (
-                    <ScrollArea className="h-[520px]">
-                        <div className="space-y-6 pe-4">
-                        {groupedByDate.map((group) => (
-                            <section key={group.date} className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div className="text-sm text-muted-foreground">
-                                {format(parseISO(group.date), "EEEE, dd MMM yyyy")}
-                                </div>
-                                <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
-                                {group.entries.length} سند
-                                </Badge>
-                            </div>
-                            <div className="space-y-3">
-                                {group.entries.map((voucher) => {
-                                const rawDate = voucher.createdAt || voucher.date;
-                                const timestamp = rawDate ? parseISO(rawDate as string) : new Date();
-                                const voucherRoute = `/accounts/vouchers/${voucher.id}/edit`;
-                                return (
-                                    <div
-                                    key={`${voucher.id}_${rawDate}`}
-                                    className="rounded-lg border bg-card p-4 shadow-sm transition hover:border-primary/60 hover:shadow-md"
-                                    >
-                                    <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <div className="flex flex-wrap items-center gap-2">
+                <div className="border rounded-lg overflow-x-auto">
+                    <Table dir="rtl">
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="font-bold">النوع</TableHead>
+                                <TableHead className="font-bold">رقم الفاتورة</TableHead>
+                                <TableHead className="font-bold">الحالة</TableHead>
+                                <TableHead className="font-bold">المبلغ</TableHead>
+                                <TableHead className="font-bold">الجهة</TableHead>
+                                <TableHead className="font-bold">المستخدم</TableHead>
+                                <TableHead className="font-bold">الوصف</TableHead>
+                                <TableHead className="font-bold">التاريخ</TableHead>
+                                <TableHead className="text-center font-bold">الإجراءات</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {filteredVouchers.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">لا توجد سجلات مطابقة.</TableCell>
+                            </TableRow>
+                        ) : filteredVouchers.map(voucher => {
+                            const rawDate = voucher.createdAt || voucher.date;
+                            const timestamp = rawDate ? parseISO(rawDate as string) : new Date();
+                            const voucherRoute = `/accounts/vouchers/${voucher.id}/edit`;
+                            const amount = (voucher as any).totalAmount || (voucher.debitEntries?.[0]?.amount);
+                            const currency = voucher.currency || "USD";
+                            const isCredit = (voucher as any).creditEntries?.length > 0;
+                            return (
+                                <TableRow key={`${voucher.id}_${rawDate}`}>
+                                    <TableCell>
                                         <Badge variant="outline" className="text-xs">
                                             <VoucherTypeIcon type={voucher.normalizedType || 'other'} />
                                             <span className="ms-1.5">{getVoucherTypeLabel(voucher.normalizedType || "other")}</span>
                                         </Badge>
-                                        <span className="font-mono text-xs text-muted-foreground">#{voucher.invoiceNumber || voucher.id}</span>
-                                         <Badge variant={voucher.isDeleted ? "destructive" : "default"} className={cn(voucher.isDeleted ? "" : "bg-green-500")}>
+                                    </TableCell>
+                                    <TableCell className="font-mono text-xs text-muted-foreground">#{voucher.invoiceNumber || voucher.id}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={voucher.isDeleted ? "destructive" : "default"} className={cn(voucher.isDeleted ? "" : "bg-green-500")}>
                                             {voucher.isDeleted ? 'محذوف' : 'فعال'}
                                         </Badge>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            
-                                            <div className="text-sm font-semibold text-foreground">
-                                                {formatCurrency((voucher as any).totalAmount || voucher.debitEntries?.[0]?.amount, voucher.currency || "USD")}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
-                                        <div>
-                                        <p className="text-xs text-muted-foreground">الجهة</p>
-                                        <p className="font-medium text-foreground">
-                                            {voucher.companyName || voucher.originalData?.meta?.clientName || voucher.originalData?.meta?.supplierName || "-"}
-                                        </p>
-                                        </div>
-                                        <div>
-                                        <p className="text-xs text-muted-foreground">المستخدم</p>
-                                        <p className="font-medium text-foreground">{voucher.officer || "غير معروف"}</p>
-                                        </div>
-                                    </div>
-                                    {voucher.notes && (
-                                        <p className="mt-3 text-sm text-muted-foreground">
-                                        {voucher.notes}
-                                        </p>
-                                    )}
-                                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-                                        <span>{format(timestamp, "HH:mm:ss")}</span>
-                                        <div className="flex items-center gap-1">
+                                    </TableCell>
+                                    <TableCell className={cn("font-bold font-mono", isCredit ? "text-green-600" : "text-red-600")}>
+                                        {formatCurrency(amount, currency)}
+                                    </TableCell>
+                                    <TableCell className="font-medium">
+                                        {voucher.companyName || voucher.originalData?.meta?.clientName || voucher.originalData?.meta?.supplierName || "-"}
+                                    </TableCell>
+                                    <TableCell>{voucher.officer || "غير معروف"}</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">{voucher.notes}</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground font-mono">
+                                        {format(timestamp, "yyyy-MM-dd HH:mm")}
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                         <div className="flex items-center justify-center gap-1">
                                             <AlertDialog>
                                                 <AlertDialogTrigger asChild>
                                                     <Button variant="ghost" size="sm" className="px-2 h-7 text-xs text-destructive hover:text-destructive hover:bg-destructive/10">
@@ -364,20 +305,15 @@ function VoucherLogContent() {
                                                 </Link>
                                             </Button>
                                         </div>
-                                    </div>
-                                    </div>
-                                );
-                                })}
-                            </div>
-                            </section>
-                        ))}
-                        </div>
-                    </ScrollArea>
-                    )}
-                </TabsContent>
-                </Tabs>
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        })}
+                        </TableBody>
+                    </Table>
+                </div>
             </CardContent>
-            </Card>
+        </Card>
   );
 };
 
@@ -390,6 +326,3 @@ const VoucherLogPage = () => {
 }
 
 export default VoucherLogPage;
-
-    
-
