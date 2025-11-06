@@ -12,6 +12,25 @@ export type DeletedVoucher = JournalVoucher & {
     voucherId: string;
 };
 
+// Helper function to safely serialize document data
+const processDeletedDoc = (doc: FirebaseFirestore.DocumentSnapshot): DeletedVoucher | null => {
+    const data = doc.data();
+    if (!data) return null;
+
+    const safeData: any = { id: doc.id, voucherId: doc.id };
+
+    for (const key in data) {
+        const value = data[key];
+        if (value && typeof value.toDate === 'function') {
+            safeData[key] = value.toDate().toISOString();
+        } else {
+            safeData[key] = value;
+        }
+    }
+    return safeData as DeletedVoucher;
+};
+
+
 export async function getDeletedVouchers(): Promise<DeletedVoucher[]> {
     const db = await getDb();
     if (!db) return [];
@@ -23,14 +42,7 @@ export async function getDeletedVouchers(): Promise<DeletedVoucher[]> {
         
     if (snapshot.empty) return [];
 
-    return snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            ...data,
-            id: doc.id,
-            voucherId: doc.id,
-        } as DeletedVoucher;
-    });
+    return snapshot.docs.map(doc => processDeletedDoc(doc)).filter(Boolean) as DeletedVoucher[];
 }
 
 
