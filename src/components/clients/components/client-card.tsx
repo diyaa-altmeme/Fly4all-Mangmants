@@ -50,12 +50,12 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
         return;
     }
     
+    onClientUpdated(undefined, id);
+
     const result = await deleteClient(id);
-    if (result.success) {
-        toast({ title: "تم حذف العلاقة بنجاح" });
-        onClientUpdated(undefined, id);
-    } else {
+    if (!result.success) {
         toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
+        router.refresh();
     }
   };
 
@@ -252,4 +252,3 @@ export default function ClientCard({ client, relationSections, onClientUpdated }
     </Card>
   );
 }
-

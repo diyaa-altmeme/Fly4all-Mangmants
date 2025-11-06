@@ -157,7 +157,7 @@ export default function ClientsContent({ initialRelations, totalRelations, relat
                             </PopoverContent>
                         </Popover>
                          <div className="relative flex-grow sm:flex-grow-0 sm:w-72">
-                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                            <Input
                                placeholder="بحث بالاسم, الهاتف, المعرف..."
                                value={stagedFilters.search}
