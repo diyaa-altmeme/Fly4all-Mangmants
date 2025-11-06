@@ -266,7 +266,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             date: new Date(finalSubscriptionData.purchaseDate),
             userId: user.uid,
             entries: entries,
-            meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id, partnerIds: finalSubscriptionData.partnerId ? [finalSubscriptionData.partnerId] : [] }
+            meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id, installments: installmentsToCreate }
         });
         
         mainBatch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });
@@ -413,7 +413,7 @@ export async function updateSubscription(subscriptionId: string, subscriptionDat
                 date: new Date(finalSubscriptionData.purchaseDate!),
                 userId: user.uid,
                 entries: entries,
-                meta: { ...finalSubscriptionData, subscriptionId: subscriptionId }
+                meta: { ...finalSubscriptionData, subscriptionId: subscriptionId, installments: installmentsToCreate }
             });
         });
 
@@ -783,30 +783,26 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
     const user = await getCurrentUserFromSession();
     if (!user || !('name' in user)) return { success: false, error: "User not authenticated." };
 
-    const batch = db.batch();
-    const now = new Date().toISOString();
-    const deletedBy = user.name;
-
     try {
-        // 1. Mark subscription as deleted
-        const subscriptionRef = db.collection('subscriptions').doc(id);
-        batch.update(subscriptionRef, { isDeleted: true, deletedAt: now, deletedBy });
+        await db.runTransaction(async (transaction) => {
+            const now = new Date().toISOString();
+            const deletedBy = user.name;
+            
+            const subRef = db.collection('subscriptions').doc(id);
+            transaction.update(subRef, { isDeleted: true, deletedAt: now, deletedBy });
 
-        // 2. Mark associated installments as deleted
-        const installmentsSnap = await db.collection('subscription_installments').where('subscriptionId', '==', id).get();
-        installmentsSnap.forEach(doc => {
-            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
-        });
+            const installmentsSnap = await db.collection('subscription_installments').where('subscriptionId', '==', id).get();
+            installmentsSnap.forEach(doc => {
+                transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
+            });
 
-        // 3. Mark associated journal vouchers as deleted
-        const vouchersSnap = await db.collection('journal-vouchers').where('sourceId', '==', id).where('sourceType', '==', 'subscription').get();
-        vouchersSnap.forEach(doc => {
-             const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
-            batch.set(deletedVoucherRef, { ...doc.data(), deletedAt: now, deletedBy }, { merge: true });
-            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
+            const vouchersSnap = await db.collection('journal-vouchers').where('sourceId', '==', id).where('sourceType', '==', 'subscription').get();
+            vouchersSnap.forEach(doc => {
+                 const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+                 transaction.set(deletedVoucherRef, { ...doc.data(), deletedAt: now, deletedBy }, { merge: true });
+                 transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
+            });
         });
-        
-        await batch.commit();
 
         await createAuditLog({
             userId: user.uid,
