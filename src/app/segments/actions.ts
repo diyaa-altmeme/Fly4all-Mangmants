@@ -60,23 +60,17 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
 }
 
 function calculateShares(data: any, clientSettings?: SegmentSettings) {
-    const settings = clientSettings || {
-        ticketProfitType: 'percentage', ticketProfitValue: 50,
-        visaProfitType: 'percentage', visaProfitValue: 100,
-        hotelProfitType: 'percentage', hotelProfitValue: 100,
-        groupProfitType: 'percentage', groupProfitValue: 100,
-        alrawdatainSharePercentage: 50,
-    };
-
+    const settings = clientSettings || {};
+    
     const computeService = (count: number, type: 'fixed' | 'percentage', value: number) => {
       if (!count || !value) return 0;
       return type === 'fixed' ? count * value : (count * value) / 100;
     };
     
-    const ticketProfits = computeService(data.tickets, d.ticketProfitType || 'percentage', d.ticketProfitValue || 50);
-    const visaProfits = computeService(data.visas, d.visaProfitType || 'percentage', d.visaProfitValue || 100);
-    const hotelProfits = computeService(data.hotels, d.hotelProfitType || 'percentage', d.hotelProfitValue || 100);
-    const groupProfits = computeService(data.groups, d.groupProfitType || 'percentage', d.groupProfitValue || 100);
+    const ticketProfits = computeService(data.tickets, data.ticketProfitType || 'percentage', data.ticketProfitValue || 50);
+    const visaProfits = computeService(data.visas, data.visaProfitType || 'percentage', data.visaProfitValue || 100);
+    const hotelProfits = computeService(data.hotels, data.hotelProfitType || 'percentage', data.hotelProfitValue || 100);
+    const groupProfits = computeService(data.groups, data.groupProfitType || 'percentage', data.groupProfitValue || 100);
     
     const otherProfits = visaProfits + hotelProfits + groupProfits;
     const total = ticketProfits + otherProfits;
@@ -140,15 +134,19 @@ export async function addSegmentEntries(
                 createdAt: new Date().toISOString(),
                 isDeleted: false,
             };
+            
+            if (!dataToSave.supplierId) {
+                delete (dataToSave as any).supplierId;
+            }
 
             mainBatch.set(segmentDocRef, dataToSave);
             
             const revenueAccountId = 'revenue_segments';
             if(!revenueAccountId) throw new Error("Revenue account for segments is not defined.");
 
-            const entries: JournalEntry[] = [];
+            const journalEntries: JournalEntry[] = [];
 
-            entries.push({
+            journalEntries.push({
                 accountId: dataToSave.clientId,
                 debit: dataToSave.total,
                 credit: 0,
@@ -165,7 +163,7 @@ export async function addSegmentEntries(
 
             partnerShares.forEach((share) => {
                 if (!share || !share.partnerId || !share.share) return;
-                entries.push({
+                journalEntries.push({
                     accountId: share.partnerId,
                     debit: 0,
                     credit: share.share,
@@ -176,7 +174,7 @@ export async function addSegmentEntries(
             });
 
             if (dataToSave.alrawdatainShare > 0) {
-                entries.push({
+                journalEntries.push({
                     accountId: revenueAccountId,
                     debit: 0,
                     credit: dataToSave.alrawdatainShare,
@@ -201,7 +199,7 @@ export async function addSegmentEntries(
                 description: `ربح سكمنت من ${dataToSave.companyName} للفترة من ${dataToSave.fromDate} إلى ${dataToSave.toDate}`,
                 date: entryDate,
                 userId: user.uid,
-                entries,
+                entries: journalEntries,
                 meta,
             });
         }
