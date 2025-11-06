@@ -17,7 +17,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { Currency, Client, Supplier, Subscription, User, Box } from '@/lib/types';
 import { Loader2, Calendar as CalendarIcon, PlusCircle, User as UserIcon, Hash, Wallet, ArrowLeft, ArrowRight, X, Building, Store, Settings2, Save, Trash2 } from 'lucide-react';
-import { addSubscription as addSubscriptionAction } from '@/app/subscriptions/actions';
+import { addSubscription, updateSubscription } from '@/app/subscriptions/actions';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -30,7 +30,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, addMonths } from 'date-fns';
+import { format, addMonths, parseISO } from 'date-fns';
 import { useForm, Controller, FormProvider, useFormContext, useFieldArray } from 'react-hook-form';
 import { cn } from '@/lib/utils';
 import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
@@ -48,6 +48,7 @@ const installmentSchema = z.object({
 });
 
 const formSchema = z.object({
+  id: z.string().optional(),
   supplierId: z.string().optional(),
   serviceName: z.string().min(2, { message: "اسم الاشتراك مطلوب." }),
   purchaseDate: z.date({ required_error: "تاريخ الشراء مطلوب." }),
@@ -70,63 +71,105 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const Section = ({ title, children, className }: { title: React.ReactNode, children: React.ReactNode, className?: string }) => (
-    <Card className={cn("shadow-sm", className)}>
-        <CardContent className="pt-6 space-y-4">
-            <h3 className="font-bold text-primary mb-3">{title}</h3>
-            {children}
-        </CardContent>
-    </Card>
-);
+interface AddSubscriptionDialogProps {
+  onSubscriptionAdded: () => void;
+  onSubscriptionUpdated?: (subscription: Subscription) => void;
+  isEditing?: boolean;
+  initialData?: Subscription;
+  children?: React.ReactNode;
+}
 
-export default function AddSubscriptionDialog({ onSubscriptionAdded, children }: { onSubscriptionAdded: () => void; children?: React.ReactNode; }) {
+export default function AddSubscriptionDialog({ 
+  onSubscriptionAdded, 
+  onSubscriptionUpdated,
+  isEditing = false,
+  initialData,
+  children 
+}: AddSubscriptionDialogProps) {
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
-  const { user: currentUser } = useAuth();
-  const { data: navData, loaded: navLoaded, fetchData } = useVoucherNav();
-  const [isSaving, setIsSaving] = useState(false);
-  const [dialogDimensions, setDialogDimensions] = useState({ width: '1024px', height: '90vh' });
-  const [numInstallments, setNumInstallments] = useState<number>(2);
-
-  const subscriptionSettings = navData?.settings?.subscriptionSettings;
-  const defaultCurrency = navData?.settings.currencySettings?.defaultCurrency || 'USD';
-  
-  useEffect(() => {
-    if (open && !navLoaded) {
-      fetchData();
-    }
-  }, [open, navLoaded, fetchData]);
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
 
-  const { control, handleSubmit, watch, setValue, formState: { errors }, trigger, reset: resetForm } = form;
-  const { fields, append, remove, replace } = useFieldArray({ control, name: "installments" });
-
   useEffect(() => {
     if (open) {
-      form.reset({
-        currency: defaultCurrency as Currency,
-        purchaseDate: new Date(),
-        clientId: '',
-        supplierId: subscriptionSettings?.defaultSupplier || '',
-        serviceName: '',
-        purchasePrice: 0,
-        quantity: subscriptionSettings?.defaultQuantity || 1,
-        unitPrice: 0,
-        discount: 0,
-        startDate: new Date(),
-        installmentMethod: 'upfront',
-        installments: [],
-        notes: '',
-        boxId: (currentUser && 'role' in currentUser) ? currentUser.boxId : '',
-        hasPartner: false,
-      });
-      setNumInstallments(subscriptionSettings?.defaultInstallments || 2);
+      if (isEditing && initialData) {
+        form.reset({
+          ...initialData,
+          purchaseDate: parseISO(initialData.purchaseDate),
+          startDate: parseISO(initialData.startDate),
+          installments: (initialData.installments || []).map(i => ({...i, dueDate: parseISO(i.dueDate)})),
+        });
+      } else {
+         form.reset({
+            currency: 'USD',
+            purchaseDate: new Date(),
+            quantity: 1,
+            unitPrice: 0,
+            purchasePrice: 0,
+            discount: 0,
+            startDate: new Date(),
+            installmentMethod: 'upfront',
+            installments: [],
+         });
+      }
     }
-  }, [open, form, currentUser, navData, defaultCurrency, subscriptionSettings]);
+  }, [open, isEditing, initialData, form]);
 
+  const handleSuccess = (data: any) => {
+    if (isEditing && onSubscriptionUpdated) {
+        onSubscriptionUpdated(data);
+    } else {
+        onSubscriptionAdded();
+    }
+    setOpen(false);
+  };
+  
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {children || <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة اشتراك</Button>}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-4xl p-0">
+        <DialogHeader className="bg-primary text-primary-foreground p-4 rounded-t-lg">
+          <DialogTitle>{isEditing ? `تعديل اشتراك: ${initialData?.serviceName}` : 'إضافة اشتراك جديد'}</DialogTitle>
+          <DialogDescription className="text-primary-foreground/80">
+            {isEditing ? "قم بتحديث تفاصيل الاشتراك." : "أدخل جميع تفاصيل الاشتراك."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[80vh] overflow-y-auto p-6">
+            <NewSubscriptionForm
+                isEditing={isEditing}
+                initialData={initialData}
+                onSuccess={handleSuccess}
+                form={form}
+            />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Keeping NewSubscriptionForm in the same file as it's tightly coupled
+// with the dialog's state and logic.
+
+interface NewSubscriptionFormProps {
+    isEditing?: boolean;
+    initialData?: Subscription;
+    onSuccess: (data: any) => void;
+    form: ReturnType<typeof useForm<FormValues>>;
+}
+
+function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSubscriptionFormProps) {
+  const { toast } = useToast();
+  const { user: currentUser } = useAuth();
+  const { data: navData } = useVoucherNav();
+  const [isSaving, setIsSaving] = useState(false);
+  const [numInstallments, setNumInstallments] = useState(initialData?.numberOfInstallments || 2);
+  
+  const { control, handleSubmit, watch, setValue, formState: { errors } } = form;
+  const { fields, append, remove, replace } = useFieldArray({ control, name: "installments" });
+  
   const watchedCurrency = watch('currency');
   const installmentMethod = watch('installmentMethod');
   const quantity = watch('quantity');
@@ -149,22 +192,14 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
 
   const distributedAmount = (installmentsArray || []).reduce((sum, inst) => sum + Number(inst.amount || 0), 0);
   const remainingToDistribute = totalSale - distributedAmount;
-
-  const headerColor = watchedCurrency === 'USD' ? 'hsl(var(--accent))' : 'hsl(var(--primary))';
   
-  const boxName = useMemo(() => {
-    const currentBoxId = watch('boxId');
-    return navData?.boxes?.find(b => b.id === currentBoxId)?.name || 'غير محدد';
-  }, [watch, navData?.boxes]);
-
   const supplierOptions = React.useMemo(() => (navData?.suppliers || []).map(s => ({ value: s.id, label: s.name })), [navData?.suppliers]);
-  const clientOptions = React.useMemo(() => (navData?.clients || []).map(c => ({ value: c.id, label: `${''}${c.name} ${c.code ? `(${c.code})` : ''}` })), [navData?.clients]);
+  const clientOptions = React.useMemo(() => (navData?.clients || []).map(c => ({ value: c.id, label: `${c.name} ${c.code ? `(${c.code})` : ''}` })), [navData?.clients]);
    const partnerOptions = React.useMemo(() => {
     if (!navData) return [];
     return [...(navData.clients || []), ...(navData.suppliers || [])].map(p => ({value: p.id, label: p.name}));
   }, [navData]);
 
-  
   const handleGenerateInstallments = useCallback(() => {
     if (numInstallments > 0 && totalSale > 0) {
       const installmentAmount = parseFloat((totalSale / numInstallments).toFixed(2));
@@ -214,19 +249,23 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
         supplierName: supplier?.name,
       };
       
-      const result = await addSubscriptionAction(newSubscriptionData as any);
-      
-      if (result.success && result.id) {
-          if(onSubscriptionAdded) onSubscriptionAdded();
-          toast({ title: "تمت إضافة الاشتراك بنجاح" });
-          setOpen(false);
+      let result;
+      if (isEditing && initialData) {
+        result = await updateSubscription(initialData.id, newSubscriptionData as any);
       } else {
-        throw new Error(result.error || "Failed to add subscription");
+        result = await addSubscription(newSubscriptionData as any);
+      }
+      
+      if (result.success) {
+          toast({ title: `تم ${isEditing ? 'تحديث' : 'حفظ'} الاشتراك بنجاح` });
+          onSuccess(isEditing ? { ...initialData, ...newSubscriptionData } : result);
+      } else {
+        throw new Error(result.error || `Failed to ${isEditing ? 'update' : 'add'} subscription`);
       }
     } catch (error: any) {
        toast({
             title: "خطأ",
-            description: error.message || "حدث خطأ أثناء إضافة الاشتراك.",
+            description: error.message || `حدث خطأ أثناء ${isEditing ? 'تحديث' : 'إضافة'} الاشتراك.`,
             variant: "destructive",
         });
     } finally {
@@ -235,203 +274,75 @@ export default function AddSubscriptionDialog({ onSubscriptionAdded, children }:
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children || <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة اشتراك</Button>}
-      </DialogTrigger>
-      <DialogContent 
-        showCloseButton={false}
-        className="p-0 flex flex-col"
-        style={{
-            maxWidth: dialogDimensions.width, 
-            width: '95vw',
-            height: dialogDimensions.height,
-        }}
-      >
-        <DialogHeader 
-            className="p-4 rounded-t-lg flex flex-row justify-between items-center"
-            style={{ backgroundColor: headerColor, color: 'white' }}
-        >
-           <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-white/20 h-7 w-7 rounded-full">
-                <X className="h-4 w-4"/>
-              </Button>
-           </DialogClose>
-          <div>
-            <DialogTitle className="text-white">إضافة اشتراك جديد</DialogTitle>
-          </div>
-           <div className="flex items-center gap-2">
-                {(navData?.settings?.currencySettings?.currencies || []).map(c => (
-                    <Button key={c.code} type="button" onClick={() => form.setValue('currency', c.code as Currency)} className={cn('text-white h-8', watchedCurrency === c.code ? 'bg-white/30' : 'bg-transparent border border-white/50')}>
-                        {c.code}
-                    </Button>
-                ))}
-                <VoucherDialogSettings
-                    dialogKey="add_subscription"
-                    onDimensionsChange={setDialogDimensions}
-                >
-                    <Button type="button" variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
-                        <Settings2 className="h-5 w-5" />
-                    </Button>
-                </VoucherDialogSettings>
-            </div>
-        </DialogHeader>
-        <FormProvider {...form}>
-            <form onSubmit={form.handleSubmit(onFinalSubmit)} className="flex flex-col flex-grow overflow-hidden">
-                <div className="px-6 py-4 flex-grow overflow-y-auto space-y-4">
-                    {!navLoaded ? (
-                         <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin h-8 w-8" /></div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <Section title="المعلومات الأساسية">
-                                <FormField control={control} name="serviceName" render={({ field }) => (
-                                    <FormItem><FormLabel className="font-bold">اسم الاشتراك / الخدمة</FormLabel><FormControl><Input placeholder="مثال: اشتراك إنترنت شهري" {...field} /></FormControl><FormMessage /></FormItem>
-                                )}/>
-                                <div className="grid grid-cols-2 gap-4">
-                                     <FormField control={control} name="supplierId" render={({ field }) => (
-                                        <FormItem><FormLabel className="font-bold">المورد (المصدر)</FormLabel><FormControl><Autocomplete searchAction="suppliers" options={supplierOptions} value={field.value} onValueChange={field.onChange} placeholder="اختياري"/></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={control} name="clientId" render={({ field }) => (
-                                        <FormItem><FormLabel className="font-bold">العميل (المستفيد)</FormLabel><FormControl><Autocomplete searchAction="clients" options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                </div>
-                                 <FormField control={control} name="purchaseDate" render={({ field }) => (
-                                    <FormItem><FormLabel className="font-bold">تاريخ الشراء</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>
-                                )}/>
-                            </Section>
+    <FormProvider {...form}>
+      <form onSubmit={handleSubmit(onFinalSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Section title="المعلومات الأساسية">
+                <FormField control={control} name="serviceName" render={({ field }) => (
+                    <FormItem><FormLabel className="font-bold">اسم الاشتراك / الخدمة</FormLabel><FormControl><Input placeholder="مثال: اشتراك إنترنت شهري" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <div className="grid grid-cols-2 gap-4">
+                        <FormField control={control} name="supplierId" render={({ field }) => (
+                        <FormItem><FormLabel className="font-bold">المورد (المصدر)</FormLabel><FormControl><Autocomplete searchAction="suppliers" options={supplierOptions} value={field.value} onValueChange={field.onChange} placeholder="اختياري"/></FormControl><FormMessage /></FormItem>
+                    )}/>
+                    <FormField control={control} name="clientId" render={({ field }) => (
+                        <FormItem><FormLabel className="font-bold">العميل (المستفيد)</FormLabel><FormControl><Autocomplete searchAction="clients" options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                </div>
+                    <FormField control={control} name="purchaseDate" render={({ field }) => (
+                    <FormItem><FormLabel className="font-bold">تاريخ الشراء</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>
+                )}/>
+            </Section>
 
-                            <Section title="التفاصيل المالية وتوزيع الأرباح">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField control={control} name="quantity" render={({ field }) => (<FormItem><FormLabel className="font-bold">الكمية</FormLabel><FormControl><NumericInput onValueChange={(val) => field.onChange(val || 0)} value={field.value} placeholder="أدخل الكمية" /></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={control} name="discount" render={({ field }) => (<FormItem><FormLabel className="font-bold">الخصم</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل الخصم" /></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={control} name="purchasePrice" render={({ field }) => (<FormItem><FormLabel className="font-bold">الكلفة</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل سعر الشراء" /></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={control} name="unitPrice" render={({ field }) => (<FormItem><FormLabel className="font-bold">البيع</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل سعر البيع" /></FormControl><FormMessage /></FormItem>)}/>
+            <Section title="التفاصيل المالية وتوزيع الأرباح">
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField control={control} name="quantity" render={({ field }) => (<FormItem><FormLabel className="font-bold">الكمية</FormLabel><FormControl><NumericInput onValueChange={(val) => field.onChange(val || 0)} value={field.value} placeholder="أدخل الكمية" /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={control} name="discount" render={({ field }) => (<FormItem><FormLabel className="font-bold">الخصم</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل الخصم" /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={control} name="purchasePrice" render={({ field }) => (<FormItem><FormLabel className="font-bold">الكلفة</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل سعر الشراء" /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={control} name="unitPrice" render={({ field }) => (<FormItem><FormLabel className="font-bold">البيع</FormLabel><FormControl><NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل سعر البيع" /></FormControl><FormMessage /></FormItem>)}/>
+                </div>
+                <Separator className="my-4"/>
+                    <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-red-50 p-2 rounded-md"><p className="text-xs font-semibold text-muted-foreground">إجمالي الكلفة</p><p className="font-bold">{totalPurchase.toLocaleString()} {watchedCurrency}</p></div>
+                        <div className="bg-blue-50 p-2 rounded-md"><p className="text-xs font-semibold text-muted-foreground">إجمالي المبيع</p><p className="font-bold">{totalSale.toLocaleString()} {watchedCurrency}</p></div>
+                        <div className="bg-green-50 p-2 rounded-md"><p className="text-xs font-semibold text-muted-foreground">إجمالي الربح</p><p className="font-bold">{totalProfit.toLocaleString()} {watchedCurrency}</p></div>
+                    </div>
+                    <FormField control={control} name="hasPartner" render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <Label className="font-semibold">هل يوجد شريك في الربح؟</Label>
+                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        </FormItem>
+                    )}/>
+                    {hasPartner && (
+                        <div className="grid grid-cols-3 gap-2 text-center p-2 border rounded-lg">
+                            <FormField control={control} name="partnerId" render={({field}) => (
+                                <FormItem className="col-span-1 text-right space-y-1"><FormLabel className="text-xs">الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="اختر شريك"/></FormControl></FormItem>
+                            )}/>
+                            <FormField control={control} name="partnerSharePercentage" render={({field}) => (
+                                <FormItem className="col-span-2 text-right space-y-1"><FormLabel className="text-xs">حصة الشريك من الربح (%)</FormLabel>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <NumericInput value={field.value} onValueChange={v => field.onChange(v || 0)} />
+                                    <div className="font-bold p-2 rounded-md bg-blue-50 text-blue-800">{partnerShareAmount.toLocaleString()} {watchedCurrency}</div>
                                 </div>
-                                <Separator className="my-4"/>
-                                 <div className="space-y-3">
-                                    <div className="grid grid-cols-3 gap-2 text-center">
-                                        <div className="bg-red-50 p-2 rounded-md"><p className="text-xs font-semibold text-muted-foreground">إجمالي الكلفة</p><p className="font-bold">{totalPurchase.toLocaleString()} {watchedCurrency}</p></div>
-                                        <div className="bg-blue-50 p-2 rounded-md"><p className="text-xs font-semibold text-muted-foreground">إجمالي المبيع</p><p className="font-bold">{totalSale.toLocaleString()} {watchedCurrency}</p></div>
-                                        <div className="bg-green-50 p-2 rounded-md"><p className="text-xs font-semibold text-muted-foreground">إجمالي الربح</p><p className="font-bold">{totalProfit.toLocaleString()} {watchedCurrency}</p></div>
-                                    </div>
-                                    <FormField control={control} name="hasPartner" render={({ field }) => (
-                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                                            <Label className="font-semibold">هل يوجد شريك في الربح؟</Label>
-                                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                        </FormItem>
-                                    )}/>
-                                    {hasPartner && (
-                                        <div className="grid grid-cols-3 gap-2 text-center p-2 border rounded-lg">
-                                            <FormField control={control} name="partnerId" render={({field}) => (
-                                                <FormItem className="col-span-1 text-right space-y-1"><FormLabel className="text-xs">الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="اختر شريك"/></FormControl></FormItem>
-                                            )}/>
-                                            <FormField control={control} name="partnerSharePercentage" render={({field}) => (
-                                                <FormItem className="col-span-2 text-right space-y-1"><FormLabel className="text-xs">حصة الشريك من الربح (%)</FormLabel>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <NumericInput value={field.value} onValueChange={v => field.onChange(v || 0)} />
-                                                    <div className="font-bold p-2 rounded-md bg-blue-50 text-blue-800">{partnerShareAmount.toLocaleString()} {watchedCurrency}</div>
-                                                </div>
-                                                </FormItem>
-                                            )}/>
-                                             <div className="col-span-3 bg-green-50 p-2 rounded-md font-bold text-green-800">حصة الروضتين: {alrawdatainShare.toLocaleString()} {watchedCurrency}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </Section>
-
-                             <Section title="جدولة الدفعات" className="md:col-span-2">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 items-end">
-                                    <FormField name="installmentMethod" control={control} render={({ field }) => (
-                                        <FormItem className="space-y-2">
-                                            <FormLabel className="font-bold text-base">طريقة السداد</FormLabel>
-                                            <FormControl>
-                                                <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-3 gap-2">
-                                                    <FormItem>
-                                                        <FormControl><RadioGroupItem value="upfront" id="upfront" className="sr-only peer" /></FormControl>
-                                                        <Label htmlFor="upfront" className="flex h-10 items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground font-bold text-sm cursor-pointer">دفعة مقدمًا</Label>
-                                                    </FormItem>
-                                                    <FormItem>
-                                                        <FormControl><RadioGroupItem value="deferred" id="deferred" className="sr-only peer" /></FormControl>
-                                                        <Label htmlFor="deferred" className="flex h-10 items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground font-bold text-sm cursor-pointer">دفع بالأجل</Label>
-                                                    </FormItem>
-                                                    <FormItem>
-                                                        <FormControl><RadioGroupItem value="installments" id="installments" className="sr-only peer" /></FormControl>
-                                                        <Label htmlFor="installments" className="whitespace-nowrap flex h-10 items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground font-bold text-sm cursor-pointer">على شكل دفعات</Label>
-                                                    </FormItem>
-                                                </RadioGroup>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}/>
-                                    <FormField control={control} name="startDate" render={({ field }) => (
-                                        <FormItem><FormLabel className="font-bold">تاريخ بدء الاشتراك</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                </div>
-                                <div className="pt-4 space-y-4">
-                                    {(installmentMethod === 'upfront' || installmentMethod === 'deferred') && (
-                                        <FormField control={control} name="deferredDueDate" render={({ field }) => (<FormItem><FormLabel className="font-bold">تاريخ استحقاق الدفعة</FormLabel><FormControl><DateTimePicker date={field.value} setDate={field.onChange} /></FormControl><FormMessage /></FormItem>)} />
-                                    )}
-                                    {installmentMethod === 'installments' && (
-                                        <div className="space-y-4 pt-4 border-t">
-                                            <div className="flex items-center gap-4">
-                                                <div className="space-y-1.5 w-48">
-                                                    <Label className="font-bold">عدد الدفعات</Label>
-                                                    <NumericInput value={numInstallments} onValueChange={(v) => setNumInstallments(v || 0)} min={1} placeholder="أدخل العدد"/>
-                                                </div>
-                                                <Button type="button" onClick={handleGenerateInstallments} className="mt-6">توليد الأقساط</Button>
-                                            </div>
-                                            <h4 className="font-bold">إدارة الدفعات</h4>
-                                            <div className="border rounded-lg">
-                                                <Table><TableHeader><TableRow><TableHead>#</TableHead><TableHead>تاريخ الاستحقاق</TableHead><TableHead>المبلغ</TableHead><TableHead className="w-12"></TableHead></TableRow></TableHeader>
-                                                    <TableBody>
-                                                        {fields.map((item, index) => (
-                                                            <TableRow key={item.id}>
-                                                                <TableCell>{index + 1}</TableCell>
-                                                                <TableCell><FormField control={control} name={`installments.${index}.dueDate`} render={({ field }) => <DateTimePicker date={field.value} setDate={field.onChange} />}/></TableCell>
-                                                                <TableCell><FormField control={control} name={`installments.${index}.amount`} render={({ field }) => <NumericInput currency={watchedCurrency} onValueChange={v => field.onChange(v || 0)} value={field.value} placeholder="أدخل المبلغ"/>}/></TableCell>
-                                                                <TableCell><Button type="button" variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => remove(index)}><Trash2 className="h-4 w-4"/></Button></TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                            <div className="flex justify-between items-center">
-                                                <Button type="button" variant="outline" size="sm" onClick={() => append({ dueDate: addMonths(fields[fields.length - 1]?.dueDate || new Date(), 1), amount: 0 })}>
-                                                    <PlusCircle className="me-2 h-4 w-4" /> إضافة دفعة يدوية
-                                                </Button>
-                                                <div className="space-x-4 font-mono text-sm">
-                                                    <span className="font-bold">الموزع: <span className="text-blue-600">{distributedAmount.toLocaleString()}</span></span>
-                                                    <span className={cn("font-bold", remainingToDistribute !== 0 && "text-destructive")}>المتبقي: <span className={cn(remainingToDistribute !== 0 && "text-destructive")}>{remainingToDistribute.toLocaleString()}</span></span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </Section>
-                             <div className="md:col-span-2"><FormField control={control} name="notes" render={({ field }) => (<FormItem><FormLabel className="font-bold">ملاحظات (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)}/></div>
+                                </FormItem>
+                            )}/>
+                                <div className="col-span-3 bg-green-50 p-2 rounded-md font-bold text-green-800">حصة الروضتين: {alrawdatainShare.toLocaleString()} {watchedCurrency}</div>
                         </div>
                     )}
                 </div>
+            </Section>
+        </div>
 
-                <DialogFooter className="p-4 border-t flex-row items-center justify-between sticky bottom-0 bg-background mt-auto">
-                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1.5"><UserIcon className="h-4 w-4 text-primary"/> <span>{currentUser?.name || '...'}</span></div>
-                        <div className="flex items-center gap-1.5"><Wallet className="h-4 w-4 text-primary"/> <span>{boxName}</span></div>
-                        <div className="flex items-center gap-1.5"><Hash className="h-4 w-4 text-primary"/> <span>رقم الفاتورة: (تلقائي)</span></div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                       <Button type="submit" disabled={isSaving}>
-                            {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                            <Save className="me-2 h-4 w-4" />
-                            حفظ الاشتراك
-                        </Button>
-                    </div>
-                </DialogFooter>
-            </form>
-        </FormProvider>
-      </DialogContent>
-    </Dialog>
+        <DialogFooter className="pt-4 mt-4 border-t">
+          <Button type="submit" disabled={isSaving}>
+            {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
+            <Save className="me-2 h-4 w-4" />
+            {isEditing ? 'حفظ التعديلات' : 'حفظ الاشتراك'}
+          </Button>
+        </DialogFooter>
+      </form>
+    </FormProvider>
   );
 }
 
-    
