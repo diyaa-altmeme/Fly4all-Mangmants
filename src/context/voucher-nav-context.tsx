@@ -5,6 +5,7 @@
 import type { Client, Supplier, Box, User, AppSettings, Exchange } from '@/lib/types';
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { getClients } from '@/app/relations/actions';
+import { getSuppliers } from '@/app/suppliers/actions';
 import { getBoxes } from '@/app/boxes/actions';
 import { getUsers } from '@/app/users/actions';
 import { getSettings } from '@/app/settings/actions';
@@ -45,26 +46,21 @@ export const VoucherNavProvider = ({ children }: { children: ReactNode }) => {
 
         setIsFetching(true);
         try {
-            const [allRelationsRes, boxes, users, settings, exchangesRes] = await Promise.all([
-                getClients({ all: true, includeInactive: false, relationType: 'all' }),
+            const [clientsResponse, suppliers, boxes, users, settings, exchangesRes] = await Promise.all([
+                getClients({ all: true, includeInactive: false, relationType: 'client' }),
+                getSuppliers({ all: true }),
                 getBoxes(),
                 getUsers({ all: true }),
                 getSettings(),
                 getExchanges(),
             ]);
 
-            const allRelations = allRelationsRes?.clients || [];
-
-            const clients = allRelations.filter(r => r.relationType === 'client' || r.relationType === 'both');
-            const suppliers = allRelations.filter(r => r.relationType === 'supplier' || r.relationType === 'both');
-            const exchanges = exchangesRes.accounts || [];
-
             setData({
-                clients,
-                suppliers,
+                clients: clientsResponse.clients || [],
+                suppliers: suppliers || [],
                 boxes,
                 users: users as User[],
-                exchanges,
+                exchanges: exchangesRes.accounts || [],
                 settings,
             });
             setLoaded(true);
