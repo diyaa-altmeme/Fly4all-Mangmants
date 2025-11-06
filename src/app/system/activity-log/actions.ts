@@ -13,14 +13,32 @@ const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
     const data = doc.data() as any;
     if (!data) return null;
 
-    const safeData = { ...data, id: doc.id };
-    for (const key in safeData) {
-        if (safeData[key] && typeof safeData[key].toDate === 'function') {
-            safeData[key] = safeData[key].toDate().toISOString();
+    // Create a deep copy to avoid mutating the original data by serializing and deserializing
+    const safeData = JSON.parse(JSON.stringify({ ...data, id: doc.id }));
+
+    // Recursively find and convert date-like objects
+    const convertDates = (obj: any) => {
+        for (const key in obj) {
+            if (obj[key] && typeof obj[key] === 'object') {
+                if (obj[key].hasOwnProperty('_seconds') && obj[key].hasOwnProperty('nanoseconds')) {
+                    obj[key] = new Date(obj[key]._seconds * 1000).toISOString();
+                } else if (obj[key] instanceof Date) {
+                    obj[key] = obj[key].toISOString();
+                } else if (typeof obj[key].toDate === 'function') {
+                    // Handle Firestore Timestamp objects from the Admin SDK
+                    obj[key] = obj[key].toDate().toISOString();
+                }
+                else {
+                    convertDates(obj[key]);
+                }
+            }
         }
-    }
+    };
+
+    convertDates(safeData);
     return safeData;
 };
+
 
 export async function createAuditLog(logData: Partial<Omit<AuditLog, 'id' | 'createdAt'>>) {
     const db = await getDb();
