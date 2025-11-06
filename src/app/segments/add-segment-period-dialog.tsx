@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -73,6 +74,7 @@ const partnerSchema = z.object({
 });
 
 const periodSchema = z.object({
+  periodId: z.string().optional(),
   periodInvoiceNumber: z.string().optional(),
   fromDate: z.date({ required_error: "تاريخ البدء مطلوب." }).nullable(),
   toDate: z.date({ required_error: "تاريخ الانتهاء مطلوب." }).nullable(),
@@ -388,8 +390,10 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        return (clients || []).filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
-    }, [clients]);
+        const allRelations = [...(clients || []), ...(suppliers || [])];
+        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+        return uniqueRelations.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+    }, [clients, suppliers]);
 
      const partnerOptions = useMemo(() => {
         const allRelations = [...(clients || []), ...(suppliers || [])];
@@ -426,6 +430,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                     fromDate: parseISO(existingPeriod.fromDate),
                     toDate: parseISO(existingPeriod.toDate),
                     summaryEntries: existingPeriod.entries,
+                    periodId: existingPeriod.periodId,
                 });
             } else {
                  resetForm(defaultValues);
@@ -588,7 +593,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>{children}</DialogTrigger>
+            <DialogTrigger asChild>{children || <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة سجل جديد</Button>}</DialogTrigger>
             <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>{isEditing ? 'تعديل سجل سكمنت' : 'إضافة سجل سكمنت جديد'}</DialogTitle>
@@ -705,3 +710,5 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
         </Dialog>
     );
 }
+
+    
