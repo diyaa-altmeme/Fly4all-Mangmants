@@ -110,3 +110,5 @@ const DeletedVouchersTable = ({ initialData, onDataChanged }: { initialData: Del
         </div>
     )
 }
+
+export default DeletedVouchersTable;
