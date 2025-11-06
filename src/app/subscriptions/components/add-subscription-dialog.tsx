@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -28,7 +29,7 @@ import { addSubscription, updateSubscription } from '@/app/subscriptions/actions
 import {
   PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, Building, User as UserIcon, Wallet, Hash, AlertTriangle, CheckCircle, ArrowRight, X,
 } from 'lucide-react';
-import { format, addMonths, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,6 +41,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Stepper, StepperItem, useStepper } from '@/components/ui/stepper';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const installmentSchema = z.object({
   dueDate: z.date({ required_error: "تاريخ الاستحقاق مطلوب." }),
@@ -425,3 +427,5 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
     </FormProvider>
   );
 }
+
+    
