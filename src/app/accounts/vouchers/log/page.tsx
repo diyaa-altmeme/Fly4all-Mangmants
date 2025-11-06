@@ -20,7 +20,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useDebounce } from "@/hooks/use-debounce";
-import { getAllVouchers, permanentDeleteVoucher, type Voucher } from "./actions";
+import { getAllVouchers, type Voucher } from "./actions";
 import {
   DEFAULT_VOUCHER_TABS_ORDER,
   getVoucherTypeLabel,
@@ -59,6 +59,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { permanentDeleteVoucher } from "@/app/system/deleted-log/actions";
 
 
 const formatCurrency = (value: number | undefined, currency: string) => {
@@ -100,7 +101,7 @@ const VoucherTypeIcon = ({ type }: { type?: string }) => {
 
 function VoucherLogContent() {
   const { toast } = useToast();
-  const { data: navData, loaded: isNavLoaded, fetchData } = useVoucherNav();
+  const { data: navData, loaded: isNavLoaded, fetchData: fetchNavData } = useVoucherNav();
   const [vouchers, setVouchers] = React.useState<Voucher[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
@@ -305,8 +306,11 @@ function VoucherLogContent() {
                                         </Badge>
                                         <span className="font-mono text-xs text-muted-foreground">#{voucher.invoiceNumber || voucher.id}</span>
                                         </div>
-                                        <div className="text-sm font-semibold text-foreground">
-                                        {formatCurrency((voucher as any).totalAmount || voucher.debitEntries?.[0]?.amount, voucher.currency || "USD")}
+                                        <div className="flex items-center gap-2">
+                                            {voucher.isDeleted && <Badge variant="destructive">محذوف</Badge>}
+                                            <div className="text-sm font-semibold text-foreground">
+                                                {formatCurrency((voucher as any).totalAmount || voucher.debitEntries?.[0]?.amount, voucher.currency || "USD")}
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="mt-3 grid gap-3 text-sm md:grid-cols-2">
