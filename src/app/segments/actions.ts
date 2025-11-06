@@ -73,10 +73,10 @@ function calculateShares(data: any, clientSettings?: SegmentSettings) {
       return type === 'fixed' ? count * value : (count * value) / 100;
     };
     
-    const ticketProfits = computeService(data.tickets, settings.ticketProfitType, settings.ticketProfitValue);
-    const visaProfits = computeService(data.visas, settings.visaProfitType, settings.visaProfitValue);
-    const hotelProfits = computeService(data.hotels, settings.hotelProfitType, settings.hotelProfitValue);
-    const groupProfits = computeService(data.groups, settings.groupProfitType, settings.groupProfitValue);
+    const ticketProfits = computeService(data.tickets, d.ticketProfitType || 'percentage', d.ticketProfitValue || 50);
+    const visaProfits = computeService(data.visas, d.visaProfitType || 'percentage', d.visaProfitValue || 100);
+    const hotelProfits = computeService(data.hotels, d.hotelProfitType || 'percentage', d.hotelProfitValue || 100);
+    const groupProfits = computeService(data.groups, d.groupProfitType || 'percentage', d.groupProfitValue || 100);
     
     const otherProfits = visaProfits + hotelProfits + groupProfits;
     const total = ticketProfits + otherProfits;
@@ -157,7 +157,7 @@ export async function addSegmentEntries(
                 relationId: dataToSave.clientId,
             });
 
-            const supplierId = (entryData as any).supplierId as string | undefined;
+            const supplierId = (entryData as any).supplierId;
 
             const partnerShares = (dataToSave.partnerShares && dataToSave.partnerShares.length > 0)
                 ? dataToSave.partnerShares
@@ -185,6 +185,16 @@ export async function addSegmentEntries(
                 });
             }
 
+            const meta = {
+              ...dataToSave,
+              periodId,
+              partnerIds: partnerShares.map(p => p.partnerId).filter(Boolean),
+            };
+
+            if (supplierId) {
+              (meta as any).supplierId = supplierId;
+            }
+
             await postJournalEntry({
                 sourceType: 'segment',
                 sourceId: segmentDocRef.id,
@@ -192,12 +202,7 @@ export async function addSegmentEntries(
                 date: entryDate,
                 userId: user.uid,
                 entries,
-                meta: {
-                    ...dataToSave,
-                    periodId,
-                    partnerIds: partnerShares.map(p => p.partnerId).filter(Boolean),
-                    supplierId: supplierId || undefined,
-                },
+                meta,
             });
         }
 
