@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import * as React from "react";
+import React, { Suspense } from 'react';
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import {
@@ -305,9 +306,12 @@ function VoucherLogContent() {
                                             <span className="ms-1.5">{getVoucherTypeLabel(voucher.normalizedType || "other")}</span>
                                         </Badge>
                                         <span className="font-mono text-xs text-muted-foreground">#{voucher.invoiceNumber || voucher.id}</span>
+                                         <Badge variant={voucher.isDeleted ? "destructive" : "default"} className={cn(voucher.isDeleted ? "" : "bg-green-500")}>
+                                            {voucher.isDeleted ? 'محذوف' : 'فعال'}
+                                        </Badge>
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            {voucher.isDeleted && <Badge variant="destructive">محذوف</Badge>}
+                                            
                                             <div className="text-sm font-semibold text-foreground">
                                                 {formatCurrency((voucher as any).totalAmount || voucher.debitEntries?.[0]?.amount, voucher.currency || "USD")}
                                             </div>
@@ -378,9 +382,14 @@ function VoucherLogContent() {
 };
 
 const VoucherLogPage = () => {
-    return <VoucherLogContent />
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <VoucherLogContent />
+        </Suspense>
+    )
 }
 
 export default VoucherLogPage;
 
     
+
