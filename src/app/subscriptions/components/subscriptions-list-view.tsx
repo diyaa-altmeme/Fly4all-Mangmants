@@ -2,11 +2,11 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus } from '@/lib/types';
+import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus, Client, Supplier } from '@/lib/types';
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Settings, History, MessageSquare, Trash2, Loader2, WalletCards, CheckCircle, CircleAlert, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import SubscriptionsSettingsDialog from '@/app/subscriptions/components/subscriptions-settings-dialog';
+import SubscriptionsSettingsDialog from '@/components/settings/subscriptions-settings-dialog';
 import { softDeleteSubscription } from '@/app/subscriptions/actions';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -121,10 +121,12 @@ const InstallmentsTable = ({ installments, subscription, onDataChange }: { insta
     );
 }
 
-const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: { 
+const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients, suppliers }: { 
     subscription: Subscription, 
     allInstallments: SubscriptionInstallment[],
-    onDataChange: () => void 
+    onDataChange: () => void,
+    clients: Client[],
+    suppliers: Supplier[],
 }) => {
     const { toast } = useToast();
     const [isOpen, setIsOpen] = React.useState(false);
@@ -148,13 +150,19 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
     [allInstallments, subscription.id]);
     
     const totalDiscount = subscriptionInstallments.reduce((sum, inst) => sum + (inst.discount || 0), 0);
+    
+    const partnerName = useMemo(() => {
+        if (!subscription.partnerId) return '-';
+        const partner = [...clients, ...suppliers].find(p => p.id === subscription.partnerId);
+        return partner?.name || '-';
+    }, [subscription.partnerId, clients, suppliers]);
 
 
     return (
       <Collapsible asChild>
         <tbody className="border-b">
           <TableRow data-state={isOpen ? "open" : "closed"} onClick={() => setIsOpen(!isOpen)} className="cursor-pointer">
-            <TableCell>
+             <TableCell className="p-1">
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8">
                   <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
@@ -166,13 +174,13 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
             <TableCell className="font-semibold">{subscription.serviceName}</TableCell>
             <TableCell>{subscription.clientName}</TableCell>
             <TableCell>{subscription.supplierName}</TableCell>
-            <TableCell>{subscription.partnerName || '-'}</TableCell>
+            <TableCell>{partnerName}</TableCell>
             <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.purchasePrice, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-green-700">{formatCurrency(subscription.salePrice, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-orange-600">{formatCurrency(totalDiscount, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-green-600">{formatCurrency(totalPaid, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-red-600">{formatCurrency(remainingAmount, subscription.currency)}</TableCell>
-            <TableCell className="text-center">{subscription.enteredBy}</TableCell>
+             <TableCell className="text-center">{subscription.enteredBy}</TableCell>
             <TableCell className="text-center"><Badge variant="outline" className={cn("capitalize font-bold", statusStyles[dynamicStatus])}>{statusTranslations[dynamicStatus]}</Badge></TableCell>
             <TableCell className="text-center">
               <DropdownMenu>
@@ -207,7 +215,7 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
               </DropdownMenu>
             </TableCell>
           </TableRow>
-          <CollapsibleContent asChild>
+           <CollapsibleContent asChild>
             <TableRow>
                 <TableCell colSpan={15} className="p-0">
                     <div className="p-2 bg-muted/50">
@@ -238,6 +246,7 @@ interface SubscriptionsListViewProps {
 export default function SubscriptionsListView({ subscriptions, allInstallments, onDataChange }: SubscriptionsListViewProps) {
     const [searchTerm, setSearchTerm] = React.useState('');
     const [statusFilter, setStatusFilter] = React.useState<SubscriptionStatus | 'all'>('all');
+    const { data: navData, loaded: navLoaded } = useVoucherNav();
     
     const filteredSubscriptions = React.useMemo(() => {
         return subscriptions.filter(sub => {
@@ -297,7 +306,7 @@ export default function SubscriptionsListView({ subscriptions, allInstallments, 
                         <TableHead className="text-center font-bold">الخصم</TableHead>
                         <TableHead className="text-center font-bold">المدفوع</TableHead>
                         <TableHead className="text-center font-bold">المتبقي</TableHead>
-                        <TableHead className="text-center font-bold">موظف الادخال</TableHead>
+                        <TableHead className="text-center font-bold">موظف الإدخال</TableHead>
                         <TableHead className="text-center font-bold">الحالة</TableHead>
                         <TableHead className="text-center font-bold">الإجراءات</TableHead>
                     </TableRow>
@@ -316,6 +325,8 @@ export default function SubscriptionsListView({ subscriptions, allInstallments, 
                                 subscription={sub}
                                 allInstallments={allInstallments}
                                 onDataChange={onDataChange}
+                                clients={navData?.clients || []}
+                                suppliers={navData?.suppliers || []}
                             />
                         ))
                      )}
