@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -40,6 +39,8 @@ import { useAuth } from '@/lib/auth-context';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Stepper, StepperItem, useStepper } from '@/components/ui/stepper';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { getNextVoucherNumber } from '@/lib/sequences';
 
 const companyEntrySchema = z.object({
@@ -243,7 +244,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
                         <div className='font-mono text-sm text-blue-600 font-bold'>ربح الشركة: {total.toFixed(2)}</div>
                     </CardHeader>
                     <CardContent className="space-y-3 p-3">
-                        <Controller control={control} name="clientId" render={({ field, fieldState }) => (<div className="space-y-1"><Label>الشركة المصدرة للسكمنت</Label><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث/اختر..."/><p className="text-xs text-destructive h-3">{fieldState.error?.message}</p></div>)} />
+                        <Controller control={control} name="clientId" render={({ field, fieldState }) => (<div className="space-y-1"><Label>الجهة المصدرة للسكمنت</Label><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث/اختر..."/><p className="text-xs text-destructive h-3">{fieldState.error?.message}</p></div>)} />
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                             <ServiceLine label="تذاكر" icon={Ticket} color="primary" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
@@ -387,8 +388,10 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
-    }, [clients]);
+        const allRelations = [...clients, ...suppliers];
+        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
+        return uniqueRelations.map(c => ({ value: c.id, label: `${c.relationType === 'supplier' ? 'مورد' : 'عميل'}: ${c.name}`, settings: c.segmentSettings }));
+    }, [clients, suppliers]);
 
      const partnerOptions = useMemo(() => {
         const allRelations = [...clients, ...suppliers];
@@ -598,7 +601,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                             <Collapsible defaultOpen={true} className="p-4 border rounded-lg space-y-6 bg-background/50">
                                <CollapsibleTrigger asChild>
-                                  <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص - فاتورة عامة: {watchedPeriod.periodInvoiceNumber}</h3>
+                                  <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</h3>
                                </CollapsibleTrigger>
                                <CollapsibleContent className="space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
