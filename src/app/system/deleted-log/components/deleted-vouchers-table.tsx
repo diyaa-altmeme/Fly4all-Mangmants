@@ -2,12 +2,11 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Terminal, History, Trash2, Undo } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { getDeletedVouchers, restoreVoucher, permanentDeleteVoucher, type DeletedVoucher } from '../actions';
+import { restoreVoucher, permanentDeleteVoucher, type DeletedVoucher } from '../actions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -21,15 +20,14 @@ import { cn } from '@/lib/utils';
 import ProtectedPage from '@/components/auth/protected-page';
 
 
-const DeletedVouchersTable = ({ initialData }: { initialData: DeletedVoucher[] }) => {
+const DeletedVouchersTable = ({ initialData, onDataChanged }: { initialData: DeletedVoucher[], onDataChanged: () => void }) => {
     const { toast } = useToast();
-    const [data, setData] = React.useState(initialData);
-
+    
     const handleRestore = async (voucherId: string) => {
         const result = await restoreVoucher(voucherId);
         if (result.success) {
             toast({ title: 'تم استعادة السند بنجاح.' });
-            setData(prev => prev.filter(v => v.id !== voucherId));
+            onDataChanged();
         } else {
             toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
         }
@@ -39,7 +37,7 @@ const DeletedVouchersTable = ({ initialData }: { initialData: DeletedVoucher[] }
         const result = await permanentDeleteVoucher(voucherId);
         if (result.success) {
             toast({ title: 'تم حذف السند نهائيًا.' });
-            setData(prev => prev.filter(v => v.id !== voucherId));
+            onDataChanged();
         } else {
             toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
         }
@@ -59,14 +57,14 @@ const DeletedVouchersTable = ({ initialData }: { initialData: DeletedVoucher[] }
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {data.length === 0 ? (
+                    {initialData.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={6} className="h-24 text-center">
                                 لا توجد سجلات محذوفة لعرضها.
                             </TableCell>
                         </TableRow>
                     ) : (
-                        data.map(voucher => (
+                        initialData.map(voucher => (
                             <TableRow key={voucher.id}>
                                 <TableCell className="text-center font-mono">{voucher.invoiceNumber}</TableCell>
                                 <TableCell className="text-center"><Badge variant="outline">{getVoucherTypeLabel(voucher.voucherType)}</Badge></TableCell>
@@ -111,52 +109,4 @@ const DeletedVouchersTable = ({ initialData }: { initialData: DeletedVoucher[] }
             </Table>
         </div>
     )
-}
-
-function DeletedLogContainer() {
-    const [logs, setLogs] = useState<DeletedVoucher[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        setLoading(true);
-        getDeletedVouchers()
-            .then(data => setLogs(data))
-            .catch(e => setError(e.message || "فشل تحميل البيانات."))
-            .finally(() => setLoading(false));
-    }, []);
-
-    if (loading) {
-        return <div className="flex h-48 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-    }
-
-    if (error) {
-        return (
-             <Alert variant="destructive">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>حدث خطأ!</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-            </Alert>
-        )
-    }
-
-    return <DeletedVouchersTable initialData={logs} />;
-}
-
-export default function DeletedLogPage() {
-    return (
-        <ProtectedPage requiredPermission="admin">
-            <Card>
-                <CardHeader>
-                    <CardTitle>سجل المحذوفات الموحد</CardTitle>
-                    <CardDescription>
-                        عرض جميع العمليات المالية التي تم حذفها من النظام مع إمكانية استعادتها أو حذفها نهائيًا.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <DeletedLogContainer />
-                </CardContent>
-            </Card>
-        </ProtectedPage>
-    );
 }
