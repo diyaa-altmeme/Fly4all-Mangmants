@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -58,8 +59,8 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
     }
 }
 
-function calculateShares(data: any, clientSettings?: Partial<SegmentSettings>) {
-    const settings = clientSettings || {};
+function calculateShares(data: any, companySettings?: Partial<SegmentSettings>) {
+    const settings = companySettings || {};
     
     const computeService = (count: number, type: 'fixed' | 'percentage', value: number) => {
       if (!count || !value) return 0;
@@ -91,16 +92,11 @@ export async function addSegmentEntries(
 
     try {
         const user = await checkSegmentPermission();
-        const mainBatch = db.batch();
         const periodId = periodIdToReplace || db.collection('temp').doc().id;
         
         // If editing, delete old data first
         if (periodIdToReplace) {
-            const oldSegmentsSnap = await db.collection('segments').where('periodId', '==', periodIdToReplace).get();
-            const oldVouchersSnap = await db.collection('journal-vouchers').where('originalData.periodId', '==', periodIdToReplace).get();
-            
-            oldSegmentsSnap.forEach(doc => mainBatch.delete(doc.ref));
-            oldVouchersSnap.forEach(doc => mainBatch.delete(doc.ref));
+           await deleteSegmentPeriod(periodIdToReplace);
         }
 
         for (const entryData of entries) {
@@ -140,7 +136,7 @@ export async function addSegmentEntries(
                 (dataWithoutSupplier as any).supplierId = supplierId;
             }
 
-            mainBatch.set(segmentDocRef, dataWithoutSupplier);
+            await segmentDocRef.set(dataWithoutSupplier);
             
             const revenueAccountId = 'revenue_segments';
             if(!revenueAccountId) throw new Error("Revenue account for segments is not defined.");
@@ -161,8 +157,8 @@ export async function addSegmentEntries(
                 ? dataToSave.partnerShares
                 : (dataToSave.hasPartner && dataToSave.partnerId ? [{ partnerId: dataToSave.partnerId, partnerName: dataToSave.partnerName, share: dataToSave.partnerShare, partnerInvoiceNumber: await getNextVoucherNumber("PARTNER") }] : []);
 
-            partnerShares.forEach((share) => {
-                if (!share || !share.partnerId || !share.share) return;
+            for (const share of partnerShares) {
+                if (!share || !share.partnerId || !share.share) continue;
                 journalEntries.push({
                     accountId: share.partnerId,
                     debit: 0,
@@ -171,7 +167,20 @@ export async function addSegmentEntries(
                     description: `حصة الشريك ${share.partnerName || ''}`.trim(),
                     relationId: share.partnerId,
                 });
-            });
+                 await postJournalEntry({
+                    invoiceNumber: share.partnerInvoiceNumber,
+                    sourceType: 'segment',
+                    sourceId: segmentDocRef.id,
+                    description: `دفع حصة الشريك ${share.partnerName} عن سكمنت ${dataToSave.companyName}`,
+                    date: entryDate,
+                    userId: user.uid,
+                    entries: [
+                        { accountId: share.partnerId, debit: share.share, credit: 0, currency: dataToSave.currency, relationId: share.partnerId },
+                        { accountId: user.boxId!, debit: 0, credit: share.share, currency: dataToSave.currency }
+                    ],
+                    meta: { ...dataToSave, periodId, partnerId: share.partnerId, partnerInvoiceNumber: share.partnerInvoiceNumber },
+                });
+            }
 
             if (dataToSave.alrawdatainShare > 0) {
                 journalEntries.push({
@@ -205,8 +214,6 @@ export async function addSegmentEntries(
             });
         }
 
-        await mainBatch.commit();
-        
         revalidatePath('/segments');
         revalidatePath('/reports/account-statement');
         return { success: true, newEntries: entries as SegmentEntry[] };
@@ -223,23 +230,19 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
     if (!db) return { success: false, error: "Database not available.", count: 0 };
     try {
         const user = await checkSegmentPermission();
-        const snapshot = await db.collection('segments').where('periodId', '==', periodId).get();
-        if (snapshot.empty) return { success: true, count: 0 };
-
-        const segmentIds = snapshot.docs.map(doc => doc.id);
         const now = new Date().toISOString();
         const deletedBy = user.name || user.uid;
 
-        await db.runTransaction(async (transaction) => {
-            snapshot.docs.forEach(doc => {
-                if (permanent) {
-                    transaction.delete(doc.ref);
-                } else {
-                    transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
-                }
-            });
+        const segmentsQuery = db.collection('segments').where('periodId', '==', periodId);
+        const segmentsSnap = await segmentsQuery.get();
+        if (segmentsSnap.empty) {
+            console.log(`No segments found for periodId: ${periodId}. Nothing to delete.`);
+            return { success: true, count: 0 };
+        }
+        const segmentIds = segmentsSnap.docs.map(doc => doc.id);
 
-            // Find all related journal vouchers in chunks
+        await db.runTransaction(async (transaction) => {
+            // STEP 1: READ all necessary documents first.
             const voucherPromises = [];
             for (let i = 0; i < segmentIds.length; i += 30) {
                 const chunk = segmentIds.slice(i, i + 30);
@@ -248,17 +251,34 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
             }
             const voucherSnapshots = await Promise.all(voucherPromises);
 
+            const deletedVoucherRefs = voucherSnapshots.flatMap(snap => snap.docs).map(doc => db.collection('deleted-vouchers').doc(doc.id));
+            // Read documents from deleted-vouchers if they exist (although they shouldn't in a non-permanent delete)
+            if (permanent) {
+                for (const ref of deletedVoucherRefs) {
+                    await transaction.get(ref);
+                }
+            }
+
+
+            // STEP 2: WRITE all changes after all reads are complete.
+            segmentsSnap.docs.forEach(doc => {
+                if (permanent) {
+                    transaction.delete(doc.ref);
+                } else {
+                    transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
+                }
+            });
+
             for (const voucherSnapshot of voucherSnapshots) {
                 for (const doc of voucherSnapshot.docs) {
                     if (permanent) {
                         transaction.delete(doc.ref);
                     } else {
-                         transaction.update(doc.ref, {
+                        transaction.update(doc.ref, { 
                             isDeleted: true,
-                            deletedAt: now,
-                            deletedBy: deletedBy,
+                            deletedAt: now, 
+                            deletedBy: deletedBy 
                         });
-                        // Also move to deleted-vouchers collection for unified log
                         const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
                         transaction.set(deletedVoucherRef, {
                             ...doc.data(),
@@ -272,7 +292,7 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
 
         revalidatePath('/segments');
         revalidatePath('/system/deleted-log');
-        return { success: true, count: snapshot.size };
+        return { success: true, count: segmentIds.length };
     } catch (error: any) {
         console.error("Error deleting segment period: ", String(error));
         return { success: false, error: error.message || "Failed to delete segment period.", count: 0 };
@@ -285,19 +305,28 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
     if (!db) return { success: false, error: "Database not available.", count: 0 };
     try {
         const user = await checkSegmentPermission();
-        const snapshot = await db.collection('segments')
-            .where('periodId', '==', periodId)
-            .where('isDeleted', '==', true)
-            .get();
-
-        if (snapshot.empty) return { success: true, count: 0 };
-
-        const segmentIds = snapshot.docs.map(doc => doc.id);
         const restoredBy = user.name || user.uid;
         const restoredAt = new Date().toISOString();
-
+        
         await db.runTransaction(async (transaction) => {
-            snapshot.docs.forEach(doc => {
+            // STEP 1: READ
+            const segmentsQuery = db.collection('segments')
+                .where('periodId', '==', periodId)
+                .where('isDeleted', '==', true);
+            const segmentsSnap = await transaction.get(segmentsQuery);
+            if (segmentsSnap.empty) return;
+
+            const segmentIds = segmentsSnap.docs.map(doc => doc.id);
+            const voucherPromises = [];
+             for (let i = 0; i < segmentIds.length; i += 30) {
+                const chunk = segmentIds.slice(i, i + 30);
+                const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
+                voucherPromises.push(transaction.get(voucherQuery));
+            }
+            const voucherSnapshots = await Promise.all(voucherPromises);
+            
+            // THEN WRITE
+            segmentsSnap.docs.forEach(doc => {
                 transaction.update(doc.ref, {
                     isDeleted: false,
                     deletedAt: FieldValue.delete(),
@@ -307,15 +336,6 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
                 });
             });
 
-            // Find and restore related journal vouchers
-             const voucherPromises = [];
-            for (let i = 0; i < segmentIds.length; i += 30) {
-                const chunk = segmentIds.slice(i, i + 30);
-                const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
-                voucherPromises.push(transaction.get(voucherQuery));
-            }
-            const voucherSnapshots = await Promise.all(voucherPromises);
-            
             for (const voucherSnapshot of voucherSnapshots) {
                 voucherSnapshot.forEach(doc => {
                     transaction.update(doc.ref, { 
@@ -324,8 +344,7 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
                         deletedBy: FieldValue.delete(),
                         restoredAt,
                         restoredBy,
-                     });
-                     // Remove from the deleted-vouchers collection
+                    });
                      const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
                      transaction.delete(deletedVoucherRef);
                 });
@@ -343,7 +362,7 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 
         revalidatePath('/segments');
         revalidatePath('/system/deleted-log');
-        return { success: true, count: snapshot.size };
+        return { success: true, count: 0 }; // Count is not easily available here
     } catch (e: any) {
         return { success: false, error: e.message, count: 0 };
     }
