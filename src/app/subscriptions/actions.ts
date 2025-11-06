@@ -256,6 +256,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         }
         
         await postJournalEntry({
+            invoiceNumber: newInvoiceNumber,
             sourceType: 'subscription',
             sourceId: subscriptionRef.id,
             description: `قيد متكامل لاشتراك ${finalSubscriptionData.serviceName}`,
@@ -407,6 +408,7 @@ export async function updateSubscription(subscriptionId: string, subscriptionDat
             }
             
             await postJournalEntry({
+                invoiceNumber: initialData?.invoiceNumber,
                 sourceType: 'subscription',
                 sourceId: subscriptionId,
                 description: `(تعديل) قيد اشتراك ${finalSubscriptionData.serviceName}`,
@@ -972,7 +974,6 @@ export async function revalidateSubscriptionsPath() {
 
     
 
-    
 
 
 

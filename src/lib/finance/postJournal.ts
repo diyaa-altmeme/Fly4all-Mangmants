@@ -28,6 +28,7 @@ export type JournalEntry = {
 };
 
 export type PostJournalPayload = {
+  invoiceNumber?: string;
   sourceType: string;          // "tickets" | "visas" | "subscriptions" | "segments" | "exchanges" | "profit-sharing" | ...
   sourceId: string;
   date?: number | Date;        // ms | Date
@@ -203,7 +204,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
 
   const now = Timestamp.now();
   const voucherRef = db.collection('journal-vouchers').doc();
-  const voucherNumber = await getNextVoucherNumber(payload.sourceType.toUpperCase());
+  const voucherNumber = payload.invoiceNumber || await getNextVoucherNumber(payload.sourceType.toUpperCase());
   const voucherCurrency = resolveCurrency(rawEntries);
 
   const storedEntries = rawEntries.map((entry) => {
@@ -451,4 +452,10 @@ export async function postCost({
     meta: { supplierId },
     description: 'قيد مصروف',
   }, fm);
+}
+
+const FieldPath = admin.firestore.FieldPath;
+
+export async function postJournalEntries(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts): Promise<string> {
+    return postJournalEntry(payload, fa);
 }
