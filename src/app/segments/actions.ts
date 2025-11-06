@@ -244,6 +244,16 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
                     const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
                     const ledgerSnapshot = await transaction.get(ledgerQuery);
 
+
+            for (let i = 0; i < segmentIds.length; i += 30) {
+                const chunk = segmentIds.slice(i, i + 30);
+                const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
+                const voucherSnapshot = await transaction.get(voucherQuery);
+
+                for (const doc of voucherSnapshot.docs) {
+                    const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
+                    const ledgerSnapshot = await transaction.get(ledgerQuery);
+
                     if (permanent) {
                         ledgerSnapshot.forEach(ledgerDoc => transaction.delete(ledgerDoc.ref));
                         transaction.delete(doc.ref);
@@ -322,6 +332,8 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
             const chunkSize = 10;
             for (let i = 0; i < segmentIds.length; i += chunkSize) {
                 const chunk = segmentIds.slice(i, i + chunkSize);
+            for (let i = 0; i < segmentIds.length; i += 30) {
+                const chunk = segmentIds.slice(i, i + 30);
                 const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
                 const voucherSnapshot = await transaction.get(voucherQuery);
 
