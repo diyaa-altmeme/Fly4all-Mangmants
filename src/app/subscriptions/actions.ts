@@ -237,7 +237,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                 relationId: finalSubscriptionData.supplierId,
             });
         }
-
+        
         // 3. Credit Revenue (Profit) distribution
         if (finalSubscriptionData.hasPartner && finalSubscriptionData.partnerId && partnerShareAmount > 0) {
             const partnerPayableAccount = financeSettings.payableAccountId;
@@ -256,6 +256,8 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             // Credit total profit to revenue
             entries.push({ accountId: revenueAccountId, debit: 0, credit: profit, currency: finalSubscriptionData.currency, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` });
         }
+
+
         
         await postJournalEntry({
             sourceType: 'subscription',
@@ -524,8 +526,8 @@ export async function deletePayment(paymentId: string) {
                 sourceId: payment.journalVoucherId!,
                 description: `عكس قيد سداد دفعة رقم: ${originalJournal.invoiceNumber}`,
                 entries: [
-                    { accountId: originalJournal.creditEntries[0].accountId, debit: payment.amount + (payment.discount || 0), credit: 0, currency: payment.currency as Currency },
-                    { accountId: originalJournal.debitEntries[0].accountId, debit: 0, credit: payment.amount + (payment.discount || 0), currency: payment.currency as Currency }
+                    { accountId: originalJournal.creditEntries[0].accountId, debit: payment.amount + (payment.discount || 0), credit: 0, currency: payment.currency },
+                    { accountId: originalJournal.debitEntries[0].accountId, debit: 0, credit: payment.amount + (payment.discount || 0), currency: payment.currency }
                 ]
             });
             
@@ -651,67 +653,33 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+    if (!user || !('name' in user)) return { success: false, error: "User not authenticated." };
 
     try {
         const now = new Date().toISOString();
         const deletedBy = user.name;
+        const batch = db.batch();
 
-        await db.runTransaction(async (transaction) => {
-            const subscriptionRef = db.collection('subscriptions').doc(id);
-            const subscriptionSnap = await transaction.get(subscriptionRef);
-            if (!subscriptionSnap.exists) {
-                throw new Error('Subscription not found');
-            }
+        // 1. Mark subscription as deleted
+        const subscriptionRef = db.collection('subscriptions').doc(id);
+        batch.update(subscriptionRef, { isDeleted: true, deletedAt: now, deletedBy });
 
-            transaction.update(subscriptionRef, { isDeleted: true, deletedAt: now, deletedBy });
-
-            const installmentsQuery = db.collection('subscription_installments').where('subscriptionId', '==', id);
-            const installmentsSnap = await transaction.get(installmentsQuery);
-            installmentsSnap.forEach(doc => {
-                transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
-            });
-
-            const vouchersQuery = db.collection('journal-vouchers').where('originalData.subscriptionId', '==', id);
-            const vouchersSnap = await transaction.get(vouchersQuery);
-
-            for (const doc of vouchersSnap.docs) {
-                const voucherRef = doc.ref;
-                const voucherData = doc.data();
-                const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
-
-                transaction.set(deletedVoucherRef, {
-                    ...voucherData,
-                    id: doc.id,
-                    voucherId: doc.id,
-                    sourceType: voucherData?.sourceType || 'subscription',
-                    sourceId: voucherData?.sourceId || id,
-                    deletedAt: now,
-                    deletedBy,
-                    restoredAt: null,
-                    restoredBy: null,
-                }, { merge: true });
-
-                transaction.update(voucherRef, {
-                    isDeleted: true,
-                    deletedAt: now,
-                    deletedBy,
-                    status: 'deleted',
-                });
-
-                const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
-                const ledgerSnap = await transaction.get(ledgerQuery);
-                ledgerSnap.forEach(ledgerDoc => {
-                    transaction.update(ledgerDoc.ref, {
-                        isDeleted: true,
-                        deletedAt: now,
-                        deletedBy,
-                        restoredAt: null,
-                        restoredBy: null,
-                    });
-                });
-            }
+        // 2. Mark associated installments as deleted
+        const installmentsSnap = await db.collection('subscription_installments').where('subscriptionId', '==', id).get();
+        installmentsSnap.forEach(doc => {
+            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
         });
+
+        // 3. Mark associated journal vouchers as deleted
+        const vouchersSnap = await db.collection('journal-vouchers').where('originalData.subscriptionId', '==', id).get();
+        vouchersSnap.forEach(doc => {
+            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy, status: 'deleted' });
+            // Optionally move to a deleted-vouchers collection for archival
+            const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+            batch.set(deletedVoucherRef, { ...doc.data(), deletedAt: now, deletedBy }, { merge: true });
+        });
+        
+        await batch.commit();
 
         await createAuditLog({
             userId: user.uid,
@@ -725,6 +693,7 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
         revalidatePath('/subscriptions');
         revalidatePath('/subscriptions/deleted-subscriptions');
         revalidatePath('/reports/account-statement');
+        revalidatePath('/accounts/vouchers/list');
 
         return { success: true };
     } catch (e: any) {
@@ -785,24 +754,6 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
                     restoredBy,
                     status: 'restored',
                 });
-
-                const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
-                const ledgerSnap = await transaction.get(ledgerQuery);
-                ledgerSnap.forEach(ledgerDoc => {
-                    transaction.update(ledgerDoc.ref, {
-                        isDeleted: false,
-                        deletedAt: FieldValue.delete(),
-                        deletedBy: FieldValue.delete(),
-                        restoredAt,
-                        restoredBy,
-                    });
-                });
-
-                const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
-                transaction.set(deletedVoucherRef, {
-                    restoredAt,
-                    restoredBy,
-                }, { merge: true });
             }
         });
 
