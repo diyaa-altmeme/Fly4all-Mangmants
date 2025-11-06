@@ -79,6 +79,16 @@ interface AddSubscriptionDialogProps {
   children?: React.ReactNode;
 }
 
+const Section = ({ title, children, className }: { title: React.ReactNode; children: React.ReactNode, className?: string }) => (
+    <div className={cn("relative p-4 border rounded-lg mt-6", className)}>
+        <h3 className="absolute -top-3 right-4 bg-background px-2 text-base font-bold text-primary">
+            {title}
+        </h3>
+        {children}
+    </div>
+);
+
+
 export default function AddSubscriptionDialog({ 
   onSubscriptionAdded, 
   onSubscriptionUpdated,
@@ -345,4 +355,3 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
     </FormProvider>
   );
 }
-
