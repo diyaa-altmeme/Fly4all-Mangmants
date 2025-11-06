@@ -2,11 +2,11 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus, Client, Supplier } from '@/lib/types';
+import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus, Client, Supplier, User } from '@/lib/types';
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Settings, History, MessageSquare, Trash2, Loader2, WalletCards, CheckCircle, CircleAlert, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import SubscriptionsSettingsDialog from '@/components/settings/subscriptions-settings-dialog';
+import SubscriptionsSettingsDialog from '@/components/settings/subscriptions-settings';
 import { softDeleteSubscription } from '@/app/subscriptions/actions';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -121,12 +121,13 @@ const InstallmentsTable = ({ installments, subscription, onDataChange }: { insta
     );
 }
 
-const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients, suppliers }: { 
+const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients, suppliers, users }: { 
     subscription: Subscription, 
     allInstallments: SubscriptionInstallment[],
     onDataChange: () => void,
     clients: Client[],
     suppliers: Supplier[],
+    users: User[],
 }) => {
     const { toast } = useToast();
     const [isOpen, setIsOpen] = React.useState(false);
@@ -153,9 +154,14 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients,
     
     const partnerName = useMemo(() => {
         if (!subscription.partnerId) return '-';
-        const partner = [...clients, ...suppliers].find(p => p.id === subscription.partnerId);
+        const allRelations = [...clients, ...suppliers];
+        const partner = allRelations.find(p => p.id === subscription.partnerId);
         return partner?.name || '-';
     }, [subscription.partnerId, clients, suppliers]);
+    
+    const enteredByEmployee = useMemo(() => {
+        return users.find(u => u.uid === subscription.enteredBy)?.name || subscription.enteredBy || 'غير معروف';
+    }, [subscription.enteredBy, users]);
 
 
     return (
@@ -171,16 +177,16 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients,
             </TableCell>
             <TableCell className="font-semibold">{subscription.invoiceNumber}</TableCell>
             <TableCell>{subscription.purchaseDate ? format(parseISO(subscription.purchaseDate), 'yyyy-MM-dd') : '-'}</TableCell>
-            <TableCell className="font-semibold">{subscription.serviceName}</TableCell>
+            <TableCell>{subscription.serviceName}</TableCell>
             <TableCell>{subscription.clientName}</TableCell>
             <TableCell>{subscription.supplierName}</TableCell>
             <TableCell>{partnerName}</TableCell>
-            <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.purchasePrice, subscription.currency)}</TableCell>
-            <TableCell className="text-center font-mono font-bold text-green-700">{formatCurrency(subscription.salePrice, subscription.currency)}</TableCell>
+            <TableCell className="text-center font-mono font-bold text-red-600">{formatCurrency(subscription.purchasePrice, subscription.currency)}</TableCell>
+            <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.salePrice, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-orange-600">{formatCurrency(totalDiscount, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-green-600">{formatCurrency(totalPaid, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-red-600">{formatCurrency(remainingAmount, subscription.currency)}</TableCell>
-             <TableCell className="text-center">{subscription.enteredBy}</TableCell>
+            <TableCell className="text-center text-xs">{enteredByEmployee}</TableCell>
             <TableCell className="text-center"><Badge variant="outline" className={cn("capitalize font-bold", statusStyles[dynamicStatus])}>{statusTranslations[dynamicStatus]}</Badge></TableCell>
             <TableCell className="text-center">
               <DropdownMenu>
@@ -191,7 +197,7 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients,
                   <ManageInstallmentsDialog subscription={subscription} onSuccess={onDataChange}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}><WalletCards className="me-2 h-4 w-4" />إدارة الأقساط</DropdownMenuItem>
                   </ManageInstallmentsDialog>
-                  <InvoiceDialog subscription={subscription} />
+                  <InvoiceDialog subscription={subscription} installments={subscriptionInstallments} />
                   <UpdateSubscriptionStatusDialog subscription={subscription} onStatusChange={onDataChange}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}><ShieldCheck className="me-2 h-4 w-4" />تغيير الحالة</DropdownMenuItem>
                   </UpdateSubscriptionStatusDialog>
@@ -327,6 +333,7 @@ export default function SubscriptionsListView({ subscriptions, allInstallments, 
                                 onDataChange={onDataChange}
                                 clients={navData?.clients || []}
                                 suppliers={navData?.suppliers || []}
+                                users={navData?.users || []}
                             />
                         ))
                      )}
