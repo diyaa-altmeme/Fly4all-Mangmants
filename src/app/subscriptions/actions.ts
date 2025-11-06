@@ -256,8 +256,6 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             // Credit total profit to revenue
             entries.push({ accountId: revenueAccountId, debit: 0, credit: profit, currency: finalSubscriptionData.currency, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` });
         }
-
-
         
         await postJournalEntry({
             sourceType: 'subscription',
@@ -393,13 +391,17 @@ export async function updateSubscription(subscriptionId: string, subscriptionDat
 
             entries.push({ accountId: finalSubscriptionData.clientId!, debit: totalSale, credit: 0, currency: finalSubscriptionData.currency!, description: `دين اشتراك: ${finalSubscriptionData.serviceName}`, relationId: finalSubscriptionData.clientId });
             if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
+                const apAccountId = financeSettings.payableAccountId;
+                if (!apAccountId) throw new Error("Accounts Payable account not defined for subscription cost.");
                 entries.push({ accountId: finalSubscriptionData.supplierId, debit: 0, credit: totalPurchase, currency: finalSubscriptionData.currency!, description: `دين للمورد عن اشتراك: ${finalSubscriptionData.serviceName}`, relationId: finalSubscriptionData.supplierId });
             }
              if (finalSubscriptionData.hasPartner && finalSubscriptionData.partnerId && partnerShareAmount > 0) {
-                if (alrawdatainShare > 0) {
+                 if (alrawdatainShare > 0) {
                     entries.push({ accountId: revenueAccountId, debit: 0, credit: alrawdatainShare, currency: finalSubscriptionData.currency!, description: `إيراد حصة الشركة من اشتراك: ${finalSubscriptionData.serviceName}` });
                 }
                 if (partnerShareAmount > 0) {
+                    const partnerPayableAccount = financeSettings.payableAccountId;
+                    if (!partnerPayableAccount) throw new Error("Accounts Payable account not defined for partner share.");
                     entries.push({ accountId: finalSubscriptionData.partnerId, debit: 0, credit: partnerShareAmount, currency: finalSubscriptionData.currency!, description: `حصة الشريك ${finalSubscriptionData.partnerName} من اشتراك`, relationId: finalSubscriptionData.partnerId });
                 }
             } else if (profit > 0) {
@@ -796,10 +798,12 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
                 transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
             });
 
-            const vouchersSnap = await db.collection('journal-vouchers').where('sourceId', '==', id).where('sourceType', '==', 'subscription').get();
+            const vouchersSnap = await db.collection('journal-vouchers')
+                .where('sourceId', '==', id)
+                .where('sourceType', 'in', ['subscription', 'subscription_installment', 'subscription_reversal', 'subscription_adjustment', 'subscription_overpayment'])
+                .get();
+
             vouchersSnap.forEach(doc => {
-                 const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
-                 transaction.set(deletedVoucherRef, { ...doc.data(), deletedAt: now, deletedBy }, { merge: true });
                  transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
             });
         });
