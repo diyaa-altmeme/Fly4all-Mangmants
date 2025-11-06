@@ -321,10 +321,4 @@ export default function BookingsTable({ bookings, totalBookings, onBookingUpdate
           ))}
         </TableBody>
       </Table>
-    </div>
-    <DataTablePagination table={table} totalRows={totalBookings} />
-    </div>
-  );
-}
-
     

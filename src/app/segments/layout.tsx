@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -54,6 +55,9 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
     const entryUser = period.entries[0]?.enteredBy || 'غير معروف';
     const entryDate = period.entries[0]?.createdAt ? format(parseISO(period.entries[0].createdAt), 'yyyy-MM-dd hh:mm a') : 'N/A';
     
+    const invoiceNumber = period.invoiceNumber || 'N/A';
+    const periodNotes = period.entries[0]?.notes || '-';
+
     const handleDeletePeriod = async () => {
         const { count, error } = await deleteSegmentPeriod(period.periodId);
         if (count > 0 && !error) {
@@ -75,16 +79,16 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                             </Button>
                         </CollapsibleTrigger>
                     </TableCell>
-                    <TableCell className="p-2 text-center">{period.invoiceNumber}</TableCell>
+                    <TableCell className="p-2 text-center">{invoiceNumber}</TableCell>
                     <TableCell className="p-2 text-center">{period.entries.length}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.fromDate}</TableCell>
                     <TableCell className="font-mono text-center text-xs p-2">{period.toDate}</TableCell>
-                    <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
-                    <TableCell className="font-mono text-center text-xs p-2">{entryDate}</TableCell>
+                    <TableCell className="p-2 text-xs text-center">{periodNotes}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalTickets.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center p-2">{period.totalOther.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-green-600 p-2">{period.totalAlrawdatainShare.toFixed(2)}</TableCell>
                     <TableCell className="font-mono text-center text-blue-600 p-2">{period.totalPartnerShare.toFixed(2)}</TableCell>
+                    <TableCell className="text-center text-xs p-2">{entryUser}</TableCell>
                     <TableCell className="p-1 text-center">
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" onClick={e => e.stopPropagation()}><MoreHorizontal className='h-4 w-4'/></Button></DropdownMenuTrigger>
@@ -121,7 +125,7 @@ const PeriodRow = ({ period, index, onDataChange, clients, suppliers }: { period
                 </TableRow>
                 <CollapsibleContent asChild>
                     <TableRow>
-                        <TableCell colSpan={12} className="p-0">
+                        <TableCell colSpan={13} className="p-0">
                             <div className="p-4 bg-muted/50">
                                 <h4 className="font-bold mb-2">تفاصيل شركات الفترة:</h4>
                                 <SegmentDetailsTable period={period} />
@@ -164,7 +168,7 @@ function SegmentsContent() {
         if(navDataLoaded) {
             fetchSegmentData();
         }
-    }, [navDataLoaded, fetchSegmentData]);
+    }, [navDataLoaded, fetchData, fetchSegmentData]);
     
     const handleSuccess = useCallback(async () => {
         await fetchSegmentData();
@@ -229,7 +233,9 @@ function SegmentsContent() {
                                 <CardDescription>إدارة وتتبع أرباح وحصص الشركات الشريكة في نظام السكمنت.</CardDescription>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
-                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess} />
+                                <AddSegmentPeriodDialog clients={clients} suppliers={suppliers} onSuccess={handleSuccess}>
+                                    <Button><PlusCircle className="me-2 h-4 w-4"/> إضافة سجل جديد</Button>
+                                </AddSegmentPeriodDialog>
                                 <Button onClick={handleSuccess} variant="outline" disabled={loading}>
                                     {loading ? <Loader2 className="h-4 w-4 me-2 animate-spin"/> : <RefreshCw className="h-4 w-4 me-2" />} تحديث
                                 </Button>
@@ -262,12 +268,11 @@ function SegmentsContent() {
                                     <TableHead className="font-bold text-center p-2">من</TableHead>
                                     <TableHead className="font-bold text-center p-2">إلى</TableHead>
                                     <TableHead className="font-bold text-center p-2">الملاحظات</TableHead>
+                                    <TableHead className="font-bold text-center p-2">أرباح التذاكر</TableHead>
+                                    <TableHead className="font-bold text-center p-2">أرباح أخرى</TableHead>
+                                    <TableHead className="font-bold text-center p-2">حصة الروضتين</TableHead>
+                                    <TableHead className="font-bold text-center p-2">حصة الشريك</TableHead>
                                     <TableHead className="font-bold text-center p-2">الموظف</TableHead>
-                                    <TableHead className="font-bold text-center p-2">تاريخ الإضافة</TableHead>
-                                    <TableHead className="text-center font-bold p-2">أرباح التذاكر</TableHead>
-                                    <TableHead className="text-center font-bold p-2">أرباح أخرى</TableHead>
-                                    <TableHead className="text-center font-bold p-2">حصة الروضتين</TableHead>
-                                    <TableHead className="text-center font-bold p-2">حصة الشريك</TableHead>
                                     <TableHead className="text-center p-2">الإجراءات</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -300,3 +305,581 @@ export default function SegmentsLayout({ children }: { children: React.ReactNode
     </ProtectedPage>
   );
 }
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+```
+-
+...
