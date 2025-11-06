@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus } from '@/lib/types';
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Settings, History, MessageSquare, Trash2, Loader2, WalletCards, CheckCircle, ShieldCheck } from 'lucide-react';
+import { Settings, History, MessageSquare, Trash2, Loader2, WalletCards, CheckCircle, ShieldCheck, CircleAlert } from 'lucide-react';
 import Link from 'next/link';
 import SubscriptionsSettingsDialog from '@/app/subscriptions/components/subscriptions-settings-dialog';
 import { softDeleteSubscription } from '@/app/subscriptions/actions';
@@ -72,6 +72,54 @@ const installmentStatusTranslations: Record<SubscriptionInstallment['status'], s
   Paid: "مدفوع",
   Unpaid: "غير مدفوع",
 };
+
+const InstallmentsTable = ({ installments, subscription, onDataChange }: { installments: SubscriptionInstallment[], subscription: Subscription, onDataChange: () => void }) => {
+    return (
+        <div className="border rounded-lg overflow-hidden">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>تاريخ الاستحقاق</TableHead>
+                        <TableHead>المبلغ</TableHead>
+                        <TableHead>المدفوع</TableHead>
+                        <TableHead>المتبقي</TableHead>
+                        <TableHead>الحالة</TableHead>
+                        <TableHead className="text-center">الإجراءات</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {installments.map(inst => {
+                        const remaining = (inst.amount || 0) - ((inst.paidAmount || 0) + (inst.discount || 0));
+                        const isOverdue = isPast(parseISO(inst.dueDate)) && inst.status === 'Unpaid';
+                        return (
+                            <TableRow key={inst.id}>
+                                <TableCell className={cn("font-semibold", isOverdue && "text-destructive")}>
+                                    {format(parseISO(inst.dueDate), 'yyyy-MM-dd')}
+                                    {isOverdue && <Badge variant="destructive" className="ms-2">متأخر</Badge>}
+                                </TableCell>
+                                <TableCell>{formatCurrency(inst.amount, inst.currency)}</TableCell>
+                                <TableCell className="text-green-600">{formatCurrency(inst.paidAmount || 0, inst.currency)}</TableCell>
+                                <TableCell className="font-bold">{formatCurrency(remaining, inst.currency)}</TableCell>
+                                <TableCell>
+                                    <Badge variant="outline" className={cn("capitalize", installmentStatusStyles[inst.status])}>
+                                        {installmentStatusTranslations[inst.status]}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                    {inst.status === 'Unpaid' && (
+                                        <ReceiveInstallmentPaymentDialog installment={inst} subscription={subscription} onPaymentSuccess={onDataChange}>
+                                            <Button size="sm">تسديد الدفعة</Button>
+                                        </ReceiveInstallmentPaymentDialog>
+                                    )}
+                                </TableCell>
+                            </TableRow>
+                        )
+                    })}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
 
 const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: { 
     subscription: Subscription, 
@@ -163,9 +211,11 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
                     <div className="p-2 bg-muted/50">
                         <div className="p-4 bg-background rounded-md">
                         <h4 className="font-semibold mb-2">جدول الأقساط</h4>
-                         <div className="border rounded-lg overflow-hidden">
-                            {/* The InstallmentsTable logic is here */}
-                        </div>
+                         <InstallmentsTable 
+                            installments={subscriptionInstallments}
+                            subscription={subscription}
+                            onDataChange={onDataChange}
+                         />
                         </div>
                     </div>
                 </TableCell>
