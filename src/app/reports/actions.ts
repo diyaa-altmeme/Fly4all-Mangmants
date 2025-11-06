@@ -4,7 +4,7 @@
 
 import { getDb } from '@/lib/firebase-admin';
 import { Timestamp } from "firebase-admin/firestore";
-import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription, ReportInfo, Currency, StructuredDescription } from '@/lib/types';
+import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription, ReportInfo, Currency, StructuredDescription, SubscriptionInstallment } from '@/lib/types';
 import { getClients } from '@/app/relations/actions';
 import { getSuppliers } from '@/app/suppliers/actions';
 import { getUsers } from "../users/actions";
@@ -320,51 +320,11 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
             parties,
           };
         }
-
-        if (rawSource.includes('overpayment')) {
-          const notesParts = [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean);
-          return {
-            description: `رصيد إضافي لاشتراك ${
-              subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId
-            }`,
-            notes: notesParts.join(' • ') || undefined,
-            parties,
-          };
-        }
-
-        if (rawSource.includes('reversal')) {
-          const notesParts = [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean);
-          return {
-            description: `عكس دفعة اشتراك ${
-              subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId
-            }`,
-            notes: notesParts.join(' • ') || undefined,
-            parties,
-          };
-        }
-
-        if (rawSource.includes('adjustment')) {
-          const notesParts = [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean);
-          return {
-            description: `تعديل دفعة اشتراك ${
-              subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId
-            }`,
-            notes: notesParts.join(' • ') || undefined,
-            parties,
-          };
-        }
-
-        if (rawSource.includes('cost')) {
-          const notesParts = [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean);
-          return {
-            description: `تكلفة اشتراك ${
-              subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId
-            }`,
-            notes: notesParts.join(' • ') || undefined,
-            parties,
-          };
-        }
-
+        
+        // This is the new logic for the main subscription entry
+        const companyShare = subscription.hasPartner ? subscription.profit - (subscription.profit * (subscription.partnerSharePercentage / 100)) : subscription.profit;
+        const partnerShare = subscription.profit - companyShare;
+        
         const saleAmount = formatAmountWithCurrency(subscription?.salePrice ?? safeMeta.salePrice, currency);
         const costAmount = formatAmountWithCurrency(
           subscription?.purchasePrice ?? safeMeta.purchasePrice,
@@ -375,16 +335,23 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
             (Number(subscription?.salePrice ?? 0) - Number(subscription?.purchasePrice ?? 0)),
           currency,
         );
-        const paidAmount = formatAmountWithCurrency(subscription?.paidAmount ?? safeMeta.paidAmount, currency);
+        
+        const distributions: { name: string; amount: string }[] = [];
+        if (costAmount) distributions.push({ name: 'التكلفة', amount: costAmount });
+        if (subscription.hasPartner) {
+            distributions.push({ name: `حصة الشركة`, amount: formatAmountWithCurrency(companyShare, currency)!});
+            distributions.push({ name: `حصة الشريك ${subscription.partnerName}`, amount: formatAmountWithCurrency(partnerShare, currency)!});
+        } else if (profitAmount) {
+            distributions.push({ name: 'الربح', amount: profitAmount });
+        }
+
+
         const structured: StructuredDescription = {
           title: `اشتراك ${subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId}`,
           totalReceived: saleAmount ? `قيمة الاشتراك: ${saleAmount}` : null,
-          selfReceipt: profitAmount ? `الربح: ${profitAmount}` : null,
-          distributions: [
-            costAmount ? { name: 'التكلفة', amount: costAmount } : null,
-            paidAmount ? { name: 'المسدد', amount: paidAmount } : null,
-          ].filter(Boolean) as { name: string; amount: string }[],
-          notes: [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean).join(' • ') || undefined,
+          selfReceipt: null,
+          distributions,
+          notes: [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean).join(' • ') || '',
         };
         return {
           description: structured,
@@ -418,7 +385,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
             ticketProfits ? { name: 'أرباح التذاكر', amount: ticketProfits } : null,
             otherProfits ? { name: 'أرباح أخرى', amount: otherProfits } : null,
           ].filter(Boolean) as { name: string; amount: string }[],
-          notes: period ? `الفترة: ${period}` : undefined,
+          notes: period ? `الفترة: ${period}` : '',
         };
         return {
           description: structured,
@@ -451,7 +418,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
               title: period ? `توزيع أرباح ${period}` : 'توزيع أرباح',
               totalReceived: total ? `الإجمالي: ${total}` : null,
               distributions: distributions.length ? distributions : undefined,
-              notes: manual.notes || undefined,
+              notes: manual.notes || '',
             };
             return {
               description: structured,
@@ -540,6 +507,50 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
 
       const rawSourceType = v.originalData?.sourceType || v.sourceType || v.voucherType;
       const normalizedType = normalizeVoucherType(rawSourceType || v.voucherType);
+      
+      if (normalizedType === 'subscription') {
+          const installments = v.originalData?.installments as SubscriptionInstallment[];
+          if (installments && Array.isArray(installments)) {
+              installments.forEach((inst, index) => {
+                  const instDate = normalizeToDate(inst.dueDate);
+                  if (!instDate) return;
+                  
+                   if ((dateFrom && instDate < dateFrom) || (dateTo && instDate > dateTo)) {
+                        const openingBalanceAmount = accountId === v.originalData.clientId ? inst.amount : 0;
+                        openingBalances[inst.currency] = (openingBalances[inst.currency] || 0) + openingBalanceAmount;
+                        return;
+                    }
+                  
+                  reportRows.push({
+                      id: `${doc.id}_installment_${index}`,
+                      date: inst.dueDate,
+                      invoiceNumber: `${v.invoiceNumber}-${index + 1}`,
+                      description: `القسط ${index + 1} من ${installments.length} - ${v.originalData.serviceName}`,
+                      debit: accountId === v.originalData.clientId ? inst.amount : 0,
+                      credit: 0,
+                      currency: inst.currency,
+                      officer: v.officer,
+                      voucherType: 'subscription_installment',
+                      normalizedType: 'subscription',
+                      rawVoucherType: v.voucherType,
+                      sourceType: 'subscription',
+                      sourceId: v.sourceId,
+                      sourceRoute: `/subscriptions?subscription=${v.sourceId}`,
+                      originalData: v.originalData,
+                  });
+              });
+              
+              // Now process payments for this subscription
+              const paymentEntries = [...(v.debitEntries || []), ...(v.creditEntries || [])];
+              paymentEntries.forEach(entry => {
+                  if (entry.accountId === accountId && v.sourceType !== 'subscription') {
+                       // This logic will be handled by the generic entry processing below
+                  }
+              });
+
+              continue; // Skip the main voucher entry for subscriptions
+          }
+      }
 
       const effectiveSourceId =
         v.originalData?.sourceId || v.sourceId || normalizedMeta?.sourceId || doc.id;
