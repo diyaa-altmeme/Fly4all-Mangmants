@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -152,6 +153,12 @@ const VoucherRow = ({
         return <span className="text-muted-foreground text-xs">{voucher.notes}</span>;
       case 'officer':
         return <span className="text-muted-foreground">{voucher.officer}</span>;
+      case 'status':
+        return (
+            <Badge variant={voucher.isDeleted ? "destructive" : "default"} className={cn(voucher.isDeleted ? "" : "bg-green-500")}>
+                {voucher.isDeleted ? 'محذوف' : 'فعال'}
+            </Badge>
+        )
       case 'actions':
         return (
           <div className="flex items-center justify-center gap-1">
@@ -220,12 +227,22 @@ export default function VouchersTable({
   onDataChanged,
   settings,
 }: VouchersTableProps) {
+    const columnsWithStatus = React.useMemo(() => {
+        const hasStatus = settings?.columns.some(c => c.id === 'status');
+        if (hasStatus) return settings.columns;
+        // Add status column right after voucherTypeLabel or at a reasonable position
+        const typeIndex = settings.columns.findIndex(c => c.id === 'voucherTypeLabel');
+        const newColumns = [...settings.columns];
+        newColumns.splice(typeIndex + 1, 0, { id: 'status', label: 'الحالة', visible: true, order: (typeIndex + 1.5) });
+        return newColumns;
+    }, [settings.columns]);
+
   return (
     <div className="border rounded-lg overflow-hidden">
       <Table dir="rtl">
         <TableHeader>
           <TableRow className="bg-muted/50 hover:bg-muted/50">
-            {(settings?.columns || [])
+            {(columnsWithStatus || [])
               .filter((c) => c.visible)
               .map((col) => (
                 <TableHead
@@ -241,7 +258,7 @@ export default function VouchersTable({
           {vouchers.length === 0 ? (
             <TableRow>
               <TableCell
-                colSpan={(settings?.columns || []).filter((c) => c.visible).length}
+                colSpan={(columnsWithStatus || []).filter((c) => c.visible).length}
                 className="h-24 text-center"
               >
                 لا توجد سندات لعرضها.
@@ -253,7 +270,7 @@ export default function VouchersTable({
                 key={voucher.id}
                 voucher={voucher}
                 onDataChanged={onDataChanged}
-                columns={settings.columns}
+                columns={columnsWithStatus}
               />
             ))
           )}
