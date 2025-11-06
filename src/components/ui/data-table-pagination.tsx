@@ -18,32 +18,42 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import React from 'react'
 
 interface DataTablePaginationProps {
   table?: Table<any>; // Optional for client-side pagination
   totalRows: number;
-  pageSize: number;
-  pageIndex: number;
-  onPageChange: (pageIndex: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
-  className?: string;
 }
 
 export function DataTablePagination({
   table,
   totalRows,
-  pageSize,
-  pageIndex,
-  onPageChange,
-  onPageSizeChange,
   className,
-}: DataTablePaginationProps) {
+}: React.HTMLAttributes<HTMLDivElement> & DataTablePaginationProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const pageIndex = table?.getState().pagination.pageIndex ?? Number(searchParams.get('page') ?? 1) - 1;
+  const pageSize = table?.getState().pagination.pageSize ?? Number(searchParams.get('limit') ?? 15);
   const pageCount = Math.ceil(totalRows / pageSize);
 
-  const canPreviousPage = pageIndex > 0;
-  const canNextPage = pageIndex < pageCount - 1;
+  const createPageURL = (pageNumber: number, newPageSize?: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', (pageNumber + 1).toString());
+    params.set('limit', (newPageSize || pageSize).toString());
+    return `${pathname}?${params.toString()}`;
+  };
+
+  const setPage = (index: number) => {
+    router.push(createPageURL(index));
+  };
   
+  const setPageSize = (size: number) => {
+    router.push(createPageURL(0, size));
+  };
+
   return (
     <div
       className={cn(
@@ -61,7 +71,7 @@ export function DataTablePagination({
           <Select
             value={`${pageSize}`}
             onValueChange={(value) => {
-              onPageSizeChange(Number(value))
+              setPageSize(Number(value))
             }}
           >
             <SelectTrigger className="h-8 w-[70px]">
@@ -84,8 +94,8 @@ export function DataTablePagination({
           <Button
             variant="outline"
             className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => onPageChange(0)}
-            disabled={!canPreviousPage}
+            onClick={() => setPage(0)}
+            disabled={pageIndex === 0}
           >
             <span className="sr-only">Go to first page</span>
             <ChevronsRightIcon className="h-4 w-4" />
@@ -93,8 +103,8 @@ export function DataTablePagination({
           <Button
             variant="outline"
             className="h-8 w-8 p-0"
-            onClick={() => onPageChange(pageIndex - 1)}
-            disabled={!canPreviousPage}
+            onClick={() => setPage(pageIndex - 1)}
+            disabled={pageIndex === 0}
           >
             <span className="sr-only">Go to previous page</span>
             <ChevronRightIcon className="h-4 w-4" />
@@ -102,8 +112,8 @@ export function DataTablePagination({
           <Button
             variant="outline"
             className="h-8 w-8 p-0"
-            onClick={() => onPageChange(pageIndex + 1)}
-            disabled={!canNextPage}
+            onClick={() => setPage(pageIndex + 1)}
+            disabled={pageIndex >= pageCount - 1}
           >
             <span className="sr-only">Go to next page</span>
             <ChevronLeftIcon className="h-4 w-4" />
@@ -111,8 +121,8 @@ export function DataTablePagination({
           <Button
             variant="outline"
             className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => onPageChange(pageCount - 1)}
-            disabled={!canNextPage}
+            onClick={() => setPage(pageCount - 1)}
+            disabled={pageIndex >= pageCount - 1}
           >
             <span className="sr-only">Go to last page</span>
             <ChevronsLeftIcon className="h-4 w-4" />

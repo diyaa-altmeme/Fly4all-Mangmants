@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -43,10 +42,11 @@ const ActionsCell = ({ row, onDataChanged }: {
             return;
         }
 
-        onDataChanged(undefined, id);
-    
         const result = await deleteClient(id);
-        if (!result.success) {
+        if (result.success) {
+            toast({ title: "تم الحذف بنجاح" });
+            onDataChanged(undefined, id);
+        } else {
             toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
         }
     };
@@ -65,38 +65,37 @@ const ActionsCell = ({ row, onDataChanged }: {
                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="w-full flex justify-between">
                           <span>تعديل</span><Edit className="h-4 w-4"/>
                        </DropdownMenuItem>
-                    </AddClientDialog>
-                    <CredentialsDialog client={client} onCredentialsUpdated={onDataChanged}>
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-end w-full flex items-center gap-2">
-                            <span>إدارة الدخول</span><KeyRound className="h-4 w-4"/>
-                        </DropdownMenuItem>
-                    </CredentialsDialog>
-                    <DropdownMenuItem asChild>
-                         <Link href={`/reports/account-statement?accountId=${client.id}`} className="justify-end w-full flex items-center gap-2">
-                           <span>كشف الحساب</span>
-                           <FileText className="h-4 w-4"/>
-                        </Link>
+                </AddClientDialog>
+                <CredentialsDialog client={client} onCredentialsUpdated={onDataChanged}>
+                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="justify-end w-full flex items-center gap-2">
+                        <span>إدارة الدخول</span><KeyRound className="h-4 w-4"/>
                     </DropdownMenuItem>
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                             <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-600 justify-between w-full"><span>حذف</span><Trash2 className="h-4 w-4"/></DropdownMenuItem>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    هذا الإجراء سيحذف السجل بشكل دائم. لا يمكن حذف علاقة مرتبطة بحسابات مالية.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(client.id)} className={cn(buttonVariants({variant: 'destructive'}))}>نعم، احذف</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
-                </DropdownMenuContent>
-            </DropdownMenu>
-        </div>
+                </CredentialsDialog>
+                <DropdownMenuItem asChild>
+                     <Link href={`/reports/account-statement?accountId=${client.id}`} className="justify-end w-full flex items-center gap-2">
+                       <span>كشف الحساب</span>
+                       <FileText className="h-4 w-4"/>
+                    </Link>
+                </DropdownMenuItem>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                         <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-red-500 focus:text-red-600 justify-between w-full"><span>حذف</span><Trash2 className="h-4 w-4"/></DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                هذا الإجراء سيحذف السجل بشكل دائم. لا يمكن حذف علاقة مرتبطة بحسابات مالية.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDelete(client.id)} className={cn(buttonVariants({variant: 'destructive'}))}>نعم، احذف</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 };
 
@@ -125,7 +124,7 @@ const renderCellContent = (row: any, field: CustomRelationField) => {
 
 export const getColumns = (
     relationSections: RelationSection[], 
-    onDataChanged: (client?: Client) => void
+    onDataChanged: (client?: Client, deletedId?: string) => void
 ): ColumnDef<Client>[] => {
     
     if (!relationSections || !Array.isArray(relationSections)) {
