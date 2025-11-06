@@ -123,21 +123,22 @@ const InstallmentsTable = ({ installments, subscription, onDataChange }: { insta
     );
 }
 
-const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients, suppliers, users }: { 
+const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: { 
     subscription: Subscription, 
     allInstallments: SubscriptionInstallment[],
-    onDataChange: () => void,
-    clients: Client[],
-    suppliers: Supplier[],
-    users: User[],
+    onDataChange: () => void 
 }) => {
     const { toast } = useToast();
     const [isOpen, setIsOpen] = React.useState(false);
+    const { data: navData } = useVoucherNav();
+    const clients = navData?.clients || [];
+    const suppliers = navData?.suppliers || [];
+    const users = navData?.users || [];
 
     const handleDelete = async () => {
         const result = await softDeleteSubscription(subscription.id);
         if (result.success) {
-            toast({ title: "تم حذف الاشتراك بنجاح" });
+            toast({ title: "تم نقل الاشتراك إلى سجل المحذوفات" });
             onDataChange();
         } else {
             toast({ title: 'خطأ', description: result.error, variant: 'destructive' });
@@ -184,6 +185,7 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange, clients,
             <TableCell>{subscription.supplierName}</TableCell>
             <TableCell>{partnerName}</TableCell>
             <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.purchasePrice, subscription.currency)}</TableCell>
+            <TableCell className="text-center font-mono font-bold text-green-700">{formatCurrency(subscription.profit, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.salePrice, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-orange-600">{formatCurrency(totalDiscount, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-green-600">{formatCurrency(totalPaid, subscription.currency)}</TableCell>
@@ -257,7 +259,6 @@ interface SubscriptionsListViewProps {
 export default function SubscriptionsListView({ subscriptions, allInstallments, onDataChange }: SubscriptionsListViewProps) {
     const [searchTerm, setSearchTerm] = React.useState('');
     const [statusFilter, setStatusFilter] = React.useState<SubscriptionStatus | 'all'>('all');
-    const { data: navData, loaded: navLoaded } = useVoucherNav();
     
     const filteredSubscriptions = React.useMemo(() => {
         return subscriptions.filter(sub => {
@@ -313,6 +314,7 @@ export default function SubscriptionsListView({ subscriptions, allInstallments, 
                         <TableHead className="font-bold">المورد</TableHead>
                         <TableHead className="font-bold">الشريك</TableHead>
                         <TableHead className="text-center font-bold">إجمالي الشراء</TableHead>
+                        <TableHead className="text-center font-bold">إجمالي الربح</TableHead>
                         <TableHead className="text-center font-bold">إجمالي البيع</TableHead>
                         <TableHead className="text-center font-bold">الخصم</TableHead>
                         <TableHead className="text-center font-bold">المدفوع</TableHead>
@@ -336,9 +338,6 @@ export default function SubscriptionsListView({ subscriptions, allInstallments, 
                                 subscription={sub}
                                 allInstallments={allInstallments}
                                 onDataChange={onDataChange}
-                                clients={navData?.clients || []}
-                                suppliers={navData?.suppliers || []}
-                                users={navData?.users || []}
                             />
                         ))
                      )}
