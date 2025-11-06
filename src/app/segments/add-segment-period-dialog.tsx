@@ -388,13 +388,11 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        const allRelations = [...clients, ...suppliers];
-        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-        return uniqueRelations.map(c => ({ value: c.id, label: `${c.relationType === 'supplier' ? 'مورد' : 'عميل'}: ${c.name}`, settings: c.segmentSettings }));
-    }, [clients, suppliers]);
+        return (clients || []).filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+    }, [clients]);
 
      const partnerOptions = useMemo(() => {
-        const allRelations = [...clients, ...suppliers];
+        const allRelations = [...(clients || []), ...(suppliers || [])];
         const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
         return uniqueRelations.map(r => {
             let labelPrefix = '';
@@ -428,7 +426,6 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                     fromDate: parseISO(existingPeriod.fromDate),
                     toDate: parseISO(existingPeriod.toDate),
                     summaryEntries: existingPeriod.entries,
-                    // TODO: Need to load partner data if exists
                 });
             } else {
                  resetForm(defaultValues);
@@ -620,7 +617,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                                             </FormItem>
                                         )}/>
                                     </div>
-                                    <div className="pt-4 border-t mt-4">
+                                     <div className="pt-4 border-t mt-4">
                                         <div className="space-y-5">
                                             <div className="flex items-center justify-between border-b pb-2">
                                                 <FormField
@@ -698,7 +695,7 @@ export default function AddSegmentPeriodDialog({ clients, suppliers, onSuccess, 
                                 <Button type="submit" disabled={isSaving || summaryFields.length === 0}>
                                     {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                                     <Save className="me-2 h-4 w-4" />
-                                    حفظ بيانات الفترة ({summaryFields.length} سجلات)
+                                    {isEditing ? 'تحديث الفترة' : `حفظ بيانات الفترة (${summaryFields.length} سجلات)`}
                                 </Button>
                             </div>
                         </DialogFooter>
