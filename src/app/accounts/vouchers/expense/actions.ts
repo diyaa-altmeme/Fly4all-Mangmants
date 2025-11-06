@@ -1,9 +1,12 @@
 
+
 'use server';
 
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
 import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
+import { getNextVoucherNumber } from "@/lib/sequences";
+
 
 interface ExpenseVoucherData {
     date: string;
@@ -24,12 +27,12 @@ export async function createExpenseVoucher(data: ExpenseVoucherData) {
     
     try {
         const description = `مصروف ${data.expenseType}: ${data.notes || ''}`.trim();
-        const sourceId = `expense-${Date.now()}`;
+        const invoiceNumber = await getNextVoucherNumber('EX');
 
         const { voucherId } = await recordFinancialTransaction({
             companyId: data.payee,
             sourceType: 'manualExpense',
-            sourceId,
+            sourceId: `expense-${Date.now()}`,
             date: data.date,
             currency: data.currency,
             debitAccountId: `expense_${data.expenseType}`,
@@ -41,13 +44,14 @@ export async function createExpenseVoucher(data: ExpenseVoucherData) {
         }, {
             actorId: user.uid,
             actorName: user.name,
-            auditDescription: `أنشأ سند مصاريف بمبلغ ${data.amount} ${data.currency}.`,
+            auditDescription: `أنشأ سند مصاريف برقم ${invoiceNumber} بمبلغ ${data.amount} ${data.currency}.`,
             auditTargetType: 'VOUCHER',
             meta: {
                 expenseType: data.expenseType,
                 payeeId: data.payee,
                 exchangeRate: data.exchangeRate,
                 notes: data.notes,
+                invoiceNumber,
             },
         });
 

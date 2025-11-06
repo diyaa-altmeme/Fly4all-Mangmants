@@ -1,9 +1,11 @@
 
+
 'use server';
 
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
 import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
+import { getNextVoucherNumber } from "@/lib/sequences";
 
 
 interface PaymentVoucherData {
@@ -27,6 +29,7 @@ export async function createPaymentVoucher(data: PaymentVoucherData) {
     const sourceId = `payment-${Date.now()}`;
 
     try {
+        const invoiceNumber = await getNextVoucherNumber('PV');
         const { voucherId } = await recordFinancialTransaction({
             companyId: data.toSupplierId,
             sourceType: 'payment',
@@ -42,12 +45,13 @@ export async function createPaymentVoucher(data: PaymentVoucherData) {
         }, {
             actorId: user.uid,
             actorName: user.name,
-            auditDescription: `أنشأ سند دفع بمبلغ ${data.amount} ${data.currency}.`,
+            auditDescription: `أنشأ سند دفع برقم ${invoiceNumber} بمبلغ ${data.amount} ${data.currency}.`,
             auditTargetType: 'VOUCHER',
             meta: {
                 purpose: data.purpose,
                 details: data.details,
                 exchangeRate: data.exchangeRate,
+                invoiceNumber,
             },
         });
 

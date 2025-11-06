@@ -922,7 +922,7 @@ export async function permanentDeleteSubscription(subscriptionId: string): Promi
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
      const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user) return { success: false, error: "Unauthorized." };
 
     const batch = db.batch();
 
@@ -973,6 +973,7 @@ export async function revalidateSubscriptionsPath() {
     
 
     
+
 
 
 

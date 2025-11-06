@@ -1,10 +1,13 @@
 
+
 'use server';
 
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
 import { createNotification } from "@/app/notifications/actions";
 import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
+import { getNextVoucherNumber } from "@/lib/sequences";
+
 
 interface StandardReceiptData {
     date: string;
@@ -24,6 +27,7 @@ export async function createStandardReceipt(data: StandardReceiptData) {
     try {
         const description = `سند قبض: ${data.details || 'دفعة'}`.trim();
         const sourceId = `receipt-${Date.now()}`;
+        const invoiceNumber = await getNextVoucherNumber('RC');
 
         const { voucherId } = await recordFinancialTransaction({
             companyId: data.from,
@@ -40,12 +44,13 @@ export async function createStandardReceipt(data: StandardReceiptData) {
         }, {
             actorId: user.uid,
             actorName: user.name,
-            auditDescription: `أنشأ سند قبض عادي بمبلغ ${data.amount} ${data.currency}.`,
+            auditDescription: `أنشأ سند قبض عادي برقم ${invoiceNumber} بمبلغ ${data.amount} ${data.currency}.`,
             auditTargetType: 'VOUCHER',
             meta: {
                 payerId: data.from,
                 boxId: data.toBox,
                 details: data.details,
+                invoiceNumber,
             },
         });
 
