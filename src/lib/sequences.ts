@@ -5,6 +5,7 @@
 import { getDb } from './firebase-admin';
 import type { VoucherSequence } from './types';
 import { cache } from 'react';
+import { Timestamp } from 'firebase-admin/firestore';
 
 const SEQUENCES_COLLECTION = 'sequences';
 
@@ -27,6 +28,8 @@ const DEFAULT_SEQUENCES: Omit<VoucherSequence, 'value'>[] = [
     { id: "EXP", label: "تسديد بورصة", prefix: "EXP" },
     { id: "SEG", label: "سكمنت", prefix: "SEG" },
     { id: "CL", label: "علاقة (عميل/مورد)", prefix: "CL" },
+    { id: "COMP", label: "فاتورة شركة (سكمنت)", prefix: "COMP" },
+    { id: "PARTNER", label: "فاتورة شريك (سكمنت)", prefix: "PARTNER" },
 ];
 
 
@@ -37,7 +40,6 @@ export async function getSequences(): Promise<VoucherSequence[]> {
     const snapshot = await db.collection(SEQUENCES_COLLECTION).get();
     
     if (snapshot.empty) {
-        // Seed the collection if it's empty
         const batch = db.batch();
         const initialSequences: VoucherSequence[] = DEFAULT_SEQUENCES.map(s => ({ ...s, value: 0 }));
         initialSequences.forEach(seq => {
@@ -49,7 +51,6 @@ export async function getSequences(): Promise<VoucherSequence[]> {
     
     const sequences = snapshot.docs.map(doc => doc.data() as VoucherSequence);
 
-    // Check for any missing default sequences and add them
     const missing = DEFAULT_SEQUENCES.filter(ds => !sequences.some(s => s.id === ds.id));
     if (missing.length > 0) {
         const batch = db.batch();
@@ -57,7 +58,7 @@ export async function getSequences(): Promise<VoucherSequence[]> {
              batch.set(db.collection(SEQUENCES_COLLECTION).doc(m.id), {...m, value: 0});
         });
         await batch.commit();
-        return getSequences(); // Re-fetch to get the complete list
+        return getSequences();
     }
     
     return sequences;
@@ -88,7 +89,7 @@ export async function getNextVoucherNumber(prefixId: string): Promise<string> {
       
       let currentNumber = 1;
       let prefix = prefixId;
-      let label = `سند ${prefixId}`; // fallback label
+      let label = `سند ${prefixId}`;
 
       if (snapshot.exists) {
         const data = snapshot.data() as VoucherSequence;
@@ -106,7 +107,6 @@ export async function getNextVoucherNumber(prefixId: string): Promise<string> {
     
   } catch (error) {
     console.error(`Error getting next voucher number for prefix ${prefixId}:`, error);
-    // Fallback in case of transaction error
     return `${prefixId}-${Date.now().toString().slice(-6)}`;
   }
 }
