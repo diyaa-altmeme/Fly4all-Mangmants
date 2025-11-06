@@ -75,8 +75,8 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
         const clientIds = [...new Set(subscriptions.map(s => s.clientId).filter(Boolean))];
         if (clientIds.length > 0) {
              const chunks: string[][] = [];
-             for (let i = 0; i < clientIds.length; i += 30) {
-                chunks.push(clientIds.slice(i, i + 30));
+             for (let i = 0; i < clientIds.length; i += 10) {
+                chunks.push(clientIds.slice(i, i + 10));
             }
 
             const clientsData = new Map<string, Client>();
