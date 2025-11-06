@@ -1,9 +1,10 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import { postJournalEntry } from '@/lib/finance/postJournal';
-import type { SegmentEntry, SegmentSettings, JournalEntry, Client } from '@/lib/types';
+import type { SegmentEntry, SegmentSettings, JournalEntry, Client, Supplier } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
@@ -234,17 +235,6 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
                 }
             });
 
-            const chunkSize = 10;
-            for (let i = 0; i < segmentIds.length; i += chunkSize) {
-                const chunk = segmentIds.slice(i, i + chunkSize);
-                const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
-                const voucherSnapshot = await transaction.get(voucherQuery);
-
-                for (const doc of voucherSnapshot.docs) {
-                    const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
-                    const ledgerSnapshot = await transaction.get(ledgerQuery);
-
-
             for (let i = 0; i < segmentIds.length; i += 30) {
                 const chunk = segmentIds.slice(i, i + 30);
                 const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
@@ -324,14 +314,12 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
                 transaction.update(doc.ref, {
                     isDeleted: false,
                     deletedAt: FieldValue.delete(),
+                    deletedBy: FieldValue.delete(),
                     restoredAt,
                     restoredBy,
                 });
             });
 
-            const chunkSize = 10;
-            for (let i = 0; i < segmentIds.length; i += chunkSize) {
-                const chunk = segmentIds.slice(i, i + chunkSize);
             for (let i = 0; i < segmentIds.length; i += 30) {
                 const chunk = segmentIds.slice(i, i + 30);
                 const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
@@ -341,6 +329,7 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
                     transaction.update(doc.ref, {
                         isDeleted: false,
                         deletedAt: FieldValue.delete(),
+                        deletedBy: FieldValue.delete(),
                         restoredAt,
                         restoredBy,
                         status: 'restored',
@@ -358,7 +347,8 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
                         });
                     });
 
-                    transaction.set(db.collection('deleted-vouchers').doc(doc.id), {
+                    const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+                    transaction.set(deletedVoucherRef, {
                         restoredAt,
                         restoredBy,
                     }, { merge: true });
