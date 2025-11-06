@@ -306,45 +306,132 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
     }
 }
 
-export async function updateSubscription(
-  subscriptionId: string,
-  subscriptionData: Omit<Subscription, 'id' | 'profit' | 'paidAmount' | 'status'>
-) {
+export async function updateSubscription(subscriptionId: string, subscriptionData: Omit<Subscription, 'id' | 'profit' | 'paidAmount' | 'status'> & { installments?: { dueDate: string, amount: number }[], deferredDueDate?: string }) {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
+    
     const user = await getCurrentUserFromSession();
     if (!user || !('role' in user)) return { success: false, error: "User not authenticated" };
 
+    const financeSettings = await getFinanceMap();
+    if (!financeSettings.receivableAccountId) {
+        return { success: false, error: "حساب الذمم المدينة (AR) غير محدد في إعدادات الربط المالي." };
+    }
+
     try {
-        const subscriptionRef = db.collection('subscriptions').doc(subscriptionId);
-        
-        // You might need to delete old journal entries and installments before updating.
-        // For simplicity, this example will just update the main document.
-        // A more robust solution would involve a transaction to delete old related docs
-        // and create new ones.
+        await db.runTransaction(async (transaction) => {
+            const subscriptionRef = db.collection('subscriptions').doc(subscriptionId);
+            
+            // Delete old installments
+            const oldInstallmentsSnap = await db.collection('subscription_installments').where('subscriptionId', '==', subscriptionId).get();
+            oldInstallmentsSnap.forEach(doc => transaction.delete(doc.ref));
 
-        const totalPurchase = (subscriptionData.quantity || 1) * (subscriptionData.purchasePrice || 0);
-        const totalSale = ((subscriptionData.quantity || 1) * (subscriptionData.unitPrice || 0)) - (subscriptionData.discount || 0);
-        const profit = totalSale - totalPurchase;
-        
-        const finalSubscriptionData = {
-            ...subscriptionData,
-            purchaseDate: new Date(subscriptionData.purchaseDate).toISOString(),
-            startDate: new Date(subscriptionData.startDate).toISOString(),
-            purchasePrice: totalPurchase,
-            salePrice: totalSale,
-            profit,
-            updatedAt: new Date().toISOString(),
-        };
+            // Delete old journal entries
+            const oldVouchersSnap = await db.collection('journal-vouchers').where('sourceId', '==', subscriptionId).where('sourceType', '==', 'subscription').get();
+            oldVouchersSnap.forEach(doc => transaction.delete(doc.ref));
 
-        await subscriptionRef.update(finalSubscriptionData);
+            // Now, create new records (similar logic to addSubscription)
+            const totalPurchase = (subscriptionData.quantity || 1) * (subscriptionData.purchasePrice || 0);
+            const totalSale = ((subscriptionData.quantity || 1) * (subscriptionData.unitPrice || 0)) - (subscriptionData.discount || 0);
+            const profit = totalSale - totalPurchase;
+            
+            const partnerSharePercentage = subscriptionData.hasPartner ? (subscriptionData.partnerSharePercentage || 0) : 0;
+            const partnerShareAmount = profit * (partnerSharePercentage / 100);
+            const alrawdatainShare = profit - partnerShareAmount;
+
+            const { installments, deferredDueDate, ...coreSubscriptionData } = subscriptionData;
+
+            const finalSubscriptionData: Partial<Subscription> = {
+                ...coreSubscriptionData,
+                purchaseDate: new Date(subscriptionData.purchaseDate).toISOString(),
+                startDate: new Date(subscriptionData.startDate).toISOString(),
+                purchasePrice: totalPurchase,
+                salePrice: totalSale,
+                profit,
+                updatedAt: new Date().toISOString(),
+            };
+            transaction.update(subscriptionRef, finalSubscriptionData);
+            
+            const installmentsToCreate: Omit<SubscriptionInstallment, 'id'>[] = [];
+            switch (subscriptionData.installmentMethod) {
+                 case 'upfront':
+                    installmentsToCreate.push({
+                        subscriptionId: subscriptionId, clientName: finalSubscriptionData.clientName!, serviceName: finalSubscriptionData.serviceName!,
+                        amount: totalSale, currency: finalSubscriptionData.currency!, dueDate: finalSubscriptionData.startDate!,
+                        status: 'Unpaid', paidAmount: 0, discount: 0,
+                    });
+                    break;
+                case 'deferred':
+                     if (!deferredDueDate) throw new Error("Deferred due date is required.");
+                    installmentsToCreate.push({
+                        subscriptionId: subscriptionId, clientName: finalSubscriptionData.clientName!, serviceName: finalSubscriptionData.serviceName!,
+                        amount: totalSale, currency: finalSubscriptionData.currency!, dueDate: new Date(deferredDueDate).toISOString(),
+                        status: 'Unpaid', paidAmount: 0, discount: 0,
+                    });
+                    break;
+                case 'installments':
+                    if (!installments || installments.length === 0) throw new Error("Installments data is required.");
+                    installments.forEach(inst => {
+                        installmentsToCreate.push({
+                            subscriptionId: subscriptionId, clientName: finalSubscriptionData.clientName!, serviceName: finalSubscriptionData.serviceName!,
+                            amount: inst.amount, currency: finalSubscriptionData.currency!, dueDate: inst.dueDate,
+                            status: 'Unpaid', paidAmount: 0, discount: 0,
+                        });
+                    });
+                    break;
+            }
+
+            installmentsToCreate.forEach(instData => {
+                const installmentRef = db.collection('subscription_installments').doc();
+                transaction.set(installmentRef, instData);
+            });
+
+            // Re-create Journal Entries
+            const entries: JournalEntry[] = [];
+            const revenueAccountId = financeSettings.revenueMap?.subscriptions || financeSettings.generalRevenueId;
+            if (!revenueAccountId) throw new Error("Revenue account for subscriptions is not defined.");
+
+            entries.push({ accountId: finalSubscriptionData.clientId!, debit: totalSale, credit: 0, currency: finalSubscriptionData.currency!, description: `دين اشتراك: ${finalSubscriptionData.serviceName}`, relationId: finalSubscriptionData.clientId });
+            if (totalPurchase > 0 && finalSubscriptionData.supplierId) {
+                entries.push({ accountId: finalSubscriptionData.supplierId, debit: 0, credit: totalPurchase, currency: finalSubscriptionData.currency!, description: `دين للمورد عن اشتراك: ${finalSubscriptionData.serviceName}`, relationId: finalSubscriptionData.supplierId });
+            }
+             if (finalSubscriptionData.hasPartner && finalSubscriptionData.partnerId && partnerShareAmount > 0) {
+                if (alrawdatainShare > 0) {
+                    entries.push({ accountId: revenueAccountId, debit: 0, credit: alrawdatainShare, currency: finalSubscriptionData.currency!, description: `إيراد حصة الشركة من اشتراك: ${finalSubscriptionData.serviceName}` });
+                }
+                if (partnerShareAmount > 0) {
+                    entries.push({ accountId: finalSubscriptionData.partnerId, debit: 0, credit: partnerShareAmount, currency: finalSubscriptionData.currency!, description: `حصة الشريك ${finalSubscriptionData.partnerName} من اشتراك`, relationId: finalSubscriptionData.partnerId });
+                }
+            } else if (profit > 0) {
+                entries.push({ accountId: revenueAccountId, debit: 0, credit: profit, currency: finalSubscriptionData.currency!, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` });
+            }
+            
+            await postJournalEntry({
+                sourceType: 'subscription',
+                sourceId: subscriptionId,
+                description: `(تعديل) قيد اشتراك ${finalSubscriptionData.serviceName}`,
+                date: new Date(finalSubscriptionData.purchaseDate!),
+                userId: user.uid,
+                entries: entries,
+                meta: { ...finalSubscriptionData, subscriptionId: subscriptionId }
+            });
+        });
+
+        await createAuditLog({
+            userId: user.uid,
+            userName: user.name,
+            action: 'UPDATE',
+            targetType: 'SUBSCRIPTION',
+            description: `عدل الاشتراك: "${subscriptionData.serviceName}" للعميل ${subscriptionData.clientName}.`,
+            targetId: subscriptionId,
+        });
 
         revalidatePath('/subscriptions');
+        revalidatePath('/reports/account-statement');
         return { success: true };
-
     } catch (error: any) {
         console.error("Error updating subscription:", error);
-        return { success: false, error: "Failed to update subscription" };
+        return { success: false, error: "Failed to update subscription. " + error.message };
     }
 }
 
@@ -711,12 +798,12 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
             batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
         });
 
-        // 3. Mark associated journal vouchers as deleted and move to archive
-        const vouchersSnap = await db.collection('journal-vouchers').where('originalData.subscriptionId', '==', id).get();
+        // 3. Mark associated journal vouchers as deleted
+        const vouchersSnap = await db.collection('journal-vouchers').where('sourceId', '==', id).where('sourceType', '==', 'subscription').get();
         vouchersSnap.forEach(doc => {
-            const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+             const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
             batch.set(deletedVoucherRef, { ...doc.data(), deletedAt: now, deletedBy }, { merge: true });
-            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy, status: 'deleted' });
+            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
         });
         
         await batch.commit();
@@ -865,5 +952,7 @@ export async function revalidateSubscriptionsPath() {
 }
 
 
+
+    
 
     
