@@ -28,19 +28,13 @@ export async function getAllVouchers(
     suppliers: Supplier[],
     boxes: Box[],
     users: User[],
-    settings: AppSettings,
-    includeDeleted: boolean = true,
+    settings: AppSettings
 ): Promise<Voucher[]> {
     const db = await getDb();
     if (!db) return [];
 
     let query: FirebaseFirestore.Query = db.collection('journal-vouchers');
     
-    // This is now handled by the UI filter, we fetch all by default
-    // if (!includeDeleted) {
-    //     query = query.where('isDeleted', '!=', true);
-    // }
-
     const snapshot = await query.orderBy('createdAt', 'desc').limit(500).get();
     if (snapshot.empty) return [];
     
