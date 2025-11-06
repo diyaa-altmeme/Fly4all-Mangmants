@@ -672,7 +672,6 @@ export async function deletePayment(paymentId: string) {
             
             return { success: true };
         });
-
     } catch (error: any) {
         console.error("Error deleting payment:", error);
         return { success: false, error: error.message };
@@ -797,7 +796,8 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
             const installmentsSnap = await transaction.get(installmentsQuery);
 
             const voucherQuery = db.collection('journal-vouchers')
-                .where('originalData.subscriptionId', '==', id);
+                .where('sourceId', '==', id)
+                .where('sourceType', '==', 'subscription');
             const vouchersSnap = await transaction.get(voucherQuery);
 
             // THEN WRITE
@@ -973,6 +973,7 @@ export async function revalidateSubscriptionsPath() {
     
 
     
+
 
 
 
