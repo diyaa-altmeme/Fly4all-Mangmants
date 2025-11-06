@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -11,7 +10,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getSettings } from '@/app/settings/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
-import { postRevenue, postCost } from '@/lib/finance/posting';
+import { postJournalEntry } from '@/lib/finance/postJournal';
 
 export async function getVisaBookings(includeDeleted = false): Promise<VisaBookingEntry[]> {
     const settings = await getSettings();
@@ -26,17 +25,11 @@ export async function getVisaBookings(includeDeleted = false): Promise<VisaBooki
     try {
         let query: FirebaseFirestore.Query = db.collection('visaBookings');
         
-        if (!includeDeleted) {
-            query = query.where('isDeleted', '==', false);
-        } else {
-            query = query.where('isDeleted', '==', true);
-        }
-
         const snapshot = await query.orderBy('submissionDate', 'desc').get();
         if (snapshot.empty) return [];
 
-        return snapshot.docs.map(doc => {
-            const data = doc.data();
+        const allBookings = snapshot.docs.map(doc => {
+             const data = doc.data();
             return {
                 id: doc.id,
                 ...data,
@@ -44,6 +37,9 @@ export async function getVisaBookings(includeDeleted = false): Promise<VisaBooki
                 passengers: data.passengers || [],
             } as VisaBookingEntry;
         });
+
+        return allBookings.filter(b => !!b.isDeleted === includeDeleted);
+
     } catch (error) {
         console.error("Error getting visa bookings from Firestore: ", String(error));
         return [];
@@ -81,32 +77,18 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
             updatedAt: new Date().toISOString(),
         };
         
-        const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
-        const totalPurchase = dataToSave.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
-        const totalProfit = totalSale - totalPurchase;
-
-        await bookingRef.set(dataToSave);
-        
-        await postRevenue({
-            sourceType: 'visas',
+        await postJournalEntry({
+            invoiceNumber: newInvoiceNumber,
+            sourceType: 'visa',
             sourceId: bookingRef.id,
-            date: dataToSave.submissionDate,
-            currency: dataToSave.currency,
-            amount: totalProfit,
-            clientId: dataToSave.clientId,
+            description: `قيد طلب فيزا لـ ${dataToSave.passengers[0].name}`,
+            date: new Date(dataToSave.submissionDate),
+            userId: user.uid,
+            entries: [], // Will be reconstructed
+            meta: dataToSave,
         });
 
-        if (totalPurchase > 0) {
-            await postCost({
-                costKey: 'cost_visas',
-                sourceType: 'visas',
-                sourceId: bookingRef.id,
-                date: dataToSave.submissionDate,
-                currency: dataToSave.currency,
-                amount: totalPurchase,
-                supplierId: dataToSave.supplierId,
-            });
-        }
+        await bookingRef.set(dataToSave);
         
         const batch = db.batch();
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });
@@ -123,6 +105,7 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
             userName: user.name,
             action: 'CREATE',
             targetType: 'BOOKING',
+            targetId: bookingRef.id,
             description: `أنشأ طلب فيزا جديدًا برقم فاتورة: ${newInvoiceNumber}`,
         });
 
@@ -132,9 +115,9 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
 
         const newBooking: VisaBookingEntry = { id: bookingRef.id, ...dataToSave };
         return { success: true, newBooking };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error adding visa booking: ", String(error));
-        return { success: false, error: "Failed to add visa booking." };
+        return { success: false, error: error.message || "Failed to add visa booking." };
     }
 }
 
@@ -164,35 +147,24 @@ export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntr
             enteredAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
         };
-        batch.set(bookingRef, dataToSave);
 
-        const totalSale = dataToSave.passengers.reduce((sum, p) => sum + p.salePrice, 0);
-        const totalPurchase = dataToSave.passengers.reduce((sum, p) => sum + p.purchasePrice, 0);
-        const totalProfit = totalSale - totalPurchase;
-
-        await postRevenue({
-            sourceType: 'visas',
+        await postJournalEntry({
+            invoiceNumber: newInvoiceNumber,
+            sourceType: 'visa',
             sourceId: bookingRef.id,
-            date: dataToSave.submissionDate,
-            currency: dataToSave.currency,
-            amount: totalProfit,
-            clientId: dataToSave.clientId,
+            description: `قيد طلب فيزا لـ ${dataToSave.passengers[0].name}`,
+            date: new Date(dataToSave.submissionDate),
+            userId: user.uid,
+            entries: [],
+            meta: dataToSave,
         });
 
-         if (totalPurchase > 0) {
-            await postCost({
-                costKey: 'cost_visas',
-                sourceType: 'visas',
-                sourceId: bookingRef.id,
-                date: dataToSave.submissionDate,
-                currency: dataToSave.currency,
-                amount: totalPurchase,
-                supplierId: dataToSave.supplierId,
-            });
-        }
+        batch.set(bookingRef, dataToSave);
 
         batch.update(db.collection('clients').doc(dataToSave.clientId), { useCount: FieldValue.increment(1) });
-        batch.update(db.collection('clients').doc(dataToSave.supplierId), { useCount: FieldValue.increment(1) });
+        if(dataToSave.supplierId) {
+            batch.update(db.collection('clients').doc(dataToSave.supplierId), { useCount: FieldValue.increment(1) });
+        }
         if (dataToSave.boxId) {
             batch.update(db.collection('boxes').doc(dataToSave.boxId), { useCount: FieldValue.increment(1) });
         }
@@ -246,12 +218,29 @@ export async function updateVisaBooking(bookingId: string, bookingData: Partial<
 
         await db.collection('visaBookings').doc(bookingId).update(dataToUpdate);
         
+        // Find and update the related journal voucher
+        const voucherQuery = await db.collection('journal-vouchers')
+            .where('sourceId', '==', bookingId)
+            .where('sourceType', '==', 'visa')
+            .limit(1)
+            .get();
+        
+        if (!voucherQuery.empty) {
+            const voucherDoc = voucherQuery.docs[0];
+            await voucherDoc.ref.update({
+                meta: bookingData,
+                originalData: bookingData,
+                notes: `(تعديل) طلب فيزا لـ ${bookingData.passengers?.[0]?.name || 'مسافر'}`
+            });
+        }
+        
         await createAuditLog({
             userId: user.uid,
             userName: user.name,
             action: 'UPDATE',
             targetType: 'BOOKING',
             description: `عدل بيانات طلب الفيزا رقم: ${bookingData.invoiceNumber || bookingId}`,
+            targetId: bookingId
         });
         
         revalidatePath('/visas');
@@ -274,9 +263,23 @@ export async function softDeleteVisaBooking(bookingId: string): Promise<{ succes
     if (!user) return { success: false, error: "User not authenticated." };
 
     try {
-        await db.collection('visaBookings').doc(bookingId).update({
-            isDeleted: true,
-            deletedAt: new Date().toISOString(),
+        const now = new Date().toISOString();
+        const deletedBy = user.name || user.uid;
+
+        await db.runTransaction(async (transaction) => {
+            const bookingRef = db.collection('visaBookings').doc(bookingId);
+            transaction.update(bookingRef, { isDeleted: true, deletedAt: now, deletedBy: deletedBy });
+            
+            const voucherQuery = db.collection('journal-vouchers')
+                .where('sourceId', '==', bookingId)
+                .where('sourceType', '==', 'visa');
+            
+            const voucherSnap = await transaction.get(voucherQuery);
+            voucherSnap.forEach(doc => {
+                 transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy: deletedBy });
+                 const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+                 transaction.set(deletedVoucherRef, { ...doc.data(), deletedAt: now, deletedBy: deletedBy });
+            });
         });
         
         await createAuditLog({
@@ -285,10 +288,11 @@ export async function softDeleteVisaBooking(bookingId: string): Promise<{ succes
             action: 'DELETE',
             targetType: 'BOOKING',
             description: `حذف طلب الفيزا (حذف ناعم) رقم: ${bookingId}`,
+            targetId: bookingId,
         });
 
         revalidatePath('/visas');
-        revalidatePath('/visas/deleted-visas');
+        revalidatePath('/system/deleted-log');
         return { success: true };
     } catch (error) {
         console.error("Error soft-deleting visa booking: ", String(error));
@@ -303,9 +307,35 @@ export async function restoreVisaBooking(bookingId: string): Promise<{ success: 
     if (!user) return { success: false, error: "User not authenticated." };
 
     try {
-        await db.collection('visaBookings').doc(bookingId).update({
-            isDeleted: false,
-            deletedAt: FieldValue.delete(),
+        const restoredBy = user.name || user.uid;
+        const restoredAt = new Date().toISOString();
+
+        await db.runTransaction(async (transaction) => {
+            const bookingRef = db.collection('visaBookings').doc(bookingId);
+            transaction.update(bookingRef, {
+                isDeleted: false,
+                deletedAt: FieldValue.delete(),
+                deletedBy: FieldValue.delete(),
+                restoredAt,
+                restoredBy
+            });
+            
+            const voucherQuery = db.collection('journal-vouchers')
+                .where('sourceId', '==', bookingId)
+                .where('sourceType', '==', 'visa');
+            
+            const voucherSnap = await transaction.get(voucherQuery);
+            voucherSnap.forEach(doc => {
+                 transaction.update(doc.ref, { 
+                     isDeleted: false,
+                     deletedAt: FieldValue.delete(),
+                     deletedBy: FieldValue.delete(),
+                     restoredAt,
+                     restoredBy,
+                });
+                const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+                transaction.delete(deletedVoucherRef);
+            });
         });
 
         await createAuditLog({
@@ -314,10 +344,11 @@ export async function restoreVisaBooking(bookingId: string): Promise<{ success: 
             action: 'UPDATE',
             targetType: 'BOOKING',
             description: `استعاد طلب الفيزا المحذوف رقم: ${bookingId}`,
+            targetId: bookingId
         });
 
         revalidatePath('/visas');
-        revalidatePath('/visas/deleted-visas');
+        revalidatePath('/system/deleted-log');
         return { success: true };
     } catch (error) {
         console.error("Error restoring visa booking: ", String(error));
@@ -331,23 +362,22 @@ export async function permanentDeleteVisaBooking(bookingId: string): Promise<{ s
      const user = await getCurrentUserFromSession();
     if (!user) return { success: false, error: "Unauthorized" };
 
-    const batch = db.batch();
-
     try {
-        // Also delete the journal entry
-        const voucherQuery = await db.collection('journal-vouchers')
-            .where('originalData.visaBookingId', '==', bookingId)
-            .limit(1)
-            .get();
-        
-        if (!voucherQuery.empty) {
-            const voucherDoc = voucherQuery.docs[0];
-            batch.delete(voucherDoc.ref);
-        }
+        await db.runTransaction(async (transaction) => {
+            const bookingRef = db.collection('visaBookings').doc(bookingId);
+            transaction.delete(bookingRef);
 
-        batch.delete(db.collection('visaBookings').doc(bookingId));
-        
-        await batch.commit();
+            const voucherQuery = db.collection('journal-vouchers')
+                .where('sourceId', '==', bookingId)
+                .where('sourceType', '==', 'visa');
+            
+            const voucherSnap = await transaction.get(voucherQuery);
+            voucherSnap.forEach(doc => transaction.delete(doc.ref));
+            
+            const deletedVoucherRef = db.collection('deleted-vouchers').where('sourceId', '==', bookingId);
+            const deletedVoucherSnap = await transaction.get(deletedVoucherRef);
+            deletedVoucherSnap.forEach(doc => transaction.delete(doc.ref));
+        });
 
         await createAuditLog({
             userId: user.uid,
@@ -355,10 +385,11 @@ export async function permanentDeleteVisaBooking(bookingId: string): Promise<{ s
             action: 'DELETE',
             targetType: 'BOOKING',
             description: `حذف طلب الفيزا بشكل نهائي رقم: ${bookingId}`,
+            targetId: bookingId
         });
         
         revalidatePath('/visas/deleted-visas');
-        revalidatePath('/accounts/vouchers/list');
+        revalidatePath('/system/deleted-log');
 
         return { success: true };
     } catch (error: any) {
@@ -367,4 +398,11 @@ export async function permanentDeleteVisaBooking(bookingId: string): Promise<{ s
     }
 }
 
-export async function getVisaBookingById(id: string): Promise<VisaBookingEntry | null> { return null; }
+export async function getVisaBookingById(id: string): Promise<VisaBookingEntry | null> {
+    const db = await getDb();
+    if (!db) return null;
+    const doc = await db.collection('visaBookings').doc(id).get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() } as VisaBookingEntry;
+}
+

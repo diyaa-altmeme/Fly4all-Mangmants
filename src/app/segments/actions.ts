@@ -58,12 +58,12 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
     }
 }
 
-function calculateShares(data: any, clientSettings?: SegmentSettings) {
+function calculateShares(data: any, clientSettings?: Partial<SegmentSettings>) {
     const settings = clientSettings || {};
     
     const computeService = (count: number, type: 'fixed' | 'percentage', value: number) => {
       if (!count || !value) return 0;
-      return type === 'fixed' ? count * value : (count * value) / 100;
+      return type === 'fixed' ? count * value : count * (value / 100);
     };
     
     const ticketProfits = computeService(data.tickets, data.ticketProfitType || 'percentage', data.ticketProfitValue || 50);
@@ -105,7 +105,7 @@ export async function addSegmentEntries(
 
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
-            const segmentInvoiceNumber = await getNextVoucherNumber('SEG');
+            const segmentInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber('SEG');
             const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
 
             // Fetch Client and Partner details for accuracy
@@ -135,11 +135,12 @@ export async function addSegmentEntries(
                 isDeleted: false,
             };
             
-            if (!dataToSave.supplierId) {
-                delete (dataToSave as any).supplierId;
+            const { supplierId, ...dataWithoutSupplier } = dataToSave as any;
+            if(supplierId) {
+                (dataWithoutSupplier as any).supplierId = supplierId;
             }
 
-            mainBatch.set(segmentDocRef, dataToSave);
+            mainBatch.set(segmentDocRef, dataWithoutSupplier);
             
             const revenueAccountId = 'revenue_segments';
             if(!revenueAccountId) throw new Error("Revenue account for segments is not defined.");
@@ -155,11 +156,10 @@ export async function addSegmentEntries(
                 relationId: dataToSave.clientId,
             });
 
-            const supplierId = (entryData as any).supplierId;
 
             const partnerShares = (dataToSave.partnerShares && dataToSave.partnerShares.length > 0)
                 ? dataToSave.partnerShares
-                : (dataToSave.hasPartner && dataToSave.partnerId ? [{ partnerId: dataToSave.partnerId, partnerName: dataToSave.partnerName, share: dataToSave.partnerShare }] : []);
+                : (dataToSave.hasPartner && dataToSave.partnerId ? [{ partnerId: dataToSave.partnerId, partnerName: dataToSave.partnerName, share: dataToSave.partnerShare, partnerInvoiceNumber: await getNextVoucherNumber("PARTNER") }] : []);
 
             partnerShares.forEach((share) => {
                 if (!share || !share.partnerId || !share.share) return;
@@ -194,6 +194,7 @@ export async function addSegmentEntries(
             }
 
             await postJournalEntry({
+                invoiceNumber: segmentInvoiceNumber,
                 sourceType: 'segment',
                 sourceId: segmentDocRef.id,
                 description: `ربح سكمنت من ${dataToSave.companyName} للفترة من ${dataToSave.fromDate} إلى ${dataToSave.toDate}`,
@@ -238,48 +239,31 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
                 }
             });
 
+            // Find all related journal vouchers in chunks
+            const voucherPromises = [];
             for (let i = 0; i < segmentIds.length; i += 30) {
                 const chunk = segmentIds.slice(i, i + 30);
                 const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
-                const voucherSnapshot = await transaction.get(voucherQuery);
+                voucherPromises.push(transaction.get(voucherQuery));
+            }
+            const voucherSnapshots = await Promise.all(voucherPromises);
 
+            for (const voucherSnapshot of voucherSnapshots) {
                 for (const doc of voucherSnapshot.docs) {
-                    const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
-                    const ledgerSnapshot = await transaction.get(ledgerQuery);
-
                     if (permanent) {
-                        ledgerSnapshot.forEach(ledgerDoc => transaction.delete(ledgerDoc.ref));
                         transaction.delete(doc.ref);
-                        transaction.delete(db.collection('deleted-vouchers').doc(doc.id));
                     } else {
-                        const voucherData = doc.data();
-                        transaction.set(db.collection('deleted-vouchers').doc(doc.id), {
-                            ...voucherData,
-                            id: doc.id,
-                            voucherId: doc.id,
-                            sourceType: voucherData?.sourceType || 'segment',
-                            sourceId: voucherData?.sourceId || doc.id,
-                            deletedAt: now,
-                            deletedBy,
-                            restoredAt: null,
-                            restoredBy: null,
-                        }, { merge: true });
-
-                        transaction.update(doc.ref, {
+                         transaction.update(doc.ref, {
                             isDeleted: true,
                             deletedAt: now,
-                            deletedBy,
-                            status: 'deleted',
+                            deletedBy: deletedBy,
                         });
-
-                        ledgerSnapshot.forEach(ledgerDoc => {
-                            transaction.update(ledgerDoc.ref, {
-                                isDeleted: true,
-                                deletedAt: now,
-                                deletedBy,
-                                restoredAt: null,
-                                restoredBy: null,
-                            });
+                        // Also move to deleted-vouchers collection for unified log
+                        const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+                        transaction.set(deletedVoucherRef, {
+                            ...doc.data(),
+                            deletedAt: now,
+                            deletedBy: deletedBy
                         });
                     }
                 }
@@ -287,14 +271,14 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
         });
 
         revalidatePath('/segments');
-        revalidatePath('/segments/deleted-segments');
-        revalidatePath('/reports/account-statement');
+        revalidatePath('/system/deleted-log');
         return { success: true, count: snapshot.size };
     } catch (error: any) {
         console.error("Error deleting segment period: ", String(error));
         return { success: false, error: error.message || "Failed to delete segment period.", count: 0 };
     }
 }
+
 
 export async function restoreSegmentPeriod(periodId: string): Promise<{ success: boolean; error?: string; count: number; }> {
     const db = await getDb();
@@ -323,39 +307,28 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
                 });
             });
 
+            // Find and restore related journal vouchers
+             const voucherPromises = [];
             for (let i = 0; i < segmentIds.length; i += 30) {
                 const chunk = segmentIds.slice(i, i + 30);
                 const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
-                const voucherSnapshot = await transaction.get(voucherQuery);
-
-                for (const doc of voucherSnapshot.docs) {
-                    transaction.update(doc.ref, {
+                voucherPromises.push(transaction.get(voucherQuery));
+            }
+            const voucherSnapshots = await Promise.all(voucherPromises);
+            
+            for (const voucherSnapshot of voucherSnapshots) {
+                voucherSnapshot.forEach(doc => {
+                    transaction.update(doc.ref, { 
                         isDeleted: false,
                         deletedAt: FieldValue.delete(),
                         deletedBy: FieldValue.delete(),
                         restoredAt,
                         restoredBy,
-                        status: 'restored',
-                    });
-
-                    const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
-                    const ledgerSnapshot = await transaction.get(ledgerQuery);
-                    ledgerSnapshot.forEach(ledgerDoc => {
-                        transaction.update(ledgerDoc.ref, {
-                            isDeleted: false,
-                            deletedAt: FieldValue.delete(),
-                            deletedBy: FieldValue.delete(),
-                            restoredAt,
-                            restoredBy,
-                        });
-                    });
-
-                    const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
-                    transaction.set(deletedVoucherRef, {
-                        restoredAt,
-                        restoredBy,
-                    }, { merge: true });
-                }
+                     });
+                     // Remove from the deleted-vouchers collection
+                     const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+                     transaction.delete(deletedVoucherRef);
+                });
             }
         });
 
@@ -369,10 +342,10 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
         });
 
         revalidatePath('/segments');
-        revalidatePath('/segments/deleted-segments');
+        revalidatePath('/system/deleted-log');
         return { success: true, count: snapshot.size };
     } catch (e: any) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, count: 0 };
     }
 }
 
