@@ -107,9 +107,9 @@ export default function AddSubscriptionDialog({
       if (isEditing && initialData) {
         form.reset({
           ...initialData,
-          purchaseDate: parseISO(initialData.purchaseDate),
-          startDate: parseISO(initialData.startDate),
-          installments: (initialData.installments || []).map(i => ({...i, dueDate: parseISO(i.dueDate)})),
+          purchaseDate: initialData.purchaseDate ? parseISO(initialData.purchaseDate) : new Date(),
+          startDate: initialData.startDate ? parseISO(initialData.startDate) : new Date(),
+          installments: (initialData.installments || []).map(i => ({...i, dueDate: i.dueDate ? parseISO(i.dueDate) : new Date()})),
         });
       } else {
          form.reset({
@@ -211,7 +211,8 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
   
   const supplierOptions = React.useMemo(() => (navData?.suppliers || []).map(s => ({ value: s.id, label: s.name })), [navData?.suppliers]);
   const clientOptions = React.useMemo(() => (navData?.clients || []).map(c => ({ value: c.id, label: `${c.name} ${c.code ? `(${c.code})` : ''}` })), [navData?.clients]);
-   const partnerOptions = React.useMemo(() => {
+  
+  const partnerOptions = React.useMemo(() => {
     if (!navData) return [];
     return [...(navData.clients || []), ...(navData.suppliers || [])].map(p => ({value: p.id, label: p.name}));
   }, [navData]);
@@ -428,4 +429,3 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
   );
 }
 
-    
