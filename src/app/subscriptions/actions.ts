@@ -152,8 +152,8 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         const newInvoiceNumber = await getNextVoucherNumber('SUB');
         
         const partnerSharePercentage = subscriptionData.hasPartner ? (subscriptionData.partnerSharePercentage || 0) : 0;
-        const partnerShare = profit * (partnerSharePercentage / 100);
-        const alrawdatainShare = profit - partnerShare;
+        const partnerShareAmount = profit * (partnerSharePercentage / 100);
+        const alrawdatainShare = profit - partnerShareAmount;
 
         const { installments, deferredDueDate, ...coreSubscriptionData } = subscriptionData;
 
@@ -240,16 +240,16 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
 
 
         // Credit Revenue & Partner Payable
-        if (finalSubscriptionData.hasPartner && finalSubscriptionData.partnerId && partnerShare > 0) {
+        if (finalSubscriptionData.hasPartner && finalSubscriptionData.partnerId && partnerShareAmount > 0) {
             const partnerPayableAccount = financeSettings.payableAccountId;
             if (!partnerPayableAccount) throw new Error("Accounts Payable account not defined for partner share.");
             
             // Credit company share to revenue
             entries.push({ accountId: revenueAccountId, debit: 0, credit: alrawdatainShare, currency: finalSubscriptionData.currency, description: `إيراد حصة الشركة من اشتراك: ${finalSubscriptionData.serviceName}` });
             // Credit partner share to their payable account
-            entries.push({ accountId: partnerPayableAccount, debit: 0, credit: partnerShare, currency: finalSubscriptionData.currency, description: `حصة الشريك ${finalSubscriptionData.partnerName} من اشتراك`, relationId: finalSubscriptionData.partnerId });
+            entries.push({ accountId: finalSubscriptionData.partnerId, debit: 0, credit: partnerShareAmount, currency: finalSubscriptionData.currency, description: `حصة الشريك ${finalSubscriptionData.partnerName} من اشتراك`, relationId: finalSubscriptionData.partnerId });
 
-        } else {
+        } else if (profit > 0){
             // Credit total profit to revenue
             entries.push({ accountId: revenueAccountId, debit: 0, credit: profit, currency: finalSubscriptionData.currency, description: `إيراد اشتراك: ${finalSubscriptionData.serviceName}` });
         }
