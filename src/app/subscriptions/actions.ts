@@ -220,7 +220,8 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             debit: totalSale,
             credit: 0,
             currency: finalSubscriptionData.currency,
-            description: `دين اشتراك: ${finalSubscriptionData.serviceName}`
+            description: `دين اشتراك: ${finalSubscriptionData.serviceName}`,
+            relationId: finalSubscriptionData.clientId,
         });
         
         // Credit Supplier for total purchase cost
@@ -232,7 +233,8 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
                 debit: 0,
                 credit: totalPurchase,
                 currency: finalSubscriptionData.currency,
-                description: `دين للمورد عن اشتراك: ${finalSubscriptionData.serviceName}`
+                description: `دين للمورد عن اشتراك: ${finalSubscriptionData.serviceName}`,
+                relationId: finalSubscriptionData.supplierId,
             });
         }
 
@@ -259,7 +261,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             date: new Date(finalSubscriptionData.purchaseDate),
             userId: user.uid,
             entries: entries,
-            meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id }
+            meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id, partnerIds: finalSubscriptionData.partnerId ? [finalSubscriptionData.partnerId] : [] }
         });
         
         mainBatch.update(db.collection('clients').doc(finalSubscriptionData.clientId), { useCount: FieldValue.increment(1) });
@@ -648,28 +650,65 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
     const user = await getCurrentUserFromSession();
     if (!user) return { success: false, error: "User not authenticated." };
 
-    const batch = db.batch();
     try {
         const now = new Date().toISOString();
         const deletedBy = user.name;
 
-        // Soft delete the subscription itself
-        const subscriptionRef = db.collection('subscriptions').doc(id);
-        batch.update(subscriptionRef, { isDeleted: true, deletedAt: now, deletedBy });
+        await db.runTransaction(async (transaction) => {
+            const subscriptionRef = db.collection('subscriptions').doc(id);
+            const subscriptionSnap = await transaction.get(subscriptionRef);
+            if (!subscriptionSnap.exists) {
+                throw new Error('Subscription not found');
+            }
 
-        // Soft delete associated installments
-        const installmentsSnap = await db.collection('subscription_installments').where('subscriptionId', '==', id).get();
-        installmentsSnap.forEach(doc => {
-            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
+            transaction.update(subscriptionRef, { isDeleted: true, deletedAt: now, deletedBy });
+
+            const installmentsQuery = db.collection('subscription_installments').where('subscriptionId', '==', id);
+            const installmentsSnap = await transaction.get(installmentsQuery);
+            installmentsSnap.forEach(doc => {
+                transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
+            });
+
+            const vouchersQuery = db.collection('journal-vouchers').where('originalData.subscriptionId', '==', id);
+            const vouchersSnap = await transaction.get(vouchersQuery);
+
+            for (const doc of vouchersSnap.docs) {
+                const voucherRef = doc.ref;
+                const voucherData = doc.data();
+                const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+
+                transaction.set(deletedVoucherRef, {
+                    ...voucherData,
+                    id: doc.id,
+                    voucherId: doc.id,
+                    sourceType: voucherData?.sourceType || 'subscription',
+                    sourceId: voucherData?.sourceId || id,
+                    deletedAt: now,
+                    deletedBy,
+                    restoredAt: null,
+                    restoredBy: null,
+                }, { merge: true });
+
+                transaction.update(voucherRef, {
+                    isDeleted: true,
+                    deletedAt: now,
+                    deletedBy,
+                    status: 'deleted',
+                });
+
+                const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
+                const ledgerSnap = await transaction.get(ledgerQuery);
+                ledgerSnap.forEach(ledgerDoc => {
+                    transaction.update(ledgerDoc.ref, {
+                        isDeleted: true,
+                        deletedAt: now,
+                        deletedBy,
+                        restoredAt: null,
+                        restoredBy: null,
+                    });
+                });
+            }
         });
-
-        // Soft delete associated journal vouchers
-        const journalVouchersSnap = await db.collection('journal-vouchers').where('originalData.subscriptionId', '==', id).get();
-        journalVouchersSnap.forEach(doc => {
-            batch.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
-        });
-
-        await batch.commit();
 
         await createAuditLog({
             userId: user.uid,
@@ -698,41 +737,71 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
     const user = await getCurrentUserFromSession();
     if (!user) return { success: false, error: "User not authenticated." };
 
-    const batch = db.batch();
     try {
         const restoredBy = user.name;
+        const restoredAt = new Date().toISOString();
 
-        // Restore the subscription itself
-        const subscriptionRef = db.collection('subscriptions').doc(id);
-        batch.update(subscriptionRef, { 
-            isDeleted: false, 
-            deletedAt: FieldValue.delete(),
-            deletedBy: FieldValue.delete(),
-            restoredAt: new Date().toISOString(),
-            restoredBy: restoredBy,
-        });
+        await db.runTransaction(async (transaction) => {
+            const subscriptionRef = db.collection('subscriptions').doc(id);
+            const subscriptionSnap = await transaction.get(subscriptionRef);
+            if (!subscriptionSnap.exists) {
+                throw new Error('Subscription not found');
+            }
 
-        // Restore associated installments
-        const installmentsSnap = await db.collection('subscription_installments').where('subscriptionId', '==', id).get();
-        installmentsSnap.forEach(doc => {
-            batch.update(doc.ref, { isDeleted: false, deletedAt: FieldValue.delete(), deletedBy: FieldValue.delete() });
-        });
-        
-        // Restore associated journal vouchers
-        const journalVouchersSnap = await db.collection('journal-vouchers')
-            .where('originalData.subscriptionId', '==', id)
-            .where('isDeleted', '==', true) // Only restore vouchers that were soft-deleted
-            .get();
-        
-        journalVouchersSnap.forEach(doc => {
-            batch.update(doc.ref, { 
-                isDeleted: false, 
+            transaction.update(subscriptionRef, {
+                isDeleted: false,
                 deletedAt: FieldValue.delete(),
                 deletedBy: FieldValue.delete(),
+                restoredAt,
+                restoredBy,
             });
+
+            const installmentsQuery = db.collection('subscription_installments').where('subscriptionId', '==', id);
+            const installmentsSnap = await transaction.get(installmentsQuery);
+            installmentsSnap.forEach(doc => {
+                transaction.update(doc.ref, {
+                    isDeleted: false,
+                    deletedAt: FieldValue.delete(),
+                    deletedBy: FieldValue.delete(),
+                    restoredAt,
+                    restoredBy,
+                });
+            });
+
+            const vouchersQuery = db.collection('journal-vouchers')
+                .where('originalData.subscriptionId', '==', id)
+                .where('isDeleted', '==', true);
+            const vouchersSnap = await transaction.get(vouchersQuery);
+
+            for (const doc of vouchersSnap.docs) {
+                transaction.update(doc.ref, {
+                    isDeleted: false,
+                    deletedAt: FieldValue.delete(),
+                    deletedBy: FieldValue.delete(),
+                    restoredAt,
+                    restoredBy,
+                    status: 'restored',
+                });
+
+                const ledgerQuery = db.collection('journal-ledger').where('voucherId', '==', doc.id);
+                const ledgerSnap = await transaction.get(ledgerQuery);
+                ledgerSnap.forEach(ledgerDoc => {
+                    transaction.update(ledgerDoc.ref, {
+                        isDeleted: false,
+                        deletedAt: FieldValue.delete(),
+                        deletedBy: FieldValue.delete(),
+                        restoredAt,
+                        restoredBy,
+                    });
+                });
+
+                const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
+                transaction.set(deletedVoucherRef, {
+                    restoredAt,
+                    restoredBy,
+                }, { merge: true });
+            }
         });
-        
-        await batch.commit();
 
         await createAuditLog({
             userId: user.uid,
@@ -767,8 +836,13 @@ export async function permanentDeleteSubscription(subscriptionId: string): Promi
         installmentsSnap.forEach(doc => batch.delete(doc.ref));
 
         const journalVoucherSnap = await db.collection('journal-vouchers').where('originalData.subscriptionId', '==', subscriptionId).get();
-        journalVoucherSnap.forEach(doc => batch.delete(doc.ref));
-        
+        for (const doc of journalVoucherSnap.docs) {
+            const ledgerSnap = await db.collection('journal-ledger').where('voucherId', '==', doc.id).get();
+            ledgerSnap.forEach(ledgerDoc => batch.delete(ledgerDoc.ref));
+            batch.delete(doc.ref);
+            batch.delete(db.collection('deleted-vouchers').doc(doc.id));
+        }
+
         await batch.commit();
 
         await createAuditLog({
