@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -43,6 +44,15 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
+const Section = ({ title, children, className }: { title: React.ReactNode; children: React.ReactNode, className?: string }) => (
+    <div className={cn("relative p-4 border rounded-lg mt-6", className)}>
+        <h3 className="absolute -top-3 right-4 bg-background px-2 text-base font-bold text-primary">
+            {title}
+        </h3>
+        {children}
+    </div>
+);
+
 const installmentSchema = z.object({
   dueDate: z.date({ required_error: "تاريخ الاستحقاق مطلوب." }),
   amount: z.coerce.number().positive("المبلغ يجب أن يكون أكبر من صفر."),
@@ -79,16 +89,6 @@ interface AddSubscriptionDialogProps {
   initialData?: Subscription;
   children?: React.ReactNode;
 }
-
-const Section = ({ title, children, className }: { title: React.ReactNode; children: React.ReactNode, className?: string }) => (
-    <div className={cn("relative p-4 border rounded-lg mt-6", className)}>
-        <h3 className="absolute -top-3 right-4 bg-background px-2 text-base font-bold text-primary">
-            {title}
-        </h3>
-        {children}
-    </div>
-);
-
 
 export default function AddSubscriptionDialog({ 
   onSubscriptionAdded, 
@@ -142,7 +142,7 @@ export default function AddSubscriptionDialog({
         onSubscriptionAdded();
     }
     setOpen(false);
-  };
+  }
   
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -428,4 +428,3 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
     </FormProvider>
   );
 }
-
