@@ -132,7 +132,11 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       }
     });
 
-    const allVouchersSnap = await db.collection('journal-vouchers').orderBy('date', 'asc').get();
+    const vouchersCollection = db.collection('journal-vouchers');
+    const vouchersQuery = includeDeleted
+      ? vouchersCollection
+      : vouchersCollection.where('isDeleted', '==', false);
+    const allVouchersSnap = await vouchersQuery.orderBy('date', 'asc').get();
 
     const openingBalances: Record<string, number> = {};
     const reportRows: any[] = [];
