@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -75,7 +74,8 @@ function calculateShares(data: any, clientSettings?: SegmentSettings) {
     const otherProfits = visaProfits + hotelProfits + groupProfits;
     const total = ticketProfits + otherProfits;
     
-    const alrawdatainShare = data.hasPartner ? total * (data.alrawdatainSharePercentage / 100) : total;
+    const alrawdatainSharePercentage = data.hasPartner ? data.alrawdatainSharePercentage : 100;
+    const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
     const partnerShare = data.hasPartner ? total - alrawdatainShare : 0;
     
     return { ticketProfits, otherProfits, total, alrawdatainShare, partnerShare };
@@ -359,13 +359,20 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
             }
         });
 
+        await createAuditLog({
+            userId: user.uid,
+            userName: user.name,
+            action: 'UPDATE',
+            targetType: 'SEGMENT',
+            description: `استعاد فترة السكمنت المحذوفة (ID: ${periodId})`,
+            targetId: periodId,
+        });
+
         revalidatePath('/segments');
         revalidatePath('/segments/deleted-segments');
-        revalidatePath('/reports/account-statement');
         return { success: true, count: snapshot.size };
-    } catch (error: any) {
-        console.error("Error restoring segment period: ", String(error));
-        return { success: false, error: error.message || "Failed to restore segment period.", count: 0 };
+    } catch (e: any) {
+        return { success: false, error: e.message };
     }
 }
 
