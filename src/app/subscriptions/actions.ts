@@ -46,7 +46,7 @@ const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
 };
 
 
-export const getSubscriptions = cache(async (includeDeleted = false): Promise<Subscription[]> => {
+export async function getSubscriptions(includeDeleted = false): Promise<Subscription[]> {
     const db = await getDb();
     if (!db) {
         console.error("Database not available, returning empty subscriptions list.");
@@ -102,7 +102,7 @@ export const getSubscriptions = cache(async (includeDeleted = false): Promise<Su
         console.error("Error getting subscriptions from Firestore: ", String(error));
         return [];
     }
-});
+};
 
 export const getSubscriptionById = cache(async (id: string): Promise<Subscription | null> => {
     const db = await getDb();
@@ -240,15 +240,13 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         
        // 3. Credit Revenue (Profit) distribution
         if (finalSubscriptionData.hasPartner && finalSubscriptionData.partnerId && partnerShareAmount > 0) {
-            const partnerPayableAccount = financeSettings.payableAccountId;
-            if (!partnerPayableAccount) throw new Error("Accounts Payable account not defined for partner share.");
-            
-            // Credit company share to revenue
-            if (alrawdatainShare > 0) {
+             if (alrawdatainShare > 0) {
                 entries.push({ accountId: revenueAccountId, debit: 0, credit: alrawdatainShare, currency: finalSubscriptionData.currency, description: `إيراد حصة الشركة من اشتراك: ${finalSubscriptionData.serviceName}` });
             }
             // Credit partner share to their payable account
             if (partnerShareAmount > 0) {
+                 const partnerPayableAccount = financeSettings.payableAccountId;
+                 if (!partnerPayableAccount) throw new Error("Accounts Payable account not defined for partner share.");
                 entries.push({ accountId: finalSubscriptionData.partnerId, debit: 0, credit: partnerShareAmount, currency: finalSubscriptionData.currency, description: `حصة الشريك ${finalSubscriptionData.partnerName} من اشتراك`, relationId: finalSubscriptionData.partnerId });
             }
 
@@ -797,15 +795,18 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
             installmentsSnap.forEach(doc => {
                 transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
             });
-
-            const vouchersSnap = await db.collection('journal-vouchers')
-                .where('sourceId', '==', id)
-                .where('sourceType', 'in', ['subscription', 'subscription_installment', 'subscription_reversal', 'subscription_adjustment', 'subscription_overpayment'])
-                .get();
-
+            
+            const voucherQuery = db.collection('journal-vouchers').where('sourceId', '==', id).where('sourceType', '==', 'subscription');
+            const vouchersSnap = await transaction.get(voucherQuery);
+            
             vouchersSnap.forEach(doc => {
-                 transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
+                transaction.update(doc.ref, { 
+                    isDeleted: true, 
+                    deletedAt: now, 
+                    deletedBy: deletedBy 
+                });
             });
+
         });
 
         await createAuditLog({
@@ -956,3 +957,4 @@ export async function revalidateSubscriptionsPath() {
     
 
     
+
