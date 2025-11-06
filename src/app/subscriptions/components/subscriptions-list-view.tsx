@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus } from '@/lib/types';
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Settings, History, MessageSquare, Trash2, Loader2, WalletCards, CheckCircle, ShieldCheck, CircleAlert } from 'lucide-react';
+import { Settings, History, MessageSquare, Trash2, Loader2, WalletCards, CheckCircle, CircleAlert, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import SubscriptionsSettingsDialog from '@/app/subscriptions/components/subscriptions-settings-dialog';
 import { softDeleteSubscription } from '@/app/subscriptions/actions';
@@ -162,18 +162,18 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
               </CollapsibleTrigger>
             </TableCell>
             <TableCell className="font-semibold">{subscription.invoiceNumber}</TableCell>
-            <TableCell className="font-semibold">{subscription.serviceName}</TableCell>
             <TableCell>{subscription.purchaseDate ? format(parseISO(subscription.purchaseDate), 'yyyy-MM-dd') : '-'}</TableCell>
+            <TableCell className="font-semibold">{subscription.serviceName}</TableCell>
             <TableCell>{subscription.clientName}</TableCell>
             <TableCell>{subscription.supplierName}</TableCell>
             <TableCell>{subscription.partnerName || '-'}</TableCell>
-            <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.salePrice, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.purchasePrice, subscription.currency)}</TableCell>
-            <TableCell className="text-center font-mono font-bold text-green-600">{formatCurrency(totalPaid - totalDiscount, subscription.currency)}</TableCell>
-            <TableCell className="text-center font-mono font-bold text-red-600">{formatCurrency(remainingAmount, subscription.currency)}</TableCell>
+            <TableCell className="text-center font-mono font-bold text-green-700">{formatCurrency(subscription.salePrice, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-orange-600">{formatCurrency(totalDiscount, subscription.currency)}</TableCell>
-            <TableCell className="text-center"><Badge variant="outline" className={cn("capitalize font-bold", statusStyles[dynamicStatus])}>{statusTranslations[dynamicStatus]}</Badge></TableCell>
+            <TableCell className="text-center font-mono font-bold text-green-600">{formatCurrency(totalPaid, subscription.currency)}</TableCell>
+            <TableCell className="text-center font-mono font-bold text-red-600">{formatCurrency(remainingAmount, subscription.currency)}</TableCell>
             <TableCell className="text-center">{subscription.enteredBy}</TableCell>
+            <TableCell className="text-center"><Badge variant="outline" className={cn("capitalize font-bold", statusStyles[dynamicStatus])}>{statusTranslations[dynamicStatus]}</Badge></TableCell>
             <TableCell className="text-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -183,7 +183,7 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
                   <ManageInstallmentsDialog subscription={subscription} onSuccess={onDataChange}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}><WalletCards className="me-2 h-4 w-4" />إدارة الأقساط</DropdownMenuItem>
                   </ManageInstallmentsDialog>
-                  <InvoiceDialog subscription={subscription} installments={subscriptionInstallments} />
+                  <InvoiceDialog subscription={subscription} />
                   <UpdateSubscriptionStatusDialog subscription={subscription} onStatusChange={onDataChange}>
                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}><ShieldCheck className="me-2 h-4 w-4" />تغيير الحالة</DropdownMenuItem>
                   </UpdateSubscriptionStatusDialog>
@@ -206,7 +206,6 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>
-             <TableCell className="text-center font-mono font-bold text-green-700">{formatCurrency(subscription.profit, subscription.currency)}</TableCell>
           </TableRow>
           <CollapsibleContent asChild>
             <TableRow>
@@ -288,27 +287,26 @@ export default function SubscriptionsListView({ subscriptions, allInstallments, 
                     <TableRow>
                         <TableHead className="w-[50px]"></TableHead>
                         <TableHead className="font-bold">الفاتورة</TableHead>
-                        <TableHead className="font-bold">الاشتراك</TableHead>
                         <TableHead className="font-bold">تاريخ الاشتراك</TableHead>
+                        <TableHead className="font-bold">الاشتراك</TableHead>
                         <TableHead className="font-bold">العميل</TableHead>
                         <TableHead className="font-bold">المورد</TableHead>
                         <TableHead className="font-bold">الشريك</TableHead>
-                        <TableHead className="text-center font-bold">إجمالي البيع</TableHead>
                         <TableHead className="text-center font-bold">إجمالي الشراء</TableHead>
+                        <TableHead className="text-center font-bold">إجمالي البيع</TableHead>
+                        <TableHead className="text-center font-bold">الخصم</TableHead>
                         <TableHead className="text-center font-bold">المدفوع</TableHead>
                         <TableHead className="text-center font-bold">المتبقي</TableHead>
-                        <TableHead className="text-center font-bold">الخصم</TableHead>
+                        <TableHead className="text-center font-bold">موظف الادخال</TableHead>
                         <TableHead className="text-center font-bold">الحالة</TableHead>
-                        <TableHead className="text-center font-bold">الموظف</TableHead>
                         <TableHead className="text-center font-bold">الإجراءات</TableHead>
-                        <TableHead className="text-center font-bold">الربح</TableHead>
                     </TableRow>
                 </TableHeader>
                 
                      {filteredSubscriptions.length === 0 ? (
                         <TableBody>
                             <TableRow>
-                                <TableCell colSpan={16} className="h-24 text-center">لا توجد اشتراكات تطابق البحث.</TableCell>
+                                <TableCell colSpan={15} className="h-24 text-center">لا توجد اشتراكات تطابق البحث.</TableCell>
                             </TableRow>
                         </TableBody>
                      ) : (
@@ -327,5 +325,3 @@ export default function SubscriptionsListView({ subscriptions, allInstallments, 
     </div>
   );
 }
-
-    
