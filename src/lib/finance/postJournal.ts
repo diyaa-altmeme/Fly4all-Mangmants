@@ -4,6 +4,10 @@
 
 import { getDb } from "@/lib/firebase-admin";
 import { FieldPath } from "firebase-admin/firestore";
+import { getNextVoucherNumber } from "@/lib/sequences";
+import type { JournalEntry as LegacyJournalEntry, FinanceAccountsMap, Currency } from "../types";
+import { normalizeFinanceAccounts, type NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
+import { inferAccountCategory } from '@/lib/finance/account-categories';
 import { getSettings } from "@/app/settings/actions";
 import { getNextVoucherNumber } from "@/lib/sequences";
 import type { JournalEntry as LegacyJournalEntry, FinanceAccountsMap, Currency } from "../types";
@@ -95,9 +99,9 @@ async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
     const idsInCollection = accountIds.filter(id => !foundIds.has(id));
     if (idsInCollection.length === 0) continue;
     
-    // Firestore 'in' query is limited to 30 items
-    for (let i = 0; i < idsInCollection.length; i += 30) {
-      const chunk = idsInCollection.slice(i, i + 30);
+    // Firestore 'in' query is limited to 10 items per request
+    for (let i = 0; i < idsInCollection.length; i += 10) {
+      const chunk = idsInCollection.slice(i, i + 10);
       const snapshot = await db.collection(collectionName).where(FieldPath.documentId(), 'in', chunk).get();
       snapshot.forEach((doc: any) => foundIds.add(doc.id));
     }
@@ -193,7 +197,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
   if (finance?.preventDirectCashRevenue) {
     const cashId = finance.defaultCashId;
     if (cashId) {
-      for (const e of payload.entries) {
+      for (const e of rawEntries) {
         if (e.accountId === cashId && inferAccountCategory(e.accountId, finance || null) === 'revenue') {
              throw new Error('Direct cash posting is disabled by finance settings');
         }
