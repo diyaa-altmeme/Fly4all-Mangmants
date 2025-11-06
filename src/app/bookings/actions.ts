@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -6,6 +7,7 @@ import { unstable_cache } from 'next/cache';
 import type { BookingEntry, Client } from '@/lib/types';
 import { postRevenue, postCost } from "@/lib/finance/posting";
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export const getBookings = unstable_cache(async (options: { 
     page?: number, 
@@ -126,10 +128,13 @@ export async function softDeleteBooking(id: string): Promise<{ success: boolean;
     const batch = db.batch();
     const bookingRef = db.collection('bookings').doc(id);
     batch.update(bookingRef, { isDeleted: true, deletedAt: new Date().toISOString() });
-    const vouchersSnap = await db.collection('journal-vouchers').where('originalData.bookingId', '==', id).get();
+    
+    // Also mark related journal vouchers as deleted
+    const vouchersSnap = await db.collection('journal-vouchers').where('sourceId', '==', id).get();
     vouchersSnap.forEach(doc => {
         batch.update(doc.ref, { isDeleted: true });
     });
+
     await batch.commit();
     return { success: true };
 }
@@ -139,11 +144,13 @@ export async function restoreBooking(id: string): Promise<{ success: boolean; er
     if (!db) return { success: false, error: "Database not available" };
     const batch = db.batch();
     const bookingRef = db.collection('bookings').doc(id);
-    batch.update(bookingRef, { isDeleted: false, deletedAt: null });
-     const vouchersSnap = await db.collection('journal-vouchers').where('originalData.bookingId', '==', id).get();
+    batch.update(bookingRef, { isDeleted: false, deletedAt: FieldValue.delete() });
+    
+    const vouchersSnap = await db.collection('journal-vouchers').where('sourceId', '==', id).get();
     vouchersSnap.forEach(doc => {
         batch.update(doc.ref, { isDeleted: false });
     });
+    
     await batch.commit();
     return { success: true };
 }
@@ -154,10 +161,12 @@ export async function permanentDeleteBooking(id: string): Promise<{ success: boo
     const batch = db.batch();
     const bookingRef = db.collection('bookings').doc(id);
     batch.delete(bookingRef);
-    const vouchersSnap = await db.collection('journal-vouchers').where('originalData.bookingId', '==', id).get();
+
+    const vouchersSnap = await db.collection('journal-vouchers').where('sourceId', '==', id).get();
     vouchersSnap.forEach(doc => {
         batch.delete(doc.ref);
     });
+
     await batch.commit();
     return { success: true };
 }
