@@ -25,7 +25,7 @@ import { format, parseISO, isPast } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import ReceiveInstallmentPaymentDialog from './receive-installment-payment-dialog';
+import ReceiveInstallmentPaymentDialog from '@/app/subscriptions/components/receive-installment-payment-dialog';
 import { getInstallmentPayments, deletePayment } from '@/app/subscriptions/actions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -163,15 +163,17 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
             </TableCell>
             <TableCell className="font-semibold">{subscription.invoiceNumber}</TableCell>
             <TableCell className="font-semibold">{subscription.serviceName}</TableCell>
+            <TableCell>{subscription.purchaseDate ? format(parseISO(subscription.purchaseDate), 'yyyy-MM-dd') : '-'}</TableCell>
             <TableCell>{subscription.clientName}</TableCell>
             <TableCell>{subscription.supplierName}</TableCell>
             <TableCell>{subscription.partnerName || '-'}</TableCell>
             <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.salePrice, subscription.currency)}</TableCell>
-            <TableCell className="text-center font-mono font-bold text-green-700">{formatCurrency(subscription.profit, subscription.currency)}</TableCell>
+            <TableCell className="text-center font-mono font-bold">{formatCurrency(subscription.purchasePrice, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-green-600">{formatCurrency(totalPaid - totalDiscount, subscription.currency)}</TableCell>
-            <TableCell className="text-center font-mono font-bold text-orange-600">{formatCurrency(totalDiscount, subscription.currency)}</TableCell>
             <TableCell className="text-center font-mono font-bold text-red-600">{formatCurrency(remainingAmount, subscription.currency)}</TableCell>
+            <TableCell className="text-center font-mono font-bold text-orange-600">{formatCurrency(totalDiscount, subscription.currency)}</TableCell>
             <TableCell className="text-center"><Badge variant="outline" className={cn("capitalize font-bold", statusStyles[dynamicStatus])}>{statusTranslations[dynamicStatus]}</Badge></TableCell>
+            <TableCell className="text-center">{subscription.enteredBy}</TableCell>
             <TableCell className="text-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -204,13 +206,14 @@ const SubscriptionRow = ({ subscription, allInstallments, onDataChange }: {
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>
+             <TableCell className="text-center font-mono font-bold text-green-700">{formatCurrency(subscription.profit, subscription.currency)}</TableCell>
           </TableRow>
           <CollapsibleContent asChild>
             <TableRow>
-                <TableCell colSpan={13} className="p-0">
+                <TableCell colSpan={15} className="p-0">
                     <div className="p-2 bg-muted/50">
                         <div className="p-4 bg-background rounded-md">
-                        <h4 className="font-semibold mb-2">جدول الأقساط</h4>
+                        <h4 className="font-semibold mb-2">جدول الدفعات او الاقساط</h4>
                          <InstallmentsTable 
                             installments={subscriptionInstallments}
                             subscription={subscription}
@@ -286,23 +289,26 @@ export default function SubscriptionsListView({ subscriptions, allInstallments, 
                         <TableHead className="w-[50px]"></TableHead>
                         <TableHead className="font-bold">الفاتورة</TableHead>
                         <TableHead className="font-bold">الاشتراك</TableHead>
+                        <TableHead className="font-bold">تاريخ الاشتراك</TableHead>
                         <TableHead className="font-bold">العميل</TableHead>
                         <TableHead className="font-bold">المورد</TableHead>
                         <TableHead className="font-bold">الشريك</TableHead>
                         <TableHead className="text-center font-bold">إجمالي البيع</TableHead>
-                        <TableHead className="text-center font-bold">الربح</TableHead>
+                        <TableHead className="text-center font-bold">إجمالي الشراء</TableHead>
                         <TableHead className="text-center font-bold">المدفوع</TableHead>
-                        <TableHead className="text-center font-bold">الخصم</TableHead>
                         <TableHead className="text-center font-bold">المتبقي</TableHead>
+                        <TableHead className="text-center font-bold">الخصم</TableHead>
                         <TableHead className="text-center font-bold">الحالة</TableHead>
+                        <TableHead className="text-center font-bold">الموظف</TableHead>
                         <TableHead className="text-center font-bold">الإجراءات</TableHead>
+                        <TableHead className="text-center font-bold">الربح</TableHead>
                     </TableRow>
                 </TableHeader>
                 
                      {filteredSubscriptions.length === 0 ? (
                         <TableBody>
                             <TableRow>
-                                <TableCell colSpan={13} className="h-24 text-center">لا توجد اشتراكات تطابق البحث.</TableCell>
+                                <TableCell colSpan={16} className="h-24 text-center">لا توجد اشتراكات تطابق البحث.</TableCell>
                             </TableRow>
                         </TableBody>
                      ) : (
@@ -321,3 +327,5 @@ export default function SubscriptionsListView({ subscriptions, allInstallments, 
     </div>
   );
 }
+
+    
