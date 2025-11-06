@@ -14,20 +14,20 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import AddSegmentPeriodDialog from '../add-segment-period-dialog';
-import type { Client, Supplier } from '@/lib/types';
+import type { Client, Supplier, SegmentEntry } from '@/lib/types';
 
 
 interface EditSegmentPeriodDialogProps {
   existingPeriod: {
     fromDate: string;
     toDate: string;
-    entries: any[];
+    entries: SegmentEntry[];
     periodId: string;
   };
   clients: Client[];
   suppliers: Supplier[];
   onSuccess: () => Promise<void>;
-  children?: React.ReactNode;
+  children: React.ReactNode;
 }
 
 export default function EditSegmentPeriodDialog({ 
@@ -37,9 +37,6 @@ export default function EditSegmentPeriodDialog({
     onSuccess,
     children,
 }: EditSegmentPeriodDialogProps) {
-    
-    // We can reuse the AddSegmentPeriodDialog for editing
-    // by passing the existing data to it.
     
     return (
         <AddSegmentPeriodDialog
@@ -53,4 +50,3 @@ export default function EditSegmentPeriodDialog({
         </AddSegmentPeriodDialog>
     );
 }
-
