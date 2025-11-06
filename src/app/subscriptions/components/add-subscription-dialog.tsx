@@ -1,8 +1,7 @@
-
-
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,33 +13,33 @@ import {
   DialogTrigger,
   DialogClose,
 } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import type { Currency, Client, Supplier, Subscription, User, Box } from '@/lib/types';
-import { Loader2, Calendar as CalendarIcon, PlusCircle, User as UserIcon, Hash, Wallet, ArrowLeft, ArrowRight, X, Building, Store, Settings2, Save, Trash2 } from 'lucide-react';
-import { addSubscription, updateSubscription } from '@/app/subscriptions/actions';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { useRouter } from 'next/navigation';
-import { Autocomplete } from '@/components/ui/autocomplete';
-import { DateTimePicker } from '@/components/ui/datetime-picker';
-import { NumericInput } from '@/components/ui/numeric-input';
-import { useAuth } from '@/lib/auth-context';
-import { useVoucherNav } from '@/context/voucher-nav-context';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { useVoucherNav } from "@/context/voucher-nav-context";
+import { NumericInput } from "@/components/ui/numeric-input";
+import { Autocomplete } from "@/components/ui/autocomplete";
+import { addSubscription, updateSubscription } from '@/app/subscriptions/actions';
+import {
+  PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, Building, User as UserIcon, Wallet, Hash, AlertTriangle, CheckCircle, ArrowRight, X,
+} from 'lucide-react';
 import { format, addMonths, parseISO } from 'date-fns';
-import { useForm, Controller, FormProvider, useFormContext, useFieldArray } from 'react-hook-form';
-import { cn } from '@/lib/utils';
+import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormContext } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import type { Client, Supplier, SegmentSettings, Subscription, PartnerShareSetting, Currency } from '@/lib/types';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
+import { useAuth } from '@/lib/auth-context';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Stepper, StepperItem, useStepper } from '@/components/ui/stepper';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Switch } from '@/components/ui/switch';
-
 
 const installmentSchema = z.object({
   dueDate: z.date({ required_error: "تاريخ الاستحقاق مطلوب." }),
@@ -121,6 +120,14 @@ export default function AddSubscriptionDialog({
             startDate: new Date(),
             installmentMethod: 'upfront',
             installments: [],
+            serviceName: '',
+            clientId: '',
+            supplierId: '',
+            boxId: '',
+            notes: '',
+            hasPartner: false,
+            partnerId: '',
+            partnerSharePercentage: 0,
          });
       }
     }
@@ -290,10 +297,10 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
                 )}/>
                 <div className="grid grid-cols-2 gap-4">
                         <FormField control={control} name="supplierId" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">المورد (المصدر)</FormLabel><FormControl><Autocomplete options={supplierOptions} value={field.value} onValueChange={field.onChange} placeholder="اختياري"/></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="font-bold">المورد (المصدر)</FormLabel><FormControl><Autocomplete options={supplierOptions} value={field.value || ''} onValueChange={field.onChange} placeholder="اختياري"/></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={control} name="clientId" render={({ field }) => (
-                        <FormItem><FormLabel className="font-bold">العميل (المستفيد)</FormLabel><FormControl><Autocomplete options={clientOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel className="font-bold">العميل (المستفيد)</FormLabel><FormControl><Autocomplete options={clientOptions} value={field.value || ''} onValueChange={field.onChange} placeholder="ابحث عن عميل..." /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
                     <FormField control={control} name="purchaseDate" render={({ field }) => (
@@ -324,7 +331,7 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
                     {hasPartner && (
                         <div className="grid grid-cols-3 gap-2 text-center p-2 border rounded-lg">
                             <FormField control={control} name="partnerId" render={({field}) => (
-                                <FormItem className="col-span-1 text-right space-y-1"><FormLabel className="text-xs">الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value} onValueChange={field.onChange} placeholder="اختر شريك"/></FormControl></FormItem>
+                                <FormItem className="col-span-1 text-right space-y-1"><FormLabel className="text-xs">الشريك</FormLabel><FormControl><Autocomplete options={partnerOptions} value={field.value || ''} onValueChange={field.onChange} placeholder="اختر شريك"/></FormControl></FormItem>
                             )}/>
                             <FormField control={control} name="partnerSharePercentage" render={({field}) => (
                                 <FormItem className="col-span-2 text-right space-y-1"><FormLabel className="text-xs">حصة الشريك من الربح (%)</FormLabel>
@@ -418,5 +425,3 @@ function NewSubscriptionForm({ isEditing, initialData, onSuccess, form }: NewSub
     </FormProvider>
   );
 }
-
-    
