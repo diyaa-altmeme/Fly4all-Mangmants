@@ -1,8 +1,7 @@
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import { postJournalEntry } from '@/lib/finance/postJournal';
+import { postJournalEntry, recordFinancialTransaction } from '@/lib/finance/posting';
 import type { SegmentEntry, SegmentSettings, JournalEntry, Client, Supplier } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
@@ -10,6 +9,8 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getFinanceMap } from '@/lib/finance/posting';
+
 
 // Helper to check for segment access permissions
 const checkSegmentPermission = async () => {
@@ -67,11 +68,11 @@ function calculateShares(data: any, companySettings?: Partial<SegmentSettings>) 
     };
     
     const ticketProfits = computeService(data.tickets, data.ticketProfitType || 'percentage', data.ticketProfitValue || 50);
-    const visaProfits = computeService(data.visas, data.visaProfitType || 'percentage', data.visaProfitValue || 100);
+    const visasProfits = computeService(data.visas, data.visaProfitType || 'percentage', data.visaProfitValue || 100);
     const hotelProfits = computeService(data.hotels, data.hotelProfitType || 'percentage', data.hotelProfitValue || 100);
     const groupProfits = computeService(data.groups, data.groupProfitType || 'percentage', data.groupProfitValue || 100);
     
-    const otherProfits = visaProfits + hotelProfits + groupProfits;
+    const otherProfits = visasProfits + hotelProfits + groupProfits;
     const total = ticketProfits + otherProfits;
     
     const alrawdatainSharePercentage = data.hasPartner ? data.alrawdatainSharePercentage : 100;
@@ -91,9 +92,14 @@ export async function addSegmentEntries(
 
     try {
         const user = await checkSegmentPermission();
-        const periodId = periodIdToReplace || db.collection('temp').doc().id;
+        const financeMap = await getFinanceMap();
         
-        // Generate the main period invoice number now, at the time of saving.
+        if (!financeMap.receivableAccountId) throw new Error("حساب الذمم المدينة غير محدد في الإعدادات.");
+        if (!financeMap.clearingAccountId) throw new Error("حساب التسوية غير محدد في الإعدادات.");
+        if (!financeMap.revenueMap?.segments) throw new Error("حساب إيرادات السكمنت غير محدد.");
+
+
+        const periodId = periodIdToReplace || db.collection('temp').doc().id;
         const periodInvoiceNumber = await getNextVoucherNumber("SEG");
 
         if (periodIdToReplace) {
@@ -103,8 +109,7 @@ export async function addSegmentEntries(
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
             
-            // Generate company invoice number on the server if it doesn't exist
-            const segmentInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber("COMP");
+            const segmentInvoiceNumber = entryData.invoiceNumber;
              if (!segmentInvoiceNumber) {
                 const companyNameForError = entryData.companyName || `(ID: ${entryData.clientId})`;
                 throw new Error(`رقم الفاتورة مفقود للسجل الخاص بالشركة: ${companyNameForError}.`);
@@ -138,28 +143,23 @@ export async function addSegmentEntries(
                 isDeleted: false,
             };
             
-            const { supplierId, ...dataWithoutSupplier } = dataToSave as any;
-            if(supplierId) {
-                (dataWithoutSupplier as any).supplierId = supplierId;
-            }
-
-            await segmentDocRef.set(dataWithoutSupplier);
+            await segmentDocRef.set(dataToSave);
             
-            const revenueAccountId = 'revenue_segments';
-            if(!revenueAccountId) throw new Error("Revenue account for segments is not defined.");
+            // قيد إثبات الدين على الشركة المصدرة مقابل حساب التسوية
+            await recordFinancialTransaction({
+              sourceType: 'segment',
+              sourceId: segmentDocRef.id,
+              date: entryDate,
+              currency: dataToSave.currency,
+              amount: dataToSave.total,
+              debitAccountId: dataToSave.clientId, // الشركة مدينة لنا
+              creditAccountId: financeMap.clearingAccountId, // حساب وسيط
+              description: `إثبات ربح سكمنت من ${dataToSave.companyName}`,
+              companyId: dataToSave.clientId,
+              reference: segmentInvoiceNumber,
+            }, { actorId: user.uid, actorName: user.name });
 
-            const journalEntries: JournalEntry[] = [];
-
-            journalEntries.push({
-                accountId: dataToSave.clientId,
-                debit: dataToSave.total,
-                credit: 0,
-                currency: dataToSave.currency,
-                description: `استحقاق أرباح سكمنت للفترة ${dataToSave.fromDate} - ${dataToSave.toDate}`,
-                relationId: dataToSave.clientId,
-            });
-
-
+            // قيد دفع حصص الشركاء من الصندوق
             const partnerShares = (dataToSave.partnerShares && dataToSave.partnerShares.length > 0)
                 ? dataToSave.partnerShares
                 : (dataToSave.hasPartner && dataToSave.partnerId ? [{ partnerId: dataToSave.partnerId, partnerName: dataToSave.partnerName, share: dataToSave.partnerShare, partnerInvoiceNumber: await getNextVoucherNumber("PARTNER") }] : []);
@@ -167,66 +167,33 @@ export async function addSegmentEntries(
             for (const share of partnerShares) {
                 if (!share || !share.partnerId || !share.share) continue;
                 
-                const partnerInvoiceNumber = share.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER");
-                if (!partnerInvoiceNumber) {
-                    throw new Error(`Partner invoice number is missing for partner ${share.partnerName}.`);
-                }
-
-                journalEntries.push({
-                    accountId: share.partnerId,
-                    debit: 0,
-                    credit: share.share,
-                    currency: dataToSave.currency,
-                    description: `حصة الشريك ${share.partnerName || ''}`.trim(),
-                    relationId: share.partnerId,
-                });
-
-                 await postJournalEntry({
-                    invoiceNumber: partnerInvoiceNumber,
-                    sourceType: 'segment',
+                await recordFinancialTransaction({
+                    sourceType: 'segment_payout',
                     sourceId: segmentDocRef.id,
-                    description: `دفع حصة الشريك ${share.partnerName} عن سكمنت ${dataToSave.companyName}`,
                     date: entryDate,
-                    userId: user.uid,
-                    entries: [
-                        { accountId: share.partnerId, debit: share.share, credit: 0, currency: dataToSave.currency, relationId: share.partnerId },
-                        { accountId: user.boxId!, debit: 0, credit: share.share, currency: dataToSave.currency }
-                    ],
-                    meta: { ...dataToSave, periodId, partnerId: share.partnerId, partnerInvoiceNumber: share.partnerInvoiceNumber },
-                });
-            }
-
-            if (dataToSave.alrawdatainShare > 0) {
-                journalEntries.push({
-                    accountId: revenueAccountId,
-                    debit: 0,
-                    credit: dataToSave.alrawdatainShare,
                     currency: dataToSave.currency,
-                    description: 'حصة الشركة من السكمنت',
-                });
+                    amount: share.share,
+                    debitAccountId: share.partnerId, // الشريك مدين لنا الآن بعد الدفع
+                    creditAccountId: user.boxId!, // الدفع من صندوقنا
+                    description: `دفع حصة الشريك ${share.partnerName} عن سكمنت ${dataToSave.companyName}`,
+                    companyId: share.partnerId,
+                    reference: share.partnerInvoiceNumber,
+                }, { actorId: user.uid, actorName: user.name });
             }
 
-            const meta = {
-              ...dataToSave,
-              periodId,
-              periodInvoiceNumber,
-              partnerIds: partnerShares.map(p => p.partnerId).filter(Boolean),
-            };
-
-            if (supplierId) {
-              (meta as any).supplierId = supplierId;
+            // قيد إثبات حصة الشركة كإيراد
+             if (dataToSave.alrawdatainShare > 0) {
+                 await recordFinancialTransaction({
+                    sourceType: 'segment_revenue',
+                    sourceId: segmentDocRef.id,
+                    date: entryDate,
+                    currency: dataToSave.currency,
+                    amount: dataToSave.alrawdatainShare,
+                    debitAccountId: financeMap.clearingAccountId, // نخفض حساب التسوية
+                    creditAccountId: financeMap.revenueMap.segments, // نسجل الإيراد
+                    description: `تسجيل حصة الشركة من ربح سكمنت ${dataToSave.companyName}`,
+                }, { actorId: user.uid, actorName: user.name });
             }
-
-            await postJournalEntry({
-                invoiceNumber: segmentInvoiceNumber,
-                sourceType: 'segment',
-                sourceId: segmentDocRef.id,
-                description: `ربح سكمنت من ${dataToSave.companyName} للفترة من ${dataToSave.fromDate} إلى ${dataToSave.toDate}`,
-                date: entryDate,
-                userId: user.uid,
-                entries: journalEntries,
-                meta,
-            });
         }
 
         revalidatePath('/segments');
@@ -366,8 +333,9 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
                     ...updatePayload,
                     status: 'restored',
                 });
-                const deletedVoucherRef = db.collection('deleted-vouchers').doc(docRef.id);
-                transaction.delete(deletedVoucherRef);
+
+                 const deletedVoucherRef = db.collection('deleted-vouchers').doc(docRef.id);
+                 transaction.delete(deletedVoucherRef);
             }
         });
 
