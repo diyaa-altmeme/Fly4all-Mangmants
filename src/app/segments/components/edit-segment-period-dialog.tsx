@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -161,7 +162,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
         resolver: zodResolver(companyEntrySchema),
     });
     
-    const { reset, control, handleSubmit, watch, setValue, getValues: getCompanyValues } = form;
+    const { reset, control, handleSubmit, watch, setValue, getValues } = form;
 
     const generateCompanyInvoiceNumber = useCallback(async () => {
         try {
@@ -176,28 +177,16 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     }, [setValue, toast]);
     
     const resetForm = useCallback(async () => {
+      const defaultValues = { id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage' as const, ticketProfitValue: 50, visaProfitType: 'percentage' as const, visaProfitValue: 100, hotelProfitType: 'percentage' as const, hotelProfitValue: 100, groupProfitType: 'percentage' as const, groupProfitValue: 100 };
       const invNumber = await generateCompanyInvoiceNumber();
-      reset({ 
-        id: uuidv4(), 
-        clientId: "", 
-        clientName: "", 
-        invoiceNumber: invNumber, 
-        tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", 
-        ticketProfitType: 'percentage', ticketProfitValue: 50, 
-        visaProfitType: 'percentage', visaProfitValue: 100, 
-        hotelProfitType: 'percentage', hotelProfitValue: 100, 
-        groupProfitType: 'percentage', groupProfitValue: 100 
-      });
+      reset({ ...defaultValues, invoiceNumber: invNumber });
     }, [reset, generateCompanyInvoiceNumber]);
 
 
     React.useEffect(() => {
         if (editingEntry) {
             const companySettings = editingEntry.clientId ? allCompanyOptions.find(c => c.value === editingEntry.clientId)?.settings : {};
-            const initialFormValues = { 
-                ...editingEntry,
-                ...companySettings, 
-            };
+            const initialFormValues = { ...editingEntry, ...companySettings };
             reset(initialFormValues);
         } else {
              resetForm();
@@ -225,8 +214,9 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     const total = useMemo(() => computeCompanyTotal(watchAll, allCompanyOptions.find(c => c.value === watchAll.clientId)?.settings), [watchAll, allCompanyOptions]);
 
     const handleAddClick = async (data: CompanyEntryFormValues) => {
-        if (!data.invoiceNumber) {
-            toast({ title: 'خطأ', description: 'رقم الفاتورة مطلوب. الرجاء محاولة مرة أخرى.', variant: 'destructive'});
+        const invoiceNumber = data.invoiceNumber || getValues('invoiceNumber');
+        if (!invoiceNumber) {
+            toast({ title: 'خطأ', description: `رقم الفاتورة مفقود للشركة: ${data.clientName}. الرجاء إعادة تحميل الصفحة.`, variant: 'destructive'});
             return;
         }
 
@@ -255,6 +245,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
         
         onAdd({ 
             ...data,
+            invoiceNumber,
             total: totalProfitForCompany,
             alrawdatainShare: alrawdatainShare,
             partnerShare: partnerShareAmount,
@@ -269,7 +260,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             <div className="space-y-3">
                  <Card className="border rounded-lg shadow-sm border-primary/40">
                     <CardHeader className="p-2 flex flex-row items-center justify-between bg-muted/30">
-                        <CardTitle className="text-base font-semibold">{editingEntry ? `تعديل - فاتورة: ${editingEntry.invoiceNumber}` : `إدخال شركة - فاتورة: ${watch('invoiceNumber') || '(تلقائي)'}`}</CardTitle>
+                        <CardTitle className="text-base font-semibold">{editingEntry ? `تعديل - فاتورة: ${watch('invoiceNumber')}` : `إدخال شركة - فاتورة: ${watch('invoiceNumber') || '(جاري التوليد...)'}`}</CardTitle>
                         <div className='font-mono text-sm text-blue-600 font-bold'>ربح الشركة: {total.toFixed(2)}</div>
                     </CardHeader>
                     <CardContent className="space-y-3 p-3">
@@ -330,7 +321,7 @@ const SummaryList = ({
                 <TableRow>
                 <TableHead className="text-center">رقم فاتورة الشركة</TableHead>
                 <TableHead>الشركة المصدرة للسكمنت</TableHead>
-                <TableHead>الشركاء (مع أرقام فواتيرهم)</</TableHead>
+                <TableHead>الشركاء (مع أرقام فواتيرهم)</TableHead>
                 <TableHead className="text-center">إجمالي المبلغ</TableHead>
                 <TableHead className="text-center">حصة الروضتين</TableHead>
                 <TableHead className="text-center">حصة الشركاء</TableHead>
@@ -417,7 +408,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        return clients.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
     }, [clients]);
 
      const partnerOptions = useMemo(() => {
@@ -467,7 +458,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
             partners: partnerData,
             summaryEntries: existingPeriod?.entries || [],
             periodId: existingPeriod?.periodId,
-            periodInvoiceNumber: existingPeriod?.invoiceNumber,
+            periodInvoiceNumber: existingPeriod?.periodInvoiceNumber,
         });
         
         setEditingEntry(null);
@@ -525,7 +516,6 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         }
         addCompanyFormRef.current?.resetForm();
     };
-
     
     const handleEditEntry = (index: number) => setEditingEntry(summaryFields[index]);
     
@@ -547,7 +537,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
 
             const finalEntries = summaryFields.map((entry: any) => ({
                 ...entry,
-                periodInvoiceNumber: periodInvoiceNumber, // Add the main period invoice number
+                periodInvoiceNumber: periodInvoiceNumber,
                 entryDate: format(data.entryDate, 'yyyy-MM-dd'),
                 fromDate: format(data.fromDate!, 'yyyy-MM-dd'),
                 toDate: format(data.toDate!, 'yyyy-MM-dd'),
@@ -650,7 +640,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                             <Collapsible defaultOpen={true} className="p-4 border rounded-lg space-y-6 bg-background/50">
                                <CollapsibleTrigger asChild>
-                                  <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</ h3>
+                                  <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</h3>
                                </CollapsibleTrigger>
                                <CollapsibleContent className="space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
