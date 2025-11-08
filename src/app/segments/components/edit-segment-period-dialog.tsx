@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -162,7 +163,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
         resolver: zodResolver(companyEntrySchema),
     });
     
-    const { reset, control, handleSubmit, watch, setValue, getValues } = form;
+    const { reset, control, handleSubmit, watch, setValue } = form;
 
     const generateCompanyInvoiceNumber = useCallback(async () => {
         try {
@@ -177,9 +178,9 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     }, [setValue, toast]);
     
     const resetFormAndGenerateNumber = useCallback(async () => {
-      const defaultValues = { id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage' as const, ticketProfitValue: 50, visaProfitType: 'percentage' as const, visaProfitValue: 100, hotelProfitType: 'percentage' as const, hotelProfitValue: 100, groupProfitType: 'percentage' as const, groupProfitValue: 100 };
-      const newInvoiceNumber = await generateCompanyInvoiceNumber();
-      reset({ ...defaultValues, invoiceNumber: newInvoiceNumber });
+        const defaultValues = { id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage' as const, ticketProfitValue: 50, visaProfitType: 'percentage' as const, visaProfitValue: 100, hotelProfitType: 'percentage' as const, hotelProfitValue: 100, groupProfitType: 'percentage' as const, groupProfitValue: 100 };
+        const newInvoiceNumber = await generateCompanyInvoiceNumber();
+        reset({ ...defaultValues, invoiceNumber: newInvoiceNumber });
     }, [reset, generateCompanyInvoiceNumber]);
 
 
@@ -214,12 +215,6 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     const total = useMemo(() => computeCompanyTotal(watchAll, allCompanyOptions.find(c => c.value === watchAll.clientId)?.settings), [watchAll, allCompanyOptions]);
 
     const handleAddClick = async (data: CompanyEntryFormValues) => {
-        const invoiceNumber = getValues('invoiceNumber');
-        if (!invoiceNumber) {
-            toast({ title: 'خطأ', description: `رقم الفاتورة مفقود للشركة: ${data.clientName}. الرجاء إعادة تحميل الصفحة.`, variant: 'destructive'});
-            return;
-        }
-
         const { hasPartner, alrawdatainSharePercentage, partners } = getPeriodValues();
         const totalProfitForCompany = computeCompanyTotal(data, allCompanyOptions.find(c => c.value === data.clientId)?.settings);
         
@@ -245,7 +240,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
         
         onAdd({ 
             ...data,
-            invoiceNumber,
+            invoiceNumber: data.invoiceNumber,
             total: totalProfitForCompany,
             alrawdatainShare: alrawdatainShare,
             partnerShare: partnerShareAmount,
@@ -321,7 +316,7 @@ const SummaryList = ({
                 <TableRow>
                 <TableHead className="text-center">رقم فاتورة الشركة</TableHead>
                 <TableHead>الشركة المصدرة للسكمنت</TableHead>
-                <TableHead>الشركاء (مع أرقام فواتيرهم)</</TableHead>
+                <TableHead>الشركاء (مع أرقام فواتيرهم)</TableHead>
                 <TableHead className="text-center">إجمالي المبلغ</TableHead>
                 <TableHead className="text-center">حصة الروضتين</TableHead>
                 <TableHead className="text-center">حصة الشركاء</TableHead>
@@ -385,9 +380,9 @@ const SummaryStat = ({ title, value, currency, className }: { title: string; val
 
 
 // Main Dialog Wrapper
-interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; children?: React.ReactNode; }
+interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; }
 
-export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess, isEditing = false, existingPeriod, children }: AddSegmentPeriodDialogProps) {
+export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess, isEditing = false, existingPeriod }: AddSegmentPeriodDialogProps) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
@@ -433,7 +428,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
 
 
      useEffect(() => {
-        if (open) {
+        if (open || existingPeriod) { // Trigger when dialog opens or when existingPeriod is available
             const hasPartners = existingPeriod?.entries?.[0]?.hasPartner || false;
             const alrawdatainShare = existingPeriod?.entries?.[0]?.alrawdatainSharePercentage;
 
@@ -465,6 +460,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
             setEditingEntry(null);
             resetSteps();
         }
+    
     }, [open, existingPeriod, resetForm, navData, resetSteps]);
     
     const grandTotalProfit = useMemo(() => (summaryFields || []).reduce((sum, e) => sum + (e.total || 0), 0), [summaryFields]);
@@ -508,7 +504,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         if (editingEntry) {
             const index = summaryFields.findIndex(f => f.id === editingEntry.id);
             if (index > -1) {
-                // Keep the original invoice number when updating
+                // Preserve original invoiceNumber when updating
                 const updatedEntry = { ...summaryFields[index], ...entryData, invoiceNumber: editingEntry.invoiceNumber };
                 update(index, updatedEntry);
             }
@@ -537,22 +533,27 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         try {
             const periodInvoiceNumber = data.periodInvoiceNumber || await getNextVoucherNumber("SEG");
 
-            const finalEntries = summaryFields.map((entry: any) => ({
-                ...entry,
-                periodInvoiceNumber: periodInvoiceNumber,
-                entryDate: format(data.entryDate, 'yyyy-MM-dd'),
-                fromDate: format(data.fromDate!, 'yyyy-MM-dd'),
-                toDate: format(data.toDate!, 'yyyy-MM-dd'),
-                currency: data.currency,
-                hasPartner: data.hasPartner,
-                alrawdatainSharePercentage: data.alrawdatainSharePercentage,
-                partnerShares: (data.partners || []).map(p => ({
-                    partnerId: p.partnerId,
-                    partnerName: p.partnerName,
-                    partnerInvoiceNumber: p.partnerInvoiceNumber,
-                    share: (entry.partnerShare * (p.percentage / 100))
-                }))
-            }));
+            const finalEntries = summaryFields.map((entry: any) => {
+                if (!entry.invoiceNumber) {
+                    throw new Error(`رقم الفاتورة مفقود للسجل الخاص بالشركة: ${entry.clientName}.`);
+                }
+                return {
+                    ...entry,
+                    periodInvoiceNumber: periodInvoiceNumber,
+                    entryDate: format(data.entryDate, 'yyyy-MM-dd'),
+                    fromDate: format(data.fromDate!, 'yyyy-MM-dd'),
+                    toDate: format(data.toDate!, 'yyyy-MM-dd'),
+                    currency: data.currency,
+                    hasPartner: data.hasPartner,
+                    alrawdatainSharePercentage: data.alrawdatainSharePercentage,
+                    partnerShares: (data.partners || []).map(p => ({
+                        partnerId: p.partnerId,
+                        partnerName: p.partnerName,
+                        partnerInvoiceNumber: p.partnerInvoiceNumber,
+                        share: (entry.partnerShare * (p.percentage / 100))
+                    }))
+                }
+            });
             
             const result = await addSegmentEntries(finalEntries as any, existingPeriod?.periodId);
             if (!result.success) throw new Error(result.error);
@@ -739,7 +740,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
                                 <Button type="submit" disabled={isSaving || summaryFields.length === 0}>
                                     {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                                     <Save className="me-2 h-4 w-4" />
-                                    تحديث بيانات الفترة ({summaryFields.length} سجلات)
+                                    تحديث الفترة ({summaryFields.length} سجلات)
                                 </Button>
                             </div>
                         </DialogFooter>
@@ -750,4 +751,221 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     );
 }
 
+```
+- workspace/src/lib/sequences.ts:
+```ts
+
+
+'use server';
+
+import { getDb } from './firebase-admin';
+import type { VoucherSequence } from './types';
+import { cache } from 'react';
+import { Timestamp } from 'firebase-admin/firestore';
+
+const SEQUENCES_COLLECTION = 'sequences';
+
+const DEFAULT_SEQUENCES: Omit<VoucherSequence, 'value'>[] = [
+    { id: "RC", label: "سند قبض", prefix: "RC" },
+    { id: "PV", label: "سند دفع", prefix: "PV" },
+    { id: "EX", label: "سند مصاريف", prefix: "EX" },
+    { id: "TR", label: "سند حوالة", prefix: "TR" },
+    { id: "DS", label: "سند قبض مخصص", prefix: "DS" },
+    { id: "JE", label: "سند قيد محاسبي", prefix: "JE" },
+    { id: "BK", label: "إدخال حجز", prefix: "BK" },
+    { id: "PR", label: "ربح شهري", prefix: "PR" },
+    { id: "VS", label: "إدخال فيزا", prefix: "VS" },
+    { id: "SUB", label: "إنشاء اشتراك", prefix: "SUB" },
+    { id: "SUBP", label: "دفعة قسط اشتراك", prefix: "SUBP" },
+    { id: "RF", label: "استرجاع تذكرة", prefix: "RF" },
+    { id: "EXC", label: "تغيير تذكرة", prefix: "EXC" },
+    { id: "VOID", label: "إلغاء (فويد)", prefix: "VOID" },
+    { id: "EXT", label: "معاملة بورصة", prefix: "EXT" },
+    { id: "EXP", label: "تسديد بورصة", prefix: "EXP" },
+    { id: "SEG", label: "فترة سكمنت", prefix: "SEG" },
+    { id: "CL", label: "علاقة (عميل/مورد)", prefix: "CL" },
+    { id: "COMP", label: "فاتورة شركة (سكمنت)", prefix: "COMP" },
+    { id: "PARTNER", label: "فاتورة شريك (سكمنت)", prefix: "PARTNER" },
+];
+
+
+export async function getSequences(): Promise<VoucherSequence[]> {
+    const db = await getDb();
+    if (!db) throw new Error("Database not available.");
+
+    const snapshot = await db.collection(SEQUENCES_COLLECTION).get();
     
+    if (snapshot.empty) {
+        const batch = db.batch();
+        const initialSequences: VoucherSequence[] = DEFAULT_SEQUENCES.map(s => ({ ...s, value: 0 }));
+        initialSequences.forEach(seq => {
+            batch.set(db.collection(SEQUENCES_COLLECTION).doc(seq.id), seq);
+        });
+        await batch.commit();
+        return initialSequences;
+    }
+    
+    const sequences = snapshot.docs.map(doc => doc.data() as VoucherSequence);
+
+    const missing = DEFAULT_SEQUENCES.filter(ds => !sequences.some(s => s.id === ds.id));
+    if (missing.length > 0) {
+        const batch = db.batch();
+        missing.forEach(m => {
+             batch.set(db.collection(SEQUENCES_COLLECTION).doc(m.id), {...m, value: 0});
+        });
+        await batch.commit();
+        return getSequences();
+    }
+    
+    return sequences;
+};
+
+
+export async function updateSequence(id: string, data: Partial<VoucherSequence>): Promise<{ success: boolean; error?: string }> {
+    const db = await getDb();
+    if (!db) return { success: false, error: "Database not available" };
+    try {
+        await db.collection(SEQUENCES_COLLECTION).doc(id).update(data);
+        return { success: true };
+    } catch(e: any) {
+        return { success: false, error: e.message };
+    }
+}
+
+
+export async function getNextVoucherNumber(prefixId: string): Promise<string> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available.");
+  
+  const seqRef = db.collection(SEQUENCES_COLLECTION).doc(prefixId);
+
+  try {
+    const sequenceData = await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(seqRef);
+      
+      let currentNumber = 1;
+      let prefix = prefixId;
+      let label = `سند ${prefixId}`;
+
+      if (snapshot.exists) {
+        const data = snapshot.data() as VoucherSequence;
+        currentNumber = (data.value || 0) + 1;
+        prefix = data.prefix || prefixId;
+        label = data.label || label;
+      }
+
+      transaction.set(seqRef, { value: currentNumber, prefix, label }, { merge: true });
+      return { number: currentNumber, prefix: prefix };
+    });
+
+    const paddedNumber = String(sequenceData.number).padStart(6, "0");
+    return `${sequenceData.prefix}-${paddedNumber}`;
+    
+  } catch (error) {
+    console.error(`Error getting next voucher number for prefix ${prefixId}:`, error)
+    return `${prefixId}-${Date.now().toString().slice(-6)}`;
+  }
+}
+
+
+```
+- workspace/src/lib/utils.ts:
+```ts
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+import type { MatchingField, ImportFieldSettings, CustomRelationField } from './types';
+
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+export function normalizePNR(pnr: string): string {
+  if (!pnr) return "";
+  return String(pnr).trim().toUpperCase();
+}
+
+export function normalizeName(name: string): string {
+  if (!name) return "";
+  let s = String(name).normalize("NFKD");
+  s = s.replace(/[\u0300-\u036f]/g, ""); // Basic remove diacritics
+  s = s.replace(/\s+/g, " ").trim().toLowerCase();
+  return s;
+}
+
+export function parseAmount(raw: any): number | null {
+  if (raw === null || raw === undefined) return null;
+  const s = String(raw).replace(/[^0-9.-]+/g, "");
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function parseDateTime(dateRaw: any, timeRaw: any): { date: string | null; time: string | null } {
+  let date: string | null = null;
+  let time: string | null = null;
+
+  if (dateRaw) {
+    if (dateRaw instanceof Date) {
+      date = dateRaw.toISOString().split('T')[0];
+    } else {
+      date = String(dateRaw).split("T")[0];
+      if (/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(dateRaw)) {
+        const parts = String(dateRaw).split("/");
+        if (parts.length === 3) {
+          const dd = parts[0].padStart(2, "0");
+          const mm = parts[1].padStart(2, "0");
+          const yyyy = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+          date = `${yyyy}-${mm}-${dd}`;
+        }
+      }
+    }
+  }
+
+  if (timeRaw) {
+    time = String(timeRaw).trim();
+    const m = time.match(/^(\d{1,2}):(\d{2})/);
+    if (m) time = `${m[1].padStart(2, "0")}:${m[2].padStart(2, "0")}`;
+  }
+
+  return { date, time };
+}
+
+export const normalizeRecord = (
+  record: any,
+  columnMapping: Record<string, string>,
+  relationFields: CustomRelationField[],
+  importFieldsSettings?: ImportFieldSettings,
+) => {
+    const normalized: { [key: string]: any } = {};
+    const excelHeaders = Object.keys(record).map(h => h.toLowerCase().trim());
+
+    relationFields.forEach(field => {
+        let value: any = undefined;
+        
+        // Combine all possible names for a field
+        const fieldSettings = importFieldsSettings?.[field.id];
+        const aliases = (field.aliases || fieldSettings?.aliases || [field.label]).map(a => a.toLowerCase().trim());
+        const allPossibleNames = Array.from(new Set(
+            [field.id, field.label, ...aliases].map(s => s.toLowerCase().trim())
+        ));
+        
+        // Find header in Excel file that matches one of the possible names
+        const foundHeaderKey = Object.keys(record).find(header => allPossibleNames.includes(header.toLowerCase().trim()));
+
+        if (foundHeaderKey) {
+            value = record[foundHeaderKey];
+        }
+
+        if (value === undefined || value === null || String(value).trim() === '') {
+            normalized[field.id] = field.defaultValue !== undefined ? field.defaultValue : (field.dataType === 'number' ? 0 : '');
+        } else if (field.dataType === 'number') {
+            normalized[field.id] = parseFloat(String(value).trim().replace(/,/g, '')) || 0;
+        } else {
+            normalized[field.id] = String(value).trim();
+        }
+    });
+
+    return normalized;
+};
+```
