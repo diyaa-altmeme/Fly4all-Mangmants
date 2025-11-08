@@ -1,8 +1,9 @@
 
-'use client';
+
+"use client";
 
 import * as React from 'react';
-import type { Voucher, Client, Supplier, Box, User, AppSettings, VoucherListSettings } from '@/lib/types';
+import type { Voucher, Client, Supplier, Box, User, AppSettings, VoucherListSettings, Exchange, TreeNode } from '@/lib/types';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PlusCircle, FileText, Search, Filter, Loader2, RefreshCw } from "lucide-react";
@@ -19,6 +20,8 @@ import { getClients } from '@/app/relations/actions';
 import { getUsers } from '@/app/users/actions';
 import { getBoxes } from '@/app/boxes/actions';
 import { getSuppliers } from '@/app/suppliers/actions';
+import { getExchanges } from '@/app/exchanges/actions';
+import { getChartOfAccounts } from '@/app/settings/accounting/chart-of-accounts/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const VouchersListContent = () => {
@@ -30,6 +33,8 @@ const VouchersListContent = () => {
     const [suppliers, setSuppliers] = React.useState<Supplier[]>([]);
     const [users, setUsers] = React.useState<User[]>([]);
     const [boxes, setBoxes] = React.useState<Box[]>([]);
+    const [exchanges, setExchanges] = React.useState<Exchange[]>([]);
+    const [chartOfAccounts, setChartOfAccounts] = React.useState<TreeNode[]>([]);
     const [loading, setLoading] = React.useState(true);
 
     const [voucherListSettings, setVoucherListSettings] = React.useState<VoucherListSettings | undefined>(undefined);
@@ -42,12 +47,22 @@ const VouchersListContent = () => {
     const fetchData = React.useCallback(async () => {
         setLoading(true);
         try {
-            const [clientsRes, usersData, boxesData, suppliersData, settingsData] = await Promise.all([
-                getClients({ all: true }),
+            const [
+                clientsRes, 
+                usersData, 
+                boxesData, 
+                suppliersData, 
+                settingsData, 
+                exchangesRes,
+                chartData,
+            ] = await Promise.all([
+                getClients({ all: true, includeInactive: true }),
                 getUsers(),
                 getBoxes(),
                 getSuppliers({all: true}),
                 getSettings(),
+                getExchanges(),
+                getChartOfAccounts(),
             ]);
             
             const allRelations = clientsRes.clients;
@@ -58,9 +73,11 @@ const VouchersListContent = () => {
             setUsers(usersData as User[]);
             setBoxes(boxesData);
             setSettings(settingsData);
+            setExchanges(exchangesRes.accounts || []);
+            setChartOfAccounts(chartData);
             setVoucherListSettings(settingsData.voucherSettings?.listSettings);
 
-            const vouchersData = await getAllVouchers(fetchedClients, suppliersData, boxesData, usersData as User[], settingsData);
+            const vouchersData = await getAllVouchers(fetchedClients, suppliersData, boxesData, usersData as User[], settingsData, exchangesRes.accounts || [], chartData);
             setVouchers(vouchersData);
 
         } catch (error) {

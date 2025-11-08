@@ -1,9 +1,10 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import type { JournalVoucher, Client, Supplier, Box, User, AppSettings, BookingEntry, VisaBookingEntry, Subscription } from '@/lib/types';
+import type { JournalVoucher, Client, Supplier, Box, User, AppSettings, BookingEntry, VisaBookingEntry, Subscription, Exchange, TreeNode } from '@/lib/types';
 import { normalizeVoucherType } from '@/lib/accounting/voucher-types';
 import { parseISO } from 'date-fns';
+import { getChartOfAccounts } from '@/app/settings/accounting/chart-of-accounts/actions';
 
 export type Voucher = {
   id: string;
@@ -27,7 +28,9 @@ export async function getAllVouchers(
     suppliers: Supplier[],
     boxes: Box[],
     users: User[],
-    settings: AppSettings
+    settings: AppSettings,
+    exchanges: Exchange[],
+    chartOfAccounts: TreeNode[],
 ): Promise<Voucher[]> {
     const db = await getDb();
     if (!db) return [];
