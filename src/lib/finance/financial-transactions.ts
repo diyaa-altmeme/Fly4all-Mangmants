@@ -1,9 +1,11 @@
+
 'use server';
 
 import { postJournalEntry } from '@/lib/finance/postJournal';
 import { createAuditLog } from '@/app/system/activity-log/actions';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import type { FinancialTransaction } from '@/lib/types';
+import { getNextVoucherNumber } from '../sequences';
 
 export interface RecordFinancialTransactionOptions {
   actorId?: string;
@@ -13,8 +15,6 @@ export interface RecordFinancialTransactionOptions {
   auditTargetType?: string;
   auditTargetId?: string;
   skipAuditLog?: boolean;
-  voucherId?: string;
-  metaMergeStrategy?: 'merge' | 'replace';
 }
 
 export interface FinancialTransactionResult {
@@ -79,8 +79,6 @@ export async function recordFinancialTransaction(
   });
 
   const voucherId = await postJournalEntry({
-    voucherId: options.voucherId,
-    invoiceNumber: transaction.invoiceNumber,
     sourceType: transaction.sourceType,
     sourceId,
     date: resolvedDate,
@@ -104,15 +102,14 @@ export async function recordFinancialTransaction(
       },
     ],
     meta: unifiedMeta,
-    mergeMeta: options.metaMergeStrategy !== 'replace',
   });
 
   if (!options.skipAuditLog) {
     await createAuditLog({
       userId: actor.uid,
-      userName: actor.name,
+      userName: actor.name || 'System',
       action: 'CREATE',
-      targetType: options.auditTargetType || 'TRANSACTION',
+      targetType: options.auditTargetType || 'VOUCHER',
       targetId: options.auditTargetId || voucherId,
       description: options.auditDescription || `${description} (${amount} ${transaction.currency})`,
       reference: transaction.reference,
