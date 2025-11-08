@@ -1,10 +1,9 @@
 
-#!/usr/bin/env tsx
-
 import { getDb } from "@/lib/firebase-admin";
 import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
 import { getFinanceMap } from "@/lib/finance/posting";
 import type { SegmentEntry, DistributedReceiptInput } from "@/lib/types";
+import { scriptContext } from "@/lib/script-context";
 
 async function fixLegacyVouchers() {
   const db = await getDb();
@@ -156,11 +155,11 @@ async function fixLegacyVouchers() {
   console.log("\n🎉 All legacy vouchers have been checked and corrected.");
 }
 
+async function main() {
+  await scriptContext.run({ isScript: true }, fixLegacyVouchers);
+}
+
 main().catch(e => {
   console.error(e);
   process.exit(1);
 });
-
-async function main() {
-  await fixLegacyVouchers();
-}

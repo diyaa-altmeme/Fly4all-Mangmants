@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
@@ -7,6 +6,7 @@ import type { User, Client, Permission } from '@/lib/types';
 import { cookies } from 'next/headers';
 import { getRoles } from '@/app/users/actions';
 import { PERMISSIONS } from './permissions';
+import { scriptContext } from '@/lib/script-context';
 
 // Get the current user session and permissions
 export async function getCurrentUser() {
@@ -84,6 +84,16 @@ export const getClientById = async (id: string): Promise<Client | null> => {
 };
 
 export const getCurrentUserFromSession = async (): Promise<(User & { permissions?: string[] }) | (Client & { isClient: true }) | null> => {
+    if (scriptContext.getStore()?.isScript) {
+        return {
+            uid: 'script_user',
+            name: 'Script User',
+            email: 'script@system.local',
+            role: 'admin',
+            permissions: Object.keys(PERMISSIONS),
+        } as User & { permissions?: string[] };
+    }
+
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('session');
 

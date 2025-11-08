@@ -1,17 +1,16 @@
-
-
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
 import type { DistributedReceiptInput } from './schema';
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
-import type { AppSettings, JournalEntry } from "@/lib/types";
+import type { AppSettings } from "@/lib/types";
 import { getSettings } from "@/app/settings/actions";
 import { getNextVoucherNumber } from "@/lib/sequences";
 import { FieldValue } from "firebase-admin/firestore";
 import { createAuditLog } from "@/app/system/activity-log/actions";
-import { postJournalEntry } from "@/lib/finance/postJournal";
+import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
+import type { JournalEntry } from "@/lib/finance/postJournal";
 
 
 export async function createDistributedVoucher(data: DistributedReceiptInput) {
@@ -29,14 +28,15 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
         }
         
         const entries: JournalEntry[] = [];
+        const totalAmount = Number(data.totalAmount) || 0;
 
-        // 1. The entire received amount goes into the main box (Debit).
+        // 1. Debit the cash box with the total amount received.
         entries.push({
             accountId: data.boxId,
-            debit: data.totalAmount,
+            debit: totalAmount,
             credit: 0,
             currency: data.currency,
-            description: `استلام إجمالي مبلغ من ${data.accountId}`
+            description: `استلام إجمالي مبلغ موزع من ${data.accountId}`
         });
 
         // 2. The portion that settles the client's debt is credited to their account.
@@ -71,17 +71,21 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
             });
         
         const mainDescription = `سند قبض موزع: ${data.details || 'تفاصيل غير مذكورة'}`;
-        
-        const invoiceNumber = await getNextVoucherNumber('DS');
 
-        const { voucherId } = await postJournalEntry({
+        const { voucherId } = await recordFinancialTransaction({
             sourceType: 'distributed_receipt',
-            sourceId: `dist-receipt-${Date.now()}`,
-            description: mainDescription,
             date: data.date,
-            entries: entries,
-            invoiceNumber,
-            meta: { ...data, details: mainDescription, invoiceNumber }
+            currency: data.currency,
+            amount: totalAmount,
+            description: mainDescription,
+            // These are placeholders for the new system, entries array is the source of truth
+            debitAccountId: data.boxId,
+            creditAccountId: data.accountId,
+        }, {
+            actorId: user.uid,
+            actorName: user.name,
+            meta: { ...data, entries }, // Pass the multi-legged entries in meta
+            auditDescription: `أنشأ سند قبض موزع بمبلغ ${totalAmount} ${data.currency}`,
         });
         
         revalidatePath("/accounts/vouchers/list");
@@ -96,14 +100,7 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
 }
 
 export async function updateDistributedVoucher(voucherId: string, data: DistributedReceiptInput) {
-    const db = await getDb();
-    if (!db) return { success: false, error: "Database not available." };
-    await db.collection('journal-vouchers').doc(voucherId).update({
-        'originalData': { ...data, date: data.date.toISOString() },
-        'notes': `(تعديل) ${data.details || ''}`.trim(),
-        'updatedAt': new Date().toISOString()
-    });
-     revalidatePath("/accounts/vouchers/list");
-    return { success: true };
+    // This function needs to be rewritten to support the new multi-legged journal entry logic.
+    // For now, it's a placeholder. A full implementation would require deleting the old voucher and creating a new one.
+    return { success: false, error: "Updating distributed vouchers is not fully implemented yet." };
 }
-

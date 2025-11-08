@@ -133,10 +133,16 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
     });
 
     const vouchersCollection = db.collection('journal-vouchers');
-    const vouchersQuery = includeDeleted
-      ? vouchersCollection
-      : vouchersCollection.where('isDeleted', '!=', true);
-    const allVouchersSnap = await vouchersQuery.orderBy('date', 'asc').get();
+    
+    // Corrected Querying
+    const debitQuery = vouchersCollection.where('debitEntries', 'array-contains', { accountId: accountId });
+    const creditQuery = vouchersCollection.where('creditEntries', 'array-contains', { accountId: accountId });
+
+    const [debitSnap, creditSnap] = await Promise.all([debitQuery.get(), creditQuery.get()]);
+    
+    const combinedDocs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    debitSnap.forEach(doc => combinedDocs.set(doc.id, doc));
+    creditSnap.forEach(doc => combinedDocs.set(doc.id, doc));
 
     const openingBalances: Record<string, number> = {};
     const reportRows: any[] = [];
@@ -539,7 +545,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       }
     };
 
-    for (const doc of allVouchersSnap.docs) {
+    for (const doc of Array.from(combinedDocs.values())) {
       const v = doc.data() as JournalVoucher;
       
       const voucherMeta = (v as any)?.meta || (v.originalData?.meta ?? {});
@@ -612,7 +618,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
             );
             if (formattedCompany) {
               distributionBreakdown.push({
-                name: 'حصة الروضتين',
+                name: 'حصة هذا الحساب',
                 amount: formattedCompany,
               });
             }
@@ -867,16 +873,16 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
     });
     
     const sortedVouchers = vouchersSnap.docs.sort((a, b) => {
-        const dateA = a.data().date;
-        const dateB = b.data().date;
-        return new Date(dateA).getTime() - new Date(b.date).getTime();
+        const dateA = normalizeToDate(a.data().date);
+        const dateB = normalizeToDate(b.data().date);
+        return (dateA?.getTime() || 0) - (dateB?.getTime() || 0);
     });
 
     sortedVouchers.forEach(doc => {
         const v = doc.data() as JournalVoucher;
         if(v.isDeleted) return;
 
-        const processEntries = (entries: LegacyJournalEntry[], isDebit: boolean) => {
+        const processEntries = (entries: JournalEntry[], isDebit: boolean) => {
             (entries || []).forEach(entry => {
                 if (balances[entry.accountId]) {
                     const amount = isDebit ? entry.amount : -entry.amount;

@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -44,7 +42,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import VoucherDialogSettings from '@/components/vouchers/components/voucher-dialog-settings';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { getNextVoucherNumber } from '@/lib/sequences';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 const companyEntrySchema = z.object({
   id: z.string(),
@@ -71,7 +68,7 @@ const partnerSchema = z.object({
   id: z.string(),
   partnerId: z.string().min(1, "اختر شريكاً."),
   partnerName: z.string(),
-  partnerInvoiceNumber: z.string().optional(),
+  partnerInvoiceNumber: z.string(),
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
   amount: z.coerce.number(),
 });
@@ -164,9 +161,11 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     
     const { reset, control, handleSubmit, watch, setValue } = form;
 
-    const resetForm = useCallback(() => {
-        reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage', ticketProfitValue: 50, visaProfitType: 'percentage', visaProfitValue: 100, hotelProfitType: 'percentage', hotelProfitValue: 100, groupProfitType: 'percentage', groupProfitValue: 100 });
-    }, [reset]);
+    const generateCompanyInvoiceNumber = useCallback(async () => {
+        const compInv = await getNextVoucherNumber("COMP");
+        setValue('invoiceNumber', compInv);
+        return compInv;
+    }, [setValue]);
 
     React.useEffect(() => {
         const defaultValues = { id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage' as const, ticketProfitValue: 50, visaProfitType: 'percentage' as const, visaProfitValue: 100, hotelProfitType: 'percentage' as const, hotelProfitValue: 100, groupProfitType: 'percentage' as const, groupProfitValue: 100 };
@@ -176,12 +175,17 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             const initialFormValues = { ...defaultValues, ...companySettings, ...editingEntry };
             reset(initialFormValues);
         } else {
-             resetForm();
+             generateCompanyInvoiceNumber().then(inv => {
+                reset({ ...defaultValues, invoiceNumber: inv });
+             });
         }
-    }, [editingEntry, reset, allCompanyOptions, resetForm]);
+    }, [editingEntry, reset, allCompanyOptions, generateCompanyInvoiceNumber]);
 
 
-    useImperativeHandle(ref, () => ({ resetForm }), [resetForm]);
+    useImperativeHandle(ref, () => ({ resetForm: () => {
+        reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
+        generateCompanyInvoiceNumber();
+    }}), [reset, generateCompanyInvoiceNumber]);
 
     const watchAll = watch();
     const currentClientId = watch('clientId');
@@ -200,7 +204,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     
     const total = useMemo(() => computeCompanyTotal(watchAll, allCompanyOptions.find(c => c.value === watchAll.clientId)?.settings), [watchAll, allCompanyOptions]);
 
-    const handleAddClick = (data: CompanyEntryFormValues) => {
+    const handleAddClick = async (data: CompanyEntryFormValues) => {
         const { hasPartner, alrawdatainSharePercentage, partners } = getPeriodValues();
         const totalProfitForCompany = computeCompanyTotal(data, allCompanyOptions.find(c => c.value === data.clientId)?.settings);
         
@@ -210,11 +214,27 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
 
         const alrawdatainShare = totalProfitForCompany - partnerShareAmount;
         
+        const partnerSharesWithInvoices = await Promise.all(
+            (partners || []).map(async (p) => {
+                const existingShare = editingEntry?.partnerShares?.find((ps:any) => ps.partnerId === p.partnerId);
+                const partnerInvoiceNumber = existingShare?.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER");
+                const shareAmount = (partnerShareAmount * (p.percentage / 100));
+                return {
+                    partnerId: p.partnerId,
+                    partnerName: p.partnerName,
+                    partnerInvoiceNumber: partnerInvoiceNumber,
+                    share: shareAmount,
+                };
+            })
+        );
+        
         onAdd({ 
             ...data,
+            invoiceNumber: data.invoiceNumber || await getNextVoucherNumber("COMP"),
             total: totalProfitForCompany,
             alrawdatainShare: alrawdatainShare,
             partnerShare: partnerShareAmount,
+            partnerShares: partnerSharesWithInvoices
         });
         
         onCancelEdit();
@@ -471,10 +491,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const handleAddOrUpdateEntry = (entryData: any) => {
         if (editingEntry) {
             const index = summaryFields.findIndex(f => f.id === editingEntry.id);
-            if (index > -1) {
-                // Preserve original invoiceNumber if it exists
-                update(index, { ...summaryFields[index], ...entryData, id: summaryFields[index].id, invoiceNumber: summaryFields[index].invoiceNumber });
-            }
+            if (index > -1) update(index, { ...summaryFields[index], ...entryData, id: summaryFields[index].id });
             setEditingEntry(null);
         } else {
             append({ ...entryData, id: uuidv4(), createdBy: currentUser?.name });
@@ -513,6 +530,15 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
                     share: (entry.partnerShare * (p.percentage / 100))
                 }))
             }));
+
+              // **تحديث: توليد رقم فاتورة رئيسي للفترة عند الحفظ**
+              if (!data.periodInvoiceNumber) {
+                const periodInvoiceNumber = await getNextVoucherNumber("SEG"); // استخدام البادئة SEG
+                setValue('periodInvoiceNumber', periodInvoiceNumber);
+                finalEntries.forEach((entry: any) => {
+                  entry.periodInvoiceNumber = periodInvoiceNumber;
+                });
+              }
             
             const result = await addSegmentEntries(finalEntries as any, existingPeriod?.periodId);
             if (!result.success) throw new Error(result.error);
@@ -555,13 +581,13 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
              return;
         }
 
-        const partnerInvoiceNumber = editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].partnerInvoiceNumber : undefined;
+        const partnerInvoiceNumber = editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].partnerInvoiceNumber : await getNextVoucherNumber("PARTNER");
 
         const partnerData = {
             id: editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].id : `new-${Date.now()}`,
             partnerId: selectedPartner.value,
             partnerName: selectedPartner.label,
-            partnerInvoiceNumber,
+            partnerInvoiceNumber: partnerInvoiceNumber,
             percentage: newPercentage,
             amount: (amountForPartners * newPercentage) / 100
         };
@@ -709,5 +735,3 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         </Dialog>
     );
 }
-
-    

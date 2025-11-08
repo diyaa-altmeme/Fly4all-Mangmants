@@ -83,24 +83,26 @@ export async function recordFinancialTransaction(
     sourceId,
     date: resolvedDate,
     description,
-    entries: [
-      {
-        accountId: transaction.debitAccountId,
-        debit: amount,
-        credit: 0,
-        currency: transaction.currency,
-        relationId: transaction.companyId,
-        note: description,
-      },
-      {
-        accountId: transaction.creditAccountId,
-        debit: 0,
-        credit: amount,
-        currency: transaction.currency,
-        relationId: transaction.companyId,
-        note: description,
-      },
-    ],
+    entries: (
+      options.meta?.entries || [
+        {
+          accountId: transaction.debitAccountId,
+          debit: amount,
+          credit: 0,
+          currency: transaction.currency,
+          relationId: transaction.companyId,
+          note: description,
+        },
+        {
+          accountId: transaction.creditAccountId,
+          debit: 0,
+          credit: amount,
+          currency: transaction.currency,
+          relationId: transaction.companyId,
+          note: description,
+        },
+      ]
+    ),
     meta: unifiedMeta,
   });
 
