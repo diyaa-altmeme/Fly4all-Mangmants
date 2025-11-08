@@ -66,6 +66,7 @@ import type {
   ReportCurrencySummary
 } from "@/lib/types";
 import type { NormalizedVoucherType } from "@/lib/accounting/voucher-types";
+import { normalizeVoucherType } from "@/lib/accounting/voucher-types";
 import { useAuth } from "@/lib/auth-context";
 import {
   Popover,
@@ -375,7 +376,8 @@ export default function ReportGenerator({
     const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? maxAmount : null;
 
     return transactions.filter((tx) => {
-      const typeKey = (tx.normalizedType || tx.sourceType || tx.voucherType || tx.type) as NormalizedVoucherType | undefined;
+      const typeKeyRaw = tx.normalizedType || tx.sourceType || tx.voucherType || tx.type;
+      const typeKey = normalizeVoucherType(typeKeyRaw) as NormalizedVoucherType;
       if (filters.typeFilter.size > 0 && typeKey && !filters.typeFilter.has(typeKey)) {
         return false;
       }

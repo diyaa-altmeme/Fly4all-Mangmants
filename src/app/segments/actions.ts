@@ -12,6 +12,11 @@ import { FieldValue, type Firestore, type QueryDocumentSnapshot, type DocumentDa
 import { getFinanceMap } from '@/lib/finance/posting';
 import { createAuditLog } from '../system/activity-log/actions';
 import { recordFinancialTransaction } from '@/lib/finance/financial-transactions';
+import {
+  permanentlyDeleteVoucherRecord,
+  restoreVoucherRecord,
+  softDeleteVoucherRecord,
+} from '@/lib/finance/voucher-lifecycle';
 
 
 const checkSegmentPermission = async () => {
@@ -107,51 +112,6 @@ async function findVoucherIdBySource(
   return undefined;
 }
 
-async function softDeleteVoucher(
-  db: Firestore,
-  voucherId: string,
-  deletedBy: string,
-  timestampISO?: string,
-) {
-  const voucherRef = db.collection('journal-vouchers').doc(voucherId);
-  const deletedVoucherRef = db.collection('deleted-vouchers').doc(voucherId);
-  const ledgerCollection = db.collection('journal-ledger');
-  const nowISO = timestampISO || new Date().toISOString();
-
-  await db.runTransaction(async (transaction) => {
-    const voucherSnap = await transaction.get(voucherRef);
-    if (!voucherSnap.exists) {
-      return;
-    }
-
-    transaction.update(voucherRef, {
-      isDeleted: true,
-      deletedAt: nowISO,
-      deletedBy,
-      status: 'deleted',
-    });
-
-    transaction.set(
-      deletedVoucherRef,
-      {
-        ...voucherSnap.data(),
-        deletedAt: nowISO,
-        deletedBy,
-      },
-      { merge: true },
-    );
-
-    const ledgerSnap = await transaction.get(ledgerCollection.where('voucherId', '==', voucherId));
-    ledgerSnap.forEach((doc) => {
-      transaction.update(doc.ref, {
-        isDeleted: true,
-        deletedAt: nowISO,
-        deletedBy,
-      });
-    });
-  });
-}
-
 async function softDeleteSegmentDocument(
   db: Firestore,
   doc: QueryDocumentSnapshot,
@@ -169,32 +129,18 @@ async function softDeleteSegmentDocument(
   });
 
   if (data.companyVoucherId) {
-    await softDeleteVoucher(db, data.companyVoucherId, deletedBy, nowISO);
+    await softDeleteVoucherRecord({ db, voucherId: data.companyVoucherId, deletedBy, deletedAt: nowISO });
   }
 
   if (data.revenueVoucherId) {
-    await softDeleteVoucher(db, data.revenueVoucherId, deletedBy, nowISO);
+    await softDeleteVoucherRecord({ db, voucherId: data.revenueVoucherId, deletedBy, deletedAt: nowISO });
   }
 
   for (const share of data.partnerShares || []) {
     if (share?.voucherId) {
-      await softDeleteVoucher(db, share.voucherId, deletedBy, nowISO);
+      await softDeleteVoucherRecord({ db, voucherId: share.voucherId, deletedBy, deletedAt: nowISO });
     }
   }
-}
-
-async function permanentDeleteVoucher(db: Firestore, voucherId: string) {
-  const voucherRef = db.collection('journal-vouchers').doc(voucherId);
-  const ledgerCollection = db.collection('journal-ledger');
-  const deletedVoucherRef = db.collection('deleted-vouchers').doc(voucherId);
-
-  const ledgerSnap = await ledgerCollection.where('voucherId', '==', voucherId).get();
-
-  const batch = db.batch();
-  batch.delete(voucherRef);
-  ledgerSnap.forEach((doc) => batch.delete(doc.ref));
-  batch.delete(deletedVoucherRef);
-  await batch.commit();
 }
 
 async function permanentDeleteSegmentDocument(db: Firestore, doc: QueryDocumentSnapshot) {
@@ -210,49 +156,8 @@ async function permanentDeleteSegmentDocument(db: Firestore, doc: QueryDocumentS
   await doc.ref.delete();
 
   for (const voucherId of voucherIds) {
-    await permanentDeleteVoucher(db, voucherId);
+    await permanentlyDeleteVoucherRecord({ db, voucherId });
   }
-}
-
-async function restoreVoucher(
-  db: Firestore,
-  voucherId: string,
-  restoredBy: string,
-  timestampISO?: string,
-) {
-  const voucherRef = db.collection('journal-vouchers').doc(voucherId);
-  const deletedVoucherRef = db.collection('deleted-vouchers').doc(voucherId);
-  const ledgerCollection = db.collection('journal-ledger');
-  const nowISO = timestampISO || new Date().toISOString();
-
-  await db.runTransaction(async (transaction) => {
-    const voucherSnap = await transaction.get(voucherRef);
-    if (!voucherSnap.exists) {
-      return;
-    }
-
-    transaction.update(voucherRef, {
-      isDeleted: false,
-      deletedAt: FieldValue.delete(),
-      deletedBy: FieldValue.delete(),
-      restoredAt: nowISO,
-      restoredBy,
-      status: 'restored',
-    });
-
-    transaction.delete(deletedVoucherRef);
-
-    const ledgerSnap = await transaction.get(ledgerCollection.where('voucherId', '==', voucherId));
-    ledgerSnap.forEach((doc) => {
-      transaction.update(doc.ref, {
-        isDeleted: false,
-        deletedAt: FieldValue.delete(),
-        deletedBy: FieldValue.delete(),
-        restoredAt: nowISO,
-        restoredBy,
-      });
-    });
-  });
 }
 
 async function restoreSegmentDocument(
@@ -272,16 +177,16 @@ async function restoreSegmentDocument(
   });
 
   if (data.companyVoucherId) {
-    await restoreVoucher(db, data.companyVoucherId, restoredBy, nowISO);
+    await restoreVoucherRecord({ db, voucherId: data.companyVoucherId, restoredBy, restoredAt: nowISO });
   }
 
   if (data.revenueVoucherId) {
-    await restoreVoucher(db, data.revenueVoucherId, restoredBy, nowISO);
+    await restoreVoucherRecord({ db, voucherId: data.revenueVoucherId, restoredBy, restoredAt: nowISO });
   }
 
   for (const share of data.partnerShares || []) {
     if (share?.voucherId) {
-      await restoreVoucher(db, share.voucherId, restoredBy, nowISO);
+      await restoreVoucherRecord({ db, voucherId: share.voucherId, restoredBy, restoredAt: nowISO });
     }
   }
 }
@@ -410,7 +315,7 @@ export async function addSegmentEntries(
             periodTo = dataToSave.toDate || periodTo;
 
             if (existingData?.revenueVoucherId) {
-                await softDeleteVoucher(db, existingData.revenueVoucherId, user.name || user.uid);
+                await softDeleteVoucherRecord({ db, voucherId: existingData.revenueVoucherId, deletedBy: user.name || user.uid });
             }
 
             const existingCompanyVoucherId = existingData?.companyVoucherId
@@ -427,6 +332,7 @@ export async function addSegmentEntries(
                 description: `إثبات ربح سكمنت من ${dataToSave.companyName}`,
                 companyId: dataToSave.clientId,
                 reference: companyInvoiceNumber,
+                invoiceNumber: companyInvoiceNumber,
             }, {
                 actorId: user.uid,
                 actorName: user.name,
@@ -463,6 +369,7 @@ export async function addSegmentEntries(
                     description: `تسجيل حصة الشريك ${share.partnerName} عن سكمنت ${dataToSave.companyName}`,
                     companyId: share.partnerId,
                     reference: share.partnerInvoiceNumber,
+                    invoiceNumber: share.partnerInvoiceNumber,
                 }, {
                     actorId: user.uid,
                     actorName: user.name,
@@ -480,7 +387,7 @@ export async function addSegmentEntries(
 
             for (const [partnerId, info] of existingPartnerMap.entries()) {
                 if (!handledPartnerIds.has(partnerId) && info.voucherId) {
-                    await softDeleteVoucher(db, info.voucherId, user.name || user.uid);
+                    await softDeleteVoucherRecord({ db, voucherId: info.voucherId, deletedBy: user.name || user.uid });
                 }
             }
 
@@ -517,6 +424,7 @@ export async function addSegmentEntries(
                 description: `تسجيل حصة الشركة لفترة سكمنت ${periodInvoiceNumber}`,
                 companyId: financeMap.revenueMap.segments,
                 reference: periodInvoiceNumber,
+                invoiceNumber: periodInvoiceNumber,
             }, {
                 actorId: user.uid,
                 actorName: user.name,
@@ -534,7 +442,7 @@ export async function addSegmentEntries(
 
             periodVoucherId = periodVoucher.voucherId;
         } else if (existingPeriodVoucherId) {
-            await softDeleteVoucher(db, existingPeriodVoucherId, user.name || user.uid);
+            await softDeleteVoucherRecord({ db, voucherId: existingPeriodVoucherId, deletedBy: user.name || user.uid });
             periodVoucherId = undefined;
         }
 
@@ -586,9 +494,9 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
         const periodVoucherId = await findVoucherIdBySource(db, SEGMENT_PERIOD_SOURCE_TYPE, periodId);
         if (periodVoucherId) {
             if (permanent) {
-                await permanentDeleteVoucher(db, periodVoucherId);
+                await permanentlyDeleteVoucherRecord({ db, voucherId: periodVoucherId });
             } else {
-                await softDeleteVoucher(db, periodVoucherId, deletedBy);
+                await softDeleteVoucherRecord({ db, voucherId: periodVoucherId, deletedBy });
             }
         }
 
@@ -637,7 +545,7 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 
         const periodVoucherId = await findVoucherIdBySource(db, SEGMENT_PERIOD_SOURCE_TYPE, periodId, (data) => data.isDeleted === true);
         if (periodVoucherId) {
-            await restoreVoucher(db, periodVoucherId, restoredBy, restoredAt);
+            await restoreVoucherRecord({ db, voucherId: periodVoucherId, restoredBy, restoredAt });
         }
 
         await createAuditLog({

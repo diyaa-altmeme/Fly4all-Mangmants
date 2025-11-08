@@ -69,6 +69,7 @@ export async function recordFinancialTransaction(
     reference: transaction.reference,
     companyId: transaction.companyId,
     createdBy: transaction.createdBy || actor.uid,
+    invoiceNumber: transaction.invoiceNumber,
     unifiedTransaction: {
       amount,
       currency: transaction.currency,
@@ -79,6 +80,7 @@ export async function recordFinancialTransaction(
 
   const voucherId = await postJournalEntry({
     voucherId: options.voucherId,
+    invoiceNumber: transaction.invoiceNumber,
     sourceType: transaction.sourceType,
     sourceId,
     date: resolvedDate,

@@ -5,6 +5,7 @@ import { getDb } from "@/lib/firebase-admin";
 import { FieldValue, FieldPath, Timestamp } from "firebase-admin/firestore";
 import * as admin from 'firebase-admin';
 import { getNextVoucherNumber } from "@/lib/sequences";
+import { normalizeVoucherType } from "@/lib/accounting/voucher-types";
 import type { JournalEntry as LegacyJournalEntry, FinanceAccountsMap, Currency } from "../types";
 import { normalizeFinanceAccounts, type NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 import { inferAccountCategory, type AccountCategory } from '@/lib/finance/account-categories';
@@ -45,6 +46,60 @@ export type PostJournalPayload = {
 };
 
 const DEFAULT_LEDGER_CURRENCY: Currency = 'USD';
+
+const SOURCE_SEQUENCE_MAP: Record<string, string> = {
+  standard_receipt: 'RC',
+  distributed_receipt: 'DS',
+  payment: 'PV',
+  manualExpense: 'EX',
+  manualexpense: 'EX',
+  remittance: 'TR',
+  transfer: 'TR',
+  journal_voucher: 'JE',
+  booking: 'BK',
+  tickets: 'BK',
+  visa: 'VS',
+  subscription: 'SUB',
+  subscription_installment: 'SUBP',
+  subscription_overpayment: 'SUBP',
+  subscription_adjustment: 'SUB',
+  subscription_reversal: 'SUB',
+  segment: 'SEG',
+  segment_period: 'SEG',
+  segment_payout: 'PARTNER',
+  'profit-sharing': 'PR',
+  profit_sharing: 'PR',
+  profit_distribution: 'PR',
+  refund: 'RF',
+  exchange: 'EXC',
+  exchange_transaction: 'EXT',
+  exchanges: 'EXT',
+  exchange_payment: 'EXP',
+  exchange_adjustment: 'EXT',
+  exchange_revenue: 'EXT',
+  exchange_expense: 'EXP',
+  void: 'VOID',
+};
+
+const resolveSequenceId = (sourceType?: string | null): string | null => {
+  if (!sourceType) return null;
+  const directMatch = SOURCE_SEQUENCE_MAP[sourceType];
+  if (directMatch) return directMatch;
+
+  if (sourceType.startsWith('journal_from_')) {
+    const derived = sourceType.replace('journal_from_', '');
+    if (SOURCE_SEQUENCE_MAP[derived]) {
+      return SOURCE_SEQUENCE_MAP[derived];
+    }
+  }
+
+  const normalized = normalizeVoucherType(sourceType) as string;
+  if (SOURCE_SEQUENCE_MAP[normalized]) {
+    return SOURCE_SEQUENCE_MAP[normalized];
+  }
+
+  return null;
+};
 
 const buildEntriesFromLegacyPayload = (payload: PostJournalPayload): JournalEntry[] => {
   const entries: JournalEntry[] = [];
@@ -210,9 +265,13 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
   const existingVoucherSnap = payload.voucherId ? await voucherRef.get() : null;
   const existingVoucherData = existingVoucherSnap?.exists ? existingVoucherSnap.data() as any : null;
 
+  const sequenceId =
+    resolveSequenceId(payload.sourceType)
+    || resolveSequenceId(existingVoucherData?.sourceType);
+
   const voucherNumber = payload.invoiceNumber
     || existingVoucherData?.invoiceNumber
-    || await getNextVoucherNumber(payload.sourceType.toUpperCase());
+    || await getNextVoucherNumber(sequenceId ?? 'JE');
   const voucherCurrency = resolveCurrency(rawEntries);
   const involvedAccounts = Array.from(new Set(rawEntries.map(e => e.accountId)));
 

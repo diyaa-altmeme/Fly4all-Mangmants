@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../activity-log/actions';
+import { permanentlyDeleteVoucherRecord, restoreVoucherRecord } from '@/lib/finance/voucher-lifecycle';
 
 export type DeletedVoucher = JournalVoucher & {
     voucherId: string;
@@ -35,8 +36,7 @@ export async function getDeletedVouchers(): Promise<DeletedVoucher[]> {
     const db = await getDb();
     if (!db) return [];
     
-    const snapshot = await db.collection('journal-vouchers')
-        .where('isDeleted', '==', true)
+    const snapshot = await db.collection('deleted-vouchers')
         .orderBy('deletedAt', 'desc')
         .get();
         
@@ -53,47 +53,43 @@ export async function restoreVoucher(voucherId: string): Promise<{ success: bool
     if (!user) return { success: false, error: 'Unauthorized' };
 
     try {
-        await db.runTransaction(async (transaction) => {
-            const voucherRef = db.collection('journal-vouchers').doc(voucherId);
-            const voucherDoc = await transaction.get(voucherRef);
-            if (!voucherDoc.exists) {
-                // If it doesn't exist in the main collection, maybe it was fully deleted from there
-                // and only exists in deleted-vouchers. Let's try to restore from there.
-                const deletedVoucherRef = db.collection('deleted-vouchers').doc(voucherId);
-                const deletedVoucherDoc = await transaction.get(deletedVoucherRef);
-                if (deletedVoucherDoc.exists) {
-                    const dataToRestore = deletedVoucherDoc.data();
-                    delete (dataToRestore as any).deletedAt;
-                    delete (dataToRestore as any).deletedBy;
-                    transaction.set(voucherRef, { ...dataToRestore, isDeleted: false });
-                    transaction.delete(deletedVoucherRef);
-                } else {
-                    throw new Error('Voucher not found in main or deleted collections.');
-                }
-            } else {
-                // Restore main voucher
-                transaction.update(voucherRef, { 
-                    isDeleted: false, 
-                    deletedAt: FieldValue.delete(), 
-                    deletedBy: FieldValue.delete() 
-                });
-            }
+        const voucherRef = db.collection('journal-vouchers').doc(voucherId);
+        const deletedVoucherRef = db.collection('deleted-vouchers').doc(voucherId);
 
-            // Restore original source document if it exists
-            const voucherData = voucherDoc.data();
-            const sourceId = voucherData?.sourceId;
-            const sourceType = voucherData?.sourceType;
+        const [voucherSnap, deletedVoucherSnap] = await Promise.all([
+            voucherRef.get(),
+            deletedVoucherRef.get(),
+        ]);
 
-            if (sourceId && sourceType) {
-                const sourceRef = db.collection(`${sourceType}s`).doc(sourceId);
-                transaction.update(sourceRef, { 
-                    isDeleted: false,
-                    deletedAt: FieldValue.delete(),
-                    deletedBy: FieldValue.delete(),
-                });
-            }
+        const voucherData = (voucherSnap.exists
+            ? voucherSnap.data()
+            : deletedVoucherSnap.data()) as JournalVoucher | undefined;
+
+        if (!voucherData) {
+            return { success: false, error: 'Voucher not found in deleted log.' };
+        }
+
+        const restoredBy = user.name || user.uid;
+        const restoredAt = new Date().toISOString();
+
+        await restoreVoucherRecord({
+            db,
+            voucherId,
+            restoredBy,
+            restoredAt,
         });
-        
+
+        if (voucherData.sourceType && voucherData.sourceId) {
+            const sourceRef = db.collection(`${voucherData.sourceType}s`).doc(voucherData.sourceId);
+            await sourceRef.set({
+                isDeleted: false,
+                deletedAt: FieldValue.delete(),
+                deletedBy: FieldValue.delete(),
+                restoredAt,
+                restoredBy,
+            }, { merge: true });
+        }
+
         await createAuditLog({
             userId: user.uid,
             userName: user.name,
@@ -122,26 +118,28 @@ export async function permanentDeleteVoucher(voucherId: string): Promise<{ succe
     if (!user) return { success: false, error: "Unauthorized." };
 
     try {
-        await db.runTransaction(async (transaction) => {
-            const voucherRef = db.collection('journal-vouchers').doc(voucherId);
-            const voucherDoc = await transaction.get(voucherRef);
-            
-            if (voucherDoc.exists) {
-                const voucherData = voucherDoc.data();
-                const sourceId = voucherData?.sourceId;
-                const sourceType = voucherData?.sourceType;
+        const voucherRef = db.collection('journal-vouchers').doc(voucherId);
+        const deletedVoucherRef = db.collection('deleted-vouchers').doc(voucherId);
 
-                if (sourceId && sourceType) {
-                     const sourceRef = db.collection(`${sourceType}s`).doc(sourceId);
-                     transaction.delete(sourceRef);
-                }
-                 transaction.delete(voucherRef);
-            }
-            
-            // Also delete from the deleted-vouchers log
-            const deletedVoucherRef = db.collection('deleted-vouchers').doc(voucherId);
-            transaction.delete(deletedVoucherRef);
-        });
+        const [voucherSnap, deletedVoucherSnap] = await Promise.all([
+            voucherRef.get(),
+            deletedVoucherRef.get(),
+        ]);
+
+        const voucherData = (voucherSnap.exists
+            ? voucherSnap.data()
+            : deletedVoucherSnap.data()) as JournalVoucher | undefined;
+
+        if (!voucherData) {
+            return { success: false, error: 'Voucher not found.' };
+        }
+
+        if (voucherData.sourceType && voucherData.sourceId) {
+            const sourceRef = db.collection(`${voucherData.sourceType}s`).doc(voucherData.sourceId);
+            await sourceRef.delete().catch(() => undefined);
+        }
+
+        await permanentlyDeleteVoucherRecord({ db, voucherId });
 
         await createAuditLog({
             userId: user.uid,
