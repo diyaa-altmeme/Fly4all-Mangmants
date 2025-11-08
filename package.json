@@ -17,7 +17,8 @@
     "migrate:relations": "tsx scripts/migrate-relations-kind.ts",
     "init:finance-accounts": "tsx scripts/init_finance_accounts_map.ts",
     "reset:accounts": "tsx scripts/reset-chart-of-accounts.ts",
-    "scan:pages": "tsx scripts/scan-pages.ts"
+    "scan:pages": "tsx scripts/scan-pages.ts",
+    "fix:vouchers": "tsx scripts/fix-legacy-vouchers.ts"
   },
   "engines": {
     "node": "20",
