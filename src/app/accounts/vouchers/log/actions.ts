@@ -76,6 +76,7 @@ export async function getAllVouchers(
         } else if (data.debitEntries?.length > 0) {
              companyName = getAccountName(data.debitEntries[0].accountId);
         }
+        
 
         // Overrides for specific types for better context
         if (data.originalData?.clientId) {
