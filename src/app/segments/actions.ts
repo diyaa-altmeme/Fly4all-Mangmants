@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -101,7 +100,13 @@ export async function addSegmentEntries(
 
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
-            const segmentInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber('SEG');
+            
+            // USE THE INVOICE NUMBER PASSED FROM THE FRONTEND
+            const segmentInvoiceNumber = entryData.invoiceNumber;
+            if (!segmentInvoiceNumber) {
+                throw new Error("Segment invoice number is missing.");
+            }
+
             const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
 
             // Fetch Client and Partner details for accuracy
@@ -159,6 +164,13 @@ export async function addSegmentEntries(
 
             for (const share of partnerShares) {
                 if (!share || !share.partnerId || !share.share) continue;
+                
+                // USE THE PARTNER INVOICE NUMBER PASSED FROM THE FRONTEND
+                const partnerInvoiceNumber = share.partnerInvoiceNumber;
+                if (!partnerInvoiceNumber) {
+                    throw new Error(`Partner invoice number is missing for partner ${share.partnerName}.`);
+                }
+
                 journalEntries.push({
                     accountId: share.partnerId,
                     debit: 0,
@@ -167,8 +179,9 @@ export async function addSegmentEntries(
                     description: `حصة الشريك ${share.partnerName || ''}`.trim(),
                     relationId: share.partnerId,
                 });
+
                  await postJournalEntry({
-                    invoiceNumber: share.partnerInvoiceNumber,
+                    invoiceNumber: partnerInvoiceNumber,
                     sourceType: 'segment',
                     sourceId: segmentDocRef.id,
                     description: `دفع حصة الشريك ${share.partnerName} عن سكمنت ${dataToSave.companyName}`,
@@ -305,7 +318,9 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 
         for (let i = 0; i < segmentIds.length; i += 30) {
             const chunk = segmentIds.slice(i, i + 30);
-            const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk).where('isDeleted', '==', true);
+            const voucherQuery = db.collection('journal-vouchers')
+                .where('sourceId', 'in', chunk)
+                .where('isDeleted', '==', true);
             const vouchersSnap = await voucherQuery.get();
             vouchersSnap.forEach(doc => voucherRefsToRestore.push(doc.ref));
         }
@@ -325,7 +340,10 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
             });
             
             for (const docRef of voucherRefsToRestore) {
-                transaction.update(doc.ref, updatePayload);
+                transaction.update(docRef, {
+                    ...updatePayload,
+                    status: 'restored',
+                });
             }
         });
 
@@ -348,6 +366,3 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 
 // Dummy functions to satisfy type requirements in other files temporarily
 export async function updateSegmentEntry(entryId: string, data: any) { return { success: false, error: 'Not implemented' }; }
-
-
-    
