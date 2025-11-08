@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -34,7 +33,7 @@ import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormCont
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
-import { DateTimePicker } from "@/components/ui/datetime-picker";
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { useAuth } from '@/lib/auth-context';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -156,17 +155,23 @@ interface AddCompanyToSegmentFormProps {
 
 const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
     const { getValues: getPeriodValues } = useFormContext<PeriodFormValues>();
+    const { toast } = useToast();
     
     const form = useForm<CompanyEntryFormValues>({
         resolver: zodResolver(companyEntrySchema),
     });
     
-    const { reset, control, handleSubmit, watch, setValue } = form;
+    const { reset, control, handleSubmit, watch, setValue, getValues: getCompanyValues } = form;
 
     const generateCompanyInvoiceNumber = useCallback(async () => {
-        const compInv = await getNextVoucherNumber("COMP");
-        setValue('invoiceNumber', compInv);
-        return compInv;
+        try {
+            const compInv = await getNextVoucherNumber("COMP");
+            setValue('invoiceNumber', compInv);
+            return compInv;
+        } catch (e) {
+            console.error("Failed to generate invoice number:", e);
+            return '';
+        }
     }, [setValue]);
 
     React.useEffect(() => {
@@ -184,9 +189,9 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     }, [editingEntry, reset, allCompanyOptions, generateCompanyInvoiceNumber]);
 
 
-    useImperativeHandle(ref, () => ({ resetForm: () => {
-        reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
-        generateCompanyInvoiceNumber();
+    useImperativeHandle(ref, () => ({ resetForm: async () => {
+        const inv = await generateCompanyInvoiceNumber();
+        reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: inv, tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
     }}), [reset, generateCompanyInvoiceNumber]);
 
     const watchAll = watch();
@@ -207,6 +212,11 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     const total = useMemo(() => computeCompanyTotal(watchAll, allCompanyOptions.find(c => c.value === watchAll.clientId)?.settings), [watchAll, allCompanyOptions]);
 
     const handleAddClick = async (data: CompanyEntryFormValues) => {
+        if (!data.invoiceNumber) {
+            toast({ title: 'خطأ', description: 'رقم الفاتورة مطلوب. الرجاء محاولة مرة أخرى.', variant: 'destructive'});
+            return;
+        }
+
         const { hasPartner, alrawdatainSharePercentage, partners } = getPeriodValues();
         const totalProfitForCompany = computeCompanyTotal(data, allCompanyOptions.find(c => c.value === data.clientId)?.settings);
         
@@ -220,19 +230,18 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             (partners || []).map(async (p) => {
                 const existingShare = editingEntry?.partnerShares?.find((ps:any) => ps.partnerId === p.partnerId);
                 const partnerInvoiceNumber = existingShare?.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER");
-                
+                const shareAmount = partnerShareAmount * (p.percentage / 100);
                 return {
                     partnerId: p.partnerId,
                     partnerName: p.partnerName,
                     partnerInvoiceNumber: partnerInvoiceNumber,
-                    share: partnerShareAmount * (p.percentage / 100)
+                    share: shareAmount,
                 };
             })
         );
         
         onAdd({ 
             ...data,
-            invoiceNumber: data.invoiceNumber,
             total: totalProfitForCompany,
             alrawdatainShare: alrawdatainShare,
             partnerShare: partnerShareAmount,
@@ -372,9 +381,9 @@ const SummaryStat = ({ title, value, currency, className }: { title: string; val
 
 
 // Main Dialog Wrapper
-interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; }
+interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; children?: React.ReactNode; }
 
-export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess, isEditing = false, existingPeriod }: AddSegmentPeriodDialogProps) {
+export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess, isEditing = false, existingPeriod, children }: AddSegmentPeriodDialogProps) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
