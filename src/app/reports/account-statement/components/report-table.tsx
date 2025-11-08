@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from "react";
@@ -115,7 +114,7 @@ const TransactionRow = ({ transaction, onRefresh }: { transaction: ReportTransac
                             مقابل: <span className="text-muted-foreground">{transaction.otherParty}</span>
                         </div>
                     )}
-                    {transaction.notes}
+                    {transaction.notes && <div className="text-muted-foreground italic">{transaction.notes}</div>}
                 </TableCell>
                 <TableCell className="px-2 py-3 font-mono font-bold text-red-600 text-center">
                     {transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency) : '-'}
@@ -252,4 +251,3 @@ export default function ReportTable({
         </TooltipProvider>
     );
 }
-
