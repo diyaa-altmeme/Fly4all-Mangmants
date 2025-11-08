@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -170,29 +171,46 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             return compInv;
         } catch (e) {
             console.error("Failed to generate invoice number:", e);
+            toast({ title: 'Error', description: 'Failed to generate invoice number.', variant: 'destructive'});
             return '';
         }
-    }, [setValue]);
+    }, [setValue, toast]);
+    
+    const resetForm = useCallback(async () => {
+      const invNumber = await generateCompanyInvoiceNumber();
+      reset({ 
+        id: uuidv4(), 
+        clientId: "", 
+        clientName: "", 
+        invoiceNumber: invNumber, 
+        tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", 
+        ticketProfitType: 'percentage', ticketProfitValue: 50, 
+        visaProfitType: 'percentage', visaProfitValue: 100, 
+        hotelProfitType: 'percentage', hotelProfitValue: 100, 
+        groupProfitType: 'percentage', groupProfitValue: 100 
+      });
+    }, [reset, generateCompanyInvoiceNumber]);
+
 
     React.useEffect(() => {
-        const defaultValues = { id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage' as const, ticketProfitValue: 50, visaProfitType: 'percentage' as const, visaProfitValue: 100, hotelProfitType: 'percentage' as const, hotelProfitValue: 100, groupProfitType: 'percentage' as const, groupProfitValue: 100 };
-        
         if (editingEntry) {
             const companySettings = editingEntry.clientId ? allCompanyOptions.find(c => c.value === editingEntry.clientId)?.settings : {};
-            const initialFormValues = { ...defaultValues, ...companySettings, ...editingEntry };
+            const initialFormValues = { 
+                id: editingEntry.id,
+                clientId: editingEntry.clientId, 
+                clientName: editingEntry.clientName,
+                invoiceNumber: editingEntry.invoiceNumber,
+                ...companySettings, 
+                ...editingEntry 
+            };
             reset(initialFormValues);
         } else {
-             generateCompanyInvoiceNumber().then(inv => {
-                reset({ ...defaultValues, invoiceNumber: inv });
-             });
+             resetForm();
         }
-    }, [editingEntry, reset, allCompanyOptions, generateCompanyInvoiceNumber]);
+    }, [editingEntry, reset, allCompanyOptions, resetForm]);
 
 
-    useImperativeHandle(ref, () => ({ resetForm: async () => {
-        const inv = await generateCompanyInvoiceNumber();
-        reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: inv, tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "" });
-    }}), [reset, generateCompanyInvoiceNumber]);
+    useImperativeHandle(ref, () => ({ resetForm }), [resetForm]);
 
     const watchAll = watch();
     const currentClientId = watch('clientId');
@@ -381,9 +399,9 @@ const SummaryStat = ({ title, value, currency, className }: { title: string; val
 
 
 // Main Dialog Wrapper
-interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; children?: React.ReactNode; }
+interface AddSegmentPeriodDialogProps { clients: Client[]; suppliers: Supplier[]; onSuccess: () => Promise<void>; isEditing?: boolean; existingPeriod?: any; }
 
-export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess, isEditing = false, existingPeriod, children }: AddSegmentPeriodDialogProps) {
+export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess, isEditing = false, existingPeriod }: AddSegmentPeriodDialogProps) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
@@ -404,7 +422,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        return clients.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
     }, [clients]);
 
      const partnerOptions = useMemo(() => {
@@ -500,7 +518,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     }, [currentPercentage, amountForPartners]);
 
     const handleAddOrUpdateEntry = async (entryData: any) => {
-        const invoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber("COMP");
+        const companyInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber("COMP");
         const partnerSharesWithInvoices = await Promise.all(
             (getValues('partners') || []).map(async (p: any) => {
                 const existingShare = editingEntry?.partnerShares?.find((ps:any) => ps.partnerId === p.partnerId);
@@ -515,7 +533,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
             })
         );
         
-        const finalEntryData = { ...entryData, invoiceNumber, partnerShares: partnerSharesWithInvoices };
+        const finalEntryData = { ...entryData, invoiceNumber: companyInvoiceNumber, partnerShares: partnerSharesWithInvoices };
 
         if (editingEntry) {
             const index = summaryFields.findIndex(f => f.id === editingEntry.id);
@@ -546,7 +564,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
 
             const finalEntries = summaryFields.map((entry: any) => ({
                 ...entry,
-                periodInvoiceNumber: periodInvoiceNumber,
+                periodInvoiceNumber: periodInvoiceNumber, // Add the main period invoice number
                 entryDate: format(data.entryDate, 'yyyy-MM-dd'),
                 fromDate: format(data.fromDate!, 'yyyy-MM-dd'),
                 toDate: format(data.toDate!, 'yyyy-MM-dd'),
