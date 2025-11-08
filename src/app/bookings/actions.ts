@@ -8,6 +8,7 @@ import type { BookingEntry, Client } from '@/lib/types';
 import { postRevenue, postCost } from "@/lib/finance/posting";
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getNextVoucherNumber } from '@/lib/sequences';
 
 export const getBookings = unstable_cache(async (options: { 
     page?: number, 
@@ -77,15 +78,19 @@ export async function addBooking(bookingData: any) {
   const totalPurchase = bookingData.passengers.reduce((acc: number, p: any) => acc + (Number(p.purchasePrice) || 0), 0);
   const totalProfit = totalSale - totalPurchase;
   
+  const newInvoiceNumber = await getNextVoucherNumber('BK');
+
    await bookingRef.set({
        ...bookingData,
        id: bookingRef.id,
+       invoiceNumber: newInvoiceNumber,
        enteredBy: user.name,
        enteredAt: new Date().toISOString(),
        isDeleted: false,
    });
 
    await postRevenue({
+      invoiceNumber: newInvoiceNumber,
       sourceType: "booking",
       sourceId: bookingRef.id,
       date: bookingData.issueDate,
@@ -98,6 +103,7 @@ export async function addBooking(bookingData: any) {
 
     if (totalPurchase > 0) {
       await postCost({
+        invoiceNumber: newInvoiceNumber,
         costKey: "tickets",
         sourceType: "booking",
         sourceId: bookingRef.id,
@@ -111,7 +117,7 @@ export async function addBooking(bookingData: any) {
     }
 
 
-  return { success: true, newBooking: { id: bookingRef.id, ...bookingData } };
+  return { success: true, newBooking: { id: bookingRef.id, ...bookingData, invoiceNumber: newInvoiceNumber } };
 }
 
 // Keep other functions as they are...
@@ -170,3 +176,4 @@ export async function permanentDeleteBooking(id: string): Promise<{ success: boo
     await batch.commit();
     return { success: true };
 }
+

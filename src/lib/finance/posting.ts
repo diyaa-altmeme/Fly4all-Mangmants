@@ -35,9 +35,11 @@ export async function getFinanceMap(): Promise<NormalizedFinanceAccounts> {
 
 // مثال: إنشاء قيد إيراد لوحدة معينة (tickets/visas/...)
 export async function postRevenue({
+  invoiceNumber,
   sourceType, sourceId, date, currency, amount,
   clientId, // يُحفظ بالـ meta فقط (لا ننشئ حساب فرعي)
 }: {
+  invoiceNumber?: string;
   sourceType: "tickets"|"visas"|"subscriptions"|"segments"|"profit_distribution";
   sourceId: string;
   date: string | Date;
@@ -78,6 +80,7 @@ export async function postRevenue({
   ];
 
   return postJournalEntry({
+    invoiceNumber,
     sourceType,
     sourceId,
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
@@ -89,9 +92,11 @@ export async function postRevenue({
 
 // مثال: تسجيل تكلفة
 export async function postCost({
+  invoiceNumber,
   costKey, // cost_tickets/cost_visas/...
   sourceType, sourceId, date, currency, amount, supplierId
 }: {
+  invoiceNumber?: string;
   costKey: keyof NonNullable<FinanceAccountsMap["expenseMap"]>;
   sourceType: string; sourceId: string;
   date: string|Date; currency: string; amount: number;
@@ -123,6 +128,7 @@ export async function postCost({
   ];
 
   return postJournalEntry({
+    invoiceNumber,
     sourceType,
     sourceId,
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
@@ -137,3 +143,4 @@ const FieldPath = admin.firestore.FieldPath;
 export async function postJournalEntries(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts): Promise<string> {
     return postJournalEntry(payload, fa);
 }
+
