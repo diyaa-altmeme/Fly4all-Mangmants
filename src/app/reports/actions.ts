@@ -123,10 +123,12 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       accountId?: string;
     }>;
     const distributionChannelLabel = new Map<string, string>();
+    const distributionChannelByAccount = new Map<string, { id: string; label: string }>();
     distributionChannels.forEach((channel) => {
       distributionChannelLabel.set(channel.id, channel.label);
       if (channel.accountId) {
         accountLabelMap.set(channel.accountId, channel.label);
+        distributionChannelByAccount.set(channel.accountId, { id: channel.id, label: channel.label });
       }
     });
 
@@ -193,6 +195,25 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
           : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
       const formatted = new Intl.NumberFormat('en-US', digits).format(Number(value) || 0);
       return `${formatted} ${code}`.trim();
+    };
+
+    const formatAmountWithPercent = (
+      value: number | null | undefined,
+      currency?: string | null,
+      totalForPercent?: number | null | undefined,
+    ): string | undefined => {
+      const base = formatAmountWithCurrency(value, currency);
+      if (!base) return undefined;
+      if (value === null || value === undefined) return base;
+      const numericTotal = Number(totalForPercent ?? 0);
+      const numericValue = Number(value ?? 0);
+      if (!numericTotal || !Number.isFinite(numericTotal) || numericTotal === 0) {
+        return base;
+      }
+      const percent = (numericValue / numericTotal) * 100;
+      if (!Number.isFinite(percent)) return base;
+      const decimals = percent >= 10 ? 1 : 2;
+      return `${base} (${percent.toFixed(decimals)}٪)`;
     };
 
     type VoucherContext = {
@@ -319,34 +340,47 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
           };
         }
         
-        const companyShare = (subscription?.hasPartner && subscription.partnerSharePercentage) ? subscription.profit - (subscription.profit * (subscription.partnerSharePercentage / 100)) : subscription.profit;
-        const partnerShare = subscription.profit - companyShare;
-        
-        const saleAmount = formatAmountWithCurrency(subscription?.salePrice ?? safeMeta.salePrice, currency);
-        const costAmount = formatAmountWithCurrency(
-          subscription?.purchasePrice ?? safeMeta.purchasePrice,
-          currency,
-        );
-        const profitAmount = formatAmountWithCurrency(
-          subscription?.profit ??
-            (Number(subscription?.salePrice ?? 0) - Number(subscription?.purchasePrice ?? 0)),
-          currency,
-        );
-        
+        const saleValue = Number(subscription?.salePrice ?? safeMeta.salePrice ?? 0);
+        const purchaseValue = Number(subscription?.purchasePrice ?? safeMeta.purchasePrice ?? 0);
+        const baseProfit = Number(subscription?.profit ?? (saleValue - purchaseValue) ?? 0);
+        const companyShare = subscription?.hasPartner && subscription.partnerSharePercentage
+          ? baseProfit - (baseProfit * (subscription.partnerSharePercentage / 100))
+          : baseProfit;
+        const partnerShare = baseProfit - companyShare;
+        const profitValue = baseProfit;
+
+        const saleAmount = formatAmountWithCurrency(saleValue, currency);
+        const costAmount = formatAmountWithPercent(purchaseValue, currency, saleValue);
+        const profitAmount = formatAmountWithPercent(profitValue, currency, saleValue);
+        const companyShareAmount = formatAmountWithPercent(companyShare, currency, saleValue);
+        const partnerShareAmount = formatAmountWithPercent(partnerShare, currency, saleValue);
+
         const distributions: { name: string; amount: string }[] = [];
-        if (costAmount) distributions.push({ name: 'التكلفة', amount: costAmount });
+        if (purchaseValue > 0 && costAmount) distributions.push({ name: 'تكلفة الاشتراك', amount: costAmount });
         if (subscription?.hasPartner) {
-            distributions.push({ name: `حصة الشركة`, amount: formatAmountWithCurrency(companyShare, currency)!});
-            distributions.push({ name: `حصة الشريك ${subscription.partnerName}`, amount: formatAmountWithCurrency(partnerShare, currency)!});
-        } else if (profitAmount) {
-            distributions.push({ name: 'الربح', amount: profitAmount });
+            if (companyShare > 0 && companyShareAmount) {
+              distributions.push({ name: 'إيراد الروضتين', amount: companyShareAmount });
+            }
+            if (partnerShare > 0 && partnerShareAmount) {
+              const partnerLabel = subscription?.partnerName
+                ? `حصة الشريك ${subscription.partnerName} (بذمتنا)`
+                : 'حصة الشريك (بذمتنا)';
+              distributions.push({ name: partnerLabel, amount: partnerShareAmount });
+            }
+        } else if (profitValue > 0 && profitAmount) {
+            distributions.push({ name: 'إيراد الروضتين', amount: profitAmount });
         }
 
 
         const structured: StructuredDescription = {
           title: `اشتراك ${subscription?.serviceName || safeMeta.serviceName || subscriptionId || voucherId}`,
-          totalReceived: saleAmount ? `قيمة الاشتراك: ${saleAmount}` : null,
-          selfReceipt: null,
+          totalReceived: saleAmount ? `الإجمالي على الشركة المصدّرة: ${saleAmount}` : null,
+          selfReceipt:
+            (subscription?.hasPartner && companyShare > 0 && companyShareAmount)
+              ? `إيراد الروضتين: ${companyShareAmount}`
+              : (!subscription?.hasPartner && profitValue > 0 && profitAmount)
+                ? `إيراد الروضتين: ${profitAmount}`
+                : null,
           distributions,
           notes: [...baseNotes, subscription?.notes, safeMeta.notes].filter(Boolean).join(' • ') || '',
         };
@@ -361,19 +395,24 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         const segment = segmentId ? await fetchDoc('segments', segmentId) : null;
         if (!segment) return null;
         const currency = segment.currency || voucherCurrency;
+        const totalValue = Number(segment.total || 0);
+        const companyShareValue = Number(segment.alrawdatainShare || 0);
+        const partnerShareValue = Number(segment.partnerShare || 0);
+        const ticketProfitValue = Number(segment.ticketProfits || 0);
+        const otherProfitValue = Number(segment.otherProfits || 0);
         const parties = [
           segment.clientId ? getAccountLabel(segment.clientId) : segment.companyName,
           segment.partnerName || (segment.partnerId ? getAccountLabel(segment.partnerId) : null),
         ].filter(Boolean) as string[];
-        const total = formatAmountWithCurrency(segment.total, currency);
-        const companyShare = formatAmountWithCurrency(segment.alrawdatainShare, currency);
-        const partnerShare = formatAmountWithCurrency(segment.partnerShare, currency);
-        const ticketProfits = formatAmountWithCurrency(segment.ticketProfits, currency);
-        const otherProfits = formatAmountWithCurrency(segment.otherProfits, currency);
+        const total = formatAmountWithCurrency(totalValue, currency);
+        const companyShare = formatAmountWithPercent(companyShareValue, currency, totalValue);
+        const partnerShare = formatAmountWithPercent(partnerShareValue, currency, totalValue);
+        const ticketProfits = formatAmountWithPercent(ticketProfitValue, currency, totalValue);
+        const otherProfits = formatAmountWithPercent(otherProfitValue, currency, totalValue);
         const fromLabel = formatDateLabel(segment.fromDate);
         const toLabel = formatDateLabel(segment.toDate);
         const period = [fromLabel, toLabel].filter(Boolean).join(' حتى ');
-        
+
         if (rawSourceType === 'segment_payout') {
              const partnerId = meta.companyId;
              const partnerData = (segment.partnerShares || []).find((p: any) => p.partnerId === partnerId);
@@ -388,12 +427,12 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         
         const structured: StructuredDescription = {
           title: `سكمنت ${segment.companyName}`,
-          totalReceived: total ? `الإجمالي: ${total}` : null,
-          selfReceipt: companyShare ? `حصة الشركة: ${companyShare}` : null,
+          totalReceived: total ? `الإجمالي على الشركة المصدّرة: ${total}` : null,
+          selfReceipt: companyShareValue > 0 && companyShare ? `إيراد الروضتين: ${companyShare}` : null,
           distributions: [
-            partnerShare ? { name: 'حصة الشركاء', amount: partnerShare } : null,
-            ticketProfits ? { name: 'أرباح التذاكر', amount: ticketProfits } : null,
-            otherProfits ? { name: 'أرباح أخرى', amount: otherProfits } : null,
+            partnerShareValue > 0 && partnerShare ? { name: 'حصة الشركاء (بذمتنا)', amount: partnerShare } : null,
+            ticketProfitValue > 0 && ticketProfits ? { name: 'أرباح التذاكر', amount: ticketProfits } : null,
+            otherProfitValue > 0 && otherProfits ? { name: 'أرباح أخرى', amount: otherProfits } : null,
           ].filter(Boolean) as { name: string; amount: string }[],
           notes: period ? `الفترة: ${period}` : '',
         };
@@ -559,38 +598,98 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
           const companyAmount = Number(
             v.originalData?.companyAmount ?? normalizedMeta?.companyAmount ?? 0,
           );
-          const formattedTotal = new Intl.NumberFormat('en-US').format(totalAmount);
-          const formattedCompany = new Intl.NumberFormat('en-US').format(companyAmount);
+          const clientAccountId = v.originalData?.accountId || normalizedMeta?.accountId || '';
           const clientName =
-            accountLabelMap.get(
-              v.originalData?.accountId || normalizedMeta?.accountId || '',
-            ) || normalizedMeta?.clientName || '';
-
+            accountLabelMap.get(clientAccountId) || normalizedMeta?.clientName || '';
           const rawDistributions = normalizedMeta?.distributions || v.originalData?.distributions || {};
-          const distributions = Object.entries(rawDistributions)
-            .map(([channelId, distData]: [string, any]) => {
-              const numericAmount = Number(distData?.amount || 0);
-              if (!numericAmount) return null;
-              const label =
-                distributionChannelLabel.get(channelId) ||
-                accountLabelMap.get(channelId) ||
-                distData?.name ||
-                channelId;
-              const formattedAmount = new Intl.NumberFormat('en-US').format(numericAmount);
-              const currencyCode = distData?.currency || baseCurrency;
-              return {
+
+          const distributionBreakdown: { name: string; amount: string }[] = [];
+          if (companyAmount > 0) {
+            const formattedCompany = formatAmountWithPercent(
+              companyAmount,
+              baseCurrency,
+              totalAmount,
+            );
+            if (formattedCompany) {
+              distributionBreakdown.push({
+                name: 'حصة الروضتين',
+                amount: formattedCompany,
+              });
+            }
+          }
+
+          const rawDistributionEntries = Object.entries(rawDistributions) as Array<[
+            string,
+            { amount?: number | string; currency?: string; name?: string }
+          ]>;
+
+          let currentDistributionShare: { name?: string; amount?: number; currency?: string } | null = null;
+          const channelMatch = distributionChannelByAccount.get(entry.accountId || '');
+
+          rawDistributionEntries.forEach(([channelId, distData]) => {
+            const numericAmount = Number(distData?.amount || 0);
+            if (!numericAmount) return;
+            const label =
+              distributionChannelLabel.get(channelId) ||
+              accountLabelMap.get(channelId) ||
+              distData?.name ||
+              channelId;
+            const currencyCode = distData?.currency || baseCurrency;
+            const formattedAmount = formatAmountWithPercent(
+              numericAmount,
+              currencyCode,
+              currencyCode === baseCurrency ? totalAmount : undefined,
+            );
+            if (formattedAmount) {
+              distributionBreakdown.push({
                 name: label,
-                amount: `${formattedAmount} ${currencyCode}`,
+                amount: formattedAmount,
+              });
+            }
+
+            if (channelMatch && channelMatch.id === channelId) {
+              currentDistributionShare = {
+                name: label,
+                amount: numericAmount,
+                currency: currencyCode,
               };
-            })
-            .filter(Boolean) as { name: string; amount: string }[];
+            }
+          });
+
+          let selfReceiptLabel: string | null = null;
+          if (entry.accountId === clientAccountId && companyAmount > 0) {
+            const formattedCompany = formatAmountWithPercent(
+              companyAmount,
+              baseCurrency,
+              totalAmount,
+            );
+            selfReceiptLabel = formattedCompany
+              ? `حصة هذا الحساب: ${formattedCompany}`
+              : null;
+          } else if (currentDistributionShare?.amount) {
+            const formattedShare = formatAmountWithPercent(
+              currentDistributionShare.amount,
+              currentDistributionShare.currency,
+              currentDistributionShare.currency === baseCurrency ? totalAmount : undefined,
+            );
+            selfReceiptLabel = formattedShare
+              ? `حصة هذا الحساب: ${formattedShare}`
+              : null;
+          }
+
+          const formattedTotal = formatAmountWithCurrency(totalAmount, baseCurrency);
 
           description = {
-            title: clientName ? `سند قبض موزع من ${clientName}` : 'سند قبض موزع',
-            totalReceived: `الإجمالي: ${formattedTotal} ${baseCurrency}`,
-            selfReceipt:
-              companyAmount > 0 ? `سداد للدافع: ${formattedCompany} ${baseCurrency}` : null,
-            distributions,
+            title: currentDistributionShare?.name
+              ? `حصة ${currentDistributionShare.name} من سند قبض موزع`
+              : clientName
+                ? `سند قبض موزع من ${clientName}`
+                : 'سند قبض موزع',
+            totalReceived: formattedTotal
+              ? `الإجمالي الموزع: ${formattedTotal}`
+              : null,
+            selfReceipt: selfReceiptLabel,
+            distributions: distributionBreakdown,
             notes: v.notes || normalizedMeta?.notes || '',
           };
         } else if (voucherContext?.description) {
