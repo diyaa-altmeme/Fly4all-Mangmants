@@ -233,34 +233,26 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
         const now = new Date().toISOString();
         const deletedBy = user.name || user.uid;
 
+        // --- STEP 1: READ (outside transaction) ---
         const segmentsQuery = db.collection('segments').where('periodId', '==', periodId);
         const segmentsSnap = await segmentsQuery.get();
         if (segmentsSnap.empty) {
-            console.log(`No segments found for periodId: ${periodId}. Nothing to delete.`);
             return { success: true, count: 0 };
         }
+        
         const segmentIds = segmentsSnap.docs.map(doc => doc.id);
+        const voucherRefsToDelete: FirebaseFirestore.DocumentReference[] = [];
 
+        for (let i = 0; i < segmentIds.length; i += 30) {
+            const chunk = segmentIds.slice(i, i + 30);
+            const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
+            const vouchersSnap = await voucherQuery.get();
+            vouchersSnap.forEach(doc => voucherRefsToDelete.push(doc.ref));
+        }
+
+        // --- STEP 2: WRITE (inside transaction) ---
         await db.runTransaction(async (transaction) => {
-            // STEP 1: READ all necessary documents first.
-            const voucherPromises = [];
-            for (let i = 0; i < segmentIds.length; i += 30) {
-                const chunk = segmentIds.slice(i, i + 30);
-                const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
-                voucherPromises.push(transaction.get(voucherQuery));
-            }
-            const voucherSnapshots = await Promise.all(voucherPromises);
-
-            const deletedVoucherRefs = voucherSnapshots.flatMap(snap => snap.docs).map(doc => db.collection('deleted-vouchers').doc(doc.id));
-            // Read documents from deleted-vouchers if they exist (although they shouldn't in a non-permanent delete)
-            if (permanent) {
-                for (const ref of deletedVoucherRefs) {
-                    await transaction.get(ref);
-                }
-            }
-
-
-            // STEP 2: WRITE all changes after all reads are complete.
+            // Delete/update segment entries
             segmentsSnap.docs.forEach(doc => {
                 if (permanent) {
                     transaction.delete(doc.ref);
@@ -269,23 +261,16 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
                 }
             });
 
-            for (const voucherSnapshot of voucherSnapshots) {
-                for (const doc of voucherSnapshot.docs) {
-                    if (permanent) {
-                        transaction.delete(doc.ref);
-                    } else {
-                        transaction.update(doc.ref, { 
-                            isDeleted: true,
-                            deletedAt: now, 
-                            deletedBy: deletedBy 
-                        });
-                        const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
-                        transaction.set(deletedVoucherRef, {
-                            ...doc.data(),
-                            deletedAt: now,
-                            deletedBy: deletedBy
-                        });
-                    }
+            // Delete/update journal vouchers
+            for (const docRef of voucherRefsToDelete) {
+                if (permanent) {
+                    transaction.delete(docRef);
+                } else {
+                    transaction.update(docRef, { 
+                        isDeleted: true,
+                        deletedAt: now, 
+                        deletedBy: deletedBy 
+                    });
                 }
             }
         });
@@ -308,46 +293,39 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
         const restoredBy = user.name || user.uid;
         const restoredAt = new Date().toISOString();
         
+        // --- STEP 1: READ ---
+        const segmentsQuery = db.collection('segments').where('periodId', '==', periodId).where('isDeleted', '==', true);
+        const segmentsSnap = await segmentsQuery.get();
+        if (segmentsSnap.empty) {
+            return { success: true, count: 0 };
+        }
+        
+        const segmentIds = segmentsSnap.docs.map(doc => doc.id);
+        const voucherRefsToRestore: FirebaseFirestore.DocumentReference[] = [];
+
+        for (let i = 0; i < segmentIds.length; i += 30) {
+            const chunk = segmentIds.slice(i, i + 30);
+            const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk).where('isDeleted', '==', true);
+            const vouchersSnap = await voucherQuery.get();
+            vouchersSnap.forEach(doc => voucherRefsToRestore.push(doc.ref));
+        }
+
+        // --- STEP 2: WRITE ---
         await db.runTransaction(async (transaction) => {
-            // STEP 1: READ
-            const segmentsQuery = db.collection('segments')
-                .where('periodId', '==', periodId)
-                .where('isDeleted', '==', true);
-            const segmentsSnap = await transaction.get(segmentsQuery);
-            if (segmentsSnap.empty) return;
-
-            const segmentIds = segmentsSnap.docs.map(doc => doc.id);
-            const voucherPromises = [];
-             for (let i = 0; i < segmentIds.length; i += 30) {
-                const chunk = segmentIds.slice(i, i + 30);
-                const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
-                voucherPromises.push(transaction.get(voucherQuery));
-            }
-            const voucherSnapshots = await Promise.all(voucherPromises);
+            const updatePayload = {
+                isDeleted: false,
+                deletedAt: FieldValue.delete(),
+                deletedBy: FieldValue.delete(),
+                restoredAt,
+                restoredBy,
+            };
             
-            // THEN WRITE
             segmentsSnap.docs.forEach(doc => {
-                transaction.update(doc.ref, {
-                    isDeleted: false,
-                    deletedAt: FieldValue.delete(),
-                    deletedBy: FieldValue.delete(),
-                    restoredAt,
-                    restoredBy,
-                });
+                transaction.update(doc.ref, updatePayload);
             });
-
-            for (const voucherSnapshot of voucherSnapshots) {
-                voucherSnapshot.forEach(doc => {
-                    transaction.update(doc.ref, { 
-                        isDeleted: false,
-                        deletedAt: FieldValue.delete(),
-                        deletedBy: FieldValue.delete(),
-                        restoredAt,
-                        restoredBy,
-                    });
-                     const deletedVoucherRef = db.collection('deleted-vouchers').doc(doc.id);
-                     transaction.delete(deletedVoucherRef);
-                });
+            
+            for (const docRef of voucherRefsToRestore) {
+                transaction.update(doc.ref, updatePayload);
             }
         });
 
@@ -362,7 +340,7 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 
         revalidatePath('/segments');
         revalidatePath('/system/deleted-log');
-        return { success: true, count: 0 }; // Count is not easily available here
+        return { success: true, count: segmentIds.length };
     } catch (e: any) {
         return { success: false, error: e.message, count: 0 };
     }
@@ -370,3 +348,6 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 
 // Dummy functions to satisfy type requirements in other files temporarily
 export async function updateSegmentEntry(entryId: string, data: any) { return { success: false, error: 'Not implemented' }; }
+
+
+    
