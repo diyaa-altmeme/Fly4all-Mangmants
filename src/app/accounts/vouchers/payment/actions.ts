@@ -42,6 +42,7 @@ export async function createPaymentVoucher(data: PaymentVoucherData) {
             description,
             reference: data.details,
             createdBy: user.uid,
+            invoiceNumber,
         }, {
             actorId: user.uid,
             actorName: user.name,
