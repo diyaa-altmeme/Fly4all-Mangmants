@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -97,19 +96,17 @@ export async function addSegmentEntries(
         if (!financeMap.clearingAccountId) throw new Error("حساب التسوية غير محدد في الإعدادات.");
         if (!financeMap.revenueMap?.segments) throw new Error("حساب إيرادات السكمنت غير محدد.");
 
-
         const periodId = periodIdToReplace || db.collection('temp').doc().id;
-        
+        const periodInvoiceNumber = await getNextVoucherNumber("SEG");
+
         if (periodIdToReplace) {
            await deleteSegmentPeriod(periodIdToReplace);
         }
         
-        const periodInvoiceNumber = await getNextVoucherNumber("SEG");
-
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
             
-            const companyInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber("COMP");
+            const companyInvoiceNumber = await getNextVoucherNumber("COMP");
             
             const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
 
@@ -128,9 +125,10 @@ export async function addSegmentEntries(
             const partnerSharesWithInvoices = await Promise.all(
                 (entryData.partnerShares || []).map(async (p: any) => {
                     if (!p.partnerId) return null;
+                    const partnerInvoiceNumber = await getNextVoucherNumber("PARTNER");
                     return {
                         ...p,
-                        partnerInvoiceNumber: p.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER"),
+                        partnerInvoiceNumber,
                     };
                 })
             ).then(results => results.filter(Boolean));
@@ -210,42 +208,33 @@ export async function addSegmentEntries(
 export async function deleteSegmentPeriod(periodId: string, permanent: boolean = false): Promise<{ success: boolean; error?: string; count: number; }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available.", count: 0 };
+    
     try {
         const user = await checkSegmentPermission();
         const now = new Date().toISOString();
         const deletedBy = user.name || user.uid;
 
-        // === READ PHASE ===
-        const segmentsQuery = db.collection('segments').where('periodId', '==', periodId);
-        const segmentsSnap = await segmentsQuery.get();
-        if (segmentsSnap.empty) {
-            return { count: 0, success: true };
-        }
-        
-        const segmentIds = segmentsSnap.docs.map(doc => doc.id);
-        const voucherRefsToDelete: FirebaseFirestore.DocumentReference[] = [];
-
-        for (let i = 0; i < segmentIds.length; i += 30) {
-            const chunk = segmentIds.slice(i, i + 30);
-            const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
-            const vouchersSnap = await voucherQuery.get();
-            vouchersSnap.forEach(doc => voucherRefsToDelete.push(doc.ref));
-        }
-
-        const deletedVoucherRefsToDelete: FirebaseFirestore.DocumentReference[] = [];
-        if (permanent) {
-            for (let i = 0; i < voucherRefsToDelete.length; i += 30) {
-                const chunkIds = voucherRefsToDelete.slice(i, i+30).map(ref => ref.id);
-                if (chunkIds.length > 0) {
-                    const deletedVouchersQuery = db.collection('deleted-vouchers').where(FieldValue.documentId(), 'in', chunkIds);
-                    const deletedVouchersSnap = await deletedVouchersQuery.get();
-                    deletedVouchersSnap.forEach(doc => deletedVoucherRefsToDelete.push(doc.ref));
-                }
+        // The entire logic is now inside a transaction
+        return await db.runTransaction(async (transaction) => {
+            // === READ PHASE ===
+            const segmentsQuery = db.collection('segments').where('periodId', '==', periodId);
+            const segmentsSnap = await transaction.get(segmentsQuery);
+            if (segmentsSnap.empty) {
+                return { count: 0, success: true };
             }
-        }
-        
-        // === WRITE PHASE ===
-        await db.runTransaction(async (transaction) => {
+            
+            const segmentIds = segmentsSnap.docs.map(doc => doc.id);
+            const voucherRefsToDelete: FirebaseFirestore.DocumentReference[] = [];
+
+            // Firestore 'in' query supports up to 30 items
+            for (let i = 0; i < segmentIds.length; i += 30) {
+                const chunk = segmentIds.slice(i, i + 30);
+                const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
+                const vouchersSnap = await transaction.get(voucherQuery);
+                vouchersSnap.forEach(doc => voucherRefsToDelete.push(doc.ref));
+            }
+            
+            // === WRITE PHASE ===
             segmentsSnap.docs.forEach(doc => {
                 if (permanent) {
                     transaction.delete(doc.ref);
@@ -258,7 +247,7 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
                 if (permanent) {
                     transaction.delete(docRef);
                 } else {
-                    const docSnap = await transaction.get(docRef); // Read inside transaction before write
+                    const docSnap = await transaction.get(docRef);
                     if (docSnap.exists) {
                         transaction.update(docRef, { 
                             isDeleted: true, 
@@ -271,16 +260,20 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
                 }
             }
             
-            if (permanent) {
-                for (const docRef of deletedVoucherRefsToDelete) {
-                    transaction.delete(docRef);
-                }
-            }
+            await createAuditLog({
+                userId: user.uid,
+                userName: user.name,
+                action: 'DELETE',
+                targetType: 'SEGMENT',
+                description: `حذف فترة سكمنت (ID: ${periodId}) وجميع سجلاتها المرتبطة.`,
+                targetId: periodId,
+            });
+
+            revalidatePath('/segments');
+            revalidatePath('/system/deleted-log');
+            return { success: true, count: segmentsSnap.size };
         });
 
-        revalidatePath('/segments');
-        revalidatePath('/system/deleted-log');
-        return { success: true, count: segmentsSnap.size };
     } catch (error: any) {
         console.error("Error deleting segment period: ", String(error));
         return { success: false, error: error.message || "Failed to delete segment period.", count: 0 };
@@ -356,6 +349,4 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 }
 
 export async function updateSegmentEntry(entryId: string, data: any) { return { success: false, error: 'Not implemented' }; }
-
-
     
