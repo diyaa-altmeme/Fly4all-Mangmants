@@ -1,4 +1,3 @@
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -110,7 +109,7 @@ export async function addSegmentEntries(
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
             
-            const segmentInvoiceNumber = entryData.invoiceNumber;
+            const segmentInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber("COMP");
             if (!segmentInvoiceNumber) {
                 const companyNameForError = entryData.companyName || `(ID: ${entryData.clientId})`;
                 throw new Error(`رقم الفاتورة مفقود للسجل الخاص بالشركة: ${companyNameForError}.`);
@@ -133,7 +132,7 @@ export async function addSegmentEntries(
             const partnerSharesWithInvoices = await Promise.all(
                 (entryData.partnerShares || []).map(async (p: any) => ({
                     ...p,
-                    partnerInvoiceNumber: p.partnerInvoiceNumber,
+                    partnerInvoiceNumber: p.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER"),
                 }))
             );
 
@@ -327,7 +326,7 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
             });
             
             for (const docRef of voucherRefsToRestore) {
-                transaction.update(docRef, {
+                transaction.update(doc.ref, {
                     ...updatePayload,
                     status: 'restored',
                 });

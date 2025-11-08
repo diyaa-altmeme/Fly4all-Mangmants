@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -70,7 +69,7 @@ const partnerSchema = z.object({
   id: z.string(),
   partnerId: z.string().min(1, "اختر شريكاً."),
   partnerName: z.string(),
-  partnerInvoiceNumber: z.string(),
+  partnerInvoiceNumber: z.string().optional(),
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
   amount: z.coerce.number(),
 });
@@ -163,7 +162,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     
     const { reset, control, handleSubmit, watch, setValue } = form;
 
-    const resetForm = useCallback(async () => {
+    const resetForm = useCallback(() => {
         reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage', ticketProfitValue: 50, visaProfitType: 'percentage', visaProfitValue: 100, hotelProfitType: 'percentage', hotelProfitValue: 100, groupProfitType: 'percentage', groupProfitValue: 100 });
     }, [reset]);
 
@@ -197,7 +196,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     
     const total = useMemo(() => computeCompanyTotal(watchAll, allCompanyOptions.find(c => c.value === watchAll.clientId)?.settings), [watchAll, allCompanyOptions]);
 
-    const handleAddClick = async (data: CompanyEntryFormValues) => {
+    const handleAddClick = (data: CompanyEntryFormValues) => {
         const { hasPartner, alrawdatainSharePercentage, partners } = getPeriodValues();
         const totalProfitForCompany = computeCompanyTotal(data, allCompanyOptions.find(c => c.value === data.clientId)?.settings);
         
@@ -370,7 +369,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+        return clients.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
     }, [clients]);
 
      const partnerOptions = useMemo(() => {
@@ -399,7 +398,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         const alrawdatainShare = existingPeriod?.entries?.[0]?.alrawdatainSharePercentage;
 
         const partnerData: PartnerShare[] = (existingPeriod?.entries?.[0]?.partnerShares || []).map((p: any) => {
-            const totalPartnerShare = existingPeriod.entries[0]?.partnerShare || 1;
+            const totalPartnerShare = existingPeriod.entries[0]?.partnerShare || 1; // Avoid division by zero
             return {
                 id: p.partnerId,
                 partnerId: p.partnerId,
@@ -706,4 +705,3 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         </Dialog>
     );
 }
-
