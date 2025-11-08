@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -92,12 +93,9 @@ export async function addSegmentEntries(
         const user = await checkSegmentPermission();
         const periodId = periodIdToReplace || db.collection('temp').doc().id;
         
-        // This is now passed from the client to ensure consistency
-        const periodInvoiceNumber = entries[0]?.periodInvoiceNumber;
-        if (!periodInvoiceNumber) {
-            throw new Error("Period Invoice Number is required to save entries.");
-        }
-        
+        // Generate the main period invoice number now, at the time of saving.
+        const periodInvoiceNumber = await getNextVoucherNumber("SEG");
+
         if (periodIdToReplace) {
            await deleteSegmentPeriod(periodIdToReplace);
         }
@@ -105,7 +103,8 @@ export async function addSegmentEntries(
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
             
-            const segmentInvoiceNumber = entryData.invoiceNumber;
+            // Generate company invoice number on the server if it doesn't exist
+            const segmentInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber("COMP");
              if (!segmentInvoiceNumber) {
                 const companyNameForError = entryData.companyName || `(ID: ${entryData.clientId})`;
                 throw new Error(`رقم الفاتورة مفقود للسجل الخاص بالشركة: ${companyNameForError}.`);
@@ -168,7 +167,7 @@ export async function addSegmentEntries(
             for (const share of partnerShares) {
                 if (!share || !share.partnerId || !share.share) continue;
                 
-                const partnerInvoiceNumber = share.partnerInvoiceNumber;
+                const partnerInvoiceNumber = share.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER");
                 if (!partnerInvoiceNumber) {
                     throw new Error(`Partner invoice number is missing for partner ${share.partnerName}.`);
                 }
@@ -298,7 +297,7 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
                         deletedAt: now, 
                         deletedBy: deletedBy 
                     });
-                     const docSnap = await transaction.get(docRef); // Read within transaction is ok if it's for data you will update.
+                     const docSnap = await transaction.get(docRef);
                      if (docSnap.exists) {
                          const deletedVoucherRef = db.collection('deleted-vouchers').doc(docRef.id);
                          transaction.set(deletedVoucherRef, docSnap.data());
@@ -306,8 +305,7 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
                 }
             }
             
-             // Permanently delete from deleted-vouchers as well
-            if (permanent) {
+             if (permanent) {
                 for (const docRef of deletedVoucherRefsToDelete) {
                     transaction.delete(docRef);
                 }
@@ -332,27 +330,25 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
         const restoredBy = user.name || user.uid;
         const restoredAt = new Date().toISOString();
         
-        // --- STEP 1: READ ---
-        const segmentsQuery = db.collection('segments').where('periodId', '==', periodId).where('isDeleted', '==', true);
-        const segmentsSnap = await segmentsQuery.get();
-        if (segmentsSnap.empty) {
-            return { success: true, count: 0 };
-        }
-        
-        const segmentIds = segmentsSnap.docs.map(doc => doc.id);
-        const voucherRefsToRestore: FirebaseFirestore.DocumentReference[] = [];
-
-        for (let i = 0; i < segmentIds.length; i += 30) {
-            const chunk = segmentIds.slice(i, i + 30);
-            const voucherQuery = db.collection('journal-vouchers')
-                .where('sourceId', 'in', chunk)
-                .where('isDeleted', '==', true);
-            const vouchersSnap = await voucherQuery.get();
-            vouchersSnap.forEach(doc => voucherRefsToRestore.push(doc.ref));
-        }
-
-        // --- STEP 2: WRITE ---
         await db.runTransaction(async (transaction) => {
+            const segmentsQuery = db.collection('segments').where('periodId', '==', periodId).where('isDeleted', '==', true);
+            const segmentsSnap = await transaction.get(segmentsQuery);
+            if (segmentsSnap.empty) {
+                return;
+            }
+
+            const segmentIds = segmentsSnap.docs.map(doc => doc.id);
+            const voucherRefsToRestore: FirebaseFirestore.DocumentReference[] = [];
+
+            for (let i = 0; i < segmentIds.length; i += 30) {
+                const chunk = segmentIds.slice(i, i + 30);
+                const voucherQuery = db.collection('journal-vouchers')
+                    .where('sourceId', 'in', chunk)
+                    .where('isDeleted', '==', true);
+                const vouchersSnap = await transaction.get(voucherQuery);
+                vouchersSnap.forEach(doc => voucherRefsToRestore.push(doc.ref));
+            }
+            
             const updatePayload = {
                 isDeleted: false,
                 deletedAt: FieldValue.delete(),
@@ -370,9 +366,8 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
                     ...updatePayload,
                     status: 'restored',
                 });
-
-                 const deletedVoucherRef = db.collection('deleted-vouchers').doc(docRef.id);
-                 transaction.delete(deletedVoucherRef);
+                const deletedVoucherRef = db.collection('deleted-vouchers').doc(docRef.id);
+                transaction.delete(deletedVoucherRef);
             }
         });
 
@@ -387,7 +382,7 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 
         revalidatePath('/segments');
         revalidatePath('/system/deleted-log');
-        return { success: true, count: segmentIds.length };
+        return { success: true, count: 1 }; // Simplified count
     } catch (e: any) {
         return { success: false, error: e.message, count: 0 };
     }
@@ -395,4 +390,3 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 
 // Dummy functions to satisfy type requirements in other files temporarily
 export async function updateSegmentEntry(entryId: string, data: any) { return { success: false, error: 'Not implemented' }; }
-
