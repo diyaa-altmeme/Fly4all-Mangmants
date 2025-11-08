@@ -1,3 +1,5 @@
+
+
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
@@ -36,6 +38,7 @@ export async function postRevenue({
   invoiceNumber,
   sourceType, sourceId, date, currency, amount,
   clientId, // يُحفظ بالـ meta فقط (لا ننشئ حساب فرعي)
+  description,
 }: {
   invoiceNumber?: string;
   sourceType: "tickets"|"visas"|"subscriptions"|"segments"|"profit_distribution";
@@ -44,6 +47,7 @@ export async function postRevenue({
   currency: string;
   amount: number;
   clientId?: string;
+  description: string;
 }) {
   if (amount <= 0) return;
 
@@ -84,7 +88,7 @@ export async function postRevenue({
     date: typeof date === 'string' ? Date.parse(date) : date.getTime(),
     entries,
     meta: { clientId, directCash: !shouldDefer },
-    description: shouldDefer ? 'قيد إيراد آجل' : 'قيد إيراد نقدي',
+    description: description,
   }, fm);
 }
 
@@ -214,9 +218,9 @@ export async function recordFinancialTransaction(
   if (!options.skipAuditLog) {
     await createAuditLog({
       userId: actor.uid,
-      userName: actor.name,
+      userName: actor.name || 'System',
       action: 'CREATE',
-      targetType: options.auditTargetType || 'TRANSACTION',
+      targetType: options.auditTargetType || 'VOUCHER',
       targetId: options.auditTargetId || voucherId,
       description: options.auditDescription || `${description} (${amount} ${transaction.currency})`,
       reference: transaction.reference,
