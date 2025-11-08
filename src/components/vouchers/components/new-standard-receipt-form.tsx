@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -27,7 +26,7 @@ const formSchema = z.object({
   from: z.string().min(1, "اسم الدافع مطلوب"),
   toBox: z.string().min(1, "الصندوق مطلوب"),
   amount: z.string().or(z.number()).transform(val => Number(String(val).replace(/,/g, ''))).refine(val => val > 0, { message: "المبلغ يجب أن يكون أكبر من صفر" }),
-  currency: z.string().min(1, "العملة مطلوبة"),
+  currency: z.string().min(1, 'العملة مطلوبة'),
   details: z.string().optional(),
 });
 
@@ -37,7 +36,6 @@ type FormValues = z.infer<typeof formSchema>;
 interface NewStandardReceiptFormProps {
     onVoucherAdded?: (voucher: any) => void;
     onVoucherUpdated?: (voucher: any) => void;
-    selectedCurrency: Currency;
     isEditing?: boolean;
     initialData?: FormValues & { id?: string };
 }
@@ -52,7 +50,7 @@ const AmountInput = ({ currency, className, ...props }: { currency: Currency, cl
 );
 
 
-export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrency, isEditing, initialData, onVoucherUpdated }: NewStandardReceiptFormProps) {
+export default function NewStandardReceiptForm({ onVoucherAdded, isEditing, initialData, onVoucherUpdated }: NewStandardReceiptFormProps) {
   const { data: navData } = useVoucherNav();
   const { user } = useAuth();
   const currentUser = user as CurrentUser | null;
@@ -62,7 +60,7 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
     resolver: zodResolver(formSchema),
     defaultValues: isEditing ? initialData : {
       date: new Date(),
-      currency: selectedCurrency,
+      currency: navData?.settings.currencySettings?.defaultCurrency,
       amount: undefined,
       details: '',
       from: '',
@@ -76,19 +74,13 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
       }
   }, [currentUser, isEditing, form]);
 
-  const { control, handleSubmit, setValue, register, formState: { errors, isSubmitting }, reset } = form;
-
-  useEffect(() => {
-    if (!isEditing) {
-        setValue('currency', selectedCurrency);
-        setValue('amount', undefined);
-    }
-  }, [selectedCurrency, setValue, isEditing]);
+  const { control, handleSubmit, setValue, register, formState: { errors, isSubmitting }, reset, watch } = form;
+  const watchedCurrency = watch('currency');
   
   const boxName = useMemo(() => {
-    const boxId = form.watch('toBox');
+    const boxId = watch('toBox');
     return navData?.boxes?.find(b => b.id === boxId)?.name || 'غير محدد';
-  }, [form, navData?.boxes]);
+  }, [watch, navData?.boxes]);
 
 
   const onSubmit = async (data: FormValues) => {
@@ -148,7 +140,7 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
                     name="amount"
                     control={control}
                     render={({ field }) => (
-                        <AmountInput currency={selectedCurrency} {...field} onValueChange={field.onChange} />
+                        <AmountInput currency={watchedCurrency as Currency} {...field} onValueChange={field.onChange} />
                     )}
                 />
                 {errors.amount && <p className="text-destructive text-sm mt-1">{errors.amount.message}</p>}
@@ -186,5 +178,3 @@ export default function NewStandardReceiptForm({ onVoucherAdded, selectedCurrenc
     </form>
   );
 }
-
-    
