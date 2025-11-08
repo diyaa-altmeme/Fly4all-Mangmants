@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -5,8 +6,7 @@ import type { SegmentEntry, SegmentSettings, Client, Supplier, Currency } from '
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
-import { FieldValue } from 'firebase-admin/firestore';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { FieldValue, type Firestore, type QueryDocumentSnapshot, type DocumentData, type DocumentReference } from 'firebase-admin/firestore';
 import { getFinanceMap } from '@/lib/finance/posting';
@@ -505,7 +505,7 @@ export async function addSegmentEntries(
 
         let periodVoucherId: string | undefined = existingPeriodVoucherId;
 
-        if (totalCompanyShare > 0) {
+        if (totalCompanyShare > 0.001) {
             const periodVoucher = await recordFinancialTransaction({
                 sourceType: SEGMENT_PERIOD_SOURCE_TYPE,
                 sourceId: periodId,
@@ -660,4 +660,5 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 }
 
 export async function updateSegmentEntry(entryId: string, data: any) { return { success: false, error: 'Not implemented' }; }
+
     
