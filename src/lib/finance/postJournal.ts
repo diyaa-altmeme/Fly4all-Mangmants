@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
@@ -30,9 +29,9 @@ export type JournalEntry = {
 export type PostJournalPayload = {
   voucherId?: string;
   invoiceNumber?: string;
-  sourceType: string;          // "tickets" | "visas" | "subscriptions" | "segments" | "exchanges" | "profit-sharing" | ...
+  sourceType: string;
   sourceId: string;
-  date?: number | Date;        // ms | Date
+  date?: number | Date;
   entries?: JournalEntry[];
   meta?: Record<string, any>;
   description?: string;
@@ -98,9 +97,8 @@ async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
     const idsInCollection = accountIds.filter(id => !foundIds.has(id));
     if (idsInCollection.length === 0) continue;
     
-    // Firestore 'in' query is limited to 10 items per request
-    for (let i = 0; i < idsInCollection.length; i += 10) {
-      const chunk = idsInCollection.slice(i, i + 10);
+    for (let i = 0; i < idsInCollection.length; i += 30) {
+      const chunk = idsInCollection.slice(i, i + 30);
       const snapshot = await db.collection(collectionName).where(FieldPath.documentId(), 'in', chunk).get();
       snapshot.forEach((doc: any) => foundIds.add(doc.id));
     }
@@ -216,6 +214,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
     || existingVoucherData?.invoiceNumber
     || await getNextVoucherNumber(payload.sourceType.toUpperCase());
   const voucherCurrency = resolveCurrency(rawEntries);
+  const involvedAccounts = Array.from(new Set(rawEntries.map(e => e.accountId)));
 
   const storedEntries = rawEntries.map((entry) => {
     const debit = Number(entry.debit) || 0;
@@ -248,12 +247,6 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
 
   const ledgerCollection = db.collection('journal-ledger');
   const meta = payload.meta || {};
-  const metaClientId = meta.clientId || meta.client?.id || null;
-  const metaSupplierId = meta.supplierId || meta.supplier?.id || null;
-  const metaPartnerIds: string[] = Array.isArray(meta.partnerIds)
-    ? meta.partnerIds.filter((id: unknown): id is string => typeof id === 'string' && !!id)
-    : (meta.partnerId ? [meta.partnerId] : []);
-  const companyId = meta.companyId || meta.company?.id || null;
 
   const mergedMeta = payload.mergeMeta && existingVoucherData?.meta
     ? { ...existingVoucherData.meta, ...(meta || {}) }
@@ -370,7 +363,6 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
 }
 
 
-// جلب خريطة الربط من الإعدادات (كاش بسيط اختياري)
 let _cache: { at: number; map: NormalizedFinanceAccounts | null } = { at: 0, map: null };
 
 export async function getFinanceMap(): Promise<NormalizedFinanceAccounts> {
