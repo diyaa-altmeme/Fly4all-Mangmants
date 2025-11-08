@@ -1,16 +1,16 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
 import { postJournalEntry, recordFinancialTransaction } from '@/lib/finance/posting';
-import type { SegmentEntry, SegmentSettings, JournalEntry, Client, Supplier } from '@/lib/types';
+import type { SegmentEntry, SegmentSettings, JournalEntry, Client, Supplier, Currency } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getFinanceMap } from '@/lib/finance/posting';
+import { createAuditLog } from '../system/activity-log/actions';
 
 
 // Helper to check for segment access permissions
@@ -110,7 +110,7 @@ export async function addSegmentEntries(
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
             
-            const segmentInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber("COMP");
+            const segmentInvoiceNumber = entryData.invoiceNumber;
             if (!segmentInvoiceNumber) {
                 const companyNameForError = entryData.companyName || `(ID: ${entryData.clientId})`;
                 throw new Error(`رقم الفاتورة مفقود للسجل الخاص بالشركة: ${companyNameForError}.`);
@@ -133,7 +133,7 @@ export async function addSegmentEntries(
             const partnerSharesWithInvoices = await Promise.all(
                 (entryData.partnerShares || []).map(async (p: any) => ({
                     ...p,
-                    partnerInvoiceNumber: p.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER"),
+                    partnerInvoiceNumber: p.partnerInvoiceNumber,
                 }))
             );
 
@@ -358,3 +358,6 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 }
 
 export async function updateSegmentEntry(entryId: string, data: any) { return { success: false, error: 'Not implemented' }; }
+
+
+    
