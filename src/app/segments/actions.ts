@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -93,7 +91,12 @@ export async function addSegmentEntries(
     try {
         const user = await checkSegmentPermission();
         const periodId = periodIdToReplace || db.collection('temp').doc().id;
-        const periodInvoiceNumber = entries[0]?.periodInvoiceNumber || await getNextVoucherNumber('SEG');
+        
+        // This is now passed from the client to ensure consistency
+        const periodInvoiceNumber = entries[0]?.periodInvoiceNumber;
+        if (!periodInvoiceNumber) {
+            throw new Error("Period Invoice Number is required to save entries.");
+        }
         
         if (periodIdToReplace) {
            await deleteSegmentPeriod(periodIdToReplace);
@@ -103,8 +106,9 @@ export async function addSegmentEntries(
             const segmentDocRef = db.collection('segments').doc();
             
             const segmentInvoiceNumber = entryData.invoiceNumber;
-            if (!segmentInvoiceNumber) {
-                throw new Error("Segment invoice number is missing.");
+             if (!segmentInvoiceNumber) {
+                const companyNameForError = entryData.companyName || `(ID: ${entryData.clientId})`;
+                throw new Error(`رقم الفاتورة مفقود للسجل الخاص بالشركة: ${companyNameForError}.`);
             }
 
             const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
@@ -261,6 +265,17 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
             const vouchersSnap = await voucherQuery.get();
             vouchersSnap.forEach(doc => voucherRefsToDelete.push(doc.ref));
         }
+        
+        const deletedVoucherRefsToDelete: FirebaseFirestore.DocumentReference[] = [];
+        if (permanent) {
+            for (let i = 0; i < voucherRefsToDelete.length; i += 30) {
+                const chunkIds = voucherRefsToDelete.slice(i, i+30).map(ref => ref.id);
+                const deletedVouchersQuery = db.collection('deleted-vouchers').where(FieldValue.documentId(), 'in', chunkIds);
+                const deletedVouchersSnap = await deletedVouchersQuery.get();
+                deletedVouchersSnap.forEach(doc => deletedVoucherRefsToDelete.push(doc.ref));
+            }
+        }
+
 
         // --- STEP 2: WRITE (inside transaction) ---
         await db.runTransaction(async (transaction) => {
@@ -279,10 +294,22 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
                     transaction.delete(docRef);
                 } else {
                     transaction.update(docRef, { 
-                        isDeleted: true,
+                        isDeleted: true, 
                         deletedAt: now, 
                         deletedBy: deletedBy 
                     });
+                     const docSnap = await transaction.get(docRef); // Read within transaction is ok if it's for data you will update.
+                     if (docSnap.exists) {
+                         const deletedVoucherRef = db.collection('deleted-vouchers').doc(docRef.id);
+                         transaction.set(deletedVoucherRef, docSnap.data());
+                     }
+                }
+            }
+            
+             // Permanently delete from deleted-vouchers as well
+            if (permanent) {
+                for (const docRef of deletedVoucherRefsToDelete) {
+                    transaction.delete(docRef);
                 }
             }
         });
@@ -343,6 +370,9 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
                     ...updatePayload,
                     status: 'restored',
                 });
+
+                 const deletedVoucherRef = db.collection('deleted-vouchers').doc(docRef.id);
+                 transaction.delete(deletedVoucherRef);
             }
         });
 
