@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -20,6 +19,7 @@ import { createJournalVoucher } from '@/app/accounts/vouchers/journal/actions';
 import { updateVoucher } from '@/app/accounts/vouchers/list/actions';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useVoucherNav } from '@/context/voucher-nav-context';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 
 const entrySchema = z.object({
     accountId: z.string().min(1, "الحساب مطلوب"),
@@ -29,7 +29,7 @@ const entrySchema = z.object({
 
 const formSchema = z.object({
   date: z.date({ required_error: "التاريخ مطلوب" }),
-  currency: z.string().min(1, 'العملة مطلوبة'),
+  currency: z.string().min(1, "العملة مطلوبة"),
   notes: z.string().min(1, "بيان القيد مطلوب"),
   exchangeRate: z.coerce.number().optional(),
   entries: z.array(entrySchema).min(2, "يجب وجود حركتين على الأقل (مدين ودائن).")
@@ -41,7 +41,6 @@ type FormValues = z.infer<typeof formSchema>;
 interface NewJournalVoucherFormProps {
     onVoucherAdded?: (voucher: any) => void;
     onVoucherUpdated?: (voucher: any) => void;
-    selectedCurrency: Currency;
     isEditing?: boolean;
     initialData?: FormValues & { id?: string };
 }
@@ -53,11 +52,11 @@ const AmountInput = ({ ...props }: React.ComponentProps<typeof NumericInput>) =>
 );
 
 
-export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated, isEditing, initialData, selectedCurrency }: NewJournalVoucherFormProps) {
+export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated, isEditing, initialData }: NewJournalVoucherFormProps) {
   
-  const { toast } = useToast();
-  const { user: currentUser } = useAuth();
-  const { data: navData } = useVoucherNav();
+  const { toast } } from '@/hooks/use-toast';
+  const { user: currentUser } } = useAuth();
+  const { data: navData } } = useVoucherNav();
   
   const accountOptions = React.useMemo(() => {
     if (!navData) return [];
@@ -73,7 +72,7 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
     resolver: zodResolver(formSchema),
     defaultValues: isEditing ? initialData : {
       date: new Date(),
-      currency: selectedCurrency,
+      currency: navData?.settings?.currencySettings?.defaultCurrency || 'USD',
       notes: '',
       entries: [
           { accountId: '', debit: 0, credit: 0 },
@@ -82,9 +81,10 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
     },
   });
   
-  const { control, handleSubmit, setValue, watch, register, formState: { errors, isSubmitting }, reset } = form;
+  const { control, handleSubmit, setValue, watch, register, formState: { errors, isSubmitting }, reset } } = form;
+  const watchedCurrency = watch("currency");
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove } } = useFieldArray({
       control,
       name: "entries"
   });
@@ -93,13 +93,6 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
    const totalDebit = watchedEntries.reduce((sum, entry) => sum + (Number(entry.debit) || 0), 0);
    const totalCredit = watchedEntries.reduce((sum, entry) => sum + (Number(entry.credit) || 0), 0);
    const balance = totalDebit - totalCredit;
-
-  useEffect(() => {
-    if (!isEditing) {
-        setValue('currency', selectedCurrency);
-        setValue('entries', [{ accountId: '', debit: undefined, credit: undefined }, { accountId: '', debit: undefined, credit: undefined }] as any);
-    }
-  }, [selectedCurrency, setValue, isEditing]);
 
   const onSubmit = async (data: FormValues) => {
     if (Math.abs(balance) > 0.01) { // Use tolerance for floating point
@@ -151,11 +144,22 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
                     {errors.date && <p className="text-sm text-destructive h-4">{errors.date.message}</p>}
                 </div>
                  <div className="space-y-1.5">
+                    <Label htmlFor="currency">العملة</Label>
+                     <Controller name="currency" control={control} render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    {(navData?.settings?.currencySettings?.currencies || []).map(c => <SelectItem key={c.code} value={c.code}>{c.code}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        )} />
+                </div>
+                 <div className="space-y-1.5 md:col-span-2">
                     <Label htmlFor="notes">البيان / السبب</Label>
                     <Textarea id="notes" placeholder="أضف شرحًا لسبب القيد..." {...register('notes')} />
                     {errors.notes && <p className="text-sm text-destructive h-4">{errors.notes.message}</p>}
                 </div>
-                 {selectedCurrency === 'USD' && (
+                 {watchedCurrency === 'USD' && (
                    <div className="space-y-1.5">
                         <Label htmlFor="exchangeRate">سعر الصرف (مقابل الدينار)</Label>
                          <Controller
@@ -236,5 +240,3 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
     </form>
   );
 }
-
-    

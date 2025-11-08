@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -321,7 +319,6 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
           };
         }
         
-        // This is the new logic for the main subscription entry
         const companyShare = (subscription?.hasPartner && subscription.partnerSharePercentage) ? subscription.profit - (subscription.profit * (subscription.partnerSharePercentage / 100)) : subscription.profit;
         const partnerShare = subscription.profit - companyShare;
         
@@ -359,7 +356,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         };
       }
 
-      if (typeKey === 'segment') {
+      if (typeKey === 'segment' || rawSourceType === 'segment_payout' || rawSourceType === 'segment_revenue') {
         const segmentId = safeMeta.segmentId || sourceId;
         const segment = segmentId ? await fetchDoc('segments', segmentId) : null;
         if (!segment) return null;
@@ -376,6 +373,19 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         const fromLabel = formatDateLabel(segment.fromDate);
         const toLabel = formatDateLabel(segment.toDate);
         const period = [fromLabel, toLabel].filter(Boolean).join(' حتى ');
+        
+        if (rawSourceType === 'segment_payout') {
+             const partnerId = meta.companyId;
+             const partnerData = (segment.partnerShares || []).find((p: any) => p.partnerId === partnerId);
+             if (partnerData) {
+                  return {
+                    description: `دفع حصة الشريك ${partnerData.partnerName} عن سكمنت ${segment.companyName}`,
+                    notes: `فاتورة الشريك: ${partnerData.partnerInvoiceNumber}`,
+                    parties,
+                  }
+             }
+        }
+        
         const structured: StructuredDescription = {
           title: `سكمنت ${segment.companyName}`,
           totalReceived: total ? `الإجمالي: ${total}` : null,
@@ -504,41 +514,6 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       const rawSourceType = v.originalData?.sourceType || v.sourceType || v.voucherType;
       const normalizedType = normalizeVoucherType(rawSourceType || v.voucherType);
       
-      if (normalizedType === 'subscription' && v.originalData?.installments) {
-          const installments = v.originalData.installments as SubscriptionInstallment[];
-          if (installments && Array.isArray(installments)) {
-              installments.forEach((inst, index) => {
-                  const instDate = normalizeToDate(inst.dueDate);
-                  if (!instDate) return;
-                  
-                   if ((dateFrom && instDate < dateFrom) || (dateTo && instDate > dateTo)) {
-                        const openingBalanceAmount = accountId === v.originalData.clientId ? inst.amount : 0;
-                        openingBalances[inst.currency] = (openingBalances[inst.currency] || 0) + openingBalanceAmount;
-                        return;
-                    }
-                  
-                  reportRows.push({
-                      id: `${doc.id}_installment_${index}`,
-                      date: inst.dueDate,
-                      invoiceNumber: v.invoiceNumber, // Use the subscription's invoice number
-                      description: `القسط ${index + 1} من ${installments.length} - ${v.originalData.serviceName}`,
-                      debit: accountId === v.originalData.clientId ? inst.amount : 0,
-                      credit: 0,
-                      currency: inst.currency,
-                      officer: v.officer,
-                      voucherType: 'subscription_installment',
-                      normalizedType: 'subscription',
-                      rawVoucherType: v.voucherType,
-                      sourceType: 'subscription',
-                      sourceId: v.sourceId,
-                      sourceRoute: `/subscriptions?subscription=${v.sourceId}`,
-                      originalData: v.originalData,
-                  });
-              });
-              continue; // Skip the main voucher entry for subscriptions
-          }
-      }
-
       const effectiveSourceId =
         v.originalData?.sourceId || v.sourceId || normalizedMeta?.sourceId || doc.id;
       const invoiceNumber =

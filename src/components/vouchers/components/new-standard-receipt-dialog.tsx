@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -26,7 +25,7 @@ export default function NewStandardReceiptDialog({ onVoucherAdded, children }: N
   const [open, setOpen] = useState(false);
   const { data: navData, loaded: isDataLoaded, fetchData } = useVoucherNav();
   const [dialogDimensions, setDialogDimensions] = useState({ width: '896px', height: '80vh' });
-  
+
   useEffect(() => {
     if (open && !isDataLoaded) {
       fetchData();
