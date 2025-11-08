@@ -80,7 +80,7 @@ export interface JournalEntry {
 }
 
 export interface JournalVoucher {
-  id?: string;
+  id: string;
   invoiceNumber: string;
   date: string;              // تاريخ القيد ISO string
   currency: Currency;        // العملة
@@ -98,6 +98,7 @@ export interface JournalVoucher {
   isConfirmed: boolean;         // تم التأكيد
   isDeleted?: boolean;         // محذوف
   deletedAt?: string;         // تاريخ الحذف
+  deletedBy?: string;
   originalData?: any;         // البيانات الأصلية
   sourceType?: string;        // نوع المصدر
   sourceId?: string;          // معرف المصدر
@@ -394,8 +395,6 @@ export type WhatsappGroupParticipant = {
     name?: string;
 };
 
-export type AccountType = 'group' | 'box' | 'client' | 'supplier' | 'expense' | 'revenue' | 'account' | 'subscription' | 'company' | 'individual' | 'both' | 'exchange' | '';
-
 export type StructuredDescription = {
     title: string;
     totalReceived: string | null;
@@ -473,13 +472,16 @@ export type TreeNode = {
     debit: number;
     credit: number;
     currency?: Currency; // For leaf nodes that have a specific currency
+    isLeaf?: boolean;
 };
 
 // Updated SegmentEntry
 export type SegmentEntry = {
   id: string;
   periodId: string;
+  periodInvoiceNumber: string;
   invoiceNumber: string;
+  entryDate: string;
   fromDate: string;
   toDate: string;
   companyName: string;
@@ -526,6 +528,7 @@ export type SegmentEntry = {
       partnerId: string;
       partnerName: string;
       share: number;
+      partnerInvoiceNumber: string;
   }[];
 };
 
@@ -1027,19 +1030,6 @@ export type DebtsReportData = {
 // This is a placeholder for the schema type.
 export type DistributedReceiptInput = any;
 
-export type JournalEntry = {
-    accountId: string;
-    amount: number;
-    description?: string;
-    debit?: number;
-    credit?: number;
-    currency?: Currency;
-    relationId?: string;
-    companyId?: string;
-    accountType?: string;
-    type?: 'debit' | 'credit';
-}
-
 export type FinancialTransaction = {
   id?: string;
   sourceType: string;
@@ -1053,37 +1043,8 @@ export type FinancialTransaction = {
   reference?: string;
   companyId?: string;
   createdBy?: string;
+  invoiceNumber?: string;
 };
-
-export type JournalVoucher = {
-    id: string;
-    invoiceNumber: string;
-    date: string; // ISO string
-    currency: Currency;
-    exchangeRate: number | null;
-    notes: string;
-    createdBy: string;
-    officer: string;
-    createdAt: string; // ISO string
-    updatedAt: string; // ISO string
-    voucherType: string;
-    voucherTypeLabel?: string;
-    debitEntries: JournalEntry[];
-    creditEntries: JournalEntry[];
-    isAudited: boolean;
-    isConfirmed: boolean;
-    isDeleted?: boolean;
-    deletedAt?: string;
-    originalData?: any; // To store original form data if needed for display
-    sourceType?: string;   // نوع المصدر الأصلي
-    sourceId?: string;     // معرف السجل الأصلي
-    sourceRoute?: string;  // رابط فتح النموذج الأصلي
-};
-
-export type ReceiptVoucher = JournalVoucher; // Now a JournalVoucher
-export type PaymentVoucher = JournalVoucher; // Now a JournalVoucher
-export type ExpenseVoucher = JournalVoucher; // Now a JournalVoucher
-
 
 export type FlyChangeEntry = {
   id: string;
