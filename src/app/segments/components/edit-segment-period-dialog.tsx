@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -25,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { addSegmentEntries, deleteSegmentPeriod } from "@/app/segments/actions";
+import { addSegmentEntries } from "@/app/segments/actions";
 import {
   PlusCircle, Trash2, Percent, Loader2, Ticket, CreditCard, Hotel, Users as GroupsIcon, ArrowDown, Save, Pencil, Building, User as UserIcon, Wallet, Hash, AlertTriangle, CheckCircle, ArrowRight, X,
 } from 'lucide-react';
@@ -34,7 +35,7 @@ import { FormProvider, useForm, useFieldArray, Controller, useWatch, useFormCont
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { Client, Supplier, SegmentSettings, SegmentEntry, PartnerShareSetting, Currency } from '@/lib/types';
-import { DateTimePicker } from "@/components/ui/datetime-picker";
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { useAuth } from '@/lib/auth-context';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -49,7 +50,7 @@ const companyEntrySchema = z.object({
   id: z.string(),
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   clientName: z.string().min(1),
-  invoiceNumber: z.string().min(1, "رقم فاتورة الشركة مطلوب."),
+  invoiceNumber: z.string().optional(),
   tickets: z.coerce.number().int().nonnegative().default(0),
   visas: z.coerce.number().int().nonnegative().default(0),
   hotels: z.coerce.number().int().nonnegative().default(0),
@@ -70,9 +71,9 @@ const partnerSchema = z.object({
   id: z.string(),
   partnerId: z.string().min(1, "اختر شريكاً."),
   partnerName: z.string(),
-  partnerInvoiceNumber: z.string(), // New field
+  partnerInvoiceNumber: z.string().optional(),
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
-  amount: z.coerce.number(), // This field is for calculation display, not direct input
+  amount: z.coerce.number(),
 });
 
 const periodSchema = z.object({
@@ -164,23 +165,9 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     
     const { reset, control, handleSubmit, watch, setValue } = form;
 
-    const generateCompanyInvoiceNumber = useCallback(async () => {
-        try {
-            const compInv = await getNextVoucherNumber("COMP");
-            return compInv;
-        } catch (e) {
-            console.error("Failed to generate invoice number:", e);
-            toast({ title: 'Error', description: 'Failed to generate invoice number.', variant: 'destructive'});
-            return `COMP-${Date.now()}`;
-        }
-    }, [toast]);
-    
-    const resetFormAndGenerateNumber = useCallback(async () => {
-        const defaultValues = { id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage' as const, ticketProfitValue: 50, visaProfitType: 'percentage' as const, visaProfitValue: 100, hotelProfitType: 'percentage' as const, hotelProfitValue: 100, groupProfitType: 'percentage' as const, groupProfitValue: 100 };
-        const newInvoiceNumber = await generateCompanyInvoiceNumber();
-        reset({ ...defaultValues, invoiceNumber: newInvoiceNumber });
-    }, [reset, generateCompanyInvoiceNumber]);
-
+    const resetForm = useCallback(() => {
+        reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage', ticketProfitValue: 50, visaProfitType: 'percentage', visaProfitValue: 100, hotelProfitType: 'percentage', hotelProfitValue: 100, groupProfitType: 'percentage', groupProfitValue: 100 });
+    }, [reset]);
 
     React.useEffect(() => {
         if (editingEntry) {
@@ -188,12 +175,12 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             const initialFormValues = { ...editingEntry, ...companySettings };
             reset(initialFormValues);
         } else {
-             resetFormAndGenerateNumber();
+             resetForm();
         }
-    }, [editingEntry, reset, allCompanyOptions, resetFormAndGenerateNumber]);
+    }, [editingEntry, reset, allCompanyOptions, resetForm]);
 
 
-    useImperativeHandle(ref, () => ({ resetForm: resetFormAndGenerateNumber }), [resetFormAndGenerateNumber]);
+    useImperativeHandle(ref, () => ({ resetForm }), [resetForm]);
 
     const watchAll = watch();
     const currentClientId = watch('clientId');
@@ -238,7 +225,6 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
         
         onAdd({ 
             ...data,
-            invoiceNumber: data.invoiceNumber,
             total: totalProfitForCompany,
             alrawdatainShare: alrawdatainShare,
             partnerShare: partnerShareAmount,
@@ -253,7 +239,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             <div className="space-y-3">
                  <Card className="border rounded-lg shadow-sm border-primary/40">
                     <CardHeader className="p-2 flex flex-row items-center justify-between bg-muted/30">
-                        <CardTitle className="text-base font-semibold">{editingEntry ? `تعديل - فاتورة: ${watch('invoiceNumber')}` : `إدخال شركة - فاتورة: ${watch('invoiceNumber') || '(جاري التوليد...)'}`}</CardTitle>
+                        <CardTitle className="text-base font-semibold">{editingEntry ? `تعديل - فاتورة: ${editingEntry.invoiceNumber}` : `إدخال شركة جديدة`}</CardTitle>
                         <div className='font-mono text-sm text-blue-600 font-bold'>ربح الشركة: {total.toFixed(2)}</div>
                     </CardHeader>
                     <CardContent className="space-y-3 p-3">
@@ -401,7 +387,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+        return clients.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
     }, [clients]);
 
      const partnerOptions = useMemo(() => {
@@ -500,14 +486,18 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         if (editingEntry) {
             const index = summaryFields.findIndex(f => f.id === editingEntry.id);
             if (index > -1) {
-                const updatedEntry = { ...summaryFields[index], ...entryData };
+                // Preserve the original invoice number when updating
+                const updatedEntry = { ...summaryFields[index], ...entryData, invoiceNumber: summaryFields[index].invoiceNumber };
                 update(index, updatedEntry);
             }
             setEditingEntry(null);
         } else {
+            // For new entries, invoiceNumber will be generated on the server, so it's not set here.
             append({ ...entryData, id: uuidv4(), createdBy: currentUser?.name });
         }
+        addCompanyFormRef.current?.resetForm();
     };
+
     
     const handleEditEntry = (index: number) => setEditingEntry(summaryFields[index]);
     
@@ -525,29 +515,21 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
 
         setIsSaving(true);
         try {
-            const periodInvoiceNumber = data.periodInvoiceNumber || await getNextVoucherNumber("SEG");
-
-            const finalEntries = summaryFields.map((entry: any) => {
-                if (!entry.invoiceNumber) {
-                    throw new Error(`رقم الفاتورة مفقود للسجل الخاص بالشركة: ${entry.clientName}.`);
-                }
-                return {
-                    ...entry,
-                    periodInvoiceNumber: periodInvoiceNumber,
-                    entryDate: format(data.entryDate, 'yyyy-MM-dd'),
-                    fromDate: format(data.fromDate!, 'yyyy-MM-dd'),
-                    toDate: format(data.toDate!, 'yyyy-MM-dd'),
-                    currency: data.currency,
-                    hasPartner: data.hasPartner,
-                    alrawdatainSharePercentage: data.alrawdatainSharePercentage,
-                    partnerShares: (data.partners || []).map(p => ({
-                        partnerId: p.partnerId,
-                        partnerName: p.partnerName,
-                        partnerInvoiceNumber: p.partnerInvoiceNumber,
-                        share: (entry.partnerShare * (p.percentage / 100))
-                    }))
-                }
-            });
+            const finalEntries = summaryFields.map((entry: any) => ({
+                ...entry,
+                entryDate: format(data.entryDate, 'yyyy-MM-dd'),
+                fromDate: format(data.fromDate!, 'yyyy-MM-dd'),
+                toDate: format(data.toDate!, 'yyyy-MM-dd'),
+                currency: data.currency,
+                hasPartner: data.hasPartner,
+                alrawdatainSharePercentage: data.alrawdatainSharePercentage,
+                partnerShares: (data.partners || []).map(p => ({
+                    partnerId: p.partnerId,
+                    partnerName: p.partnerName,
+                    partnerInvoiceNumber: p.partnerInvoiceNumber,
+                    share: (entry.partnerShare * (p.percentage / 100))
+                }))
+            }));
             
             const result = await addSegmentEntries(finalEntries as any, existingPeriod?.periodId);
             if (!result.success) throw new Error(result.error);

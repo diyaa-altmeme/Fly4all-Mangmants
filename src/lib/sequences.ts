@@ -96,6 +96,12 @@ export async function getNextVoucherNumber(prefixId: string): Promise<string> {
         currentNumber = (data.value || 0) + 1;
         prefix = data.prefix || prefixId;
         label = data.label || label;
+      } else {
+        const defaultSeq = DEFAULT_SEQUENCES.find(s => s.id === prefixId);
+        if (defaultSeq) {
+          prefix = defaultSeq.prefix;
+          label = defaultSeq.label;
+        }
       }
 
       transaction.set(seqRef, { value: currentNumber, prefix, label }, { merge: true });
@@ -110,3 +116,4 @@ export async function getNextVoucherNumber(prefixId: string): Promise<string> {
     return `${prefixId}-${Date.now().toString().slice(-6)}`;
   }
 }
+
