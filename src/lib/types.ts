@@ -397,10 +397,10 @@ export type WhatsappGroupParticipant = {
 
 export type StructuredDescription = {
     title: string;
-    totalReceived: string | null;
-    selfReceipt: string | null;
-    distributions: { name: string; amount: string }[];
-    notes: string;
+    totalReceived?: string | null;
+    selfReceipt?: string | null;
+    distributions?: { name: string; amount: string }[];
+    notes?: string;
 };
 
 export type ReportTransaction = {
