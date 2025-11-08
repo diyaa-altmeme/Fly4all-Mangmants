@@ -41,6 +41,7 @@ export async function createExpenseVoucher(data: ExpenseVoucherData) {
             description,
             reference: data.notes,
             createdBy: user.uid,
+            invoiceNumber,
         }, {
             actorId: user.uid,
             actorName: user.name,

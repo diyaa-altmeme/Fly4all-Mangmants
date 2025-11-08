@@ -71,13 +71,16 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
         
         const mainDescription = `سند قبض موزع: ${data.details || 'تفاصيل غير مذكورة'}`;
         
+        const invoiceNumber = await getNextVoucherNumber('DS');
+
         const voucherId = await postJournalEntry({
             sourceType: 'distributed_receipt',
             sourceId: `dist-receipt-${Date.now()}`,
             description: mainDescription,
             date: data.date,
             entries: entries,
-            meta: { ...data, details: mainDescription }
+            invoiceNumber,
+            meta: { ...data, details: mainDescription, invoiceNumber }
         });
         
         revalidatePath("/accounts/vouchers/list");
