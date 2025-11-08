@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -92,8 +93,8 @@ export async function addSegmentEntries(
     try {
         const user = await checkSegmentPermission();
         const periodId = periodIdToReplace || db.collection('temp').doc().id;
+        const periodInvoiceNumber = entries[0]?.periodInvoiceNumber || await getNextVoucherNumber('SEG');
         
-        // If editing, delete old data first
         if (periodIdToReplace) {
            await deleteSegmentPeriod(periodIdToReplace);
         }
@@ -101,7 +102,6 @@ export async function addSegmentEntries(
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
             
-            // USE THE INVOICE NUMBER PASSED FROM THE FRONTEND
             const segmentInvoiceNumber = entryData.invoiceNumber;
             if (!segmentInvoiceNumber) {
                 throw new Error("Segment invoice number is missing.");
@@ -109,7 +109,6 @@ export async function addSegmentEntries(
 
             const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
 
-            // Fetch Client and Partner details for accuracy
             const [clientDoc, partnerDoc] = await Promise.all([
                 db.collection('clients').doc(entryData.clientId).get(),
                 entryData.partnerId ? db.collection('clients').doc(entryData.partnerId).get() : Promise.resolve(null),
@@ -120,16 +119,16 @@ export async function addSegmentEntries(
             const client = clientDoc.data() as Client;
             const partner = partnerDoc && partnerDoc.exists ? partnerDoc.data() as Client : null;
 
-            // Recalculate shares on the server to ensure integrity
             const calculatedShares = calculateShares(entryData, client.segmentSettings);
 
             const dataToSave: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
-                ...calculatedShares, // Use server-calculated shares
+                ...calculatedShares,
                 companyName: client.name,
                 partnerId: entryData.hasPartner && partner ? partner.id : '',
                 partnerName: entryData.hasPartner && partner ? partner.name : '',
                 periodId: periodId,
+                periodInvoiceNumber: periodInvoiceNumber,
                 invoiceNumber: segmentInvoiceNumber, 
                 enteredBy: user.name,
                 createdAt: new Date().toISOString(),
@@ -165,7 +164,6 @@ export async function addSegmentEntries(
             for (const share of partnerShares) {
                 if (!share || !share.partnerId || !share.share) continue;
                 
-                // USE THE PARTNER INVOICE NUMBER PASSED FROM THE FRONTEND
                 const partnerInvoiceNumber = share.partnerInvoiceNumber;
                 if (!partnerInvoiceNumber) {
                     throw new Error(`Partner invoice number is missing for partner ${share.partnerName}.`);
@@ -208,6 +206,7 @@ export async function addSegmentEntries(
             const meta = {
               ...dataToSave,
               periodId,
+              periodInvoiceNumber,
               partnerIds: partnerShares.map(p => p.partnerId).filter(Boolean),
             };
 
@@ -366,3 +365,4 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
 
 // Dummy functions to satisfy type requirements in other files temporarily
 export async function updateSegmentEntry(entryId: string, data: any) { return { success: false, error: 'Not implemented' }; }
+

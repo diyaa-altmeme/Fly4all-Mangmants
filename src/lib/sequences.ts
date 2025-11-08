@@ -26,7 +26,7 @@ const DEFAULT_SEQUENCES: Omit<VoucherSequence, 'value'>[] = [
     { id: "VOID", label: "إلغاء (فويد)", prefix: "VOID" },
     { id: "EXT", label: "معاملة بورصة", prefix: "EXT" },
     { id: "EXP", label: "تسديد بورصة", prefix: "EXP" },
-    { id: "SEG", label: "سكمنت", prefix: "SEG" },
+    { id: "SEG", label: "فترة سكمنت", prefix: "SEG" },
     { id: "CL", label: "علاقة (عميل/مورد)", prefix: "CL" },
     { id: "COMP", label: "فاتورة شركة (سكمنت)", prefix: "COMP" },
     { id: "PARTNER", label: "فاتورة شريك (سكمنت)", prefix: "PARTNER" },
