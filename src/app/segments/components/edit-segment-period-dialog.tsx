@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -71,7 +69,7 @@ const partnerSchema = z.object({
   id: z.string(),
   partnerId: z.string().min(1, "اختر شريكاً."),
   partnerName: z.string(),
-  partnerInvoiceNumber: z.string().optional(),
+  partnerInvoiceNumber: z.string(),
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
   amount: z.coerce.number(),
 });
@@ -175,7 +173,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             const initialFormValues = { ...editingEntry, ...companySettings };
             reset(initialFormValues);
         } else {
-             resetForm();
+            resetForm();
         }
     }, [editingEntry, reset, allCompanyOptions, resetForm]);
 
@@ -437,7 +435,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
             partners: partnerData,
             summaryEntries: existingPeriod?.entries || [],
             periodId: existingPeriod?.periodId,
-            periodInvoiceNumber: existingPeriod?.invoiceNumber,
+            periodInvoiceNumber: existingPeriod?.periodInvoiceNumber,
         });
         
         setEditingEntry(null);
@@ -515,20 +513,33 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
 
         setIsSaving(true);
         try {
-            const finalEntries = summaryFields.map((entry: any) => ({
-                ...entry,
-                entryDate: format(data.entryDate, 'yyyy-MM-dd'),
-                fromDate: format(data.fromDate!, 'yyyy-MM-dd'),
-                toDate: format(data.toDate!, 'yyyy-MM-dd'),
-                currency: data.currency,
-                hasPartner: data.hasPartner,
-                alrawdatainSharePercentage: data.alrawdatainSharePercentage,
-                partnerShares: (data.partners || []).map(p => ({
-                    partnerId: p.partnerId,
-                    partnerName: p.partnerName,
-                    partnerInvoiceNumber: p.partnerInvoiceNumber,
-                    share: (entry.partnerShare * (p.percentage / 100))
-                }))
+            const finalEntries = await Promise.all(summaryFields.map(async (entry: any) => {
+                const invoiceNumber = entry.invoiceNumber || await getNextVoucherNumber("COMP");
+                 const partnerSharesWithInvoices = await Promise.all(
+                    (data.partners || []).map(async (p: any) => {
+                        const existingShare = entry.partnerShares?.find((ps:any) => ps.partnerId === p.partnerId);
+                        const partnerInvoiceNumber = existingShare?.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER");
+                        
+                        return {
+                            partnerId: p.partnerId,
+                            partnerName: p.partnerName,
+                            partnerInvoiceNumber: partnerInvoiceNumber,
+                            share: (entry.partnerShare * (p.percentage / 100))
+                        };
+                    })
+                );
+
+                return {
+                    ...entry,
+                    invoiceNumber,
+                    partnerShares: partnerSharesWithInvoices,
+                    entryDate: format(data.entryDate, 'yyyy-MM-dd'),
+                    fromDate: format(data.fromDate!, 'yyyy-MM-dd'),
+                    toDate: format(data.toDate!, 'yyyy-MM-dd'),
+                    currency: data.currency,
+                    hasPartner: data.hasPartner,
+                    alrawdatainSharePercentage: data.alrawdatainSharePercentage,
+                };
             }));
             
             const result = await addSegmentEntries(finalEntries as any, existingPeriod?.periodId);
@@ -606,7 +617,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                     <Pencil className="me-2 h-4 w-4"/> تعديل الفترة
                 </DropdownMenuItem>
             </DialogTrigger>
