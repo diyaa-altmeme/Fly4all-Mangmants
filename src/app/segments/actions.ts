@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -206,6 +207,8 @@ export async function addSegmentEntries(
         if (!financeMap.receivableAccountId) throw new Error("حساب الذمم المدينة غير محدد في الإعدادات.");
         if (!financeMap.clearingAccountId) throw new Error("حساب التسوية غير محدد في الإعدادات.");
         if (!financeMap.revenueMap?.segments) throw new Error("حساب إيرادات السكمنت غير محدد.");
+        if (!financeMap.expenseMap?.partners) throw new Error("حساب مصروفات الشركاء غير محدد.");
+
 
         if (!entries || entries.length === 0) {
             throw new Error('لا توجد سجلات لحفظها.');
@@ -358,14 +361,17 @@ export async function addSegmentEntries(
                         return unified?.creditAccountId === share.partnerId || unified?.debitAccountId === share.partnerId;
                     });
 
+                // The partner's share is a liability for the company.
+                // Debit: Expense account (e.g., Partner Payouts)
+                // Credit: Partner's account (they are owed this money)
                 const partnerVoucher = await recordFinancialTransaction({
                     sourceType: 'segment_payout',
                     sourceId: segmentDocRef.id,
                     date: entryDate,
                     currency: dataToSave.currency,
                     amount: share.share,
-                    debitAccountId: financeMap.clearingAccountId,
-                    creditAccountId: share.partnerId,
+                    debitAccountId: financeMap.expenseMap.partners, // Corrected: Debit expense
+                    creditAccountId: share.partnerId, // Corrected: Credit partner's account
                     description: `تسجيل حصة الشريك ${share.partnerName} عن سكمنت ${dataToSave.companyName}`,
                     companyId: share.partnerId,
                     reference: share.partnerInvoiceNumber,
