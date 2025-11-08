@@ -72,6 +72,9 @@ const VOUCHER_TYPE_ALIASES: Record<string, NormalizedVoucherType> = {
   exchange_adjustment: 'exchange_adjustment',
   exchange_revenue: 'exchange_revenue',
   exchange_expense: 'exchange_expense',
+  segment_period: 'segment',
+  segment_payout: 'segment',
+  exchanges: 'exchange_transaction',
 };
 
 export const VOUCHER_TYPE_LABELS: Record<NormalizedVoucherType, string> = {

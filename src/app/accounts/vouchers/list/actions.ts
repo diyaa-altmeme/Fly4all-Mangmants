@@ -6,6 +6,7 @@ import type { JournalVoucher } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { createAuditLog } from '@/app/system/activity-log/actions';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { softDeleteVoucherRecord } from '@/lib/finance/voucher-lifecycle';
 
 // This function is kept for any potential remaining dependencies,
 // but the main logic is now in log/actions.ts
@@ -53,32 +54,36 @@ export async function deleteVoucher(id: string): Promise<{ success: boolean, err
 
 
   try {
-    const batch = db.batch();
     const voucherRef = db.collection('journal-vouchers').doc(id);
-    
-    // Mark the journal voucher as deleted
-    batch.update(voucherRef, { 
-        isDeleted: true,
-        deletedAt: new Date().toISOString(),
-        deletedBy: user.name,
-    });
-    
     const voucherSnap = await voucherRef.get();
-    if (voucherSnap.exists) {
-        const voucherData = voucherSnap.data() as JournalVoucher;
-        if (voucherData.sourceType && voucherData.sourceId) {
-             const sourceRef = db.collection(`${voucherData.sourceType}s`).doc(voucherData.sourceId);
-             const sourceDoc = await sourceRef.get();
-             if (sourceDoc.exists) {
-                 batch.update(sourceRef, { 
-                    isDeleted: true,
-                    deletedAt: new Date().toISOString(),
-                 });
-             }
+    if (!voucherSnap.exists) {
+        return { success: false, error: 'Voucher not found.' };
+    }
+
+    const voucherData = voucherSnap.data() as JournalVoucher;
+    const deletedAt = new Date().toISOString();
+    const deletedBy = user.name || user.uid;
+
+    await softDeleteVoucherRecord({
+        db,
+        voucherId: id,
+        deletedBy,
+        deletedById: user.uid,
+        deletedAt,
+    });
+
+    if (voucherData.sourceType && voucherData.sourceId) {
+        const sourceCollection = `${voucherData.sourceType}s`;
+        const sourceRef = db.collection(sourceCollection).doc(voucherData.sourceId);
+        const sourceSnap = await sourceRef.get();
+        if (sourceSnap.exists) {
+            await sourceRef.update({
+                isDeleted: true,
+                deletedAt,
+                deletedBy,
+            });
         }
     }
-    
-    await batch.commit();
 
     await createAuditLog({
         userId: user.uid,
