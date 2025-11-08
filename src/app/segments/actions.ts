@@ -1,3 +1,5 @@
+
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -16,12 +18,10 @@ import { createAuditLog } from '../system/activity-log/actions';
 const checkSegmentPermission = async () => {
   const user = await getCurrentUserFromSession();
 
-  // Ensure it's a user and not a client, and they are authenticated.
   if (!user || 'isClient' in user) {
     throw new Error("Access Denied: User not authenticated or does not have required permissions.");
   }
 
-  // Check for the specific permission directly on the user object.
   const hasAccess = user.permissions?.includes('segments:read') || user.role === 'admin';
 
   if (!hasAccess) {
@@ -51,7 +51,6 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
 
     } catch (error) {
         console.error("Error getting segments from Firestore: ", String(error));
-        // Do not throw permission errors, just return empty array. The UI will handle it.
         if (error instanceof Error && error.message.startsWith('Access Denied')) {
              return [];
         }
@@ -75,7 +74,7 @@ function calculateShares(data: any, companySettings?: Partial<SegmentSettings>) 
     const otherProfits = visasProfits + hotelProfits + groupProfits;
     const total = ticketProfits + otherProfits;
     
-    const alrawdatainSharePercentage = data.hasPartner ? data.alrawdatainSharePercentage : 100;
+    const alrawdatainSharePercentage = data.hasPartner ? (data.alrawdatainSharePercentage ?? 50) : 100;
     const alrawdatainShare = total * (alrawdatainSharePercentage / 100);
     const partnerShare = data.hasPartner ? total - alrawdatainShare : 0;
     
@@ -109,12 +108,11 @@ export async function addSegmentEntries(
         for (const entryData of entries) {
             const segmentDocRef = db.collection('segments').doc();
             
-            const segmentInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber("COMP");
-            if (!segmentInvoiceNumber) {
+            const companyInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber("COMP");
+             if (!companyInvoiceNumber) {
                 const companyNameForError = entryData.companyName || `(ID: ${entryData.clientId})`;
                 throw new Error(`رقم الفاتورة مفقود للسجل الخاص بالشركة: ${companyNameForError}.`);
             }
-
             const entryDate = entryData.entryDate ? new Date(entryData.entryDate) : new Date();
 
             const [clientDoc, partnerDoc] = await Promise.all([
@@ -129,24 +127,27 @@ export async function addSegmentEntries(
 
             const calculatedShares = calculateShares(entryData, client.segmentSettings);
             
-            const partnerSharesWithInvoices = await Promise.all(
-                (entryData.partnerShares || []).map(async (p: any) => ({
-                    ...p,
-                    partnerInvoiceNumber: p.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER"),
-                }))
-            );
+             const partnerSharesWithInvoices = await Promise.all(
+                (entryData.partnerShares || []).map(async (p: any) => {
+                    if (!p.partnerId) return null; // Skip if no partner id
+                    return {
+                        ...p,
+                        partnerInvoiceNumber: p.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER"),
+                    };
+                })
+            ).then(results => results.filter(Boolean));
 
 
             const dataToSave: Omit<SegmentEntry, 'id'> = {
                 ...entryData,
                 ...calculatedShares,
-                partnerShares: partnerSharesWithInvoices,
+                partnerShares: partnerSharesWithInvoices as any,
                 companyName: client.name,
                 partnerId: entryData.hasPartner && partner ? partner.id : '',
                 partnerName: entryData.hasPartner && partner ? partner.name : '',
                 periodId: periodId,
                 periodInvoiceNumber: periodInvoiceNumber,
-                invoiceNumber: segmentInvoiceNumber, 
+                invoiceNumber: companyInvoiceNumber, 
                 enteredBy: user.name,
                 createdAt: new Date().toISOString(),
                 isDeleted: false,
@@ -164,7 +165,7 @@ export async function addSegmentEntries(
               creditAccountId: financeMap.clearingAccountId,
               description: `إثبات ربح سكمنت من ${dataToSave.companyName}`,
               companyId: dataToSave.clientId,
-              reference: segmentInvoiceNumber,
+              reference: companyInvoiceNumber,
             }, { actorId: user.uid, actorName: user.name });
 
             for (const share of (dataToSave.partnerShares || [])) {
@@ -326,7 +327,7 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
             });
             
             for (const docRef of voucherRefsToRestore) {
-                transaction.update(doc.ref, {
+                transaction.update(docRef, {
                     ...updatePayload,
                     status: 'restored',
                 });

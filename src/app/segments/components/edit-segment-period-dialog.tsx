@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -167,12 +169,14 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     }, [reset]);
 
     React.useEffect(() => {
+        const defaultValues = { id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage' as const, ticketProfitValue: 50, visaProfitType: 'percentage' as const, visaProfitValue: 100, hotelProfitType: 'percentage' as const, hotelProfitValue: 100, groupProfitType: 'percentage' as const, groupProfitValue: 100 };
+        
         if (editingEntry) {
             const companySettings = editingEntry.clientId ? allCompanyOptions.find(c => c.value === editingEntry.clientId)?.settings : {};
-            const initialFormValues = { ...editingEntry, ...companySettings };
+            const initialFormValues = { ...defaultValues, ...companySettings, ...editingEntry };
             reset(initialFormValues);
         } else {
-            resetForm();
+             resetForm();
         }
     }, [editingEntry, reset, allCompanyOptions, resetForm]);
 
@@ -298,7 +302,7 @@ const SummaryList = ({
                     <TableCell className="font-semibold text-sm">{entry.clientName || "غير محدد"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                         {entry.partnerShares && entry.partnerShares.length > 0
-                            ? entry.partnerShares.map((p: any) => `${p.partnerName} (${p.partnerInvoiceNumber || 'تلقائي'})`).join("، ")
+                            ? entry.partnerShares.map((p: any) => `${p.partnerName} (${p.partnerInvoiceNumber || '(تلقائي)'})`).join("، ")
                             : "لا يوجد شركاء"}
                     </TableCell>
                     <TableCell className="text-center font-mono">{Number(entry.total || 0).toFixed(2)}</TableCell>
@@ -369,7 +373,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        return clients.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
     }, [clients]);
 
      const partnerOptions = useMemo(() => {
@@ -551,13 +555,13 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
              return;
         }
 
-        const partnerInvoiceNumber = editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].partnerInvoiceNumber : await getNextVoucherNumber("PARTNER");
+        const partnerInvoiceNumber = editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].partnerInvoiceNumber : undefined;
 
         const partnerData = {
             id: editingPartnerIndex !== null ? partnerFields[editingPartnerIndex].id : `new-${Date.now()}`,
             partnerId: selectedPartner.value,
             partnerName: selectedPartner.label,
-            partnerInvoiceNumber: partnerInvoiceNumber,
+            partnerInvoiceNumber,
             percentage: newPercentage,
             amount: (amountForPartners * newPercentage) / 100
         };
@@ -659,7 +663,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
                                                     {partnerFields.length === 0 ? (<TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-4">لا يوجد شركاء مضافون بعد</TableCell></TableRow>) :
                                                     (partnerFields.map((d, index) => (
                                                         <TableRow key={d.id}>
-                                                            <TableCell className="font-mono">{d.partnerInvoiceNumber}</TableCell>
+                                                            <TableCell className="font-mono">{d.partnerInvoiceNumber || '(تلقائي)'}</TableCell>
                                                             <TableCell>{d.partnerName}</TableCell>
                                                             <TableCell className="text-center font-mono">{Number(d.percentage).toFixed(2)}%</TableCell>
                                                             <TableCell className="text-center">
@@ -695,7 +699,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
                                 <Button type="submit" disabled={isSaving || summaryFields.length === 0}>
                                     {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                                     <Save className="me-2 h-4 w-4" />
-                                    تحديث الفترة ({summaryFields.length} سجلات)
+                                    تحديث بيانات الفترة ({summaryFields.length} سجلات)
                                 </Button>
                             </div>
                         </DialogFooter>
@@ -705,3 +709,5 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         </Dialog>
     );
 }
+
+    
