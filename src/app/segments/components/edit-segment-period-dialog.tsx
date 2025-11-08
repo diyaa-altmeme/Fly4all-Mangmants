@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -155,7 +156,6 @@ interface AddCompanyToSegmentFormProps {
 
 const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerOptions, editingEntry, onCancelEdit }: AddCompanyToSegmentFormProps, ref) => {
     const { getValues: getPeriodValues } = useFormContext<PeriodFormValues>();
-    const { toast } = useToast();
     
     const form = useForm<CompanyEntryFormValues>({
         resolver: zodResolver(companyEntrySchema),
@@ -164,8 +164,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     const { reset, control, handleSubmit, watch, setValue } = form;
 
     const resetForm = useCallback(async () => {
-        const newInvoiceNumber = await getNextVoucherNumber("COMP");
-        reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: newInvoiceNumber, tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage', ticketProfitValue: 50, visaProfitType: 'percentage', visaProfitValue: 100, hotelProfitType: 'percentage', hotelProfitValue: 100, groupProfitType: 'percentage', groupProfitValue: 100 });
+        reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage', ticketProfitValue: 50, visaProfitType: 'percentage', visaProfitValue: 100, hotelProfitType: 'percentage', hotelProfitValue: 100, groupProfitType: 'percentage', groupProfitValue: 100 });
     }, [reset]);
 
     React.useEffect(() => {
@@ -208,29 +207,11 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
 
         const alrawdatainShare = totalProfitForCompany - partnerShareAmount;
         
-        const partnerSharesWithInvoices = await Promise.all(
-            (partners || []).map(async (p) => {
-                const existingShare = editingEntry?.partnerShares?.find((ps:any) => ps.partnerId === p.partnerId);
-                const partnerInvoiceNumber = existingShare?.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER");
-                
-                return {
-                    partnerId: p.partnerId,
-                    partnerName: p.partnerName,
-                    partnerInvoiceNumber: partnerInvoiceNumber,
-                    share: partnerShareAmount * (p.percentage / 100)
-                };
-            })
-        );
-        
-        const invoiceNumber = data.invoiceNumber || await getNextVoucherNumber("COMP");
-        
         onAdd({ 
             ...data,
-            invoiceNumber: invoiceNumber,
             total: totalProfitForCompany,
             alrawdatainShare: alrawdatainShare,
             partnerShare: partnerShareAmount,
-            partnerShares: partnerSharesWithInvoices
         });
         
         onCancelEdit();
@@ -241,7 +222,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             <div className="space-y-3">
                  <Card className="border rounded-lg shadow-sm border-primary/40">
                     <CardHeader className="p-2 flex flex-row items-center justify-between bg-muted/30">
-                        <CardTitle className="text-base font-semibold">{editingEntry ? `تعديل - فاتورة: ${editingEntry.invoiceNumber}` : `إدخال شركة - فاتورة: ${watch('invoiceNumber') || '(تلقائي)'}`}</CardTitle>
+                        <CardTitle className="text-base font-semibold">{editingEntry ? `تعديل - ${editingEntry.clientName}` : `إدخال شركة جديدة`}</CardTitle>
                         <div className='font-mono text-sm text-blue-600 font-bold'>ربح الشركة: {total.toFixed(2)}</div>
                     </CardHeader>
                     <CardContent className="space-y-3 p-3">
@@ -318,7 +299,7 @@ const SummaryList = ({
                     <TableCell className="font-semibold text-sm">{entry.clientName || "غير محدد"}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                         {entry.partnerShares && entry.partnerShares.length > 0
-                            ? entry.partnerShares.map((p: any) => `${p.partnerName} (${p.partnerInvoiceNumber})`).join("، ")
+                            ? entry.partnerShares.map((p: any) => `${p.partnerName} (${p.partnerInvoiceNumber || 'تلقائي'})`).join("، ")
                             : "لا يوجد شركاء"}
                     </TableCell>
                     <TableCell className="text-center font-mono">{Number(entry.total || 0).toFixed(2)}</TableCell>
@@ -488,6 +469,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         if (editingEntry) {
             const index = summaryFields.findIndex(f => f.id === editingEntry.id);
             if (index > -1) {
+                // Preserve original invoiceNumber if it exists
                 update(index, { ...summaryFields[index], ...entryData, id: summaryFields[index].id, invoiceNumber: summaryFields[index].invoiceNumber });
             }
             setEditingEntry(null);
@@ -513,7 +495,23 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
 
         setIsSaving(true);
         try {
-            const result = await addSegmentEntries(data.summaryEntries as any, isEditing ? existingPeriod?.periodId : undefined);
+            const finalEntries = summaryFields.map((entry: any) => ({
+                ...entry,
+                entryDate: format(data.entryDate, 'yyyy-MM-dd'),
+                fromDate: format(data.fromDate!, 'yyyy-MM-dd'),
+                toDate: format(data.toDate!, 'yyyy-MM-dd'),
+                currency: data.currency,
+                hasPartner: data.hasPartner,
+                alrawdatainSharePercentage: data.alrawdatainSharePercentage,
+                partnerShares: (data.partners || []).map(p => ({
+                    partnerId: p.partnerId,
+                    partnerName: p.partnerName,
+                    partnerInvoiceNumber: p.partnerInvoiceNumber,
+                    share: (entry.partnerShare * (p.percentage / 100))
+                }))
+            }));
+            
+            const result = await addSegmentEntries(finalEntries as any, existingPeriod?.periodId);
             if (!result.success) throw new Error(result.error);
             toast({ title: "تم تحديث بيانات الفترة بنجاح" });
             setOpen(false);
@@ -708,3 +706,4 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         </Dialog>
     );
 }
+
