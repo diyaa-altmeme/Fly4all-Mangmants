@@ -14,6 +14,7 @@ export type Voucher = {
   currency: string;
   voucherType: string;
   normalizedType: string;
+  voucherTypeLabel?: string;
   companyName: string;
   boxName: string;
   officer: string;
@@ -95,6 +96,7 @@ export async function getAllVouchers(
         } else if (data.sourceType === 'segment_revenue') {
              companyName = "إيرادات الروضتين";
         }
+        
 
 
         const boxId = data.originalData?.boxId || data.debitEntries?.find(e => boxes.some(b => b.id === e.accountId))?.accountId || data.creditEntries?.find(e => boxes.some(b => b.id === e.accountId))?.accountId;
