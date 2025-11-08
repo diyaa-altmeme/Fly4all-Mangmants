@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
@@ -196,12 +195,8 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
         if (editingEntry) {
             const companySettings = editingEntry.clientId ? allCompanyOptions.find(c => c.value === editingEntry.clientId)?.settings : {};
             const initialFormValues = { 
-                id: editingEntry.id,
-                clientId: editingEntry.clientId, 
-                clientName: editingEntry.clientName,
-                invoiceNumber: editingEntry.invoiceNumber,
+                ...editingEntry,
                 ...companySettings, 
-                ...editingEntry 
             };
             reset(initialFormValues);
         } else {
@@ -248,12 +243,12 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             (partners || []).map(async (p) => {
                 const existingShare = editingEntry?.partnerShares?.find((ps:any) => ps.partnerId === p.partnerId);
                 const partnerInvoiceNumber = existingShare?.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER");
-                const shareAmount = partnerShareAmount * (p.percentage / 100);
+                
                 return {
                     partnerId: p.partnerId,
                     partnerName: p.partnerName,
                     partnerInvoiceNumber: partnerInvoiceNumber,
-                    share: shareAmount,
+                    share: partnerShareAmount * (p.percentage / 100)
                 };
             })
         );
@@ -335,7 +330,7 @@ const SummaryList = ({
                 <TableRow>
                 <TableHead className="text-center">رقم فاتورة الشركة</TableHead>
                 <TableHead>الشركة المصدرة للسكمنت</TableHead>
-                <TableHead>الشركاء (مع أرقام فواتيرهم)</TableHead>
+                <TableHead>الشركاء (مع أرقام فواتيرهم)</</TableHead>
                 <TableHead className="text-center">إجمالي المبلغ</TableHead>
                 <TableHead className="text-center">حصة الروضتين</TableHead>
                 <TableHead className="text-center">حصة الشركاء</TableHead>
@@ -422,7 +417,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+        return clients.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
     }, [clients]);
 
      const partnerOptions = useMemo(() => {
@@ -517,32 +512,20 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         return amountForPartners * (value / 100);
     }, [currentPercentage, amountForPartners]);
 
-    const handleAddOrUpdateEntry = async (entryData: any) => {
-        const companyInvoiceNumber = entryData.invoiceNumber || await getNextVoucherNumber("COMP");
-        const partnerSharesWithInvoices = await Promise.all(
-            (getValues('partners') || []).map(async (p: any) => {
-                const existingShare = editingEntry?.partnerShares?.find((ps:any) => ps.partnerId === p.partnerId);
-                const partnerInvoiceNumber = existingShare?.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER");
-                const shareAmount = (entryData.partnerShare * (p.percentage / 100));
-                return {
-                    partnerId: p.partnerId,
-                    partnerName: p.partnerName,
-                    partnerInvoiceNumber: partnerInvoiceNumber,
-                    share: shareAmount,
-                };
-            })
-        );
-        
-        const finalEntryData = { ...entryData, invoiceNumber: companyInvoiceNumber, partnerShares: partnerSharesWithInvoices };
-
+    const handleAddOrUpdateEntry = (entryData: any) => {
         if (editingEntry) {
             const index = summaryFields.findIndex(f => f.id === editingEntry.id);
-            if (index > -1) update(index, { ...summaryFields[index], ...finalEntryData, id: summaryFields[index].id });
+            if (index > -1) {
+                const updatedEntry = { ...summaryFields[index], ...entryData, invoiceNumber: editingEntry.invoiceNumber };
+                update(index, updatedEntry);
+            }
             setEditingEntry(null);
         } else {
-            append({ ...finalEntryData, id: uuidv4(), createdBy: currentUser?.name });
+            append({ ...entryData, id: uuidv4(), createdBy: currentUser?.name });
         }
+        addCompanyFormRef.current?.resetForm();
     };
+
     
     const handleEditEntry = (index: number) => setEditingEntry(summaryFields[index]);
     
@@ -667,7 +650,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
                         <div className="flex-grow overflow-y-auto -mx-6 px-6 space-y-6 pb-4">
                             <Collapsible defaultOpen={true} className="p-4 border rounded-lg space-y-6 bg-background/50">
                                <CollapsibleTrigger asChild>
-                                  <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</h3>
+                                  <h3 className="font-semibold text-base cursor-pointer">الفترة وتوزيع الحصص</ h3>
                                </CollapsibleTrigger>
                                <CollapsibleContent className="space-y-6">
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
