@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -206,7 +207,6 @@ export async function addSegmentEntries(
     }
 }
 
-
 export async function deleteSegmentPeriod(periodId: string, permanent: boolean = false): Promise<{ success: boolean; error?: string; count: number; }> {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available.", count: 0 };
@@ -215,33 +215,37 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
         const now = new Date().toISOString();
         const deletedBy = user.name || user.uid;
 
-        await db.runTransaction(async (transaction) => {
-            const segmentsQuery = db.collection('segments').where('periodId', '==', periodId);
-            const segmentsSnap = await transaction.get(segmentsQuery);
-            if (segmentsSnap.empty) {
-                return { count: 0 };
-            }
-            
-            const segmentIds = segmentsSnap.docs.map(doc => doc.id);
-            const voucherRefsToDelete: FirebaseFirestore.DocumentReference[] = [];
+        // === READ PHASE ===
+        const segmentsQuery = db.collection('segments').where('periodId', '==', periodId);
+        const segmentsSnap = await segmentsQuery.get();
+        if (segmentsSnap.empty) {
+            return { count: 0, success: true };
+        }
+        
+        const segmentIds = segmentsSnap.docs.map(doc => doc.id);
+        const voucherRefsToDelete: FirebaseFirestore.DocumentReference[] = [];
 
-            for (let i = 0; i < segmentIds.length; i += 30) {
-                const chunk = segmentIds.slice(i, i + 30);
-                const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
-                const vouchersSnap = await transaction.get(voucherQuery);
-                vouchersSnap.forEach(doc => voucherRefsToDelete.push(doc.ref));
-            }
-            
-            const deletedVoucherRefsToDelete: FirebaseFirestore.DocumentReference[] = [];
-            if (permanent) {
-                for (let i = 0; i < voucherRefsToDelete.length; i += 30) {
-                    const chunkIds = voucherRefsToDelete.slice(i, i+30).map(ref => ref.id);
+        for (let i = 0; i < segmentIds.length; i += 30) {
+            const chunk = segmentIds.slice(i, i + 30);
+            const voucherQuery = db.collection('journal-vouchers').where('sourceId', 'in', chunk);
+            const vouchersSnap = await voucherQuery.get();
+            vouchersSnap.forEach(doc => voucherRefsToDelete.push(doc.ref));
+        }
+
+        const deletedVoucherRefsToDelete: FirebaseFirestore.DocumentReference[] = [];
+        if (permanent) {
+            for (let i = 0; i < voucherRefsToDelete.length; i += 30) {
+                const chunkIds = voucherRefsToDelete.slice(i, i+30).map(ref => ref.id);
+                if (chunkIds.length > 0) {
                     const deletedVouchersQuery = db.collection('deleted-vouchers').where(FieldValue.documentId(), 'in', chunkIds);
-                    const deletedVouchersSnap = await transaction.get(deletedVouchersQuery);
+                    const deletedVouchersSnap = await deletedVouchersQuery.get();
                     deletedVouchersSnap.forEach(doc => deletedVoucherRefsToDelete.push(doc.ref));
                 }
             }
-            
+        }
+        
+        // === WRITE PHASE ===
+        await db.runTransaction(async (transaction) => {
             segmentsSnap.docs.forEach(doc => {
                 if (permanent) {
                     transaction.delete(doc.ref);
@@ -254,20 +258,20 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
                 if (permanent) {
                     transaction.delete(docRef);
                 } else {
-                    transaction.update(docRef, { 
-                        isDeleted: true, 
-                        deletedAt: now, 
-                        deletedBy: deletedBy 
-                    });
-                     const docSnap = await transaction.get(docRef);
-                     if (docSnap.exists) {
-                         const deletedVoucherRef = db.collection('deleted-vouchers').doc(docRef.id);
-                         transaction.set(deletedVoucherRef, docSnap.data());
-                     }
+                    const docSnap = await transaction.get(docRef); // Read inside transaction before write
+                    if (docSnap.exists) {
+                        transaction.update(docRef, { 
+                            isDeleted: true, 
+                            deletedAt: now, 
+                            deletedBy: deletedBy 
+                        });
+                        const deletedVoucherRef = db.collection('deleted-vouchers').doc(docRef.id);
+                        transaction.set(deletedVoucherRef, docSnap.data()!);
+                    }
                 }
             }
             
-             if (permanent) {
+            if (permanent) {
                 for (const docRef of deletedVoucherRefsToDelete) {
                     transaction.delete(docRef);
                 }
@@ -276,7 +280,7 @@ export async function deleteSegmentPeriod(periodId: string, permanent: boolean =
 
         revalidatePath('/segments');
         revalidatePath('/system/deleted-log');
-        return { success: true, count: 1 };
+        return { success: true, count: segmentsSnap.size };
     } catch (error: any) {
         console.error("Error deleting segment period: ", String(error));
         return { success: false, error: error.message || "Failed to delete segment period.", count: 0 };
@@ -330,10 +334,7 @@ export async function restoreSegmentPeriod(periodId: string): Promise<{ success:
                 });
 
                  const deletedVoucherRef = db.collection('deleted-vouchers').doc(docRef.id);
-                 transaction.set(deletedVoucherRef, {
-                    restoredAt,
-                    restoredBy,
-                }, { merge: true });
+                 transaction.delete(deletedVoucherRef);
             }
         });
 
