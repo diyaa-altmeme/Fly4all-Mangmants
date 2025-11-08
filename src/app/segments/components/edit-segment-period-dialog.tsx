@@ -163,8 +163,9 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     
     const { reset, control, handleSubmit, watch, setValue } = form;
 
-    const resetForm = useCallback(() => {
-        reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage', ticketProfitValue: 50, visaProfitType: 'percentage', visaProfitValue: 100, hotelProfitType: 'percentage', hotelProfitValue: 100, groupProfitType: 'percentage', groupProfitValue: 100 });
+    const resetForm = useCallback(async () => {
+        const newInvoiceNumber = await getNextVoucherNumber("COMP");
+        reset({ id: uuidv4(), clientId: "", clientName: "", invoiceNumber: newInvoiceNumber, tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage', ticketProfitValue: 50, visaProfitType: 'percentage', visaProfitValue: 100, hotelProfitType: 'percentage', hotelProfitValue: 100, groupProfitType: 'percentage', groupProfitValue: 100 });
     }, [reset]);
 
     React.useEffect(() => {
@@ -221,8 +222,11 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             })
         );
         
+        const invoiceNumber = data.invoiceNumber || await getNextVoucherNumber("COMP");
+        
         onAdd({ 
             ...data,
+            invoiceNumber: invoiceNumber,
             total: totalProfitForCompany,
             alrawdatainShare: alrawdatainShare,
             partnerShare: partnerShareAmount,
@@ -237,7 +241,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
             <div className="space-y-3">
                  <Card className="border rounded-lg shadow-sm border-primary/40">
                     <CardHeader className="p-2 flex flex-row items-center justify-between bg-muted/30">
-                        <CardTitle className="text-base font-semibold">{editingEntry ? `تعديل - فاتورة: ${editingEntry.invoiceNumber}` : `إدخال شركة جديدة`}</CardTitle>
+                        <CardTitle className="text-base font-semibold">{editingEntry ? `تعديل - فاتورة: ${editingEntry.invoiceNumber}` : `إدخال شركة - فاتورة: ${watch('invoiceNumber') || '(تلقائي)'}`}</CardTitle>
                         <div className='font-mono text-sm text-blue-600 font-bold'>ربح الشركة: {total.toFixed(2)}</div>
                     </CardHeader>
                     <CardContent className="space-y-3 p-3">
@@ -385,7 +389,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        return clients.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
     }, [clients]);
 
      const partnerOptions = useMemo(() => {
@@ -484,18 +488,14 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
         if (editingEntry) {
             const index = summaryFields.findIndex(f => f.id === editingEntry.id);
             if (index > -1) {
-                // Preserve the original invoice number when updating
-                const updatedEntry = { ...summaryFields[index], ...entryData, invoiceNumber: summaryFields[index].invoiceNumber };
-                update(index, updatedEntry);
+                update(index, { ...summaryFields[index], ...entryData, id: summaryFields[index].id, invoiceNumber: summaryFields[index].invoiceNumber });
             }
             setEditingEntry(null);
         } else {
-            // For new entries, invoiceNumber will be generated on the server, so it's not set here.
             append({ ...entryData, id: uuidv4(), createdBy: currentUser?.name });
         }
         addCompanyFormRef.current?.resetForm();
     };
-
     
     const handleEditEntry = (index: number) => setEditingEntry(summaryFields[index]);
     
@@ -513,36 +513,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
 
         setIsSaving(true);
         try {
-            const finalEntries = await Promise.all(summaryFields.map(async (entry: any) => {
-                const invoiceNumber = entry.invoiceNumber || await getNextVoucherNumber("COMP");
-                 const partnerSharesWithInvoices = await Promise.all(
-                    (data.partners || []).map(async (p: any) => {
-                        const existingShare = entry.partnerShares?.find((ps:any) => ps.partnerId === p.partnerId);
-                        const partnerInvoiceNumber = existingShare?.partnerInvoiceNumber || await getNextVoucherNumber("PARTNER");
-                        
-                        return {
-                            partnerId: p.partnerId,
-                            partnerName: p.partnerName,
-                            partnerInvoiceNumber: partnerInvoiceNumber,
-                            share: (entry.partnerShare * (p.percentage / 100))
-                        };
-                    })
-                );
-
-                return {
-                    ...entry,
-                    invoiceNumber,
-                    partnerShares: partnerSharesWithInvoices,
-                    entryDate: format(data.entryDate, 'yyyy-MM-dd'),
-                    fromDate: format(data.fromDate!, 'yyyy-MM-dd'),
-                    toDate: format(data.toDate!, 'yyyy-MM-dd'),
-                    currency: data.currency,
-                    hasPartner: data.hasPartner,
-                    alrawdatainSharePercentage: data.alrawdatainSharePercentage,
-                };
-            }));
-            
-            const result = await addSegmentEntries(finalEntries as any, existingPeriod?.periodId);
+            const result = await addSegmentEntries(data.summaryEntries as any, isEditing ? existingPeriod?.periodId : undefined);
             if (!result.success) throw new Error(result.error);
             toast({ title: "تم تحديث بيانات الفترة بنجاح" });
             setOpen(false);
