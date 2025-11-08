@@ -116,4 +116,3 @@ export async function getNextVoucherNumber(prefixId: string): Promise<string> {
     return `${prefixId}-${Date.now().toString().slice(-6)}`;
   }
 }
-
