@@ -3,7 +3,7 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import { postJournalEntry, recordFinancialTransaction } from '@/lib/finance/posting';
+import { postJournalEntry } from '@/lib/finance/postJournal';
 import type { SegmentEntry, SegmentSettings, JournalEntry, Client, Supplier, Currency } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
@@ -12,6 +12,7 @@ import { getNextVoucherNumber } from '@/lib/sequences';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getFinanceMap } from '@/lib/finance/posting';
 import { createAuditLog } from '../system/activity-log/actions';
+import { recordFinancialTransaction } from '@/lib/finance/financial-transactions';
 
 
 // Helper to check for segment access permissions
@@ -22,6 +23,7 @@ const checkSegmentPermission = async () => {
     throw new Error("Access Denied: User not authenticated or does not have required permissions.");
   }
 
+  // Assuming a 'segments:read' or a generic 'admin' role permission
   const hasAccess = user.permissions?.includes('segments:read') || user.role === 'admin';
 
   if (!hasAccess) {
@@ -37,6 +39,7 @@ const checkSegmentPermission = async () => {
 
 export async function getSegments(includeDeleted = false): Promise<SegmentEntry[]> {
     try {
+        await checkSegmentPermission();
         const db = await getDb();
         if (!db) return [];
         
@@ -47,10 +50,13 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
         
         const allSegments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SegmentEntry));
 
+        // Filter in application code
         return allSegments.filter(s => !!s.isDeleted === includeDeleted);
 
     } catch (error) {
         console.error("Error getting segments from Firestore: ", String(error));
+        // Avoid re-throwing the error to prevent crashing the entire page.
+        // Return an empty array and let the UI handle the error message.
         if (error instanceof Error && error.message.startsWith('Access Denied')) {
              return [];
         }
@@ -61,6 +67,7 @@ export async function getSegments(includeDeleted = false): Promise<SegmentEntry[
 function calculateShares(data: any, companySettings?: Partial<SegmentSettings>) {
     const settings = companySettings || {};
     
+    // Helper function to compute profit for a service based on its type (fixed or percentage)
     const computeService = (count: number, type: 'fixed' | 'percentage', value: number) => {
       if (!count || !value) return 0;
       return type === 'fixed' ? count * value : count * (value / 100);
@@ -155,6 +162,7 @@ export async function addSegmentEntries(
             
             await segmentDocRef.set(dataToSave);
             
+            // قيد إثبات الدين على الشركة المصدرة مقابل حساب التسوية
             await recordFinancialTransaction({
               sourceType: 'segment',
               sourceId: segmentDocRef.id,
@@ -168,6 +176,7 @@ export async function addSegmentEntries(
               reference: companyInvoiceNumber,
             }, { actorId: user.uid, actorName: user.name });
 
+            // إنشاء سندات دفع لحصص الشركاء
             for (const share of (dataToSave.partnerShares || [])) {
                 if (!share || !share.partnerId || !share.share) continue;
                 
@@ -177,14 +186,15 @@ export async function addSegmentEntries(
                     date: entryDate,
                     currency: dataToSave.currency,
                     amount: share.share,
-                    debitAccountId: share.partnerId,
-                    creditAccountId: user.boxId!,
+                    debitAccountId: share.partnerId, // The partner's account is debited
+                    creditAccountId: user.boxId!,    // Paid from our cash/bank
                     description: `دفع حصة الشريك ${share.partnerName} عن سكمنت ${dataToSave.companyName}`,
                     companyId: share.partnerId,
                     reference: share.partnerInvoiceNumber,
                 }, { actorId: user.uid, actorName: user.name });
             }
 
+            // قيد إثبات حصة الروضتين كإيراد
              if (dataToSave.alrawdatainShare > 0) {
                  await recordFinancialTransaction({
                     sourceType: 'segment_revenue',
@@ -192,8 +202,8 @@ export async function addSegmentEntries(
                     date: entryDate,
                     currency: dataToSave.currency,
                     amount: dataToSave.alrawdatainShare,
-                    debitAccountId: financeMap.clearingAccountId,
-                    creditAccountId: financeMap.revenueMap.segments,
+                    debitAccountId: financeMap.clearingAccountId, // Debit the clearing account
+                    creditAccountId: financeMap.revenueMap.segments, // Credit our revenue account
                     description: `تسجيل حصة الشركة من ربح سكمنت ${dataToSave.companyName}`,
                 }, { actorId: user.uid, actorName: user.name });
             }
