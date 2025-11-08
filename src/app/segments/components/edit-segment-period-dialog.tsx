@@ -49,7 +49,7 @@ const companyEntrySchema = z.object({
   id: z.string(),
   clientId: z.string().min(1, { message: "اسم الشركة مطلوب." }),
   clientName: z.string().min(1),
-  invoiceNumber: z.string(), // Added for pre-generation
+  invoiceNumber: z.string().optional(),
   tickets: z.coerce.number().int().nonnegative().default(0),
   visas: z.coerce.number().int().nonnegative().default(0),
   hotels: z.coerce.number().int().nonnegative().default(0),
@@ -70,9 +70,9 @@ const partnerSchema = z.object({
   id: z.string(),
   partnerId: z.string().min(1, "اختر شريكاً."),
   partnerName: z.string(),
-  partnerInvoiceNumber: z.string(),
+  partnerInvoiceNumber: z.string(), // New field
   percentage: z.coerce.number().min(0, "النسبة يجب أن تكون موجبة.").max(100, "النسبة لا تتجاوز 100."),
-  amount: z.coerce.number(),
+  amount: z.coerce.number(), // This field is for calculation display, not direct input
 });
 
 const periodSchema = z.object({
@@ -164,7 +164,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
     const { reset, control, handleSubmit, watch, setValue } = form;
 
     const generateCompanyInvoiceNumber = useCallback(async () => {
-        const compInv = await getNextVoucherNumber("COMP");
+        const compInv = await getNextVoucherNumber("SEG");
         setCompanyInvoiceNumber(compInv);
         return compInv;
     }, []);
@@ -173,7 +173,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
         const defaultValues = { id: uuidv4(), clientId: "", clientName: "", invoiceNumber: "", tickets: 0, visas: 0, hotels: 0, groups: 0, notes: "", ticketProfitType: 'percentage' as const, ticketProfitValue: 50, visaProfitType: 'percentage' as const, visaProfitValue: 100, hotelProfitType: 'percentage' as const, hotelProfitValue: 100, groupProfitType: 'percentage' as const, groupProfitValue: 100 };
         
         if (editingEntry) {
-             const companySettings = editingEntry.clientId ? allCompanyOptions.find(c => c.value === editingEntry.clientId)?.settings : {};
+            const companySettings = editingEntry.clientId ? allCompanyOptions.find(c => c.value === editingEntry.clientId)?.settings : {};
             const initialFormValues = { ...defaultValues, ...companySettings, ...editingEntry };
             reset(initialFormValues);
             setCompanyInvoiceNumber(editingEntry.invoiceNumber);
@@ -232,7 +232,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
         
         onAdd({ 
             ...data,
-            invoiceNumber: data.invoiceNumber || await getNextVoucherNumber("COMP"), // Ensure invoice number exists
+            invoiceNumber: data.invoiceNumber || await getNextVoucherNumber("SEG"), // Ensure invoice number exists
             total: totalProfitForCompany,
             alrawdatainShare: alrawdatainShare,
             partnerShare: partnerShareAmount,
@@ -252,7 +252,7 @@ const AddCompanyToSegmentForm = forwardRef(({ onAdd, allCompanyOptions, partnerO
                         <div className='font-mono text-sm text-blue-600 font-bold'>ربح الشركة: {total.toFixed(2)}</div>
                     </CardHeader>
                     <CardContent className="space-y-3 p-3">
-                        <Controller control={control} name="clientId" render={({ field, fieldState }) => (<div className="space-y-1"><Label>الجهة المصدرة للسكمنت</Label><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث/اختر..."/><p className="text-xs text-destructive h-3">{fieldState.error?.message}</p></div>)} />
+                        <Controller control={control} name="clientId" render={({ field, fieldState }) => (<div className="space-y-1"><Label>الشركة المصدرة للسكمنت</Label><Autocomplete options={allCompanyOptions} value={field.value} onValueChange={field.onChange} placeholder="ابحث/اختر..."/><p className="text-xs text-destructive h-3">{fieldState.error?.message}</p></div>)} />
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                             <ServiceLine label="تذاكر" icon={Ticket} color="primary" countField="tickets" typeField="ticketProfitType" valueField="ticketProfitValue" />
@@ -396,13 +396,11 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const watchedPeriod = watch();
     
     const allCompanyOptions = useMemo(() => {
-        const allRelations = [...(clients || []), ...(suppliers || [])];
-        const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
-        return uniqueRelations.map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
-    }, [clients, suppliers]);
+        return clients.filter(c => c.type === 'company').map(c => ({ value: c.id, label: c.name, settings: c.segmentSettings }));
+    }, [clients]);
 
      const partnerOptions = useMemo(() => {
-        const allRelations = [...(clients || []), ...(suppliers || [])];
+        const allRelations = [...clients, ...suppliers];
         const uniqueRelations = Array.from(new Map(allRelations.map(item => [item.id, item])).values());
         return uniqueRelations.map(r => {
             let labelPrefix = '';
@@ -416,31 +414,45 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     const currencyOptions = useMemo(() => navData?.settings?.currencySettings?.currencies || [], [navData]);
     const boxName = useMemo(() => (currentUser && 'role' in currentUser && currentUser.boxId) ? navData?.boxes?.find(b => b.id === currentUser.boxId)?.name || 'غير محدد' : 'غير محدد', [currentUser, navData?.boxes]);
 
+    const { activeStep, goToNextStep, goToPreviousStep, resetSteps, isDisabledStep, isLastStep } = useStepper({
+        initialStep: 0,
+        steps: [{label: 'الفترة'}, {label: 'الشركات'}, {label: 'التوزيع'}, {label: 'حفظ'}]
+    });
+
 
     useEffect(() => {
         if (open) {
+            const hasPartners = existingPeriod?.entries?.[0]?.hasPartner || false;
+            const alrawdatainShare = existingPeriod?.entries?.[0]?.alrawdatainSharePercentage;
+
+            const partnerData: PartnerShare[] = (existingPeriod?.entries?.[0]?.partnerShares || []).map((p: any) => {
+                const totalPartnerShare = existingPeriod.entries[0]?.partnerShare || 1; // Avoid division by zero
+                return {
+                    id: p.partnerId,
+                    partnerId: p.partnerId,
+                    partnerName: p.partnerName,
+                    partnerInvoiceNumber: p.partnerInvoiceNumber,
+                    percentage: (p.share / totalPartnerShare) * 100,
+                    amount: p.share,
+                };
+            });
+
             resetForm({
                 fromDate: existingPeriod?.fromDate ? parseISO(existingPeriod.fromDate) : null,
                 toDate: existingPeriod?.toDate ? parseISO(existingPeriod.toDate) : null,
                 entryDate: new Date(),
                 currency: existingPeriod?.entries?.[0]?.currency || navData?.settings?.currencySettings?.defaultCurrency || 'USD',
-                hasPartner: existingPeriod?.entries?.[0] ? existingPeriod.entries[0].hasPartner : false,
-                alrawdatainSharePercentage: existingPeriod?.entries?.[0] ? existingPeriod.entries[0].alrawdatainSharePercentage : 100,
-                partners: (existingPeriod?.entries?.[0]?.partnerShares || []).map((p: any) => ({
-                    id: p.partnerId,
-                    partnerId: p.partnerId,
-                    partnerName: p.partnerName,
-                    partnerInvoiceNumber: p.partnerInvoiceNumber || '',
-                    percentage: (p.share / (existingPeriod.entries[0]?.partnerShare || 1)) * 100, 
-                    amount: p.share
-                })),
-                summaryEntries: existingPeriod?.entries.map((e: SegmentEntry) => ({...e})) || [],
+                hasPartner: hasPartners,
+                alrawdatainSharePercentage: alrawdatainShare ?? (hasPartners ? 50 : 100),
+                partners: partnerData,
+                summaryEntries: existingPeriod?.entries || [],
                 periodId: existingPeriod?.periodId,
             });
            
             setEditingEntry(null);
+            resetSteps();
         }
-    }, [open, isEditing, existingPeriod, resetForm, navData]);
+    }, [open, isEditing, existingPeriod, resetForm, navData, resetSteps]);
     
     const grandTotalProfit = useMemo(() => (summaryFields || []).reduce((sum, e) => sum + (e.total || 0), 0), [summaryFields]);
     
@@ -480,8 +492,8 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
     }, [currentPercentage, amountForPartners]);
 
     const handleAddOrUpdateEntry = async (entryData: any) => {
-        // If editing, use existing invoice numbers. If adding, generate new ones.
-        const invoiceNumber = editingEntry?.invoiceNumber || await getNextVoucherNumber("COMP");
+        const invoiceNumber = editingEntry?.invoiceNumber || await getNextVoucherNumber("SEG");
+        
         const partnerSharesWithInvoices = await Promise.all(
             (getValues('partners') || []).map(async (p: any) => {
                 const existingShare = editingEntry?.partnerShares?.find((ps:any) => ps.partnerId === p.partnerId);
@@ -500,7 +512,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
 
         if (editingEntry) {
             const index = summaryFields.findIndex(f => f.id === editingEntry.id);
-            if (index > -1) update(index, { ...summaryFields[index], ...finalEntryData });
+            if (index > -1) update(index, { ...summaryFields[index], ...finalEntryData, id: summaryFields[index].id });
             setEditingEntry(null);
         } else {
             append({ ...finalEntryData, id: uuidv4(), createdBy: currentUser?.name });
@@ -725,7 +737,7 @@ export default function EditSegmentPeriodDialog({ clients, suppliers, onSuccess,
                                 <Button type="submit" disabled={isSaving || summaryFields.length === 0}>
                                     {isSaving && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
                                     <Save className="me-2 h-4 w-4" />
-                                    تحديث الفترة ({summaryFields.length} سجلات)
+                                    تحديث بيانات الفترة ({summaryFields.length} سجلات)
                                 </Button>
                             </div>
                         </DialogFooter>
