@@ -529,7 +529,11 @@ export type SegmentEntry = {
       partnerName: string;
       share: number;
       partnerInvoiceNumber: string;
+      voucherId?: string;
   }[];
+  companyVoucherId?: string;
+  revenueVoucherId?: string;
+  periodVoucherId?: string;
 };
 
 export type RemittanceDistributionColumn = {

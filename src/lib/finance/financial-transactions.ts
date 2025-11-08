@@ -13,6 +13,8 @@ export interface RecordFinancialTransactionOptions {
   auditTargetType?: string;
   auditTargetId?: string;
   skipAuditLog?: boolean;
+  voucherId?: string;
+  metaMergeStrategy?: 'merge' | 'replace';
 }
 
 export interface FinancialTransactionResult {
@@ -76,6 +78,7 @@ export async function recordFinancialTransaction(
   });
 
   const voucherId = await postJournalEntry({
+    voucherId: options.voucherId,
     sourceType: transaction.sourceType,
     sourceId,
     date: resolvedDate,
@@ -99,6 +102,7 @@ export async function recordFinancialTransaction(
       },
     ],
     meta: unifiedMeta,
+    mergeMeta: options.metaMergeStrategy !== 'replace',
   });
 
   if (!options.skipAuditLog) {

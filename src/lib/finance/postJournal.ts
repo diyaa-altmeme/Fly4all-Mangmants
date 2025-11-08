@@ -28,6 +28,7 @@ export type JournalEntry = {
 };
 
 export type PostJournalPayload = {
+  voucherId?: string;
   invoiceNumber?: string;
   sourceType: string;          // "tickets" | "visas" | "subscriptions" | "segments" | "exchanges" | "profit-sharing" | ...
   sourceId: string;
@@ -41,6 +42,7 @@ export type PostJournalPayload = {
   amount?: number;
   currency?: Currency;
   userId?: string;
+  mergeMeta?: boolean;
 };
 
 const DEFAULT_LEDGER_CURRENCY: Currency = 'USD';
@@ -203,8 +205,16 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
   }
 
   const now = Timestamp.now();
-  const voucherRef = db.collection('journal-vouchers').doc();
-  const voucherNumber = payload.invoiceNumber || await getNextVoucherNumber(payload.sourceType.toUpperCase());
+  const voucherRef = payload.voucherId
+    ? db.collection('journal-vouchers').doc(payload.voucherId)
+    : db.collection('journal-vouchers').doc();
+
+  const existingVoucherSnap = payload.voucherId ? await voucherRef.get() : null;
+  const existingVoucherData = existingVoucherSnap?.exists ? existingVoucherSnap.data() as any : null;
+
+  const voucherNumber = payload.invoiceNumber
+    || existingVoucherData?.invoiceNumber
+    || await getNextVoucherNumber(payload.sourceType.toUpperCase());
   const voucherCurrency = resolveCurrency(rawEntries);
 
   const storedEntries = rawEntries.map((entry) => {
@@ -233,8 +243,8 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
       ? new Date(payload.date).toISOString()
       : new Date().toISOString();
 
-  const createdBy = payload.meta?.createdBy || postingUser?.uid || 'system';
-  const officer = payload.meta?.officer || postingUser?.name || 'system';
+  const createdBy = existingVoucherData?.createdBy || payload.meta?.createdBy || postingUser?.uid || 'system';
+  const officer = existingVoucherData?.officer || payload.meta?.officer || postingUser?.name || 'system';
 
   const ledgerCollection = db.collection('journal-ledger');
   const meta = payload.meta || {};
@@ -245,8 +255,18 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
     : (meta.partnerId ? [meta.partnerId] : []);
   const companyId = meta.companyId || meta.company?.id || null;
 
+  const mergedMeta = payload.mergeMeta && existingVoucherData?.meta
+    ? { ...existingVoucherData.meta, ...(meta || {}) }
+    : (meta || null);
+
   await db.runTransaction(async (transaction) => {
-    transaction.set(voucherRef, {
+    let ledgerDocsToDelete: FirebaseFirestore.QueryDocumentSnapshot[] = [];
+    if (payload.voucherId) {
+      const ledgerSnap = await transaction.get(ledgerCollection.where('voucherId', '==', voucherRef.id));
+      ledgerDocsToDelete = ledgerSnap.docs;
+    }
+
+    const baseVoucherData: any = {
       id: voucherRef.id,
       invoiceNumber: voucherNumber,
       date: voucherDate,
@@ -254,16 +274,16 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
       notes: payload.description || '',
       createdBy,
       officer,
-      createdAt: now,
+      createdAt: existingVoucherData?.createdAt || now,
       updatedAt: now,
       voucherType: `journal_from_${payload.sourceType}`,
       sourceType: payload.sourceType,
       sourceId: payload.sourceId,
       debitEntries,
       creditEntries,
-      isAudited: false,
-      isConfirmed: true,
-      meta: meta || null,
+      isAudited: existingVoucherData?.isAudited ?? false,
+      isConfirmed: existingVoucherData?.isConfirmed ?? true,
+      meta: mergedMeta,
       entries: storedEntries.map(entry => {
         const e: any = {
           accountId: entry.accountId,
@@ -282,10 +302,21 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
       originalData: {
         sourceType: payload.sourceType,
         sourceId: payload.sourceId,
-        meta: meta || null,
+        meta: mergedMeta,
       },
       isDeleted: false,
-    } as any);
+      status: payload.voucherId ? 'updated' : (existingVoucherData?.status || 'posted'),
+    };
+
+    if (payload.voucherId) {
+      transaction.update(voucherRef, baseVoucherData);
+    } else {
+      transaction.set(voucherRef, baseVoucherData);
+    }
+
+    for (const doc of ledgerDocsToDelete) {
+      transaction.delete(doc.ref);
+    }
 
     for (const entry of storedEntries) {
       const ledgerRef = ledgerCollection.doc();
@@ -302,7 +333,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
         currency: entry.currency,
         relationId,
         companyId: companyId || entry.companyId || null,
-        createdAt: now,
+        createdAt: existingVoucherData?.createdAt || now,
         updatedAt: now,
         isDeleted: false,
         deletedAt: null,
