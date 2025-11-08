@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
@@ -15,8 +16,8 @@ import { postJournalEntry } from "@/lib/finance/postJournal";
 
 export async function createDistributedVoucher(data: DistributedReceiptInput) {
     const user = await getCurrentUserFromSession();
-    if (!user || !('role' in user)) {
-        return { success: false, error: "User not authenticated." };
+    if (!user || !('role' in user) || !user.boxId) {
+        return { success: false, error: "User not authenticated or box not assigned." };
     }
 
     try {
@@ -73,7 +74,7 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
         
         const invoiceNumber = await getNextVoucherNumber('DS');
 
-        const voucherId = await postJournalEntry({
+        const { voucherId } = await postJournalEntry({
             sourceType: 'distributed_receipt',
             sourceId: `dist-receipt-${Date.now()}`,
             description: mainDescription,
@@ -95,9 +96,6 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
 }
 
 export async function updateDistributedVoucher(voucherId: string, data: DistributedReceiptInput) {
-    // This is complex because it requires reversing the old journal entry
-    // and creating a new one. For now, we just update the originalData for reference.
-    // A more robust implementation would require a full ledger adjustment.
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     await db.collection('journal-vouchers').doc(voucherId).update({
@@ -108,3 +106,4 @@ export async function updateDistributedVoucher(voucherId: string, data: Distribu
      revalidatePath("/accounts/vouchers/list");
     return { success: true };
 }
+
