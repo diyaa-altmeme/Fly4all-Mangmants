@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Calendar } from "@/components/ui/calendar";
@@ -36,6 +37,7 @@ import { useEffect, useMemo } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { format } from 'date-fns';
 
 interface DatePickerProps {
   date: Date | undefined;
@@ -49,7 +51,7 @@ function DatePicker({ date, setDate }: DatePickerProps) {
         <Button
           variant={"outline"}
           className={cn(
-            "w-[280px] justify-start text-left font-normal",
+            "w-full justify-start text-left font-normal",
             !date && "text-muted-foreground"
           )}
         >
@@ -80,7 +82,7 @@ const accountTypes = [
     { value: 'relation', label: 'حساب عميل/مورد' },
     { value: 'box', label: 'الصندوق' },
     { value: 'exchange', label: 'الصرافة' },
-    { value: 'static', label: 'حساب ثابت' },
+    { value: 'static', label: 'حساب عام' },
     { value: 'expense', label: 'مصروف' },
 ];
 
@@ -93,83 +95,73 @@ const relationKinds = [
 
 interface ReportFiltersProps {
     accounts: { value: string; label: string; }[];
-    vouchers: { value: string; label: string; }[];
-    onChange: (filters: any) => void;
+    vouchers: { id: string; label: string, group: string, icon: React.ElementType }[];
+    officers: string[];
+    currencies: { code: string; label: string; symbol?: string }[];
+    filters: any;
+    onFiltersChange: (filters: any) => void;
 }
 
-export default function ReportFilters({ accounts, vouchers, onChange }: ReportFiltersProps) {
-    const { watch, setValue } = useFormContext<any>();
+export default function ReportFilters({ accounts, vouchers, officers, currencies, filters, onFiltersChange }: ReportFiltersProps) {
+    const { watch, setValue, register, getValues } = useFormContext();
 
-    const accountId = watch('accountId') || '';
-    const accountType = watch('accountType');
-    const relationKind = watch('relationKind');
-    const voucherType = watch('voucherType') || [];
-    const dateFrom = watch('dateFrom');
-    const dateTo = watch('dateTo');
-    const includeDeleted = watch('includeDeleted');
-    const showOpeningBalance = watch('showOpeningBalance');
-
-    const [localAccountId, setLocalAccountId] = React.useState(accountId);
-    const [localAccountType, setLocalAccountType] = React.useState(accountType);
-    const [localRelationKind, setLocalRelationKind] = React.useState(relationKind);
-    const [localVoucherType, setLocalVoucherType] = React.useState<string[]>(voucherType);
-    const [localDateFrom, setLocalDateFrom] = React.useState(dateFrom);
-    const [localDateTo, setLocalDateTo] = React.useState(dateTo);
-    const [localIncludeDeleted, setLocalIncludeDeleted] = React.useState(includeDeleted);
-    const [localShowOpeningBalance, setLocalShowOpeningBalance] = React.useState(showOpeningBalance);
-    
-    const debouncedAccountId = useDebounce(localAccountId, 300);
-    const debouncedAccountType = useDebounce(localAccountType, 300);
-    const debouncedRelationKind = useDebounce(localRelationKind, 300);
-    const debouncedVoucherType = useDebounce(localVoucherType, 300);
-    const debouncedDateFrom = useDebounce(localDateFrom, 300);
-    const debouncedDateTo = useDebounce(localDateTo, 300);
-    const debouncedIncludeDeleted = useDebounce(localIncludeDeleted, 300);
-    const debouncedShowOpeningBalance = useDebounce(localShowOpeningBalance, 300);
+    const debouncedSearchTerm = useDebounce(filters.searchTerm, 300);
 
     useEffect(() => {
-        setValue('accountId', debouncedAccountId, { shouldValidate: true });
-        setValue('accountType', debouncedAccountType, { shouldValidate: true });
-        setValue('relationKind', debouncedRelationKind, { shouldValidate: true });
-        setValue('voucherType', debouncedVoucherType, { shouldValidate: true });
-        setValue('dateFrom', debouncedDateFrom, { shouldValidate: true });
-        setValue('dateTo', debouncedDateTo, { shouldValidate: true });
-        setValue('includeDeleted', debouncedIncludeDeleted, { shouldValidate: true });
-        setValue('showOpeningBalance', debouncedShowOpeningBalance, { shouldValidate: true });
-    }, [debouncedAccountId, debouncedAccountType, debouncedRelationKind, debouncedVoucherType, debouncedDateFrom, debouncedDateTo, debouncedIncludeDeleted, debouncedShowOpeningBalance, setValue]);
-
-    useEffect(() => {
-        const filters = {
-            accountId: debouncedAccountId,
-            accountType: debouncedAccountType,
-            relationKind: debouncedRelationKind,
-            voucherType: debouncedVoucherType,
-            dateFrom: debouncedDateFrom,
-            dateTo: debouncedDateTo,
-            includeDeleted: debouncedIncludeDeleted,
-            showOpeningBalance: debouncedShowOpeningBalance,
-        };
-        onChange(filters);
-    }, [debouncedAccountId, debouncedAccountType, debouncedRelationKind, debouncedVoucherType, debouncedDateFrom, debouncedDateTo, debouncedIncludeDeleted, debouncedShowOpeningBalance, onChange]);
+        const currentFilters = getValues();
+        if(!isEqual(filters, currentFilters)) {
+            onChange(currentFilters);
+        }
+    }, [watch, onChange]);
 
 
     const toggleVoucherType = (value: string) => {
-        setLocalVoucherType((prev) => {
-            const isSelected = prev.includes(value);
-            return isSelected ? prev.filter((v) => v !== value) : [...prev, value];
-        });
+        const currentSet = new Set<string>(filters.typeFilter);
+        if (currentSet.has(value)) {
+            currentSet.delete(value);
+        } else {
+            currentSet.add(value);
+        }
+        onFiltersChange({ ...filters, typeFilter: currentSet });
     };
 
+    const handleSelectAll = (group: string) => {
+        const groupFilters = vouchers.filter(v => v.group === group).map(v => v.id);
+        const currentSet = new Set(filters.typeFilter);
+        const areAllSelected = groupFilters.every(f => currentSet.has(f));
+        
+        if (areAllSelected) {
+            groupFilters.forEach(f => currentSet.delete(f));
+        } else {
+            groupFilters.forEach(f => currentSet.add(f));
+        }
+        onFiltersChange({ ...filters, typeFilter: currentSet });
+    }
+
+    const accountType = watch('accountType');
+
+    const onChange = (newValues: any) => {
+      onFiltersChange({ ...filters, ...newValues });
+    };
+
+    const basicFilters = vouchers.filter(v => v.group === 'basic');
+    const otherFilters = vouchers.filter(v => v.group === 'other');
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-4">
             <div className="space-y-2">
-                <Label>الحساب</Label>
-                <Autocomplete options={accounts} value={localAccountId} onValueChange={setLocalAccountId} placeholder="ابحث عن حساب..." />
+                <Label className="font-semibold">الحساب</Label>
+                 <Autocomplete 
+                    options={accounts} 
+                    value={filters.accountId} 
+                    onValueChange={(v) => onChange({ accountId: v })}
+                    placeholder="ابحث عن حساب..."
+                />
             </div>
             
              <div className="space-y-2">
-                <Label>نوع الحساب</Label>
-                <Select onValueChange={setLocalAccountType} value={localAccountType}>
+                <Label className="font-semibold">نوع الحساب</Label>
+                <Select onValueChange={(v) => onChange({ accountType: v })} value={accountType}>
                     <SelectTrigger>
                         <SelectValue placeholder="اختر نوع الحساب" />
                     </SelectTrigger>
@@ -182,70 +174,130 @@ export default function ReportFilters({ accounts, vouchers, onChange }: ReportFi
                     </SelectContent>
                 </Select>
             </div>
+            
+            <div className="space-y-2">
+                <Label className="font-semibold">الفترة الزمنية</Label>
+                 <div className="grid grid-cols-2 gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("justify-start text-left font-normal h-9", !filters.dateRange?.from && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : <span>من تاريخ</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={filters.dateRange?.from} onSelect={(d) => onChange({ dateRange: { ...filters.dateRange, from: d } })} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                     <Popover>
+                        <PopoverTrigger asChild>
+                             <Button variant="outline" className={cn("justify-start text-left font-normal h-9", !filters.dateRange?.to && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : <span>إلى تاريخ</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={filters.dateRange?.to} onSelect={(d) => onChange({ dateRange: { ...filters.dateRange, to: d } })} initialFocus />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+            </div>
 
-            {localAccountType === 'relation' && (
-                <div className="space-y-2">
-                    <Label>نوع العلاقة</Label>
-                    <Select onValueChange={setLocalRelationKind} value={localRelationKind}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="اختر نوع العلاقة" />
-                        </SelectTrigger>
+            <div className="space-y-2">
+                <Label className="font-semibold">نوع الحركة</Label>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start h-9">
+                            {filters.typeFilter.size > 0 
+                                ? `${filters.typeFilter.size} نوع محدد`
+                                : 'اختر نوع الحركة'
+                            }
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-0">
+                        <Command>
+                            <CommandList>
+                                <CommandGroup heading="الحركات الأساسية">
+                                    <CommandItem onSelect={() => handleSelectAll('basic')} className="font-bold cursor-pointer">تحديد/إلغاء الكل</CommandItem>
+                                    {basicFilters.map((voucher) => (
+                                         <React.Fragment key={voucher.id}>
+                                            <CommandItem onSelect={() => toggleVoucherType(voucher.id)}>
+                                                <div className="flex items-center justify-between w-full">
+                                                    <div className="flex items-center gap-2">
+                                                        <voucher.icon className="h-4 w-4"/>
+                                                        {voucher.label}
+                                                    </div>
+                                                    <Checkbox
+                                                        checked={filters.typeFilter.has(voucher.id)}
+                                                        className="ml-2.5"
+                                                    />
+                                                </div>
+                                            </CommandItem>
+                                        </React.Fragment>
+                                    ))}
+                                </CommandGroup>
+                                <CommandSeparator />
+                                <CommandGroup heading="الحركات الأخرى">
+                                     <CommandItem onSelect={() => handleSelectAll('other')} className="font-bold cursor-pointer">تحديد/إلغاء الكل</CommandItem>
+                                    {otherFilters.map((voucher) => (
+                                         <React.Fragment key={voucher.id}>
+                                            <CommandItem onSelect={() => toggleVoucherType(voucher.id)}>
+                                                <div className="flex items-center justify-between w-full">
+                                                    <div className="flex items-center gap-2">
+                                                         <voucher.icon className="h-4 w-4"/>
+                                                         {voucher.label}
+                                                    </div>
+                                                    <Checkbox
+                                                        checked={filters.typeFilter.has(voucher.id)}
+                                                        className="ml-2.5"
+                                                    />
+                                                </div>
+                                            </CommandItem>
+                                        </React.Fragment>
+                                    ))}
+                                </CommandGroup>
+                            </CommandList>
+                        </Command>
+                    </PopoverContent>
+                </Popover>
+            </div>
+            
+             <div className="space-y-2">
+                <Label className="font-semibold">خيارات إضافية</Label>
+                <div className="grid grid-cols-2 gap-2">
+                    <Select value={filters.currency} onValueChange={(v) => onChange({currency: v})}>
+                        <SelectTrigger><SelectValue/></SelectTrigger>
                         <SelectContent>
-                            {relationKinds.map((kind) => (
-                                <SelectItem key={kind.value} value={kind.value}>
-                                    {kind.label}
-                                </SelectItem>
-                            ))}
+                            <SelectItem value="both">كل العملات</SelectItem>
+                            {currencies.map(c => <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                     <Select value={filters.direction} onValueChange={(v) => onChange({direction: v})}>
+                        <SelectTrigger><SelectValue/></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">كل الحركات</SelectItem>
+                            <SelectItem value="debit">مدينة (Debits)</SelectItem>
+                            <SelectItem value="credit">دائنة (Credits)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
-            )}
-
-            <div className="space-y-2">
-                <Label>نوع السند</Label>
-                <Command>
-                    <CommandInput placeholder="ابحث عن نوع السند..." />
-                    <CommandList className="max-h-56">
-                        <CommandEmpty>لا يوجد أنواع سندات.</CommandEmpty>
-                        <CommandGroup heading="أنواع السندات">
-                            {vouchers.map((voucher) => (
-                                <CommandItem key={voucher.value} onSelect={() => toggleVoucherType(voucher.value)}>
-                                    <div className="flex items-center justify-between">
-                                        {voucher.label}
-                                        <Checkbox
-                                            checked={localVoucherType.includes(voucher.value)}
-                                            className="ml-2.5"
-                                            onCheckedChange={() => toggleVoucherType(voucher.value)}
-                                        />
-                                    </div>
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </div>
-
-            <div className="space-y-2">
-                <Label>من تاريخ</Label>
-                <DatePicker date={localDateFrom} setDate={setLocalDateFrom} />
-            </div>
-
-            <div className="space-y-2">
-                <Label>إلى تاريخ</Label>
-                <DatePicker date={localDateTo} setDate={setLocalDateTo} />
-            </div>
-            
-            <div className="flex items-center space-x-2">
-                <Checkbox id="include-deleted" checked={localIncludeDeleted} onCheckedChange={setLocalIncludeDeleted} />
-                <label htmlFor="include-deleted" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
-                    تضمين المحذوفات
-                </label>
-            </div>
-             <div className="flex items-center space-x-2">
-                <Checkbox id="show-opening-balance" checked={localShowOpeningBalance} onCheckedChange={setLocalShowOpeningBalance} />
-                <label htmlFor="show-opening-balance" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
-                    إظهار الرصيد الافتتاحي
-                </label>
+                 <Select value={filters.officer} onValueChange={(v) => onChange({officer: v})}>
+                    <SelectTrigger><SelectValue placeholder="كل الموظفين"/></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">كل الموظفين</SelectItem>
+                        {officers.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <div className="flex items-center justify-between gap-2">
+                    <Input placeholder="أدنى مبلغ" value={filters.minAmount} onChange={e => onChange({minAmount: e.target.value})} type="number" />
+                    <Input placeholder="أقصى مبلغ" value={filters.maxAmount} onChange={e => onChange({maxAmount: e.target.value})} type="number" />
+                </div>
+                 <div className="flex items-center space-x-2 space-x-reverse pt-2">
+                    <Checkbox id="show-opening-balance" checked={filters.showOpeningBalance} onCheckedChange={(c) => onChange({ showOpeningBalance: !!c })} />
+                    <Label htmlFor="show-opening-balance" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
+                        إظهار الرصيد الافتتاحي
+                    </Label>
+                </div>
             </div>
         </div>
     );
