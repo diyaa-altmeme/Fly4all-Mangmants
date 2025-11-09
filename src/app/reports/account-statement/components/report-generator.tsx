@@ -23,29 +23,12 @@ import * as XLSX from "xlsx";
 import ReportTable from "@/app/reports/account-statement/components/report-table";
 import ReportFilters from "@/app/reports/account-statement/components/report-filters";
 import ReportSummary from "@/app/reports/account-statement/components/report-summary";
-import ReportInsights from "@/app/reports/account-statement/components/report-insights";
-import ReportTimeline from "@/app/reports/account-statement/components/report-timeline";
-import type {
-  Box,
-  Client,
-  Supplier,
-  Currency,
-  Exchange,
-  ReportTransaction,
-  ReportInfo,
-  ReportCurrencySummary,
-} from "@/lib/types";
-import type { NormalizedVoucherType } from "@/lib/accounting/voucher-types";
-import { normalizeVoucherType } from "@/lib/accounting/voucher-types";
+import type { Box, Client, Supplier, ReportInfo, Currency, Exchange, ReportTransaction } from "@/lib/types";
 import { useAuth } from "@/lib/auth-context";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -59,6 +42,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { mapVoucherLabel } from "@/lib/accounting/labels";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ReportInsights from "./report-insights";
+import ReportTimeline from "./report-timeline";
 import { FormProvider, useForm } from "react-hook-form";
 
 interface ReportGeneratorProps {
@@ -74,7 +59,7 @@ type ReportFiltersState = {
   dateRange: DateRange | undefined;
   searchTerm: string;
   currency: Currency | "both";
-  typeFilter: Set<NormalizedVoucherType>;
+  typeFilter: Set<string>;
   direction: "all" | "debit" | "credit";
   officer: "all" | string;
   minAmount: string;
@@ -94,63 +79,6 @@ const amountForTransaction = (tx: ReportTransaction): number => {
   return Math.abs(tx.balance || 0);
 };
 
-const buildReportSummary = (
-  transactions: ReportTransaction[],
-  openingBalances: Record<string, number>,
-  currency: Currency | "both",
-  supportedCurrencies: string[],
-  currencyMetadata: Record<string, { name?: string; symbol?: string }>
-): ReportInfo => {
-
-  const summaryMap = new Map<string, ReportCurrencySummary>();
-
-  // Initialize with opening balances for all supported currencies
-  supportedCurrencies.forEach(code => {
-    summaryMap.set(code, {
-      currency: code,
-      label: currencyMetadata[code]?.name || code,
-      symbol: currencyMetadata[code]?.symbol,
-      openingBalance: openingBalances[code] || 0,
-      totalDebit: 0,
-      totalCredit: 0,
-      finalBalance: openingBalances[code] || 0,
-    });
-  });
-
-  // Process transactions
-  transactions.forEach((tx) => {
-    const curr = tx.currency || "USD";
-    const entry = summaryMap.get(curr)!;
-    entry.totalDebit += tx.debit || 0;
-    entry.totalCredit += tx.credit || 0;
-    entry.finalBalance = (tx.balancesByCurrency?.[curr] ?? tx.balance ?? entry.finalBalance);
-  });
-  
-  const currencyBreakdown = Array.from(summaryMap.values());
-  const getValue = (code: string, key: keyof ReportCurrencySummary) => {
-    const found = currencyBreakdown.find((entry) => entry.currency === code);
-    return found ? Number(found[key] || 0) : 0;
-  };
-
-
-  return {
-    title: "كشف الحساب",
-    transactions,
-    openingBalanceUSD: getValue("USD", "openingBalance"),
-    openingBalanceIQD: getValue("IQD", "openingBalance"),
-    totalDebitUSD: getValue("USD", "totalDebit"),
-    totalCreditUSD: getValue("USD", "totalCredit"),
-    finalBalanceUSD: getValue("USD", "finalBalance"),
-    totalDebitIQD: getValue("IQD", "totalDebit"),
-    totalCreditIQD: getValue("IQD", "totalCredit"),
-    finalBalanceIQD: getValue("IQD", "finalBalance"),
-    currency,
-    accountType: "asset",
-    balanceMode: "asset",
-    currencyBreakdown,
-  };
-};
-
 export default function ReportGenerator({
   boxes = [],
   clients = [],
@@ -160,7 +88,6 @@ export default function ReportGenerator({
 }: ReportGeneratorProps) {
   const [report, setReport] = useState<ReportInfo | null>(null);
   const [transactions, setTransactions] = useState<ReportTransaction[]>([]);
-  const [openingBalances, setOpeningBalances] = useState<Record<string, number>>({});
   const { data: navData } = useVoucherNav();
   const formMethods = useForm<ReportFiltersState>({
     defaultValues: {
@@ -168,7 +95,7 @@ export default function ReportGenerator({
       dateRange: createDefaultDateRange(),
       searchTerm: "",
       currency: "both",
-      typeFilter: new Set<NormalizedVoucherType>(),
+      typeFilter: new Set<string>(),
       direction: "all",
       officer: "all",
       minAmount: "",
@@ -242,7 +169,7 @@ export default function ReportGenerator({
   );
   
   useEffect(() => {
-    formMethods.setValue('typeFilter', new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id as NormalizedVoucherType)));
+    formMethods.setValue('typeFilter', new Set(allFilters.map((filter) => filter.id)));
   }, [allFilters, formMethods]);
 
   const officerOptions = useMemo(() => {
@@ -256,7 +183,8 @@ export default function ReportGenerator({
   }, [transactions]);
 
   const handleGenerateReport = useCallback(async () => {
-    if (!filters.accountId) {
+    const formFilters = formMethods.getValues();
+    if (!formFilters.accountId) {
       toast({
         title: "خطأ",
         description: "الرجاء اختيار حساب.",
@@ -266,38 +194,86 @@ export default function ReportGenerator({
     }
     setIsLoading(true);
     setTransactions([]);
-    setOpeningBalances({});
+    setReport(null);
     setError(null);
 
-    const accountType = filters.accountId.startsWith('expense_') ? 'expense'
-      : filters.accountId.startsWith('revenue_') ? 'revenue'
-      : clients.some(c => c.id === filters.accountId) ? 'relation'
-      : suppliers.some(s => s.id === filters.accountId) ? 'relation'
-      : boxes.some(b => b.id === filters.accountId) ? 'box'
-      : exchanges.some(ex => ex.id === filters.accountId) ? 'exchange'
+    const accountType = formFilters.accountId.startsWith('expense_') ? 'expense'
+      : formFilters.accountId.startsWith('revenue_') ? 'revenue'
+      : clients.some(c => c.id === formFilters.accountId) ? 'relation'
+      : suppliers.some(s => s.id === formFilters.accountId) ? 'relation'
+      : boxes.some(b => b.id === formFilters.accountId) ? 'box'
+      : exchanges.some(ex => ex.id === formFilters.accountId) ? 'exchange'
       : 'static';
-
-    const relationKind = clients.some(c => c.id === filters.accountId) ? 'client' :
-                         suppliers.some(s => s.id === filters.accountId) ? 'supplier' : undefined;
+    
+    const relationKind = clients.some(c => c.id === formFilters.accountId) ? 'client' :
+                         suppliers.some(s => s.id === formFilters.accountId) ? 'supplier' : undefined;
 
     try {
       const { transactions: data, openingBalances: ob } = await getAccountStatement({
-        accountId: filters.accountId,
-        dateFrom: filters.dateRange?.from,
-        dateTo: filters.dateRange?.to,
-        voucherType: Array.from(filters.typeFilter),
+        accountId: formFilters.accountId,
+        dateFrom: formFilters.dateRange?.from,
+        dateTo: formFilters.dateRange?.to,
+        voucherType: Array.from(formFilters.typeFilter),
         accountType,
         relationKind,
         includeDeleted: false,
       });
 
       setTransactions(data || []);
-      setOpeningBalances(ob || {});
+
+      const currencyMetadata: Record<string, { name?: string; symbol?: string }> = {};
+      const allCurrencies = new Set<string>();
+      
+      navData?.settings?.currencySettings?.currencies.forEach(c => {
+          currencyMetadata[c.code] = { name: c.name, symbol: c.symbol };
+          allCurrencies.add(c.code);
+      });
+      
+      data.forEach(tx => allCurrencies.add(tx.currency));
+
+      const currencyBreakdown = Array.from(allCurrencies).map(code => {
+          let balance = ob?.[code] || 0;
+          const txsForCurrency = data.filter(tx => tx.currency === code);
+          const totalDebit = txsForCurrency.reduce((sum, tx) => sum + (tx.debit || 0), 0);
+          const totalCredit = txsForCurrency.reduce((sum, tx) => sum + (tx.credit || 0), 0);
+          
+          txsForCurrency.forEach(tx => {
+              balance += (tx.debit || 0) - (tx.credit || 0);
+          });
+
+          return {
+              currency: code,
+              label: currencyMetadata[code]?.name || code,
+              symbol: currencyMetadata[code]?.symbol || code,
+              openingBalance: ob?.[code] || 0,
+              totalDebit: totalDebit,
+              totalCredit: totalCredit,
+              finalBalance: balance,
+          }
+      });
+      
+      setReport({
+        title: 'كشف حساب',
+        transactions: data,
+        openingBalanceUSD: ob?.USD || 0,
+        openingBalanceIQD: ob?.IQD || 0,
+        totalDebitUSD: currencyBreakdown.find(b => b.currency === 'USD')?.totalDebit || 0,
+        totalCreditUSD: currencyBreakdown.find(b => b.currency === 'USD')?.totalCredit || 0,
+        finalBalanceUSD: currencyBreakdown.find(b => b.currency === 'USD')?.finalBalance || 0,
+        totalDebitIQD: currencyBreakdown.find(b => b.currency === 'IQD')?.totalDebit || 0,
+        totalCreditIQD: currencyBreakdown.find(b => b.currency === 'IQD')?.totalCredit || 0,
+        finalBalanceIQD: currencyBreakdown.find(b => b.currency === 'IQD')?.finalBalance || 0,
+        currency: formFilters.currency,
+        accountType: 'asset',
+        balanceMode: 'asset',
+        currencyBreakdown
+      });
+
       setLastRefreshedAt(new Date().toISOString());
     } catch (error: any) {
       setError(error.message);
       setTransactions([]);
-      setOpeningBalances({});
+      setReport(null);
       if (!error.message.startsWith("FIRESTORE_INDEX_URL::")) {
         toast({
           title: "فشل",
@@ -308,14 +284,15 @@ export default function ReportGenerator({
     } finally {
       setIsLoading(false);
     }
-  }, [filters, toast, clients, suppliers, boxes, exchanges]);
+  }, [formMethods, toast, clients, suppliers, boxes, exchanges, navData]);
 
 
   useEffect(() => {
     if (defaultAccountId) {
+      formMethods.setValue('accountId', defaultAccountId);
       handleGenerateReport();
     }
-  }, [defaultAccountId, handleGenerateReport]);
+  }, [defaultAccountId, handleGenerateReport, formMethods]);
 
   const resetFilters = useCallback(() => {
     reset({
@@ -323,7 +300,7 @@ export default function ReportGenerator({
       dateRange: createDefaultDateRange(),
       searchTerm: "",
       currency: "both",
-      typeFilter: new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id as NormalizedVoucherType)),
+      typeFilter: new Set<string>(allFilters.map((filter) => filter.id)),
       direction: "all",
       officer: "all",
       minAmount: "",
@@ -339,9 +316,7 @@ export default function ReportGenerator({
     const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? rawMax : null;
 
     return transactions.filter((tx) => {
-      const typeKeyRaw = tx.normalizedType || tx.sourceType || tx.voucherType || tx.type;
-      const typeKey = normalizeVoucherType(typeKeyRaw) as NormalizedVoucherType;
-      if (filters.typeFilter.size > 0 && typeKey && !filters.typeFilter.has(typeKey)) {
+      if (filters.typeFilter.size > 0 && !filters.typeFilter.has(tx.type)) {
         return false;
       }
 
@@ -396,7 +371,7 @@ export default function ReportGenerator({
     );
   }, [filteredTransactions]);
 
-  const baseCurrencyMetadata = useMemo(() => {
+  const currencyDisplayMetadata = useMemo(() => {
     const metadata: Record<string, { name?: string; symbol?: string }> = {};
     const settings = navData?.settings.currencySettings;
     if (settings?.currencies) {
@@ -418,16 +393,6 @@ export default function ReportGenerator({
     });
     return metadata;
   }, [navData]);
-
-  const currencyDisplayMetadata = useMemo(() => {
-    const metadata = { ...baseCurrencyMetadata };
-    finalTransactions.forEach((tx) => {
-      if (!metadata[tx.currency]) {
-        metadata[tx.currency] = { name: tx.currency, symbol: tx.currency };
-      }
-    });
-    return metadata;
-  }, [baseCurrencyMetadata, finalTransactions]);
 
   const supportedCurrencies = useMemo(
     () => Object.keys(currencyDisplayMetadata),
@@ -452,24 +417,7 @@ export default function ReportGenerator({
       formMethods.setValue('currency', "both");
     }
   }, [currencyOptions, filters.currency, formMethods]);
-
-  const reportSummary = useMemo(() => {
-    if (finalTransactions.length === 0 && Object.keys(openingBalances).length === 0) return null;
-    return buildReportSummary(
-      finalTransactions,
-      openingBalances,
-      filters.currency,
-      supportedCurrencies,
-      currencyDisplayMetadata
-    );
-  }, [
-    finalTransactions,
-    openingBalances,
-    filters.currency,
-    supportedCurrencies,
-    currencyDisplayMetadata,
-  ]);
-
+  
   const selectedAccountLabel = useMemo(() => {
     return allAccounts.find((account) => account.value === filters.accountId)?.label;
   }, [allAccounts, filters.accountId]);
@@ -539,7 +487,7 @@ export default function ReportGenerator({
     }
     const data = finalTransactions.map((tx) => ({
       'التاريخ': tx.date ? format(parseISO(tx.date), "yyyy-MM-dd") : "",
-      'النوع': mapVoucherLabel(tx.normalizedType || tx.sourceType || tx.voucherType || tx.type),
+      'النوع': mapVoucherLabel(tx.sourceType || tx.voucherType || tx.type),
       'البيان': typeof tx.description === "string" ? tx.description : tx.description?.title,
       'مدين': tx.debit || 0,
       'دائن': tx.credit || 0,
@@ -570,8 +518,8 @@ export default function ReportGenerator({
 
   return (
     <FormProvider {...formMethods}>
-      <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
-        <aside className="w-full lg:w-72 xl:w-80 flex-shrink-0 lg:sticky lg:top-24 self-start">
+      <div className="flex flex-col lg:flex-row h-full lg:h-[calc(100vh-160px)] gap-4">
+        <aside className="w-full lg:w-72 xl:w-80 flex-shrink-0 flex flex-col gap-4 lg:sticky top-20 self-start">
           <Card>
             <CardHeader>
               <CardTitle>خيارات العرض</CardTitle>
@@ -649,7 +597,7 @@ export default function ReportGenerator({
                   </AlertDescription>
                 </Alert>
               </div>
-            ) : finalTransactions.length === 0 && !reportSummary ? (
+            ) : finalTransactions.length === 0 && !report ? (
               <Card className="border-dashed h-full flex flex-col items-center justify-center text-center">
                 <CardHeader>
                   <CardTitle className="text-lg">لا توجد حركات خلال الفترة المختارة</CardTitle>
@@ -673,7 +621,7 @@ export default function ReportGenerator({
                       <ReportTable
                         transactions={finalTransactions}
                         showOpeningBalance={filters.showOpeningBalance}
-                        openingBalances={openingBalances}
+                        openingBalances={report?.currencyBreakdown.reduce((acc, curr) => ({ ...acc, [curr.currency]: curr.openingBalance }), {}) || {}}
                         onRefresh={handleGenerateReport}
                       />
                     </div>
@@ -684,11 +632,9 @@ export default function ReportGenerator({
               </div>
             )}
           </div>
-          {reportSummary && <footer className="p-3 border-t bg-card"><ReportSummary report={reportSummary} /></footer>}
+          {report && <footer className="p-3 border-t bg-card"><ReportSummary report={report} /></footer>}
         </main>
       </div>
     </FormProvider>
   );
 }
-
-```
