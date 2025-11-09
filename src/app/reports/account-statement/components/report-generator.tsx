@@ -13,36 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Loader2,
-  Search,
-  Filter,
-  FileText,
-  Download,
-  Printer,
-  Plane,
-  CreditCard,
-  Repeat,
-  Layers3,
-  Share2,
-  Wand2,
-  AreaChart,
-  Wallet,
-  Boxes,
-  FileUp,
-  FileDown,
-  BookUser,
-  XCircle,
-  RefreshCw,
-  Banknote,
-  GitBranch,
-  ArrowRightLeft,
-  ChevronsRightLeft,
-  Building,
-  Users,
-  Terminal,
-  Copy,
-} from "lucide-react";
+import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft, ChevronsRightLeft, Building, Users, Terminal, Copy } from "lucide-react";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
@@ -62,7 +33,7 @@ import type {
   Exchange,
   ReportTransaction,
   ReportInfo,
-  ReportCurrencySummary
+  ReportCurrencySummary,
 } from "@/lib/types";
 import type { NormalizedVoucherType } from "@/lib/accounting/voucher-types";
 import { normalizeVoucherType } from "@/lib/accounting/voucher-types";
@@ -365,7 +336,7 @@ export default function ReportGenerator({
     const rawMin = filters.minAmount !== "" ? Number(filters.minAmount) : null;
     const rawMax = filters.maxAmount !== "" ? Number(filters.maxAmount) : null;
     const minAmount = rawMin !== null && Number.isFinite(rawMin) ? rawMin : null;
-    const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? maxAmount : null;
+    const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? rawMax : null;
 
     return transactions.filter((tx) => {
       const typeKeyRaw = tx.normalizedType || tx.sourceType || tx.voucherType || tx.type;
@@ -719,4 +690,5 @@ export default function ReportGenerator({
     </FormProvider>
   );
 }
+
 ```
