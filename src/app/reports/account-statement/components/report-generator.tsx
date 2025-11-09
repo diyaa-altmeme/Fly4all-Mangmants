@@ -18,7 +18,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
 import { DateRange } from "react-day-picker";
-import { format, subDays, parseISO } from "date-fns";
+import { format, subDays, parseISO, startOfDay, endOfDay } from "date-fns";
 import * as XLSX from "xlsx";
 import ReportTable from "@/app/reports/account-statement/components/report-table";
 import ReportFilters from "@/app/reports/account-statement/components/report-filters";
@@ -313,7 +313,7 @@ export default function ReportGenerator({
     const rawMin = filters.minAmount !== "" ? Number(filters.minAmount) : null;
     const rawMax = filters.maxAmount !== "" ? Number(filters.maxAmount) : null;
     const minAmount = rawMin !== null && Number.isFinite(rawMin) ? rawMin : null;
-    const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? rawMax : null;
+    const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? maxAmount : null;
 
     return transactions.filter((tx) => {
       if (filters.typeFilter.size > 0 && !filters.typeFilter.has(tx.type)) {
@@ -534,7 +534,7 @@ export default function ReportGenerator({
                 officers={officerOptions}
                 currencies={currencyOptions}
                 filters={filters}
-                onFiltersChange={(newFilters: any) => reset(newFilters)}
+                onFiltersChange={(newFilters) => reset(newFilters)}
               />
               <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full h-11 flex items-center justify-center gap-2">
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -638,3 +638,5 @@ export default function ReportGenerator({
     </FormProvider>
   );
 }
+
+    
