@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from "react";
@@ -89,12 +88,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { mapVoucherLabel } from "@/lib/accounting/labels";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FormProvider, useForm } from "react-hook-form";
 
 interface ReportGeneratorProps {
-  boxes: Box[];
-  clients: Client[];
-  suppliers: Supplier[];
-  exchanges: Exchange[];
+  boxes?: Box[];
+  clients?: Client[];
+  suppliers?: Supplier[];
+  exchanges?: Exchange[];
   defaultAccountId?: string;
 }
 
@@ -191,23 +191,27 @@ export default function ReportGenerator({
   const [transactions, setTransactions] = useState<ReportTransaction[]>([]);
   const [openingBalances, setOpeningBalances] = useState<Record<string, number>>({});
   const { data: navData } = useVoucherNav();
+  const formMethods = useForm<ReportFiltersState>({
+    defaultValues: {
+      accountId: defaultAccountId || "",
+      dateRange: createDefaultDateRange(),
+      searchTerm: "",
+      currency: "both",
+      typeFilter: new Set<NormalizedVoucherType>(),
+      direction: "all",
+      officer: "all",
+      minAmount: "",
+      maxAmount: "",
+      showOpeningBalance: true,
+    }
+  });
+  const { watch } = formMethods;
+  const filters = watch();
 
   const [accountType, setAccountType] = useState<
     "relation" | "box" | "exchange" | "static" | "expense"
   >("relation");
 
-  const [filters, setFilters] = useState<ReportFiltersState>(() => ({
-    accountId: defaultAccountId || "",
-    dateRange: createDefaultDateRange() as DateRange | undefined,
-    searchTerm: "",
-    currency: "both",
-    typeFilter: new Set<NormalizedVoucherType>(),
-    direction: "all",
-    officer: "all",
-    minAmount: "",
-    maxAmount: "",
-    showOpeningBalance: true,
-  }));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
@@ -288,11 +292,8 @@ export default function ReportGenerator({
   );
   
   useEffect(() => {
-    setFilters((prev) => ({
-      ...prev,
-      typeFilter: new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id)),
-    }));
-  }, [allFilters]);
+    formMethods.setValue('typeFilter', new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id)));
+  }, [allFilters, formMethods]);
 
   const officerOptions = useMemo(() => {
     const set = new Set<string>();
@@ -346,7 +347,7 @@ export default function ReportGenerator({
     } finally {
       setIsLoading(false);
     }
-  }, [filters, toast]);
+  }, [filters, toast, accountType, resolvedRelationKind]);
 
 
   useEffect(() => {
@@ -356,8 +357,9 @@ export default function ReportGenerator({
   }, [defaultAccountId, handleGenerateReport]);
 
   const resetFilters = useCallback(() => {
-    setFilters((prev) => ({
-      ...prev,
+    formMethods.reset({
+      accountId: filters.accountId,
+      dateRange: createDefaultDateRange(),
       searchTerm: "",
       currency: "both",
       typeFilter: new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id)),
@@ -366,8 +368,8 @@ export default function ReportGenerator({
       minAmount: "",
       maxAmount: "",
       showOpeningBalance: true,
-    }));
-  }, [allFilters]);
+    });
+  }, [allFilters, formMethods, filters.accountId]);
 
   const filteredTransactions = useMemo(() => {
     const rawMin = filters.minAmount !== "" ? Number(filters.minAmount) : null;
@@ -486,9 +488,9 @@ export default function ReportGenerator({
       filters.currency !== "both" &&
       !currencyOptions.some((option) => option.code === filters.currency)
     ) {
-      setFilters((prev) => ({ ...prev, currency: "both" }));
+      formMethods.setValue('currency', "both");
     }
-  }, [currencyOptions, filters.currency]);
+  }, [currencyOptions, filters.currency, formMethods]);
 
   const reportSummary = useMemo(() => {
     if (finalTransactions.length === 0 && Object.keys(openingBalances).length === 0) return null;
@@ -606,171 +608,140 @@ export default function ReportGenerator({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
-      <aside className="w-full lg:w-72 xl:w-80 flex-shrink-0 lg:sticky lg:top-24 self-start">
-        <Card>
-          <CardHeader>
-            <CardTitle>خيارات العرض</CardTitle>
-            <CardDescription>
-              اختر الحساب والفترة الزمنية لتجميع جميع الحركات المالية المرتبطة به.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="space-y-2">
-              <Label className="font-semibold">نوع الحساب</Label>
-              <Select
-                value={accountType}
-                onValueChange={(v) => {
-                  setAccountType(v as any);
-                  setFilters((prev) => ({ ...prev, accountId: "" }));
-                }}
-              >
-                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="relation"><div className="flex items-center gap-2"><Users className="h-4 w-4" />عميل / مورد</div></SelectItem>
-                  <SelectItem value="box"><div className="flex items-center gap-2"><Wallet className="h-4 w-4" />صندوق</div></SelectItem>
-                  <SelectItem value="exchange"><div className="flex items-center gap-2"><Building className="h-4 w-4" />بورصة</div></SelectItem>
-                  <SelectItem value="expense"><div className="flex items-center gap-2"><Banknote className="h-4 w-4" />مصروف</div></SelectItem>
-                  <SelectItem value="static"><div className="flex items-center gap-2"><FileText className="h-4 w-4" />حساب عام</div></SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-semibold">الحساب</Label>
-              <Autocomplete
-                value={filters.accountId}
-                onValueChange={(v) => setFilters((f) => ({ ...f, accountId: v }))}
-                options={allAccounts}
-                placeholder="اختر حسابًا..."
+    <FormProvider {...formMethods}>
+      <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+        <aside className="w-full lg:w-72 xl:w-80 flex-shrink-0 lg:sticky lg:top-24 self-start">
+          <Card>
+            <CardHeader>
+              <CardTitle>خيارات العرض</CardTitle>
+              <CardDescription>
+                اختر الحساب والفترة الزمنية لتجميع جميع الحركات المالية المرتبطة به.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <Label className="font-semibold">نوع الحساب</Label>
+                <Select
+                  value={accountType}
+                  onValueChange={(v) => {
+                    setAccountType(v as any);
+                    formMethods.setValue('accountId', "");
+                  }}
+                >
+                  <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="relation"><div className="flex items-center gap-2"><Users className="h-4 w-4" />عميل / مورد</div></SelectItem>
+                    <SelectItem value="box"><div className="flex items-center gap-2"><Wallet className="h-4 w-4" />صندوق</div></SelectItem>
+                    <SelectItem value="exchange"><div className="flex items-center gap-2"><Building className="h-4 w-4" />بورصة</div></SelectItem>
+                    <SelectItem value="expense"><div className="flex items-center gap-2"><Banknote className="h-4 w-4" />مصروف</div></SelectItem>
+                    <SelectItem value="static"><div className="flex items-center gap-2"><FileText className="h-4 w-4" />حساب عام</div></SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <ReportFilters
+                accounts={allAccounts}
+                vouchers={allFilters}
+                onChange={formMethods.reset}
+              />
+              <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full h-11 flex items-center justify-center gap-2">
+                {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                <Filter className="h-4 w-4" />
+                <span>عرض الكشف</span>
+              </Button>
+            </CardContent>
+          </Card>
+        </aside>
+
+        <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden h-full lg:min-h-[calc(100vh-120px)]">
+          <header className="flex flex-col gap-3 p-3 border-b bg-muted/20 lg:flex-row lg:items-center">
+            <div className="relative flex-1 min-w-[200px] max-w-xs">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="بحث في النتائج..."
+                value={filters.searchTerm}
+                onChange={e => formMethods.setValue('searchTerm', e.target.value)}
+                className="ps-10 h-10"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="font-semibold">الفترة الزمنية</Label>
-                 <div className="grid grid-cols-2 gap-2">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("h-11 justify-start text-left font-normal", !filters.dateRange?.from && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : "من تاريخ"}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={filters.dateRange?.from} onSelect={(d) => setFilters((f) => ({ ...f, dateRange: { ...f.dateRange, from: d } }))} initialFocus />
-                        </PopoverContent>
-                    </Popover>
-                     <Popover>
-                        <PopoverTrigger asChild>
-                             <Button variant="outline" className={cn("h-11 justify-start text-left font-normal", !filters.dateRange?.to && "text-muted-foreground")}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : "إلى تاريخ"}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={filters.dateRange?.to} onSelect={(d) => setFilters((f) => ({ ...f, dateRange: { ...f.dateRange, to: d } }))} initialFocus />
-                        </PopoverContent>
-                    </Popover>
-                </div>
+            <div className="flex flex-wrap items-center gap-1">
+              {appliedFilterBadges.map((badge) => (
+                <Badge key={badge.id} variant="outline" className="text-xs">
+                  {badge.label}
+                </Badge>
+              ))}
+            </div>
+            <div className="flex items-center gap-2 lg:ml-auto">
+               {lastRefreshedAt && <span className="text-xs text-muted-foreground">آخر تحديث: {format(new Date(lastRefreshedAt), "HH:mm:ss")}</span>}
+              <Button onClick={handleGenerateReport} variant="ghost" size="icon" disabled={isLoading || !filters.accountId} title="تحديث البيانات">
+                <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+              </Button>
+              <Button onClick={handleExport} variant="ghost" size="icon" disabled={finalTransactions.length === 0} title="تصدير إلى Excel">
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button onClick={handlePrint} variant="ghost" size="icon" disabled={finalTransactions.length === 0} title="طباعة">
+                <Printer className="h-4 w-4" />
+              </Button>
+            </div>
+          </header>
+
+          <div className="flex-grow overflow-y-auto p-4 space-y-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : error ? (
+              <div className="p-8">
+                <Alert variant="destructive">
+                  <Terminal className="h-4 w-4" />
+                  <AlertTitle>حدث خطأ في قاعدة البيانات!</AlertTitle>
+                  <AlertDescription>
+                    <p>يتطلب هذا الاستعلام إنشاء فهرس مركب في Firestore. بدون هذا الفهرس، لا يمكن جلب البيانات.</p>
+                    {firestoreIndexUrl && (
+                      <div className="mt-4">
+                        <Button onClick={handleCopyIndexUrl}>
+                          <Copy className="me-2 h-4 w-4" />نسخ رابط إنشاء الفهرس
+                        </Button>
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
               </div>
-            <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full h-11 flex items-center justify-center gap-2">
-              {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Filter className="h-4 w-4" />
-              <span>عرض الكشف</span>
-            </Button>
-            <Separator />
-            <ReportFilters filters={filters} onFiltersChange={setFilters} allFilters={allFilters} officerOptions={officerOptions} onResetFilters={resetFilters} currencyOptions={currencyOptions}/>
-          </CardContent>
-        </Card>
-      </aside>
-
-      <main className="flex-1 flex flex-col bg-card rounded-lg shadow-sm overflow-hidden h-full lg:min-h-[calc(100vh-120px)]">
-        <header className="flex flex-col gap-3 p-3 border-b bg-muted/20 lg:flex-row lg:items-center">
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="بحث في النتائج..."
-              value={filters.searchTerm}
-              onChange={e => setFilters(f => ({ ...f, searchTerm: e.target.value }))}
-              className="ps-10 h-10"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-1">
-            {appliedFilterBadges.map((badge) => (
-              <Badge key={badge.id} variant="outline" className="text-xs">
-                {badge.label}
-              </Badge>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 lg:ml-auto">
-             {lastRefreshedAt && <span className="text-xs text-muted-foreground">آخر تحديث: {format(new Date(lastRefreshedAt), "HH:mm:ss")}</span>}
-            <Button onClick={handleGenerateReport} variant="ghost" size="icon" disabled={isLoading || !filters.accountId} title="تحديث البيانات">
-              <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-            </Button>
-            <Button onClick={handleExport} variant="ghost" size="icon" disabled={finalTransactions.length === 0} title="تصدير إلى Excel">
-              <Download className="h-4 w-4" />
-            </Button>
-            <Button onClick={handlePrint} variant="ghost" size="icon" disabled={finalTransactions.length === 0} title="طباعة">
-              <Printer className="h-4 w-4" />
-            </Button>
-          </div>
-        </header>
-
-        <div className="flex-grow overflow-y-auto p-4 space-y-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : error ? (
-            <div className="p-8">
-              <Alert variant="destructive">
-                <Terminal className="h-4 w-4" />
-                <AlertTitle>حدث خطأ في قاعدة البيانات!</AlertTitle>
-                <AlertDescription>
-                  <p>يتطلب هذا الاستعلام إنشاء فهرس مركب في Firestore. بدون هذا الفهرس، لا يمكن جلب البيانات.</p>
-                  {firestoreIndexUrl && (
-                    <div className="mt-4">
-                      <Button onClick={handleCopyIndexUrl}>
-                        <Copy className="me-2 h-4 w-4" />نسخ رابط إنشاء الفهرس
-                      </Button>
+            ) : finalTransactions.length === 0 && !reportSummary ? (
+              <Card className="border-dashed h-full flex flex-col items-center justify-center text-center">
+                <CardHeader>
+                  <CardTitle className="text-lg">لا توجد حركات خلال الفترة المختارة</CardTitle>
+                  <CardDescription>قم بتعديل الفلاتر أو تغيير الفترة الزمنية لعرض نتائج أخرى.</CardDescription>
+                </CardHeader>
+                <CardFooter>
+                  <Button variant="outline" onClick={resetFilters}>إعادة تعيين الفلاتر</Button>
+                </CardFooter>
+              </Card>
+            ) : (
+              <div className="flex h-full flex-col gap-4">
+                <Tabs defaultValue="table" className="flex-1 flex flex-col">
+                  <TabsList className="w-full max-w-md overflow-x-auto">
+                    <TabsTrigger value="table">جدول الحركات</TabsTrigger>
+                    <TabsTrigger value="insights">التحليلات</TabsTrigger>
+                    <TabsTrigger value="timeline">الخط الزمني</TabsTrigger>
+                  </TabsList>
+                  <Separator className="mt-3" />
+                  <TabsContent value="table" className="flex-1 mt-4">
+                    <div className="h-full overflow-auto rounded-lg border bg-background">
+                      <ReportTable
+                        transactions={finalTransactions}
+                        showOpeningBalance={filters.showOpeningBalance}
+                        openingBalances={openingBalances}
+                        onRefresh={handleGenerateReport}
+                      />
                     </div>
-                  )}
-                </AlertDescription>
-              </Alert>
-            </div>
-          ) : finalTransactions.length === 0 && !reportSummary ? (
-            <Card className="border-dashed h-full flex flex-col items-center justify-center text-center">
-              <CardHeader>
-                <CardTitle className="text-lg">لا توجد حركات خلال الفترة المختارة</CardTitle>
-                <CardDescription>قم بتعديل الفلاتر أو تغيير الفترة الزمنية لعرض نتائج أخرى.</CardDescription>
-              </CardHeader>
-              <CardFooter>
-                <Button variant="outline" onClick={resetFilters}>إعادة تعيين الفلاتر</Button>
-              </CardFooter>
-            </Card>
-          ) : (
-            <div className="flex h-full flex-col gap-4">
-              <Tabs defaultValue="table" className="flex-1 flex flex-col">
-                <TabsList className="w-full max-w-md overflow-x-auto">
-                  <TabsTrigger value="table">جدول الحركات</TabsTrigger>
-                  <TabsTrigger value="insights">التحليلات</TabsTrigger>
-                  <TabsTrigger value="timeline">الخط الزمني</TabsTrigger>
-                </TabsList>
-                <Separator className="mt-3" />
-                <TabsContent value="table" className="flex-1 mt-4">
-                  <div className="h-full overflow-auto rounded-lg border bg-background">
-                    <ReportTable
-                      transactions={finalTransactions}
-                      showOpeningBalance={filters.showOpeningBalance}
-                      openingBalances={openingBalances}
-                      onRefresh={handleGenerateReport}
-                    />
-                  </div>
-                </TabsContent>
-                <TabsContent value="insights" className="mt-4"><ReportInsights transactions={finalTransactions} currencyFilter={filters.currency} currencyMetadata={currencyDisplayMetadata} /></TabsContent>
-                <TabsContent value="timeline" className="mt-4"><ReportTimeline transactions={finalTransactions} /></TabsContent>
-              </Tabs>
-            </div>
-          )}
-        </div>
-        {reportSummary && <footer className="p-3 border-t bg-card"><ReportSummary report={reportSummary} /></footer>}
-      </main>
-    </div>
+                  </TabsContent>
+                  <TabsContent value="insights" className="mt-4"><ReportInsights transactions={finalTransactions} currencyFilter={filters.currency} currencyMetadata={currencyDisplayMetadata} /></TabsContent>
+                  <TabsContent value="timeline" className="mt-4"><ReportTimeline transactions={finalTransactions} /></TabsContent>
+                </Tabs>
+              </div>
+            )}
+          </div>
+          {reportSummary && <footer className="p-3 border-t bg-card"><ReportSummary report={reportSummary} /></footer>}
+        </main>
+      </div>
+    </FormProvider>
   );
 }
