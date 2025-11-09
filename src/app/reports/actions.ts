@@ -2,7 +2,7 @@
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
-import { Timestamp } from "firebase-admin/firestore";
+import { Timestamp, FieldValue, FieldPath } from "firebase-admin/firestore";
 import type { JournalVoucher, DebtsReportData, DebtsReportEntry, Client, JournalEntry, ReportTransaction, BookingEntry, VisaBookingEntry, Subscription, ReportInfo, Currency, StructuredDescription, SubscriptionInstallment } from '@/lib/types';
 import { getClients } from '@/app/relations/actions';
 import { getSuppliers } from '@/app/suppliers/actions';
@@ -945,3 +945,5 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         }
     };
 }
+
+    
