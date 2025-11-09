@@ -107,12 +107,16 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
 
     const debouncedSearchTerm = useDebounce(filters.searchTerm, 300);
 
+    const onChange = (newValues: any) => {
+      onFiltersChange({ ...filters, ...newValues });
+    };
+
     useEffect(() => {
         const currentFilters = getValues();
         if(!isEqual(filters, currentFilters)) {
             onChange(currentFilters);
         }
-    }, [watch, onChange]);
+    }, [watch, filters, getValues, onChange]);
 
 
     const toggleVoucherType = (value: string) => {
@@ -122,7 +126,7 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
         } else {
             currentSet.add(value);
         }
-        onFiltersChange({ ...filters, typeFilter: currentSet });
+        onChange({ ...filters, typeFilter: currentSet });
     };
 
     const handleSelectAll = (group: string) => {
@@ -135,14 +139,10 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
         } else {
             groupFilters.forEach(f => currentSet.add(f));
         }
-        onFiltersChange({ ...filters, typeFilter: currentSet });
+        onChange({ ...filters, typeFilter: currentSet });
     }
 
     const accountType = watch('accountType');
-
-    const onChange = (newValues: any) => {
-      onFiltersChange({ ...filters, ...newValues });
-    };
 
     const basicFilters = vouchers.filter(v => v.group === 'basic');
     const otherFilters = vouchers.filter(v => v.group === 'other');
@@ -302,3 +302,4 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
         </div>
     );
 }
+    
