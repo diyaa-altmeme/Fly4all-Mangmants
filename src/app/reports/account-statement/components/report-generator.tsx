@@ -47,7 +47,7 @@ import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
 import { DateRange } from "react-day-picker";
-import { format, subDays, parseISO, startOfDay, endOfDay } from "date-fns";
+import { format, subDays, parseISO } from "date-fns";
 import * as XLSX from "xlsx";
 import ReportTable from "@/app/reports/account-statement/components/report-table";
 import ReportFilters from "@/app/reports/account-statement/components/report-filters";
@@ -205,12 +205,8 @@ export default function ReportGenerator({
       showOpeningBalance: true,
     }
   });
-  const { watch } = formMethods;
+  const { watch, reset } = formMethods;
   const filters = watch();
-
-  const [accountType, setAccountType] = useState<
-    "relation" | "box" | "exchange" | "static" | "expense"
-  >("relation");
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -218,44 +214,12 @@ export default function ReportGenerator({
   const { toast } = useToast();
   const { hasPermission } = useAuth();
 
-  const resolvedRelationKind = useMemo(() => {
-    if (accountType !== "relation" || !filters.accountId) return undefined;
-    const isClient = clients.some((client) => client.id === filters.accountId);
-    if (isClient) return "client" as const;
-    const isSupplier = suppliers.some((supplier) => supplier.id === filters.accountId);
-    if (isSupplier) return "supplier" as const;
-    return undefined;
-  }, [accountType, filters.accountId, clients, suppliers]);
-
   const firestoreIndexUrl =
     error && error.startsWith("FIRESTORE_INDEX_URL::")
       ? error.split("::")[1]
       : null;
 
   const allAccounts = useMemo(() => {
-    switch (accountType) {
-      case "box":
-        return boxes.map((b) => ({ value: b.id, label: b.name }));
-      case "exchange":
-        return exchanges.map((ex) => ({ value: ex.id, label: ex.name }));
-      case "expense":
-        return (
-          navData?.settings.voucherSettings?.expenseAccounts?.map((e) => ({
-            value: `expense_${e.id}`,
-            label: e.name,
-          })) || []
-        );
-      case "static":
-        return [
-          { value: "revenue_segments", label: "إيراد: السكمنت" },
-          { value: "revenue_profit_distribution", label: "إيراد: توزيع الأرباح" },
-          { value: "revenue_tickets", label: "إيرادات التذاكر" },
-          { value: "revenue_visa", label: "إيرادات الفيزا" },
-          { value: "expense_tickets", label: "تكلفة التذاكر" },
-          { value: "expense_visa", label: "تكلفة الفيزا" },
-        ];
-      case "relation":
-      default:
         const clientOptions = clients.map((c) => ({
           value: c.id,
           label: `عميل: ${c.name}`,
@@ -264,35 +228,50 @@ export default function ReportGenerator({
           value: s.id,
           label: `مورد: ${s.name}`,
         }));
-        return [...clientOptions, ...supplierOptions];
-    }
-  }, [accountType, clients, suppliers, boxes, exchanges, navData]);
+        const boxOptions = boxes.map((b) => ({
+          value: b.id,
+          label: `صندوق: ${b.name}`,
+        }));
+        const exchangeOptions = exchanges.map((ex) => ({
+          value: ex.id,
+          label: `بورصة: ${ex.name}`,
+        }));
+        const staticAccounts = [
+          { value: "revenue_segments", label: "إيراد: السكمنت" },
+          { value: "revenue_profit_distribution", label: "إيراد: توزيع الأرباح" },
+          { value: "revenue_tickets", label: "إيرادات التذاكر" },
+          { value: "revenue_visa", label: "إيرادات الفيزا" },
+          { value: "expense_tickets", label: "تكلفة التذاكر" },
+          { value: "expense_visa", label: "تكلفة الفيزا" },
+        ];
+        return [...clientOptions, ...supplierOptions, ...boxOptions, ...exchangeOptions, ...staticAccounts];
+  }, [clients, suppliers, boxes, exchanges]);
 
   const allFilters = useMemo(
     () => [
-      { id: "booking" as NormalizedVoucherType, label: mapVoucherLabel("booking"), icon: Plane, group: "basic" as const },
-      { id: "visa" as NormalizedVoucherType, label: mapVoucherLabel("visa"), icon: CreditCard, group: "basic" as const },
-      { id: "subscription" as NormalizedVoucherType, label: mapVoucherLabel("subscription"), icon: Repeat, group: "basic" as const },
-      { id: "payment" as NormalizedVoucherType, label: mapVoucherLabel("payment"), icon: FileUp, group: "basic" as const },
-      { id: "standard_receipt" as NormalizedVoucherType, label: mapVoucherLabel("standard_receipt"), icon: FileDown, group: "basic" as const },
-      { id: "manualExpense" as NormalizedVoucherType, label: mapVoucherLabel("manualExpense"), icon: Banknote, group: "basic" as const },
-      { id: "distributed_receipt" as NormalizedVoucherType, label: mapVoucherLabel("distributed_receipt"), icon: GitBranch, group: "other" as const },
-      { id: "remittance" as NormalizedVoucherType, label: mapVoucherLabel("remittance"), icon: ArrowRightLeft, group: "other" as const },
-      { id: "transfer" as NormalizedVoucherType, label: mapVoucherLabel("transfer"), icon: Repeat, group: "other" as const },
-      { id: "exchange_transaction" as NormalizedVoucherType, label: mapVoucherLabel("exchange_transaction"), icon: ChevronsRightLeft, group: "other" as const },
-      { id: "exchange_payment" as NormalizedVoucherType, label: mapVoucherLabel("exchange_payment"), icon: ChevronsRightLeft, group: "other" as const },
-      { id: "segment" as NormalizedVoucherType, label: mapVoucherLabel("segment"), icon: Layers3, group: "other" as const },
-      { id: "profit-sharing" as NormalizedVoucherType, label: mapVoucherLabel("profit-sharing"), icon: Share2, group: "other" as const },
-      { id: "journal_voucher" as NormalizedVoucherType, label: mapVoucherLabel("journal_voucher"), icon: BookUser, group: "other" as const },
-      { id: "refund" as NormalizedVoucherType, label: mapVoucherLabel("refund"), icon: RefreshCw, group: "other" as const },
-      { id: "exchange" as NormalizedVoucherType, label: mapVoucherLabel("exchange"), icon: RefreshCw, group: "other" as const },
-      { id: "void" as NormalizedVoucherType, label: mapVoucherLabel("void"), icon: XCircle, group: "other" as const },
+        { id: "booking", label: mapVoucherLabel("booking"), icon: Plane, group: "basic" as const },
+        { id: "visa", label: mapVoucherLabel("visa"), icon: CreditCard, group: "basic" as const },
+        { id: "subscription", label: mapVoucherLabel("subscription"), icon: Repeat, group: "basic" as const },
+        { id: "payment", label: mapVoucherLabel("payment"), icon: FileUp, group: "basic" as const },
+        { id: "standard_receipt", label: mapVoucherLabel("standard_receipt"), icon: FileDown, group: "basic" as const },
+        { id: "manualExpense", label: mapVoucherLabel("manualExpense"), icon: Banknote, group: "basic" as const },
+        { id: "distributed_receipt", label: mapVoucherLabel("distributed_receipt"), icon: GitBranch, group: "other" as const },
+        { id: "remittance", label: mapVoucherLabel("remittance"), icon: ArrowRightLeft, group: "other" as const },
+        { id: "transfer", label: mapVoucherLabel("transfer"), icon: Repeat, group: "other" as const },
+        { id: "exchange_transaction", label: mapVoucherLabel("exchange_transaction"), icon: ChevronsRightLeft, group: "other" as const },
+        { id: "exchange_payment", label: mapVoucherLabel("exchange_payment"), icon: ChevronsRightLeft, group: "other" as const },
+        { id: "segment", label: mapVoucherLabel("segment"), icon: Layers3, group: "other" as const },
+        { id: "profit-sharing", label: mapVoucherLabel("profit-sharing"), icon: Share2, group: "other" as const },
+        { id: "journal_voucher", label: mapVoucherLabel("journal_voucher"), icon: BookUser, group: "other" as const },
+        { id: "refund", label: mapVoucherLabel("refund"), icon: RefreshCw, group: "other" as const },
+        { id: "exchange", label: mapVoucherLabel("exchange"), icon: RefreshCw, group: "other" as const },
+        { id: "void", label: mapVoucherLabel("void"), icon: XCircle, group: "other" as const },
     ],
     []
   );
   
   useEffect(() => {
-    formMethods.setValue('typeFilter', new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id)));
+    formMethods.setValue('typeFilter', new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id as NormalizedVoucherType)));
   }, [allFilters, formMethods]);
 
   const officerOptions = useMemo(() => {
@@ -319,6 +298,17 @@ export default function ReportGenerator({
     setOpeningBalances({});
     setError(null);
 
+    const accountType = filters.accountId.startsWith('expense_') ? 'expense'
+      : filters.accountId.startsWith('revenue_') ? 'revenue'
+      : clients.some(c => c.id === filters.accountId) ? 'relation'
+      : suppliers.some(s => s.id === filters.accountId) ? 'relation'
+      : boxes.some(b => b.id === filters.accountId) ? 'box'
+      : exchanges.some(ex => ex.id === filters.accountId) ? 'exchange'
+      : 'static';
+
+    const relationKind = clients.some(c => c.id === filters.accountId) ? 'client' :
+                         suppliers.some(s => s.id === filters.accountId) ? 'supplier' : undefined;
+
     try {
       const { transactions: data, openingBalances: ob } = await getAccountStatement({
         accountId: filters.accountId,
@@ -326,7 +316,7 @@ export default function ReportGenerator({
         dateTo: filters.dateRange?.to,
         voucherType: Array.from(filters.typeFilter),
         accountType,
-        relationKind: resolvedRelationKind,
+        relationKind,
         includeDeleted: false,
       });
 
@@ -347,7 +337,7 @@ export default function ReportGenerator({
     } finally {
       setIsLoading(false);
     }
-  }, [filters, toast, accountType, resolvedRelationKind]);
+  }, [filters, toast, clients, suppliers, boxes, exchanges]);
 
 
   useEffect(() => {
@@ -357,19 +347,19 @@ export default function ReportGenerator({
   }, [defaultAccountId, handleGenerateReport]);
 
   const resetFilters = useCallback(() => {
-    formMethods.reset({
+    reset({
       accountId: filters.accountId,
       dateRange: createDefaultDateRange(),
       searchTerm: "",
       currency: "both",
-      typeFilter: new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id)),
+      typeFilter: new Set<NormalizedVoucherType>(allFilters.map((filter) => filter.id as NormalizedVoucherType)),
       direction: "all",
       officer: "all",
       minAmount: "",
       maxAmount: "",
       showOpeningBalance: true,
     });
-  }, [allFilters, formMethods, filters.accountId]);
+  }, [allFilters, reset, filters.accountId]);
 
   const filteredTransactions = useMemo(() => {
     const rawMin = filters.minAmount !== "" ? Number(filters.minAmount) : null;
@@ -619,29 +609,13 @@ export default function ReportGenerator({
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <Label className="font-semibold">نوع الحساب</Label>
-                <Select
-                  value={accountType}
-                  onValueChange={(v) => {
-                    setAccountType(v as any);
-                    formMethods.setValue('accountId', "");
-                  }}
-                >
-                  <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="relation"><div className="flex items-center gap-2"><Users className="h-4 w-4" />عميل / مورد</div></SelectItem>
-                    <SelectItem value="box"><div className="flex items-center gap-2"><Wallet className="h-4 w-4" />صندوق</div></SelectItem>
-                    <SelectItem value="exchange"><div className="flex items-center gap-2"><Building className="h-4 w-4" />بورصة</div></SelectItem>
-                    <SelectItem value="expense"><div className="flex items-center gap-2"><Banknote className="h-4 w-4" />مصروف</div></SelectItem>
-                    <SelectItem value="static"><div className="flex items-center gap-2"><FileText className="h-4 w-4" />حساب عام</div></SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <ReportFilters
                 accounts={allAccounts}
                 vouchers={allFilters}
-                onChange={formMethods.reset}
+                officers={officerOptions}
+                currencies={currencyOptions}
+                filters={filters}
+                onFiltersChange={(newFilters: any) => reset(newFilters)}
               />
               <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full h-11 flex items-center justify-center gap-2">
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -745,3 +719,4 @@ export default function ReportGenerator({
     </FormProvider>
   );
 }
+```
