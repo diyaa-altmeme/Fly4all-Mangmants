@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -138,7 +139,10 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
     const debitQuery = vouchersCollection.where('debitEntries', 'array-contains', { accountId: accountId });
     const creditQuery = vouchersCollection.where('creditEntries', 'array-contains', { accountId: accountId });
 
-    const [debitSnap, creditSnap] = await Promise.all([debitQuery.get(), creditQuery.get()]);
+    const [debitSnap, creditSnap] = await Promise.all([
+      vouchersCollection.where(FieldPath.documentId(), 'in', (await debitQuery.get()).docs.map(d => d.id)).get(),
+      vouchersCollection.where(FieldPath.documentId(), 'in', (await creditQuery.get()).docs.map(d => d.id)).get(),
+    ]);
     
     const combinedDocs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
     debitSnap.forEach(doc => combinedDocs.set(doc.id, doc));
