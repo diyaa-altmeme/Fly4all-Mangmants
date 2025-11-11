@@ -56,6 +56,7 @@ interface ReportGeneratorProps {
 
 type ReportFiltersState = {
   accountId: string;
+  accountType: 'relation' | 'box' | 'exchange' | 'static' | 'expense';
   dateRange: DateRange | undefined;
   searchTerm: string;
   currency: Currency | "both";
@@ -89,13 +90,38 @@ export default function ReportGenerator({
   const [report, setReport] = useState<ReportInfo | null>(null);
   const [transactions, setTransactions] = useState<ReportTransaction[]>([]);
   const { data: navData } = useVoucherNav();
+  
+  const allFilters = useMemo(
+    () => [
+        { id: "booking", label: mapVoucherLabel("booking"), icon: Plane, group: "basic" as const },
+        { id: "visa", label: mapVoucherLabel("visa"), icon: CreditCard, group: "basic" as const },
+        { id: "subscription", label: mapVoucherLabel("subscription"), icon: Repeat, group: "basic" as const },
+        { id: "payment", label: mapVoucherLabel("payment"), icon: FileUp, group: "basic" as const },
+        { id: "standard_receipt", label: mapVoucherLabel("standard_receipt"), icon: FileDown, group: "basic" as const },
+        { id: "manualExpense", label: mapVoucherLabel("manualExpense"), icon: Banknote, group: "basic" as const },
+        { id: "distributed_receipt", label: mapVoucherLabel("distributed_receipt"), icon: GitBranch, group: "other" as const },
+        { id: "remittance", label: mapVoucherLabel("remittance"), icon: ArrowRightLeft, group: "other" as const },
+        { id: "transfer", label: mapVoucherLabel("transfer"), icon: Repeat, group: "other" as const },
+        { id: "exchange_transaction", label: mapVoucherLabel("exchange_transaction"), icon: ChevronsRightLeft, group: "other" as const },
+        { id: "exchange_payment", label: mapVoucherLabel("exchange_payment"), icon: ChevronsRightLeft, group: "other" as const },
+        { id: "segment", label: mapVoucherLabel("segment"), icon: Layers3, group: "other" as const },
+        { id: "profit-sharing", label: mapVoucherLabel("profit-sharing"), icon: Share2, group: "other" as const },
+        { id: "journal_voucher", label: mapVoucherLabel("journal_voucher"), icon: BookUser, group: "other" as const },
+        { id: "refund", label: mapVoucherLabel("refund"), icon: RefreshCw, group: "other" as const },
+        { id: "exchange", label: mapVoucherLabel("exchange"), icon: RefreshCw, group: "other" as const },
+        { id: "void", label: mapVoucherLabel("void"), icon: XCircle, group: "other" as const },
+    ],
+    []
+  );
+
   const formMethods = useForm<ReportFiltersState>({
     defaultValues: {
       accountId: defaultAccountId || "",
+      accountType: 'relation',
       dateRange: createDefaultDateRange(),
       searchTerm: "",
       currency: "both",
-      typeFilter: new Set<string>(),
+      typeFilter: new Set<string>(allFilters.map(f => f.id)),
       direction: "all",
       officer: "all",
       minAmount: "",
@@ -103,8 +129,7 @@ export default function ReportGenerator({
       showOpeningBalance: true,
     }
   });
-  const { watch, reset } = formMethods;
-  const filters = watch();
+  const filters = formMethods.watch();
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,33 +170,6 @@ export default function ReportGenerator({
         return [...clientOptions, ...supplierOptions, ...boxOptions, ...exchangeOptions, ...staticAccounts];
   }, [clients, suppliers, boxes, exchanges]);
 
-  const allFilters = useMemo(
-    () => [
-        { id: "booking", label: mapVoucherLabel("booking"), icon: Plane, group: "basic" as const },
-        { id: "visa", label: mapVoucherLabel("visa"), icon: CreditCard, group: "basic" as const },
-        { id: "subscription", label: mapVoucherLabel("subscription"), icon: Repeat, group: "basic" as const },
-        { id: "payment", label: mapVoucherLabel("payment"), icon: FileUp, group: "basic" as const },
-        { id: "standard_receipt", label: mapVoucherLabel("standard_receipt"), icon: FileDown, group: "basic" as const },
-        { id: "manualExpense", label: mapVoucherLabel("manualExpense"), icon: Banknote, group: "basic" as const },
-        { id: "distributed_receipt", label: mapVoucherLabel("distributed_receipt"), icon: GitBranch, group: "other" as const },
-        { id: "remittance", label: mapVoucherLabel("remittance"), icon: ArrowRightLeft, group: "other" as const },
-        { id: "transfer", label: mapVoucherLabel("transfer"), icon: Repeat, group: "other" as const },
-        { id: "exchange_transaction", label: mapVoucherLabel("exchange_transaction"), icon: ChevronsRightLeft, group: "other" as const },
-        { id: "exchange_payment", label: mapVoucherLabel("exchange_payment"), icon: ChevronsRightLeft, group: "other" as const },
-        { id: "segment", label: mapVoucherLabel("segment"), icon: Layers3, group: "other" as const },
-        { id: "profit-sharing", label: mapVoucherLabel("profit-sharing"), icon: Share2, group: "other" as const },
-        { id: "journal_voucher", label: mapVoucherLabel("journal_voucher"), icon: BookUser, group: "other" as const },
-        { id: "refund", label: mapVoucherLabel("refund"), icon: RefreshCw, group: "other" as const },
-        { id: "exchange", label: mapVoucherLabel("exchange"), icon: RefreshCw, group: "other" as const },
-        { id: "void", label: mapVoucherLabel("void"), icon: XCircle, group: "other" as const },
-    ],
-    []
-  );
-  
-  useEffect(() => {
-    formMethods.setValue('typeFilter', new Set(allFilters.map((filter) => filter.id)));
-  }, [allFilters, formMethods]);
-
   const officerOptions = useMemo(() => {
     const set = new Set<string>();
     transactions.forEach((tx) => {
@@ -182,9 +180,47 @@ export default function ReportGenerator({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [transactions]);
 
+  const currencyDisplayMetadata = useMemo(() => {
+    const metadata: Record<string, { name?: string; symbol?: string }> = {};
+    const settings = navData?.settings.currencySettings;
+    if (settings?.currencies) {
+      settings.currencies.forEach((currencySetting) => {
+        metadata[currencySetting.code] = {
+          name: currencySetting.name || currencySetting.code,
+          symbol: currencySetting.symbol || currencySetting.code,
+        };
+      });
+    }
+    const fallback: Record<string, { name: string; symbol: string }> = {
+      USD: { name: "الدولار الأمريكي", symbol: "USD" },
+      IQD: { name: "الدينار العراقي", symbol: "IQD" },
+    };
+    Object.entries(fallback).forEach(([code, value]) => {
+      if (!metadata[code]) {
+        metadata[code] = value;
+      }
+    });
+    return metadata;
+  }, [navData]);
+
+  const supportedCurrencies = useMemo(
+    () => Object.keys(currencyDisplayMetadata),
+    [currencyDisplayMetadata]
+  );
+
+  const currencyOptions = useMemo(
+    () =>
+      supportedCurrencies.map((code) => ({
+        code,
+        label: currencyDisplayMetadata[code]?.name || code,
+        symbol: currencyDisplayMetadata[code]?.symbol,
+      })),
+    [supportedCurrencies, currencyDisplayMetadata]
+  );
+  
   const handleGenerateReport = useCallback(async () => {
-    const formFilters = formMethods.getValues();
-    if (!formFilters.accountId) {
+    const currentFilters = formMethods.getValues();
+    if (!currentFilters.accountId) {
       toast({
         title: "خطأ",
         description: "الرجاء اختيار حساب.",
@@ -196,24 +232,24 @@ export default function ReportGenerator({
     setTransactions([]);
     setReport(null);
     setError(null);
-
-    const accountType = formFilters.accountId.startsWith('expense_') ? 'expense'
-      : formFilters.accountId.startsWith('revenue_') ? 'revenue'
-      : clients.some(c => c.id === formFilters.accountId) ? 'relation'
-      : suppliers.some(s => s.id === formFilters.accountId) ? 'relation'
-      : boxes.some(b => b.id === formFilters.accountId) ? 'box'
-      : exchanges.some(ex => ex.id === formFilters.accountId) ? 'exchange'
+    
+    const accountType = currentFilters.accountId.startsWith('expense_') ? 'expense'
+      : currentFilters.accountId.startsWith('revenue_') ? 'revenue'
+      : clients.some(c => c.id === currentFilters.accountId) ? 'relation'
+      : suppliers.some(s => s.id === currentFilters.accountId) ? 'relation'
+      : boxes.some(b => b.id === currentFilters.accountId) ? 'box'
+      : exchanges.some(ex => ex.id === currentFilters.accountId) ? 'exchange'
       : 'static';
     
-    const relationKind = clients.some(c => c.id === formFilters.accountId) ? 'client' :
-                         suppliers.some(s => s.id === formFilters.accountId) ? 'supplier' : undefined;
+    const relationKind = clients.some(c => c.id === currentFilters.accountId) ? 'client' :
+                         suppliers.some(s => s.id === currentFilters.accountId) ? 'supplier' : undefined;
 
     try {
       const { transactions: data, openingBalances: ob } = await getAccountStatement({
-        accountId: formFilters.accountId,
-        dateFrom: formFilters.dateRange?.from,
-        dateTo: formFilters.dateRange?.to,
-        voucherType: Array.from(formFilters.typeFilter),
+        accountId: currentFilters.accountId,
+        dateFrom: currentFilters.dateRange?.from,
+        dateTo: currentFilters.dateRange?.to,
+        voucherType: Array.from(currentFilters.typeFilter),
         accountType,
         relationKind,
         includeDeleted: false,
@@ -263,7 +299,7 @@ export default function ReportGenerator({
         totalDebitIQD: currencyBreakdown.find(b => b.currency === 'IQD')?.totalDebit || 0,
         totalCreditIQD: currencyBreakdown.find(b => b.currency === 'IQD')?.totalCredit || 0,
         finalBalanceIQD: currencyBreakdown.find(b => b.currency === 'IQD')?.finalBalance || 0,
-        currency: formFilters.currency,
+        currency: currentFilters.currency,
         accountType: 'asset',
         balanceMode: 'asset',
         currencyBreakdown
@@ -286,7 +322,6 @@ export default function ReportGenerator({
     }
   }, [formMethods, toast, clients, suppliers, boxes, exchanges, navData]);
 
-
   useEffect(() => {
     if (defaultAccountId) {
       formMethods.setValue('accountId', defaultAccountId);
@@ -295,8 +330,9 @@ export default function ReportGenerator({
   }, [defaultAccountId, handleGenerateReport, formMethods]);
 
   const resetFilters = useCallback(() => {
-    reset({
+    formMethods.reset({
       accountId: filters.accountId,
+      accountType: 'relation',
       dateRange: createDefaultDateRange(),
       searchTerm: "",
       currency: "both",
@@ -307,7 +343,7 @@ export default function ReportGenerator({
       maxAmount: "",
       showOpeningBalance: true,
     });
-  }, [allFilters, reset, filters.accountId]);
+  }, [allFilters, formMethods, filters.accountId]);
 
   const filteredTransactions = useMemo(() => {
     const rawMin = filters.minAmount !== "" ? Number(filters.minAmount) : null;
@@ -371,115 +407,6 @@ export default function ReportGenerator({
     );
   }, [filteredTransactions]);
 
-  const currencyDisplayMetadata = useMemo(() => {
-    const metadata: Record<string, { name?: string; symbol?: string }> = {};
-    const settings = navData?.settings.currencySettings;
-    if (settings?.currencies) {
-      settings.currencies.forEach((currencySetting) => {
-        metadata[currencySetting.code] = {
-          name: currencySetting.name || currencySetting.code,
-          symbol: currencySetting.symbol || currencySetting.code,
-        };
-      });
-    }
-    const fallback: Record<string, { name: string; symbol: string }> = {
-      USD: { name: "الدولار الأمريكي", symbol: "USD" },
-      IQD: { name: "الدينار العراقي", symbol: "IQD" },
-    };
-    Object.entries(fallback).forEach(([code, value]) => {
-      if (!metadata[code]) {
-        metadata[code] = value;
-      }
-    });
-    return metadata;
-  }, [navData]);
-
-  const supportedCurrencies = useMemo(
-    () => Object.keys(currencyDisplayMetadata),
-    [currencyDisplayMetadata]
-  );
-
-  const currencyOptions = useMemo(
-    () =>
-      supportedCurrencies.map((code) => ({
-        code,
-        label: currencyDisplayMetadata[code]?.name || code,
-        symbol: currencyDisplayMetadata[code]?.symbol,
-      })),
-    [supportedCurrencies, currencyDisplayMetadata]
-  );
-
-  useEffect(() => {
-    if (
-      filters.currency !== "both" &&
-      !currencyOptions.some((option) => option.code === filters.currency)
-    ) {
-      formMethods.setValue('currency', "both");
-    }
-  }, [currencyOptions, filters.currency, formMethods]);
-  
-  const selectedAccountLabel = useMemo(() => {
-    return allAccounts.find((account) => account.value === filters.accountId)?.label;
-  }, [allAccounts, filters.accountId]);
-
-  const appliedFilterBadges = useMemo(() => {
-    const badges: { id: string; label: string }[] = [];
-
-    if (filters.currency !== "both") {
-      const currencyLabel =
-        currencyDisplayMetadata[filters.currency]?.name || filters.currency;
-      badges.push({
-        id: "currency",
-        label: `العملة: ${currencyLabel}`,
-      });
-    }
-
-    if (filters.direction !== "all") {
-      badges.push({
-        id: "direction",
-        label: filters.direction === "debit" ? "حركات مدينة" : "حركات دائنة",
-      });
-    }
-
-    if (filters.officer !== "all") {
-      badges.push({ id: "officer", label: `الموظف: ${filters.officer}` });
-    }
-
-    if (filters.minAmount !== "") {
-      badges.push({ id: "min", label: `حد أدنى: ${filters.minAmount}` });
-    }
-
-    if (filters.maxAmount !== "") {
-      badges.push({ id: "max", label: `حد أقصى: ${filters.maxAmount}` });
-    }
-
-    if (filters.typeFilter.size > 0 && filters.typeFilter.size !== allFilters.length) {
-      const labels = Array.from(filters.typeFilter).map((typeId) => mapVoucherLabel(typeId));
-      labels.slice(0, 4).forEach((label, index) => {
-        badges.push({ id: `type-${index}`, label });
-      });
-      if (labels.length > 4) {
-        badges.push({ id: "type-more", label: `+${labels.length - 4} عمليات` });
-      }
-    }
-
-    if (filters.dateRange?.from || filters.dateRange?.to) {
-      const fromLabel = filters.dateRange?.from
-        ? format(filters.dateRange.from, "yyyy-MM-dd")
-        : "";
-      const toLabel = filters.dateRange?.to
-        ? format(filters.dateRange.to, "yyyy-MM-dd")
-        : "";
-      badges.push({ id: "range", label: `الفترة: ${fromLabel} → ${toLabel}` });
-    }
-
-    if (filters.searchTerm) {
-      badges.push({ id: "search", label: `بحث: ${filters.searchTerm}` });
-    }
-
-    return badges;
-  }, [filters, allFilters, currencyDisplayMetadata]);
-
   const handleExport = () => {
     if (!finalTransactions || finalTransactions.length === 0) {
       toast({ title: "لا توجد بيانات للتصدير", variant: "destructive" });
@@ -499,7 +426,7 @@ export default function ReportGenerator({
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "كشف الحساب");
-    const accountName = selectedAccountLabel || "Account";
+    const accountName = allAccounts.find(a => a.value === filters.accountId)?.label || "Account";
     XLSX.writeFile(wb, `Statement-${accountName.replace(/[:\\/\\s]+/g, "-")}-${new Date().toISOString().split("T")[0]}.xlsx`);
     toast({ title: "تم التصدير بنجاح" });
   };
@@ -534,7 +461,7 @@ export default function ReportGenerator({
                 officers={officerOptions}
                 currencies={currencyOptions}
                 filters={filters}
-                onFiltersChange={(newFilters) => reset(newFilters)}
+                onFiltersChange={(newFilters) => formMethods.reset(newFilters)}
               />
               <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full h-11 flex items-center justify-center gap-2">
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -556,13 +483,11 @@ export default function ReportGenerator({
                 className="ps-10 h-10"
               />
             </div>
-            <div className="flex flex-wrap items-center gap-1">
-              {appliedFilterBadges.map((badge) => (
-                <Badge key={badge.id} variant="outline" className="text-xs">
-                  {badge.label}
-                </Badge>
-              ))}
+            
+            <div className="flex-1 overflow-x-auto">
+              {/* This div will handle the horizontal scrolling on small screens */}
             </div>
+
             <div className="flex items-center gap-2 lg:ml-auto">
                {lastRefreshedAt && <span className="text-xs text-muted-foreground">آخر تحديث: {format(new Date(lastRefreshedAt), "HH:mm:ss")}</span>}
               <Button onClick={handleGenerateReport} variant="ghost" size="icon" disabled={isLoading || !filters.accountId} title="تحديث البيانات">
@@ -597,16 +522,6 @@ export default function ReportGenerator({
                   </AlertDescription>
                 </Alert>
               </div>
-            ) : finalTransactions.length === 0 && !report ? (
-              <Card className="border-dashed h-full flex flex-col items-center justify-center text-center">
-                <CardHeader>
-                  <CardTitle className="text-lg">لا توجد حركات خلال الفترة المختارة</CardTitle>
-                  <CardDescription>قم بتعديل الفلاتر أو تغيير الفترة الزمنية لعرض نتائج أخرى.</CardDescription>
-                </CardHeader>
-                <CardFooter>
-                  <Button variant="outline" onClick={resetFilters}>إعادة تعيين الفلاتر</Button>
-                </CardFooter>
-              </Card>
             ) : (
               <div className="flex h-full flex-col gap-4">
                 <Tabs defaultValue="table" className="flex-1 flex flex-col">
@@ -638,5 +553,3 @@ export default function ReportGenerator({
     </FormProvider>
   );
 }
-
-    
