@@ -4,17 +4,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, Save, ArrowLeft, GitBranch, FileText, Repeat, Waypoints, Share2, Ticket, Users } from 'lucide-react';
+import { Loader2, Save, GitBranch, FileText, Repeat, Waypoints, Share2, Ticket } from 'lucide-react';
 import { getSequences, updateSequence } from '@/lib/sequences';
 import type { VoucherSequence } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { produce } from 'immer';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
+
+const DEFAULT_PAD_LENGTH = 5;
 
 const sequenceGroups = [
     {
@@ -78,8 +79,20 @@ export default function InvoiceSequencesPage() {
         fetchData();
     }, [fetchData]);
 
-    const handleFieldChange = (id: string, key: 'prefix' | 'value', value: string) => {
-        const processedValue = key === 'value' ? parseInt(value, 10) || 0 : value.toUpperCase();
+    const handleFieldChange = (id: string, key: 'prefix' | 'value' | 'padLength', value: string) => {
+        const processedValue = (() => {
+            if (key === 'value') {
+                const parsed = parseInt(value, 10);
+                return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+            }
+            if (key === 'padLength') {
+                const parsed = parseInt(value, 10);
+                if (!Number.isFinite(parsed)) return DEFAULT_PAD_LENGTH;
+                return Math.min(12, Math.max(2, parsed));
+            }
+            return value.toUpperCase();
+        })();
+
         setSequences(produce(draft => {
             const sequence = draft.find(s => s.id === id);
             if (sequence) {
@@ -89,23 +102,37 @@ export default function InvoiceSequencesPage() {
     };
     
     const handleSave = async (sequence: VoucherSequence) => {
-        setIsSaving(prev => ({...prev, [sequence.id]: true}));
+        setIsSaving(prev => ({ ...prev, [sequence.id]: true }));
         try {
             const result = await updateSequence(sequence.id, {
                 prefix: sequence.prefix,
                 value: sequence.value,
-                label: sequence.label
+                label: sequence.label,
+                padLength: sequence.padLength ?? DEFAULT_PAD_LENGTH,
             });
             if (result.success) {
+                if (result.data) {
+                    setSequences(produce(draft => {
+                        const target = draft.find(s => s.id === sequence.id);
+                        if (target) {
+                            target.prefix = result.data.prefix;
+                            target.value = result.data.value;
+                            target.padLength = result.data.padLength;
+                            if (result.data.id === sequence.id) {
+                                target.label = result.data.label;
+                            }
+                            target.updatedAt = result.data.updatedAt;
+                        }
+                    }));
+                }
                 toast({ title: `تم تحديث تسلسل "${sequence.label}"` });
             } else {
-                 toast({ title: "خطأ", description: result.error, variant: 'destructive' });
+                toast({ title: "خطأ", description: result.error, variant: 'destructive' });
             }
-        } catch(e: any) {
+        } catch (e: any) {
             toast({ title: "خطأ", description: e.message, variant: "destructive" });
-        }
-        finally {
-            setIsSaving(prev => ({...prev, [sequence.id]: false}));
+        } finally {
+            setIsSaving(prev => ({ ...prev, [sequence.id]: false }));
         }
     };
     
@@ -144,8 +171,9 @@ export default function InvoiceSequencesPage() {
                                                 <TableRow>
                                                     <TableHead className="w-1/3">نوع السند</TableHead>
                                                     <TableHead className="w-1/6">البادئة</TableHead>
-                                                    <TableHead className="w-1/6">الرقم الحالي</TableHead>
-                                                    <TableHead className="w-1/4">تعديل</TableHead>
+                                                    <TableHead className="w-1/6">القيمة الحالية</TableHead>
+                                                    <TableHead className="w-1/6">عدد الخانات</TableHead>
+                                                    <TableHead className="w-1/4">التالي</TableHead>
                                                     <TableHead className="text-center">حفظ</TableHead>
                                                 </TableRow>
                                             </TableHeader>
@@ -153,22 +181,33 @@ export default function InvoiceSequencesPage() {
                                                  {groupSequences.map(seq => (
                                                     <TableRow key={seq.id}>
                                                         <TableCell className="font-semibold">{seq.label}</TableCell>
-                                                        <TableCell className="font-mono text-primary">{seq.prefix}</TableCell>
-                                                        <TableCell className="font-mono">{seq.value}</TableCell>
                                                         <TableCell>
-                                                            <div className="flex items-center gap-2">
-                                                                <Input 
-                                                                    value={seq.prefix}
-                                                                    onChange={(e) => handleFieldChange(seq.id, 'prefix', e.target.value)}
-                                                                    className="w-24 h-8 font-mono"
-                                                                />
-                                                                <Input
-                                                                    type="number"
-                                                                    value={seq.value}
-                                                                    onChange={(e) => handleFieldChange(seq.id, 'value', e.target.value)}
-                                                                    className="w-32 h-8 font-mono"
-                                                                />
-                                                            </div>
+                                                            <Input
+                                                                value={seq.prefix}
+                                                                onChange={(e) => handleFieldChange(seq.id, 'prefix', e.target.value)}
+                                                                className="w-24 h-8 font-mono"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Input
+                                                                type="number"
+                                                                value={seq.value}
+                                                                onChange={(e) => handleFieldChange(seq.id, 'value', e.target.value)}
+                                                                className="w-28 h-8 font-mono"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Input
+                                                                type="number"
+                                                                min={2}
+                                                                max={12}
+                                                                value={seq.padLength ?? DEFAULT_PAD_LENGTH}
+                                                                onChange={(e) => handleFieldChange(seq.id, 'padLength', e.target.value)}
+                                                                className="w-24 h-8 font-mono"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="font-mono text-primary">
+                                                            {`${seq.prefix}-${String((seq.value ?? 0) + 1).padStart(seq.padLength ?? DEFAULT_PAD_LENGTH, '0')}`}
                                                         </TableCell>
                                                         <TableCell className="text-center">
                                                             <Button size="sm" onClick={() => handleSave(seq)} disabled={isSaving[seq.id]}>

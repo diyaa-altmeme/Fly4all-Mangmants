@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft, ChevronsRightLeft, Building, Users, Terminal, Copy } from "lucide-react";
+import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft, ChevronsRightLeft, Building, Users, Terminal, Copy, TrendingUp, TrendingDown } from "lucide-react";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
@@ -45,6 +45,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ReportInsights from "./report-insights";
 import ReportTimeline from "./report-timeline";
 import { FormProvider, useForm } from "react-hook-form";
+import type { NormalizedVoucherType } from "@/lib/accounting/voucher-types";
+import { DEFAULT_VOUCHER_TABS_ORDER } from "@/lib/accounting/voucher-types";
 
 interface ReportGeneratorProps {
   boxes?: Box[];
@@ -67,6 +69,41 @@ type ReportFiltersState = {
   maxAmount: string;
   showOpeningBalance: boolean;
 };
+
+const FILTER_ICON_MAP: Partial<Record<NormalizedVoucherType, React.ElementType>> = {
+  standard_receipt: FileDown,
+  distributed_receipt: GitBranch,
+  payment: FileUp,
+  manualExpense: Banknote,
+  journal_voucher: BookUser,
+  remittance: ArrowRightLeft,
+  transfer: Repeat,
+  booking: Plane,
+  visa: CreditCard,
+  subscription: Repeat,
+  segment: Layers3,
+  'profit-sharing': Share2,
+  refund: RefreshCw,
+  exchange: ArrowRightLeft,
+  exchange_transaction: ChevronsRightLeft,
+  exchange_payment: CreditCard,
+  exchange_adjustment: RefreshCw,
+  exchange_revenue: TrendingUp,
+  exchange_expense: TrendingDown,
+  void: XCircle,
+  other: Wand2,
+};
+
+const BASIC_FILTER_TYPES: NormalizedVoucherType[] = [
+  'standard_receipt',
+  'distributed_receipt',
+  'payment',
+  'manualExpense',
+  'booking',
+  'visa',
+  'subscription',
+  'journal_voucher',
+];
 
 const createDefaultDateRange = (): DateRange => ({
   from: startOfDay(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
@@ -92,25 +129,17 @@ export default function ReportGenerator({
   const { data: navData } = useVoucherNav();
   
   const allFilters = useMemo(
-    () => [
-        { id: "booking", label: mapVoucherLabel("booking"), icon: Plane, group: "basic" as const },
-        { id: "visa", label: mapVoucherLabel("visa"), icon: CreditCard, group: "basic" as const },
-        { id: "subscription", label: mapVoucherLabel("subscription"), icon: Repeat, group: "basic" as const },
-        { id: "payment", label: mapVoucherLabel("payment"), icon: FileUp, group: "basic" as const },
-        { id: "standard_receipt", label: mapVoucherLabel("standard_receipt"), icon: FileDown, group: "basic" as const },
-        { id: "manualExpense", label: mapVoucherLabel("manualExpense"), icon: Banknote, group: "basic" as const },
-        { id: "distributed_receipt", label: mapVoucherLabel("distributed_receipt"), icon: GitBranch, group: "other" as const },
-        { id: "remittance", label: mapVoucherLabel("remittance"), icon: ArrowRightLeft, group: "other" as const },
-        { id: "transfer", label: mapVoucherLabel("transfer"), icon: Repeat, group: "other" as const },
-        { id: "exchange_transaction", label: mapVoucherLabel("exchange_transaction"), icon: ChevronsRightLeft, group: "other" as const },
-        { id: "exchange_payment", label: mapVoucherLabel("exchange_payment"), icon: ChevronsRightLeft, group: "other" as const },
-        { id: "segment", label: mapVoucherLabel("segment"), icon: Layers3, group: "other" as const },
-        { id: "profit-sharing", label: mapVoucherLabel("profit-sharing"), icon: Share2, group: "other" as const },
-        { id: "journal_voucher", label: mapVoucherLabel("journal_voucher"), icon: BookUser, group: "other" as const },
-        { id: "refund", label: mapVoucherLabel("refund"), icon: RefreshCw, group: "other" as const },
-        { id: "exchange", label: mapVoucherLabel("exchange"), icon: RefreshCw, group: "other" as const },
-        { id: "void", label: mapVoucherLabel("void"), icon: XCircle, group: "other" as const },
-    ],
+    () =>
+      DEFAULT_VOUCHER_TABS_ORDER.map((type) => {
+        const icon = FILTER_ICON_MAP[type] ?? Terminal;
+        const group = BASIC_FILTER_TYPES.includes(type) ? 'basic' : 'other';
+        return {
+          id: type,
+          label: mapVoucherLabel(type),
+          icon,
+          group,
+        } as const;
+      }),
     []
   );
 
@@ -164,8 +193,11 @@ export default function ReportGenerator({
           { value: "revenue_profit_distribution", label: "إيراد: توزيع الأرباح" },
           { value: "revenue_tickets", label: "إيرادات التذاكر" },
           { value: "revenue_visa", label: "إيرادات الفيزا" },
+          { value: "revenue_subscriptions", label: "إيراد: الاشتراكات" },
           { value: "expense_tickets", label: "تكلفة التذاكر" },
           { value: "expense_visa", label: "تكلفة الفيزا" },
+          { value: "expense_subscriptions", label: "تكلفة الاشتراكات" },
+          { value: "expense_partners", label: "مصروفات الشركاء" },
         ];
         return [...clientOptions, ...supplierOptions, ...boxOptions, ...exchangeOptions, ...staticAccounts];
   }, [clients, suppliers, boxes, exchanges]);
@@ -245,11 +277,15 @@ export default function ReportGenerator({
                          suppliers.some(s => s.id === currentFilters.accountId) ? 'supplier' : undefined;
 
     try {
+      const selectedTypes = Array.from(currentFilters.typeFilter);
+      const shouldFilterByType =
+        selectedTypes.length > 0 && selectedTypes.length < allFilters.length;
+
       const { transactions: data, openingBalances: ob } = await getAccountStatement({
         accountId: currentFilters.accountId,
         dateFrom: currentFilters.dateRange?.from,
         dateTo: currentFilters.dateRange?.to,
-        voucherType: Array.from(currentFilters.typeFilter),
+        voucherType: shouldFilterByType ? selectedTypes : undefined,
         accountType,
         relationKind,
         includeDeleted: false,
@@ -320,7 +356,7 @@ export default function ReportGenerator({
     } finally {
       setIsLoading(false);
     }
-  }, [formMethods, toast, clients, suppliers, boxes, exchanges, navData]);
+  }, [formMethods, toast, clients, suppliers, boxes, exchanges, navData, allFilters]);
 
   useEffect(() => {
     if (defaultAccountId) {
@@ -349,10 +385,13 @@ export default function ReportGenerator({
     const rawMin = filters.minAmount !== "" ? Number(filters.minAmount) : null;
     const rawMax = filters.maxAmount !== "" ? Number(filters.maxAmount) : null;
     const minAmount = rawMin !== null && Number.isFinite(rawMin) ? rawMin : null;
-    const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? maxAmount : null;
+    const maxAmount = rawMax !== null && Number.isFinite(rawMax) ? rawMax : null;
+
+    const shouldApplyTypeFilter =
+      filters.typeFilter.size > 0 && filters.typeFilter.size < allFilters.length;
 
     return transactions.filter((tx) => {
-      if (filters.typeFilter.size > 0 && !filters.typeFilter.has(tx.type)) {
+      if (shouldApplyTypeFilter && !filters.typeFilter.has(tx.type)) {
         return false;
       }
 
@@ -399,7 +438,7 @@ export default function ReportGenerator({
 
       return true;
     });
-  }, [transactions, filters]);
+  }, [transactions, filters, allFilters]);
 
   const finalTransactions = useMemo(() => {
     return filteredTransactions.sort(
@@ -460,8 +499,6 @@ export default function ReportGenerator({
                 vouchers={allFilters}
                 officers={officerOptions}
                 currencies={currencyOptions}
-                filters={filters}
-                onFiltersChange={(newFilters) => formMethods.reset(newFilters)}
               />
               <Button onClick={handleGenerateReport} disabled={isLoading} className="w-full h-11 flex items-center justify-center gap-2">
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
