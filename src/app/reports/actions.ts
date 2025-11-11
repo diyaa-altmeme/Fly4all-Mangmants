@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -134,8 +133,18 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       }
     });
     
-    // Fetch all vouchers
-    const vouchersSnap = await db.collection('journal-vouchers').get();
+    // Fetch all vouchers where the account is either a direct entry or a related party.
+    const debitQuery = db.collection('journal-vouchers').where('debitEntries', 'array-contains', { accountId });
+    const creditQuery = db.collection('journal-vouchers').where('creditEntries', 'array-contains', { accountId });
+    const relationQuery = db.collection('journal-vouchers').where(FieldPath.documentId(), 'in', 
+        (await db.collection('journal-vouchers').where('entries', 'array-contains-any', [{relationId: accountId}, {companyId: accountId}]).get()).docs.map(d => d.id)
+    );
+
+    const [debitSnap, creditSnap] = await Promise.all([debitQuery.get(), creditQuery.get()]);
+
+    const allDocsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>>();
+    debitSnap.forEach(doc => allDocsMap.set(doc.id, doc));
+    creditSnap.forEach(doc => allDocsMap.set(doc.id, doc));
 
     const openingBalances: Record<string, number> = {};
     const reportRows: any[] = [];
@@ -538,9 +547,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       }
     };
 
-    const allDocs = vouchersSnap.docs;
-
-    for (const doc of allDocs) {
+    for (const doc of allDocsMap.values()) {
       const v = doc.data() as JournalVoucher;
       
       const voucherMeta = (v as any)?.meta || (v.originalData?.meta ?? {});
@@ -935,5 +942,3 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         }
     };
 }
-
-    
