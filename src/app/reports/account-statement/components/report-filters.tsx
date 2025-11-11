@@ -38,6 +38,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { format } from 'date-fns';
+import type { ReportTransaction } from "@/lib/types";
 
 interface DatePickerProps {
   date: Date | undefined;
@@ -94,7 +95,7 @@ const relationKinds = [
 ];
 
 interface ReportFiltersProps {
-    accounts: { value: string; label: string; }[];
+    accounts: { value: string; label: string; type?: string; }[];
     vouchers: { id: string; label: string, group: string, icon: React.ElementType }[];
     officers: string[];
     currencies: { code: string; label: string; symbol?: string }[];
@@ -112,10 +113,16 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
     };
 
     useEffect(() => {
-        const currentFilters = getValues();
-        if(!isEqual(filters, currentFilters)) {
-            onChange(currentFilters);
-        }
+        const subscription = watch((value, { name, type }) => {
+            const currentFilters = getValues();
+            if(!isEqual(filters, currentFilters)) {
+                onChange(currentFilters);
+            }
+            if (name === 'accountType') {
+                onChange({ ...currentFilters, accountId: '' }); // Reset accountId when type changes
+            }
+        });
+        return () => subscription.unsubscribe();
     }, [watch, filters, getValues, onChange]);
 
 
@@ -146,22 +153,31 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
 
     const basicFilters = vouchers.filter(v => v.group === 'basic');
     const otherFilters = vouchers.filter(v => v.group === 'other');
+    
+    const filteredAccounts = useMemo(() => {
+        if (!accountType || accountType === 'static' || !accounts) return accounts;
+        
+        return accounts.filter(acc => {
+            const accType = acc.label.split(':')[0].trim();
+            switch (accountType) {
+                case 'relation':
+                    return accType === 'عميل' || accType === 'مورد';
+                case 'box':
+                    return accType === 'صندوق';
+                case 'exchange':
+                    return accType === 'بورصة';
+                default:
+                    return true;
+            }
+        });
+
+    }, [accounts, accountType]);
 
     return (
         <div className="space-y-4">
-            <div className="space-y-2">
-                <Label className="font-semibold">الحساب</Label>
-                 <Autocomplete 
-                    options={accounts} 
-                    value={filters.accountId} 
-                    onValueChange={(v) => onChange({ accountId: v })}
-                    placeholder="ابحث عن حساب..."
-                />
-            </div>
-            
              <div className="space-y-2">
                 <Label className="font-semibold">نوع الحساب</Label>
-                <Select onValueChange={(v) => onChange({ accountType: v })} value={accountType}>
+                <Select onValueChange={(v) => onChange({ accountType: v, accountId: '' })} value={filters.accountType}>
                     <SelectTrigger>
                         <SelectValue placeholder="اختر نوع الحساب" />
                     </SelectTrigger>
@@ -173,6 +189,16 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
                         ))}
                     </SelectContent>
                 </Select>
+            </div>
+
+            <div className="space-y-2">
+                <Label className="font-semibold">الحساب</Label>
+                 <Autocomplete 
+                    options={filteredAccounts} 
+                    value={filters.accountId} 
+                    onValueChange={(v) => onChange({ accountId: v })}
+                    placeholder="ابحث عن حساب..."
+                />
             </div>
             
             <div className="space-y-2">
@@ -302,4 +328,4 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
         </div>
     );
 }
-    
+
