@@ -13,6 +13,7 @@ import { getSettings } from '@/app/settings/actions';
 import { getExchanges } from '@/app/exchanges/actions';
 import { normalizeVoucherType, type NormalizedVoucherType } from "@/lib/accounting/voucher-types";
 import * as admin from 'firebase-admin';
+import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 
 const normalizeToDate = (value: unknown): Date | null => {
   if (!value) return null;
@@ -66,8 +67,8 @@ const STATIC_ACCOUNT_LABELS: Record<string, string> = {
 export async function getAccountStatement(filters: AccountStatementFilters) {
   const db = await getDb();
   if (!db) {
-      console.error("Database not available");
-      throw new Error("Database connection is not available.");
+    console.error("Database not available");
+    throw new Error("Database connection is not available.");
   }
   const { accountId, dateFrom, dateTo, voucherType, accountType, relationKind, includeDeleted = false } = filters;
 
@@ -134,39 +135,30 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       }
     });
     
-    let baseQuery = db.collection('journal-vouchers');
+    let baseLedgerQuery = db.collection('journal-ledger').where('accountId', '==', accountId);
     if (!includeDeleted) {
-        baseQuery = baseQuery.where('isDeleted', '!=', true) as FirebaseFirestore.CollectionReference;
+        baseLedgerQuery = baseLedgerQuery.where('isDeleted', '!=', true);
+    }
+    
+    const ledgerSnap = await baseLedgerQuery.get();
+    if(ledgerSnap.empty) {
+        return { transactions: [], openingBalances: {} };
     }
 
-    const [debitSnap, creditSnap] = await Promise.all([
-        baseQuery.where('debitEntries', 'array-contains', { accountId }).get(),
-        baseQuery.where('creditEntries', 'array-contains', { accountId }).get(),
-    ]);
+    const voucherIds = Array.from(new Set(ledgerSnap.docs.map(d => d.data().voucherId)));
 
-    const allDocsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>>();
-    debitSnap.forEach(doc => allDocsMap.set(doc.id, doc));
-    creditSnap.forEach(doc => allDocsMap.set(doc.id, doc));
-
-    const allDocs = Array.from(allDocsMap.values());
+    const vouchersMap = new Map<string, FirebaseFirestore.DocumentSnapshot>();
+    if (voucherIds.length > 0) {
+      for (let i = 0; i < voucherIds.length; i += 30) {
+        const chunk = voucherIds.slice(i, i + 30);
+        const voucherSnap = await db.collection('journal-vouchers').where(FieldPath.documentId(), 'in', chunk).get();
+        voucherSnap.forEach(doc => vouchersMap.set(doc.id, doc));
+      }
+    }
 
 
     const openingBalances: Record<string, number> = {};
     const reportRows: any[] = [];
-    
-    const resolvedRelationKind = relationKind
-      || (clientsData.some(client => client.id === accountId)
-        ? 'client'
-        : suppliersData.some(supplier => supplier.id === accountId)
-          ? 'supplier'
-          : undefined);
-
-    const resolvedAccountType = accountType
-      || ((boxes || []).some(box => box.id === accountId) ? 'box'
-        : exchanges.some(exchange => exchange.id === accountId) ? 'exchange'
-          : resolvedRelationKind ? 'relation'
-            : accountId?.startsWith('expense_') ? 'expense'
-              : undefined);
     
     const getAccountLabel = (id?: string | null): string | undefined => {
       if (!id) return undefined;
@@ -552,8 +544,11 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       }
     };
 
-    for (const doc of allDocs) {
-      const v = doc.data() as JournalVoucher;
+    for (const doc of ledgerSnap.docs) {
+      const entry = doc.data() as JournalEntry;
+      const voucherDoc = vouchersMap.get(entry.voucherId);
+      if (!voucherDoc) continue;
+      const v = voucherDoc.data() as JournalVoucher;
       
       const voucherMeta = (v as any)?.meta || (v.originalData?.meta ?? {});
       const normalizedMeta =
@@ -571,7 +566,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       const invoiceNumber =
         v.invoiceNumber || normalizedMeta?.invoiceNumber || normalizedMeta?.reference || doc.id;
       const officerName =
-        normalizedMeta?.officerName || usersMap.get(v.createdBy) || v.officer || v.createdBy;
+        normalizedMeta?.officerName || usersMap.get(v.createdBy || '') || v.officer || v.createdBy;
       const baseNotes = normalizedMeta?.description || normalizedMeta?.notes || v.notes || '';
       const voucherCurrency = v.currency || 'USD';
 
@@ -584,29 +579,23 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         voucherCurrency,
       });
 
-      const allVoucherEntries = [...(v.debitEntries || []), ...(v.creditEntries || [])];
+      const direction = entry.debit ? 'debit' : 'credit';
+      const entryAmount = Number(entry.debit || entry.credit || entry.amount || 0);
       
-      for (const entry of allVoucherEntries) {
-        if (entry.accountId !== accountId) continue;
-        
-        const isDebit = 'debit' in entry || (v.debitEntries || []).some(de => de.accountId === entry.accountId && de.amount === entry.amount);
-        const direction = isDebit ? 'debit' : 'credit';
-        const entryAmount = Number(entry.amount ?? 0);
-        
-        const signedAmount = (direction === 'debit' ? 1 : -1) * entryAmount;
+      const signedAmount = (direction === 'debit' ? 1 : -1) * entryAmount;
 
-        if (dateFrom && voucherDate < dateFrom) {
-          openingBalances[voucherCurrency] = (openingBalances[voucherCurrency] || 0) + signedAmount;
-          continue;
-        }
+      if (dateFrom && voucherDate < dateFrom) {
+        openingBalances[voucherCurrency] = (openingBalances[voucherCurrency] || 0) + signedAmount;
+        continue;
+      }
 
-        if ((dateFrom && voucherDate < dateFrom) || (dateTo && voucherDate > dateTo)) {
-          continue;
-        }
+      if ((dateFrom && voucherDate < dateFrom) || (dateTo && voucherDate > dateTo)) {
+        continue;
+      }
 
-        let description: string | StructuredDescription;
-        if (normalizedType === 'distributed_receipt') {
-          const baseCurrency = currency;
+      let description: string | StructuredDescription;
+      if (normalizedType === 'distributed_receipt') {
+          const baseCurrency = v.currency;
           const totalAmount = Number(
             v.originalData?.totalAmount ?? normalizedMeta?.totalAmount ?? entryAmount ?? 0,
           );
@@ -707,82 +696,79 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
             distributions: distributionBreakdown,
             notes: v.notes || normalizedMeta?.notes || '',
           };
-        } else if (voucherContext?.description) {
-          description = voucherContext.description;
-        } else if (entry.description) {
-          description = entry.description;
-        } else if (baseNotes) {
-          description = baseNotes;
-        } else {
-          description = '';
-        }
+      } else if (voucherContext?.description) {
+        description = voucherContext.description;
+      } else if (entry.description) {
+        description = entry.description;
+      } else if (baseNotes) {
+        description = baseNotes;
+      } else {
+        description = '';
+      }
 
-        const oppositeEntries = (direction === 'debit' ? v.creditEntries : v.debitEntries) || [];
-        const otherAccountIds = new Set(
-          oppositeEntries
-            .map((other) => other.accountId)
-            .filter((id) => id && id !== entry.accountId),
-        );
+      const allEntries = [...(v.debitEntries || []), ...(v.creditEntries || [])];
+      const otherAccountIds = new Set(
+        allEntries
+          .map((other) => other.accountId)
+          .filter((id) => id && id !== entry.accountId),
+      );
 
-        const otherPartySet = new Set<string>();
-        otherAccountIds.forEach((id) => {
-          const label = getAccountLabel(id);
-          if (label) otherPartySet.add(label);
-        });
-        [
-          normalizedMeta?.clientName,
-          normalizedMeta?.supplierName,
-          normalizedMeta?.companyName,
-          normalizedMeta?.partnerName,
-          normalizedMeta?.from,
-          normalizedMeta?.to,
-          normalizedMeta?.payee,
-        ]
-          .filter(Boolean)
-          .forEach((name) => otherPartySet.add(name as string));
-        (voucherContext?.parties || []).forEach((name) => {
-          if (name) otherPartySet.add(name);
-        });
+      const otherPartySet = new Set<string>();
+      otherAccountIds.forEach((id) => {
+        const label = getAccountLabel(id);
+        if (label) otherPartySet.add(label);
+      });
+      [
+        normalizedMeta?.clientName,
+        normalizedMeta?.supplierName,
+        normalizedMeta?.companyName,
+        normalizedMeta?.partnerName,
+        normalizedMeta?.from,
+        normalizedMeta?.to,
+        normalizedMeta?.payee,
+      ]
+        .filter(Boolean)
+        .forEach((name) => otherPartySet.add(name as string));
+      (voucherContext?.parties || []).forEach((name) => {
+        if (name) otherPartySet.add(name);
+      });
 
-        const otherParty = Array.from(otherPartySet).join('، ');
+      const otherParty = Array.from(otherPartySet).join('، ');
+      
+      const noteSources = [voucherContext?.notes, normalizedMeta?.notes, v.notes].filter(
+        (note): note is string => Boolean(note && note.trim()),
+      );
+      const notes = Array.from(new Set(noteSources)).join(' • ');
 
-        const noteSources = [voucherContext?.notes, normalizedMeta?.notes, v.notes].filter(
-          (note): note is string => Boolean(note && note.trim()),
-        );
-        const notes = Array.from(new Set(noteSources)).join(' • ');
+      reportRows.push({
+        id: `${doc.id}_${direction}_${entry.accountId}_${reportRows.length}`,
+        date: voucherDate.toISOString(),
+        invoiceNumber,
+        description,
+        debit: entry.debit || 0,
+        credit: entry.credit || 0,
+        currency: entry.currency || voucherCurrency,
+        officer: officerName,
+        voucherType: normalizedType,
+        normalizedType,
+        rawVoucherType: v.voucherType,
+        sourceType: normalizedType,
+        rawSourceType,
+        sourceId: effectiveSourceId,
+        sourceRoute:
+          v.originalData?.sourceRoute ||
+          resolveSourceRoute(normalizedType, effectiveSourceId, v.id, normalizedMeta, rawSourceType),
+        originalData: { ...v.originalData, meta: normalizedMeta },
+        notes,
+        direction,
+        amount: entryAmount,
+        type: normalizedType,
+        accountId: entry.accountId,
+        createdAt: serializeDate(v.createdAt),
+        otherParty,
+      });
 
-        reportRows.push({
-          id: `${doc.id}_${direction}_${entry.accountId}_${reportRows.length}`,
-          date: voucherDate.toISOString(),
-          invoiceNumber,
-          description,
-          debit: direction === 'debit' ? entryAmount : 0,
-          credit: direction === 'credit' ? entryAmount : 0,
-          currency,
-          officer: officerName,
-          voucherType: normalizedType,
-          normalizedType,
-          rawVoucherType: v.voucherType,
-          sourceType: normalizedType,
-          rawSourceType,
-          sourceId: effectiveSourceId,
-          sourceRoute:
-            v.originalData?.sourceRoute ||
-            resolveSourceRoute(normalizedType, effectiveSourceId, doc.id, normalizedMeta, rawSourceType),
-          originalData: { ...v.originalData, meta: normalizedMeta },
-          notes,
-          direction,
-          amount: entryAmount,
-          type: normalizedType,
-          accountId: entry.accountId,
-          accountScope: resolvedAccountType,
-          relationKind: resolvedRelationKind,
-          createdAt: serializeDate(v.createdAt),
-          otherParty,
-        });
-      };
-
-    }
+    };
     
     const filteredRows = voucherType && voucherType.length > 0
         ? reportRows.filter(r => {
@@ -807,8 +793,6 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
                 ...r,
                 balance: nextBalance,
                 balancesByCurrency: balancesSnapshot,
-                balanceUSD: balancesSnapshot['USD'] ?? 0,
-                balanceIQD: balancesSnapshot['IQD'] ?? 0,
             };
         });
 
@@ -947,3 +931,5 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         }
     };
 }
+
+    
