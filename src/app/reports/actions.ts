@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from '@/lib/firebase-admin';
@@ -537,7 +538,9 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       }
     };
 
-    for (const doc of vouchersSnap.docs) {
+    const allDocs = vouchersSnap.docs;
+
+    for (const doc of allDocs) {
       const v = doc.data() as JournalVoucher;
       
       const voucherMeta = (v as any)?.meta || (v.originalData?.meta ?? {});
@@ -769,12 +772,6 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       (v.creditEntries || []).forEach((entry) => processEntry(entry, 'credit'));
     }
     
-    const allDocs = Array.from(combinedDocs.values());
-    for(const doc of allDocs) {
-        // processing logic here
-    }
-
-
     const filteredRows = voucherType && voucherType.length > 0
         ? reportRows.filter(r => {
             const typeKey = r.normalizedType || r.sourceType || r.voucherType || r.type;
@@ -938,3 +935,5 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         }
     };
 }
+
+    
