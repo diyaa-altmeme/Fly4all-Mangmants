@@ -132,25 +132,13 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         distributionChannelByAccount.set(channel.accountId, { id: channel.id, label: channel.label });
       }
     });
-
-    const vouchersCollection = db.collection('journal-vouchers');
     
-    // Corrected Querying
-    const debitQuery = vouchersCollection.where('debitEntries', 'array-contains', { accountId: accountId });
-    const creditQuery = vouchersCollection.where('creditEntries', 'array-contains', { accountId: accountId });
-
-    const [debitSnap, creditSnap] = await Promise.all([
-      vouchersCollection.where(FieldPath.documentId(), 'in', (await debitQuery.get()).docs.map(d => d.id)).get(),
-      vouchersCollection.where(FieldPath.documentId(), 'in', (await creditQuery.get()).docs.map(d => d.id)).get(),
-    ]);
-    
-    const combinedDocs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
-    debitSnap.forEach(doc => combinedDocs.set(doc.id, doc));
-    creditSnap.forEach(doc => combinedDocs.set(doc.id, doc));
+    // Fetch all vouchers
+    const vouchersSnap = await db.collection('journal-vouchers').get();
 
     const openingBalances: Record<string, number> = {};
     const reportRows: any[] = [];
-
+    
     const resolvedRelationKind = relationKind
       || (clientsData.some(client => client.id === accountId)
         ? 'client'
@@ -164,7 +152,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
           : resolvedRelationKind ? 'relation'
             : accountId?.startsWith('expense_') ? 'expense'
               : undefined);
-
+    
     const getAccountLabel = (id?: string | null): string | undefined => {
       if (!id) return undefined;
       return accountLabelMap.get(id) || STATIC_ACCOUNT_LABELS[id] || id;
@@ -182,7 +170,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       docCache.set(cacheKey, data);
       return data;
     };
-
+    
     const formatDateLabel = (value: unknown): string | undefined => {
       const asDate = normalizeToDate(value);
       if (!asDate) return undefined;
@@ -549,7 +537,7 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       }
     };
 
-    for (const doc of Array.from(combinedDocs.values())) {
+    for (const doc of vouchersSnap.docs) {
       const v = doc.data() as JournalVoucher;
       
       const voucherMeta = (v as any)?.meta || (v.originalData?.meta ?? {});
@@ -781,6 +769,11 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       (v.creditEntries || []).forEach((entry) => processEntry(entry, 'credit'));
     }
     
+    const allDocs = Array.from(combinedDocs.values());
+    for(const doc of allDocs) {
+        // processing logic here
+    }
+
 
     const filteredRows = voucherType && voucherType.length > 0
         ? reportRows.filter(r => {
@@ -945,5 +938,3 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         }
     };
 }
-
-    
