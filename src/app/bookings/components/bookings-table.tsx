@@ -246,7 +246,7 @@ const BookingRow = ({ booking, onBookingUpdated, onBookingDeleted, clients, supp
                                             <TableCell className="font-mono">{p.ticketNumber}</TableCell>
                                             <TableCell><div className="flex items-center gap-2"><PassengerTypeIcon type={p.passengerType} /> {p.passengerType}</div></TableCell>
                                             <TableCell><OperationTypeBadge type={p.ticketType || 'Issue'} /></TableCell>
-                                            <TableCell className="text-center font-mono">{formatCurrency(p.purchasePrice, currency)}</TableCell>
+                                            <TableCell className="text-center font-mono">{formatCurrency(p.purchasePrice, currency)}</TableCell> inadequacy
                                             <TableCell className="text-center font-mono">{formatCurrency(p.salePrice, currency)}</TableCell>
                                             <TableCell className={cn("text-center font-mono font-bold", profit >= 0 ? "text-green-600" : "text-destructive")}>{formatCurrency(profit, currency)}</TableCell>
                                         </TableRow>
@@ -321,4 +321,8 @@ export default function BookingsTable({ bookings, totalBookings, onBookingUpdate
           ))}
         </TableBody>
       </Table>
-    
+    </div>
+    <DataTablePagination table={table} />
+    </div>
+  );
+}
