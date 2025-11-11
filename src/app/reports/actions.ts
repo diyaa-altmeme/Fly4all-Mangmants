@@ -58,6 +58,7 @@ const STATIC_ACCOUNT_LABELS: Record<string, string> = {
   revenue_profit_distribution: 'إيراد توزيع الأرباح',
   revenue_tickets: 'إيرادات التذاكر',
   revenue_visa: 'إيرادات الفيزا',
+  revenue_subscriptions: 'إيرادات الاشتراكات',
   expense_tickets: 'تكلفة التذاكر',
   expense_visa: 'تكلفة الفيزا',
   expense_subscriptions: 'تكلفة الاشتراكات',
