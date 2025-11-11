@@ -13,7 +13,7 @@ import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { cache } from 'react';
-import { getFinanceMap, type JournalEntry } from '@/lib/finance/posting';
+import { getFinanceMap, type JournalEntry } from '@/lib/finance/postJournal';
 import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';
 import * as admin from 'firebase-admin';
 import { postJournalEntry } from '@/lib/finance/postJournal';
@@ -149,7 +149,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
         const totalPurchase = (subscriptionData.quantity || 1) * (subscriptionData.purchasePrice || 0);
         const totalSale = ((subscriptionData.quantity || 1) * (subscriptionData.unitPrice || 0)) - (subscriptionData.discount || 0);
         const profit = totalSale - totalPurchase;
-        const newInvoiceNumber = await getNextVoucherNumber('SUB');
+        const newInvoiceNumber = await getNextVoucherNumber('subscription');
         
         const partnerSharePercentage = subscriptionData.hasPartner ? (subscriptionData.partnerSharePercentage || 0) : 0;
         const partnerShareAmount = profit * (partnerSharePercentage / 100);
@@ -803,7 +803,7 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
             const vouchersSnap = await transaction.get(voucherQuery);
 
             // THEN WRITE
-            transaction.update(subRef, { isDeleted: true, deletedAt: now, deletedBy });
+            transaction.update(subRef, { isDeleted: true, deletedAt: now, deletedBy: deletedBy });
 
             installmentsSnap.forEach(doc => {
                 transaction.update(doc.ref, { isDeleted: true, deletedAt: now, deletedBy });
@@ -973,6 +973,7 @@ export async function revalidateSubscriptionsPath() {
 
 
     
+
 
 
 

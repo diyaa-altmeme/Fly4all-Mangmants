@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb } from "@/lib/firebase-admin";
@@ -20,7 +21,8 @@ const VOUCHER_TYPES = [
     "profit-sharing",
     "PARTNER",
     "COMP",
-    "SEG"
+    "SEG",
+    "SUB"
 ];
 
 export async function getNextVoucherNumber(type: string = "voucher"): Promise<string> {
