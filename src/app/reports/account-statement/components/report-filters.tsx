@@ -4,6 +4,7 @@
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import * as React from "react";
+import { isEqual } from 'lodash';
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFormContext } from "react-hook-form";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useCallback } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -98,20 +99,13 @@ interface ReportFiltersProps {
     vouchers: { id: string; label: string, group: string, icon: React.ElementType }[];
     officers: string[];
     currencies: { code: string; label: string; symbol?: string }[];
-    onFiltersChange: (filters: any) => void;
 }
 
-export default function ReportFilters({ accounts, vouchers, officers, currencies, onFiltersChange }: ReportFiltersProps) {
+export default function ReportFilters({ accounts, vouchers, officers, currencies }: ReportFiltersProps) {
     const { watch, setValue, register, getValues } = useFormContext();
     const formValues = watch();
 
     const debouncedSearchTerm = useDebounce(formValues.searchTerm, 300);
-
-    const handleFilterChange = (newValues: any) => {
-      onFiltersChange({ ...formValues, ...newValues });
-    };
-    
-    const accountType = watch('accountType');
 
     const toggleVoucherType = (value: string) => {
         const currentSet = new Set<string>(getValues('typeFilter'));
@@ -120,7 +114,7 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
         } else {
             currentSet.add(value);
         }
-        handleFilterChange({ typeFilter: currentSet });
+        setValue('typeFilter', currentSet);
     };
 
     const handleSelectAll = (group: string) => {
@@ -133,11 +127,13 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
         } else {
             groupFilters.forEach(f => currentSet.add(f));
         }
-        handleFilterChange({ typeFilter: currentSet });
+        setValue('typeFilter', currentSet);
     }
+    
+    const accountType = watch('accountType');
 
     const filteredAccounts = useMemo(() => {
-        if (!accountType || accountType === 'static' || !accounts) return accounts;
+        if (!accountType || !accounts) return accounts || [];
         
         return accounts.filter(acc => {
             const accType = acc.label.split(':')[0].trim();
@@ -148,6 +144,8 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
                     return accType === 'صندوق';
                 case 'exchange':
                     return accType === 'بورصة';
+                 case 'static':
+                    return !['عميل', 'مورد', 'صندوق', 'بورصة'].includes(accType);
                 default:
                     return true;
             }
@@ -160,7 +158,7 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
 
     return (
         <div className="space-y-4">
-             <div className="space-y-2">
+            <div className="space-y-2">
                 <Label className="font-semibold">نوع الحساب</Label>
                 <Select onValueChange={(v) => { setValue('accountType', v); setValue('accountId', ''); }} value={formValues.accountType}>
                     <SelectTrigger>
@@ -175,7 +173,7 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
                     </SelectContent>
                 </Select>
             </div>
-            
+
             <div className="space-y-2">
                 <Label className="font-semibold">الحساب</Label>
                  <Autocomplete 
@@ -309,3 +307,4 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
         </div>
     );
 }
+

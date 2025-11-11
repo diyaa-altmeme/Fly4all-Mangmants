@@ -13,7 +13,7 @@ import { getSettings } from '@/app/settings/actions';
 import { getExchanges } from '@/app/exchanges/actions';
 import { normalizeVoucherType, type NormalizedVoucherType } from "@/lib/accounting/voucher-types";
 import * as admin from 'firebase-admin';
-import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 
 const normalizeToDate = (value: unknown): Date | null => {
   if (!value) return null;
@@ -517,23 +517,23 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         case 'exchange_expense':
         case 'refund':
         case 'void':
-          return sourceId ? `/bookings/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
+          return sourceId ? `/bookings?search=${meta?.pnr || ''}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
         case 'visa':
-          return sourceId ? `/visas/${sourceId}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
+          return sourceId ? `/visas?search=${meta?.passengers?.[0]?.name || ''}` : `/accounts/vouchers/${fallbackVoucherId}/edit`;
         case 'subscription': {
           const subscriptionId = meta?.subscriptionId || meta?.subscription?.id || sourceId;
           if ((rawSourceType || '').includes('installment')) {
             const installmentId = meta?.installmentId || sourceId || voucherId;
             return installmentId ? `/subscriptions?installment=${installmentId}` : '/subscriptions';
           }
-          return subscriptionId ? `/subscriptions/${subscriptionId}` : '/subscriptions';
+          return subscriptionId ? `/subscriptions?search=${subscriptionId}` : '/subscriptions';
         }
         case 'segment': {
           const periodId = meta?.periodId || meta?.segmentPeriodId;
           if (periodId) {
             return `/segments?period=${periodId}`;
           }
-          return sourceId ? `/segments/${sourceId}` : '/segments';
+          return sourceId ? `/segments?search=${meta?.companyName || ''}` : '/segments';
         }
         case 'profit-sharing': {
           const monthId = meta?.manualProfitId || meta?.profitMonthId || sourceId;
@@ -931,5 +931,4 @@ export async function getDebtsReportData(): Promise<DebtsReportData> {
         }
     };
 }
-
     
