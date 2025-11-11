@@ -134,29 +134,19 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
       }
     });
     
-    // Fetch all vouchers where the account is a direct entry or a related party.
-    const relationQueryBase = db.collection('journal-vouchers')
-        .where('entries', 'array-contains-any', [
-            { relationId: accountId }, 
-            { companyId: accountId }
-        ]);
+    let baseQuery = db.collection('journal-vouchers');
+    if (!includeDeleted) {
+        baseQuery = baseQuery.where('isDeleted', '!=', true) as FirebaseFirestore.CollectionReference;
+    }
 
-    const relatedVoucherIdsSnap = await relationQueryBase.get();
-    const relatedVoucherIds = relatedVoucherIdsSnap.docs.map(d => d.id);
-    
-    const [debitSnap, creditSnap, relationSnap] = await Promise.all([
-        db.collection('journal-vouchers').where('debitEntries', 'array-contains', { accountId }).get(),
-        db.collection('journal-vouchers').where('creditEntries', 'array-contains', { accountId }).get(),
-        relatedVoucherIds.length > 0 ? db.collection('journal-vouchers').where(FieldPath.documentId(), 'in', relatedVoucherIds).get() : Promise.resolve(null)
+    const [debitSnap, creditSnap] = await Promise.all([
+        baseQuery.where('debitEntries', 'array-contains', { accountId }).get(),
+        baseQuery.where('creditEntries', 'array-contains', { accountId }).get(),
     ]);
-
 
     const allDocsMap = new Map<string, FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>>();
     debitSnap.forEach(doc => allDocsMap.set(doc.id, doc));
     creditSnap.forEach(doc => allDocsMap.set(doc.id, doc));
-    if (relationSnap) {
-        relationSnap.forEach(doc => allDocsMap.set(doc.id, doc));
-    }
 
     const allDocs = Array.from(allDocsMap.values());
 
@@ -594,22 +584,24 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         voucherCurrency,
       });
 
-      const processEntry = (entry: JournalEntry, direction: 'debit' | 'credit') => {
-        if (entry.accountId !== accountId) {
-          return;
-        }
-
-        const entryAmount = Number(entry.amount ?? (entry as any).debit ?? (entry as any).credit ?? 0);
-        const currency = (entry.currency as Currency) || voucherCurrency;
+      const allVoucherEntries = [...(v.debitEntries || []), ...(v.creditEntries || [])];
+      
+      for (const entry of allVoucherEntries) {
+        if (entry.accountId !== accountId) continue;
+        
+        const isDebit = 'debit' in entry || (v.debitEntries || []).some(de => de.accountId === entry.accountId && de.amount === entry.amount);
+        const direction = isDebit ? 'debit' : 'credit';
+        const entryAmount = Number(entry.amount ?? 0);
+        
         const signedAmount = (direction === 'debit' ? 1 : -1) * entryAmount;
 
         if (dateFrom && voucherDate < dateFrom) {
-          openingBalances[currency] = (openingBalances[currency] || 0) + signedAmount;
-          return;
+          openingBalances[voucherCurrency] = (openingBalances[voucherCurrency] || 0) + signedAmount;
+          continue;
         }
 
         if ((dateFrom && voucherDate < dateFrom) || (dateTo && voucherDate > dateTo)) {
-          return;
+          continue;
         }
 
         let description: string | StructuredDescription;
@@ -790,8 +782,6 @@ export async function getAccountStatement(filters: AccountStatementFilters) {
         });
       };
 
-      (v.debitEntries || []).forEach((entry) => processEntry(entry, 'debit'));
-      (v.creditEntries || []).forEach((entry) => processEntry(entry, 'credit'));
     }
     
     const filteredRows = voucherType && voucherType.length > 0
