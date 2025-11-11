@@ -32,7 +32,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useFormContext } from "react-hook-form";
-import { isEqual } from "lodash";
 import { useEffect, useMemo } from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Autocomplete } from "@/components/ui/autocomplete";
@@ -99,46 +98,34 @@ interface ReportFiltersProps {
     vouchers: { id: string; label: string, group: string, icon: React.ElementType }[];
     officers: string[];
     currencies: { code: string; label: string; symbol?: string }[];
-    filters: any;
     onFiltersChange: (filters: any) => void;
 }
 
-export default function ReportFilters({ accounts, vouchers, officers, currencies, filters, onFiltersChange }: ReportFiltersProps) {
+export default function ReportFilters({ accounts, vouchers, officers, currencies, onFiltersChange }: ReportFiltersProps) {
     const { watch, setValue, register, getValues } = useFormContext();
+    const formValues = watch();
 
-    const debouncedSearchTerm = useDebounce(filters.searchTerm, 300);
+    const debouncedSearchTerm = useDebounce(formValues.searchTerm, 300);
 
-    const onChange = (newValues: any) => {
-      onFiltersChange({ ...filters, ...newValues });
+    const handleFilterChange = (newValues: any) => {
+      onFiltersChange({ ...formValues, ...newValues });
     };
-
-    useEffect(() => {
-        const subscription = watch((value, { name, type }) => {
-            const currentFilters = getValues();
-            if(!isEqual(filters, currentFilters)) {
-                onChange(currentFilters);
-            }
-            if (name === 'accountType') {
-                onChange({ ...currentFilters, accountId: '' }); // Reset accountId when type changes
-            }
-        });
-        return () => subscription.unsubscribe();
-    }, [watch, filters, getValues, onChange]);
-
+    
+    const accountType = watch('accountType');
 
     const toggleVoucherType = (value: string) => {
-        const currentSet = new Set<string>(filters.typeFilter);
+        const currentSet = new Set<string>(getValues('typeFilter'));
         if (currentSet.has(value)) {
             currentSet.delete(value);
         } else {
             currentSet.add(value);
         }
-        onChange({ ...filters, typeFilter: currentSet });
+        handleFilterChange({ typeFilter: currentSet });
     };
 
     const handleSelectAll = (group: string) => {
         const groupFilters = vouchers.filter(v => v.group === group).map(v => v.id);
-        const currentSet = new Set(filters.typeFilter);
+        const currentSet = new Set(getValues('typeFilter'));
         const areAllSelected = groupFilters.every(f => currentSet.has(f));
         
         if (areAllSelected) {
@@ -146,14 +133,9 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
         } else {
             groupFilters.forEach(f => currentSet.add(f));
         }
-        onChange({ ...filters, typeFilter: currentSet });
+        handleFilterChange({ typeFilter: currentSet });
     }
 
-    const accountType = watch('accountType');
-
-    const basicFilters = vouchers.filter(v => v.group === 'basic');
-    const otherFilters = vouchers.filter(v => v.group === 'other');
-    
     const filteredAccounts = useMemo(() => {
         if (!accountType || accountType === 'static' || !accounts) return accounts;
         
@@ -173,11 +155,14 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
 
     }, [accounts, accountType]);
 
+    const basicFilters = vouchers.filter(v => v.group === 'basic');
+    const otherFilters = vouchers.filter(v => v.group === 'other');
+
     return (
         <div className="space-y-4">
              <div className="space-y-2">
                 <Label className="font-semibold">نوع الحساب</Label>
-                <Select onValueChange={(v) => onChange({ accountType: v, accountId: '' })} value={filters.accountType}>
+                <Select onValueChange={(v) => { setValue('accountType', v); setValue('accountId', ''); }} value={formValues.accountType}>
                     <SelectTrigger>
                         <SelectValue placeholder="اختر نوع الحساب" />
                     </SelectTrigger>
@@ -190,13 +175,13 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
                     </SelectContent>
                 </Select>
             </div>
-
+            
             <div className="space-y-2">
                 <Label className="font-semibold">الحساب</Label>
                  <Autocomplete 
                     options={filteredAccounts} 
-                    value={filters.accountId} 
-                    onValueChange={(v) => onChange({ accountId: v })}
+                    value={formValues.accountId} 
+                    onValueChange={(v) => setValue('accountId', v)}
                     placeholder="ابحث عن حساب..."
                 />
             </div>
@@ -206,24 +191,24 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
                  <div className="grid grid-cols-2 gap-2">
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("justify-start text-left font-normal h-9", !filters.dateRange?.from && "text-muted-foreground")}>
+                            <Button variant="outline" className={cn("justify-start text-left font-normal h-9", !formValues.dateRange?.from && "text-muted-foreground")}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {filters.dateRange?.from ? format(filters.dateRange.from, "yyyy-MM-dd") : <span>من تاريخ</span>}
+                                {formValues.dateRange?.from ? format(formValues.dateRange.from, "yyyy-MM-dd") : <span>من تاريخ</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={filters.dateRange?.from} onSelect={(d) => onChange({ dateRange: { ...filters.dateRange, from: d } })} initialFocus />
+                            <Calendar mode="single" selected={formValues.dateRange?.from} onSelect={(d) => setValue('dateRange.from', d)} initialFocus />
                         </PopoverContent>
                     </Popover>
                      <Popover>
                         <PopoverTrigger asChild>
-                             <Button variant="outline" className={cn("justify-start text-left font-normal h-9", !filters.dateRange?.to && "text-muted-foreground")}>
+                             <Button variant="outline" className={cn("justify-start text-left font-normal h-9", !formValues.dateRange?.to && "text-muted-foreground")}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {filters.dateRange?.to ? format(filters.dateRange.to, "yyyy-MM-dd") : <span>إلى تاريخ</span>}
+                                {formValues.dateRange?.to ? format(formValues.dateRange.to, "yyyy-MM-dd") : <span>إلى تاريخ</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={filters.dateRange?.to} onSelect={(d) => onChange({ dateRange: { ...filters.dateRange, to: d } })} initialFocus />
+                            <Calendar mode="single" selected={formValues.dateRange?.to} onSelect={(d) => setValue('dateRange.to', d)} initialFocus />
                         </PopoverContent>
                     </Popover>
                 </div>
@@ -234,8 +219,8 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
                 <Popover>
                     <PopoverTrigger asChild>
                         <Button variant="outline" className="w-full justify-start h-9">
-                            {filters.typeFilter.size > 0 
-                                ? `${filters.typeFilter.size} نوع محدد`
+                            {formValues.typeFilter?.size > 0 
+                                ? `${formValues.typeFilter.size} نوع محدد`
                                 : 'اختر نوع الحركة'
                             }
                         </Button>
@@ -246,40 +231,36 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
                                 <CommandGroup heading="الحركات الأساسية">
                                     <CommandItem onSelect={() => handleSelectAll('basic')} className="font-bold cursor-pointer">تحديد/إلغاء الكل</CommandItem>
                                     {basicFilters.map((voucher) => (
-                                         <React.Fragment key={voucher.id}>
-                                            <CommandItem onSelect={() => toggleVoucherType(voucher.id)}>
-                                                <div className="flex items-center justify-between w-full">
-                                                    <div className="flex items-center gap-2">
-                                                        <voucher.icon className="h-4 w-4"/>
-                                                        {voucher.label}
-                                                    </div>
-                                                    <Checkbox
-                                                        checked={filters.typeFilter.has(voucher.id)}
-                                                        className="ml-2.5"
-                                                    />
+                                         <CommandItem key={voucher.id} onSelect={() => toggleVoucherType(voucher.id)}>
+                                            <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center gap-2">
+                                                    <voucher.icon className="h-4 w-4"/>
+                                                    {voucher.label}
                                                 </div>
-                                            </CommandItem>
-                                        </React.Fragment>
+                                                <Checkbox
+                                                    checked={formValues.typeFilter?.has(voucher.id)}
+                                                    className="ml-2.5"
+                                                />
+                                            </div>
+                                        </CommandItem>
                                     ))}
                                 </CommandGroup>
                                 <CommandSeparator />
                                 <CommandGroup heading="الحركات الأخرى">
                                      <CommandItem onSelect={() => handleSelectAll('other')} className="font-bold cursor-pointer">تحديد/إلغاء الكل</CommandItem>
                                     {otherFilters.map((voucher) => (
-                                         <React.Fragment key={voucher.id}>
-                                            <CommandItem onSelect={() => toggleVoucherType(voucher.id)}>
-                                                <div className="flex items-center justify-between w-full">
-                                                    <div className="flex items-center gap-2">
-                                                         <voucher.icon className="h-4 w-4"/>
-                                                         {voucher.label}
-                                                    </div>
-                                                    <Checkbox
-                                                        checked={filters.typeFilter.has(voucher.id)}
-                                                        className="ml-2.5"
-                                                    />
+                                         <CommandItem key={voucher.id} onSelect={() => toggleVoucherType(voucher.id)}>
+                                            <div className="flex items-center justify-between w-full">
+                                                <div className="flex items-center gap-2">
+                                                     <voucher.icon className="h-4 w-4"/>
+                                                     {voucher.label}
                                                 </div>
-                                            </CommandItem>
-                                        </React.Fragment>
+                                                <Checkbox
+                                                    checked={formValues.typeFilter?.has(voucher.id)}
+                                                    className="ml-2.5"
+                                                />
+                                            </div>
+                                        </CommandItem>
                                     ))}
                                 </CommandGroup>
                             </CommandList>
@@ -291,14 +272,14 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
              <div className="space-y-2">
                 <Label className="font-semibold">خيارات إضافية</Label>
                 <div className="grid grid-cols-2 gap-2">
-                    <Select value={filters.currency} onValueChange={(v) => onChange({currency: v})}>
+                    <Select value={formValues.currency} onValueChange={(v) => setValue('currency', v)}>
                         <SelectTrigger><SelectValue/></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="both">كل العملات</SelectItem>
                             {currencies.map(c => <SelectItem key={c.code} value={c.code}>{c.label}</SelectItem>)}
                         </SelectContent>
                     </Select>
-                     <Select value={filters.direction} onValueChange={(v) => onChange({direction: v})}>
+                     <Select value={formValues.direction} onValueChange={(v) => setValue('direction', v)}>
                         <SelectTrigger><SelectValue/></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">كل الحركات</SelectItem>
@@ -307,7 +288,7 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
                         </SelectContent>
                     </Select>
                 </div>
-                 <Select value={filters.officer} onValueChange={(v) => onChange({officer: v})}>
+                 <Select value={formValues.officer} onValueChange={(v) => setValue('officer', v)}>
                     <SelectTrigger><SelectValue placeholder="كل الموظفين"/></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">كل الموظفين</SelectItem>
@@ -315,11 +296,11 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
                     </SelectContent>
                 </Select>
                 <div className="flex items-center justify-between gap-2">
-                    <Input placeholder="أدنى مبلغ" value={filters.minAmount} onChange={e => onChange({minAmount: e.target.value})} type="number" />
-                    <Input placeholder="أقصى مبلغ" value={filters.maxAmount} onChange={e => onChange({maxAmount: e.target.value})} type="number" />
+                    <Input placeholder="أدنى مبلغ" {...register('minAmount')} type="number" />
+                    <Input placeholder="أقصى مبلغ" {...register('maxAmount')} type="number" />
                 </div>
                  <div className="flex items-center space-x-2 space-x-reverse pt-2">
-                    <Checkbox id="show-opening-balance" checked={filters.showOpeningBalance} onCheckedChange={(c) => onChange({ showOpeningBalance: !!c })} />
+                    <Checkbox id="show-opening-balance" checked={formValues.showOpeningBalance} onCheckedChange={(c) => setValue('showOpeningBalance', !!c)} />
                     <Label htmlFor="show-opening-balance" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed">
                         إظهار الرصيد الافتتاحي
                     </Label>
@@ -328,4 +309,3 @@ export default function ReportFilters({ accounts, vouchers, officers, currencies
         </div>
     );
 }
-
