@@ -1097,6 +1097,8 @@ export type VoucherSequence = {
   label: string; // e.g., 'سند قبض'
   prefix: string; // e.g., 'RC'
   value: number; // The current sequence number
+  padLength?: number; // عدد الأرقام في الجزء الرقمي
+  updatedAt?: string; // آخر تعديل بصيغة ISO
 };
 
 export type NotificationType = 'booking' | 'payment' | 'voucher' | 'remittance' | 'system' | 'user' | 'error' | 'warning';
