@@ -312,7 +312,7 @@ export async function updateSubscription(subscriptionId: string, subscriptionDat
 
     const financeSettings = await getFinanceMap();
     if (!financeSettings.receivableAccountId) {
-        return { success: false, error: "حساب الذمم المدينة (AR) غير محدد في إعدادات الربط المالي." };
+        return { success: false, error: "حساب الذمم المدينة (AR) غير محدد في إعدادات الربط المالي. يرجى مراجعة الإعدادات." };
     }
 
     try {
@@ -973,6 +973,7 @@ export async function revalidateSubscriptionsPath() {
 
 
     
+
 
 
 
