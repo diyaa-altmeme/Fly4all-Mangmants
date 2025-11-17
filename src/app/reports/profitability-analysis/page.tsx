@@ -1,15 +1,16 @@
 
+
 "use client";
 
 import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users, BarChart2, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
-import { db } from "@/lib/firebase";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 import { DataTable } from "@/components/ui/data-table";
 import { columns } from "./columns";
 import { normalizeFinanceAccounts } from "@/lib/finance/finance-accounts";
 import { enrichVoucherEntries } from "@/lib/finance/account-categories";
+import { db } from "@/lib/firebase";
 
 export default function ProfitabilityAnalysisPage() {
   const [data, setData] = useState<any[]>([]);
@@ -35,10 +36,10 @@ export default function ProfitabilityAnalysisPage() {
         if (!clientId) return;
 
         if (!analysis[clientId]) {
-          analysis[clientId] = {
-            revenue: 0,
-            expense: 0,
-            profit: 0,
+          analysis[clientId] = { 
+            revenue: 0, 
+            expense: 0, 
+            profit: 0, 
             clientName: clientsMap.get(clientId) || "غير معروف"
           };
         }
@@ -84,3 +85,4 @@ export default function ProfitabilityAnalysisPage() {
     </div>
   );
 }
+

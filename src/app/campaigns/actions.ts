@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { WhatsappAccount, WhatsappContact, WhatsappGroup, WhatsappGroupParticipant, WhatsappAccountStatus } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';

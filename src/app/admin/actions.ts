@@ -1,7 +1,8 @@
 
+
 'use server';
 
-import { getDb } from "@/lib/firebase-admin";
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { getAuth } from "firebase-admin/auth";
 import { setDoc, doc } from 'firebase/firestore';
 

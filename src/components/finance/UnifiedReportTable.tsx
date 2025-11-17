@@ -1,10 +1,11 @@
 
+
 "use client";
 import React, { useMemo } from "react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import type { ReportInfo, ReportTransaction } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Pencil, Trash2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import ReportSummary from "@/app/reports/account-statement/components/report-summary";
@@ -22,7 +23,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { buttonVariants } from "@/components/ui/button";
 
 
 const formatCurrency = (amount: number, currency: string) => {
@@ -52,7 +52,7 @@ const TransactionRow = ({ transaction, onActionComplete }: { transaction: Report
             "text-center font-bold",
             transaction.credit > 0 ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20",
         )}>
-            <td className="p-2 whitespace-nowrap font-mono">{format(new Date(transaction.date), "yyyy-MM-dd")}</td>
+            <td className="p-2 whitespace-nowrap font-mono">{format(parseISO(transaction.date), "yyyy-MM-dd")}</td>
             <td className="p-2">{transaction.type}</td>
             <td className="p-2 text-xs font-normal text-right">{typeof transaction.description === 'string' ? transaction.description : transaction.description.title}</td>
             <td className="p-2 font-mono text-red-600">{transaction.debit > 0 ? formatCurrency(transaction.debit, transaction.currency || 'IQD') : "-"}</td>
@@ -151,3 +151,4 @@ export default function UnifiedReportTable({
     </div>
   );
 }
+

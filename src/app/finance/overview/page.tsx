@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
 import { format } from "date-fns";
-import type { Transaction, TxCategory, TxKind } from "@/lib/transactions";
+import type { ReportInfo } from "@/lib/types";
 import UnifiedReportTable from "@/components/finance/UnifiedReportTable";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,7 +23,6 @@ import { useVoucherNav } from "@/context/voucher-nav-context";
 import { useRouter } from "next/navigation";
 import { Autocomplete } from "@/components/ui/autocomplete";
 import { getAccountStatement } from "@/app/reports/actions";
-import type { ReportInfo } from "@/lib/types";
 
 
 export default function FinanceOverviewPage() {
@@ -36,7 +36,7 @@ export default function FinanceOverviewPage() {
   const [toDate, setToDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [accountId, setAccountId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterCategory, setFilterCategory] = useState<TxCategory | "all">("all");
+  const [filterCategory, setFilterCategory] = useState< 'segment' | 'subscription' | 'profit' | 'share' | 'other' | "all">("all");
   const [report, setReport] = useState<ReportInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { data: navData, loaded: isDataLoaded, fetchData } = useVoucherNav();
@@ -57,9 +57,8 @@ export default function FinanceOverviewPage() {
     try {
       const reportData = await getAccountStatement({
         accountId: accountId,
-        currency: "both",
-        dateRange: { from: new Date(fromDate), to: new Date(toDate) },
-        typeFilter: filterCategory === "all" ? [] : [filterCategory],
+        dateFrom: new Date(fromDate),
+        dateTo: new Date(toDate),
       });
       setReport(reportData);
     } catch (e: any) {
@@ -180,3 +179,4 @@ export default function FinanceOverviewPage() {
     </div>
   );
 }
+

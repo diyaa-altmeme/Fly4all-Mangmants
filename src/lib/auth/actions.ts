@@ -1,7 +1,8 @@
 
+
 'use server';
 
-import { getDb, getAuthAdmin } from '@/lib/firebase-admin';
+import { getDb, getAuthAdmin } from '@/lib/firebase/firebase-admin-sdk';
 import type { User, Client, Permission } from '@/lib/types';
 import { cookies } from 'next/headers';
 import { getRoles } from '@/app/users/actions';

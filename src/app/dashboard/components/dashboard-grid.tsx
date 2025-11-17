@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import type { DashboardSection } from './dashboard-config';
+import type { DashboardSection } from '@/config/dashboard-config';
 import { Button } from '@/components/ui/button';
 import { EyeOff, GripVertical } from 'lucide-react';
 import Link from 'next/link';
@@ -147,5 +147,3 @@ export default function DashboardGrid({ sections, isEditing, onLayoutChange }: D
         </div>
     );
 }
-
-    

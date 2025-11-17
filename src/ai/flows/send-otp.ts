@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { getWhatsappAccounts, getAccountCredentials } from '@/app/campaigns/actions';
 
 // We separate the actual Genkit flow logic to be dynamically imported
