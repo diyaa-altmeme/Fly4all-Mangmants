@@ -15,10 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Search, Filter, FileText, Download, Printer, Plane, CreditCard, Repeat, Layers3, Share2, Wand2, AreaChart, Wallet, Boxes, FileUp, FileDown, BookUser, XCircle, RefreshCw, Banknote, GitBranch, ArrowRightLeft, ChevronsRightLeft, Building, Users, Terminal, Copy, TrendingUp, TrendingDown } from "lucide-react";
 import { Autocomplete } from "@/components/ui/autocomplete";
-import { useToast } from "@/hooks/use-toast";
 import { getAccountStatement } from "@/app/reports/actions";
 import { DateRange } from "react-day-picker";
-import { format, subDays, parseISO, startOfDay, endOfDay } from "date-fns";
+import { format, subDays, parseISO } from "date-fns";
 import * as XLSX from "xlsx";
 import ReportTable from "@/app/reports/account-statement/components/report-table";
 import ReportFilters from "@/app/reports/account-statement/components/report-filters";
@@ -163,7 +162,6 @@ export default function ReportGenerator({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
-  const { toast } = useToast();
   const { hasPermission } = useAuth();
 
   const firestoreIndexUrl =
@@ -253,11 +251,7 @@ export default function ReportGenerator({
   const handleGenerateReport = useCallback(async () => {
     const currentFilters = formMethods.getValues();
     if (!currentFilters.accountId) {
-      toast({
-        title: "خطأ",
-        description: "الرجاء اختيار حساب.",
-        variant: "destructive",
-      });
+      alert("الرجاء اختيار حساب.");
       return;
     }
     setIsLoading(true);
@@ -347,16 +341,12 @@ export default function ReportGenerator({
       setTransactions([]);
       setReport(null);
       if (!error.message.startsWith("FIRESTORE_INDEX_URL::")) {
-        toast({
-          title: "فشل",
-          description: error.message,
-          variant: "destructive",
-        });
+        alert("فشل: " + error.message);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [formMethods, toast, clients, suppliers, boxes, exchanges, navData, allFilters]);
+  }, [formMethods, clients, suppliers, boxes, exchanges, navData, allFilters]);
 
   useEffect(() => {
     if (defaultAccountId) {
@@ -448,7 +438,7 @@ export default function ReportGenerator({
 
   const handleExport = () => {
     if (!finalTransactions || finalTransactions.length === 0) {
-      toast({ title: "لا توجد بيانات للتصدير", variant: "destructive" });
+      alert("لا توجد بيانات للتصدير");
       return;
     }
     const data = finalTransactions.map((tx) => ({
@@ -467,7 +457,6 @@ export default function ReportGenerator({
     XLSX.utils.book_append_sheet(wb, ws, "كشف الحساب");
     const accountName = allAccounts.find(a => a.value === filters.accountId)?.label || "Account";
     XLSX.writeFile(wb, `Statement-${accountName.replace(/[:\\/\\s]+/g, "-")}-${new Date().toISOString().split("T")[0]}.xlsx`);
-    toast({ title: "تم التصدير بنجاح" });
   };
 
   const handlePrint = () => window.print();
@@ -475,10 +464,7 @@ export default function ReportGenerator({
   const handleCopyIndexUrl = () => {
     if (firestoreIndexUrl) {
       navigator.clipboard.writeText(firestoreIndexUrl);
-      toast({
-        title: "تم نسخ الرابط بنجاح!",
-        description: "الرجاء فتح الرابط في متصفح جديد لإنشاء الفهرس.",
-      });
+      alert("تم نسخ الرابط! الرجاء فتح الرابط في متصفح جديد لإنشاء الفهرس.");
     }
   };
 
