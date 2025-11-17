@@ -847,7 +847,7 @@ export async function restoreSubscription(id: string): Promise<{ success: boolea
     if (!user) return { success: false, error: "User not authenticated." };
 
     try {
-        const restoredBy = user.name;
+        const restoredBy = user.name || user.uid;
         const restoredAt = new Date().toISOString();
 
         await db.runTransaction(async (transaction) => {
@@ -973,6 +973,7 @@ export async function revalidateSubscriptionsPath() {
 
 
     
+
 
 
 
