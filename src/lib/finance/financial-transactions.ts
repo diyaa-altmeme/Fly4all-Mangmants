@@ -3,7 +3,7 @@
 
 import { postJournalEntry } from '@/lib/finance/postJournal';
 import { createAuditLog } from '@/app/system/activity-log/actions';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import type { FinancialTransaction } from '@/lib/types';
 import { getNextVoucherNumber } from '../sequences';
 

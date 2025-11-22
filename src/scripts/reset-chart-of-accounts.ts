@@ -1,5 +1,5 @@
-import { getDb } from '../src/lib/firebase/firebase-admin-sdk';
-import { SEED_ACCOUNTS } from '../src/lib/finance/chart-of-accounts-data';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
+import { SEED_ACCOUNTS } from '@/lib/finance/chart-of-accounts-data';
 
 async function reset() {
   const db = await getDb();
@@ -28,4 +28,3 @@ async function reset() {
 }
 
 reset().catch(err => { console.error(err); process.exit(1); });
-

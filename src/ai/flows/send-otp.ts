@@ -13,9 +13,6 @@ import { getWhatsappAccounts, getAccountCredentials } from '@/app/campaigns/acti
 async function runSendOtpFlow({ phone }: { phone: string }) {
     const { ai } = await import('@/ai/genkit');
     const db = await getDb();
-    if (!db) {
-        throw new Error('Database not available');
-    }
 
     // 1. Generate OTP
     const otp = Math.floor(1000 + Math.random() * 9000).toString();

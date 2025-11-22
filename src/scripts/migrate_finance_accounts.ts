@@ -62,7 +62,7 @@ async function migrateFinanceAccounts() {
           currency,
           date,
           userId,
-        });
+        } as any);
 
         totalPosted++;
       } catch (err: any) {

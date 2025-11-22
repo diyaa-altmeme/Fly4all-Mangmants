@@ -12,4 +12,3 @@ import { getDb } from '@/lib/firebase/firebase-admin-sdk';
     process.exitCode = 2;
   }
 })();
-
