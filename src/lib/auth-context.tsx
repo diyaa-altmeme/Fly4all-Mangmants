@@ -12,7 +12,7 @@ import {
 import { collection, query, where, onSnapshot, doc, getDoc, writeBatch, increment } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
-import { getCurrentUserFromSession, loginUser, logoutUser, signInAsUser as signInAsUserAction } from '@/lib/auth/actions';
+import { createSessionCookie, getCurrentUserFromSession, loginUser, logoutUser, signInAsUser as signInAsUserAction } from '@/app/auth/actions';
 import { useRouter, usePathname } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/permissions';
 import { PERMISSIONS } from './auth/permissions';

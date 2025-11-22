@@ -173,7 +173,7 @@ export async function createOtpSessionCookie(sessionPayload: any): Promise<void>
     });
 }
 
-export const getUserByEmail = async (email: string): Promise<(User) | null> => {
+export const getUserByEmail = async (email: string): Promise<(User & { permissions?: string[] }) | null> => {
     const db = await getDb();
     if (!db) return null;
 
@@ -186,9 +186,7 @@ export const getUserByEmail = async (email: string): Promise<(User) | null> => {
         }
 
         const userDoc = snapshot.docs[0];
-        const userData = userDoc.data() as Omit<User, 'uid' | 'permissions'>;
-        
-        return { ...userData, uid: userDoc.id };
+        return getUserById(userDoc.id);
 
     } catch (error) {
         console.error("Error getting user by email:", String(error));
