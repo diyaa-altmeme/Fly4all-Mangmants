@@ -1,10 +1,11 @@
+
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 
 const protectedRoutes = ['/dashboard', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/reports', '/settings', '/users', '/profile', '/hr', '/segments', '/exchanges', '/profit-sharing', '/finance-tools', '/system', '/templates', '/notifications', '/support'];
 const clientRoutes = ['/clients/', '/profile'];
-const authRoutes = ['/auth/login', '/auth/forgot-password'];
+const authRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin'];
 
 export async function middleware(request: NextRequest) {
   const user = await getCurrentUserFromSession();
@@ -58,3 +59,4 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 }
+    

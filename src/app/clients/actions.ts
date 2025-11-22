@@ -1,15 +1,14 @@
 
-
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { Client, RelationType, CompanyPaymentType } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { format, parseISO } from 'date-fns';
 import { getSettings } from '@/app/settings/actions';
 import { getBookings } from '../bookings/actions';
-import { getAllVouchers } from '../accounts/vouchers/list/actions';
+import { getAllVouchers } from '../accounts/vouchers/log/actions';
 import { getVisaBookings } from '../visas/actions';
 import { getSubscriptions } from '../subscriptions/actions';
 import { getSuppliers } from '../suppliers/actions';
@@ -404,3 +403,6 @@ export async function deleteMultipleClients(ids: string[]): Promise<{ success: b
         return { success: false, error: e.message };
     }
 }
+    
+
+    

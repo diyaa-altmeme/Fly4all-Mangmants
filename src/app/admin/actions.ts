@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase/firebase-admin-sdk';
+import { getAuthAdmin, getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { getAuth } from "firebase-admin/auth";
 import { setDoc, doc } from 'firebase/firestore';
 
@@ -33,5 +33,4 @@ export async function setInitialAdmin(uid: string): Promise<{ success: boolean; 
     return { success: false, message: `Failed to set admin role: ${error.message}` };
   }
 }
-
     

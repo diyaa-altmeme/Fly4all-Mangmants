@@ -3,10 +3,10 @@
 
 import { getAuthAdmin, getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { cookies } from 'next/headers';
-import { getUserById as fetchUserWithPermissions, getClientById as fetchClientWithPermissions } from '@/lib/auth/actions';
 import type { User, Client } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { scriptContext } from '@/lib/script-context';
+import { getUserById as fetchUserWithPermissions, getClientById as fetchClientWithPermissions } from '@/lib/auth/actions';
 
 export async function createSessionCookie(idToken: string): Promise<{ success: boolean; user?: User & { permissions?: string[] }; error?: string }> {
     const expiresIn = 60 * 60 * 24 * 7 * 1000; // 7 days
@@ -96,5 +96,4 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
         return { success: false, error: error.message };
     }
 }
-
     
