@@ -1,10 +1,11 @@
 
 'use server';
 
-import { getCurrentUserFromSession } from "@/lib/auth/actions";
-import { revalidatePath } from "next/cache";
+import { createAuditLog } from "@/app/system/activity-log/actions";
 import { createNotification } from "@/app/notifications/actions";
 import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
+import { revalidatePath } from "next/cache";
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 
 interface StandardReceiptData {
     date: string;
@@ -17,7 +18,7 @@ interface StandardReceiptData {
 
 export async function createStandardReceipt(data: StandardReceiptData) {
     const user = await getCurrentUserFromSession();
-    if (!user) {
+    if (!user || !('role' in user)) {
         return { success: false, error: "User not authenticated." };
     }
     

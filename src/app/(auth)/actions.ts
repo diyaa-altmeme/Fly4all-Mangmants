@@ -1,10 +1,9 @@
-
 'use server';
 
 import { getAuthAdmin, getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { cookies } from 'next/headers';
 import { getUserById as fetchUserWithPermissions, getClientById as fetchClientWithPermissions } from '@/lib/auth/actions';
-import type { User, Client, Permission } from '@/lib/types';
+import type { User, Client } from '@/lib/types';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { scriptContext } from '@/lib/script-context';
 

@@ -10,8 +10,6 @@ import type { JournalEntry as LegacyJournalEntry, FinanceAccountsMap, Currency, 
 import { normalizeFinanceAccounts, type NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 import { inferAccountCategory, type AccountCategory } from '@/lib/finance/account-categories';
 import { getSettings } from "@/app/settings/actions";
-import { getCurrentUserFromSession } from "../auth/actions";
-
 
 export type JournalEntry = {
   accountId: string;
@@ -46,21 +44,28 @@ export type PostJournalPayload = {
   actor?: { uid: string; name?: string } | null;
 };
 
-const DEFAULT_LEDGER_CURRENCY: Currency = 'USD';
-
-const SOURCE_SEQUENCE_MAP: Record<string, string> = {
-  standard_receipt: 'RC',
-  distributed_receipt: 'DS',
-  payment: 'PV',
-  manualExpense: 'EX',
-  manualexpense: 'EX',
-  remittance: 'TR',
-  transfer: 'TR',
+const SEQUENCE_ALIAS_MAP: Record<string, string> = {
+  voucher: 'JE',
+  journal: 'JE',
+  'journal-voucher': 'JE',
   journal_voucher: 'JE',
   booking: 'BK',
-  tickets: 'BK',
+  bookings: 'BK',
   visa: 'VS',
   visas: 'VS',
+  refund: 'RF',
+  refunds: 'RF',
+  payment: 'PV',
+  payments: 'PV',
+  receipt: 'RC',
+  receipts: 'RC',
+  standard_receipt: 'RC',
+  distributed_receipt: 'DS',
+  manualExpense: 'EX',
+  manual_expense: 'EX',
+  manualexpensevoucher: 'EX',
+  remittance: 'TR',
+  transfer: 'TR',
   subscription: 'SUB',
   subscription_installment: 'SUBP',
   subscription_overpayment: 'SUBP',
@@ -69,8 +74,13 @@ const SOURCE_SEQUENCE_MAP: Record<string, string> = {
   segment: 'SEG',
   segment_period: 'SEG',
   segment_payout: 'PARTNER',
-  'profit-sharing': 'PR',
+  partner: 'PARTNER',
+  partner_share: 'PARTNER',
+  partnerpayment: 'PARTNER',
+  company_share: 'COMP',
+  comp: 'COMP',
   profit_sharing: 'PR',
+  'profit-sharing': 'PR',
   profit_distribution: 'PR',
   exchange: 'EXC',
   exchange_transaction: 'EXT',
@@ -79,6 +89,9 @@ const SOURCE_SEQUENCE_MAP: Record<string, string> = {
   exchange_expense: 'EXP',
   exchange_revenue: 'EXT',
   exchange_adjustment: 'EXT',
+  client: 'CL',
+  relation: 'CL',
+  supplier: 'CL',
   void: 'VOID',
   salary: 'PV',
 };
@@ -92,17 +105,13 @@ const resolveSequenceId = (sourceType?: string | null): string | null => {
     return SEQUENCE_ALIAS_MAP[lower];
   }
   const upper = trimmed.toUpperCase();
-  if (DEFAULT_SEQUENCES[upper]) {
-    return upper;
-  }
   return upper;
 };
-const DEFAULT_SEQUENCES: Record<string, { label: string; prefix: string; padLength?: number }> = {};
 
 
 const buildEntriesFromLegacyPayload = (payload: PostJournalPayload): JournalEntry[] => {
   const entries: JournalEntry[] = [];
-  const fallbackCurrency = payload.currency || (payload.meta?.currency as Currency) || DEFAULT_LEDGER_CURRENCY;
+  const fallbackCurrency = payload.currency || (payload.meta?.currency as Currency) || 'USD';
   const fallbackDescription = payload.description || '';
 
   if (payload.debitAccountId && (payload.amount ?? 0) !== 0) {
@@ -169,6 +178,7 @@ async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
 function isBalanced(entries: JournalEntry[]) {
   const totalDebit = entries.reduce((s, e) => s + (e.debit || 0), 0);
   const totalCredit = entries.reduce((s, e) => s + (e.credit || 0), 0);
+  // allow tiny float rounding
   return Math.abs(totalDebit - totalCredit) < 0.0001;
 }
 
@@ -370,4 +380,8 @@ export async function getFinanceMap(): Promise<NormalizedFinanceAccounts> {
   const fm = normalizeFinanceAccounts(fmRaw);
   _cache = { at: now, map: fm };
   return fm;
+}
+
+export async function postJournalEntries(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts): Promise<{ voucherId: string }> {
+    return postJournalEntry(payload, fa);
 }

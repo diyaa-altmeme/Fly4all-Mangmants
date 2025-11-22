@@ -1,9 +1,10 @@
 
 'use server';
 
+import { createAuditLog } from "@/app/system/activity-log/actions";
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
-import { revalidatePath } from "next/cache";
 import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
+import { revalidatePath } from "next/cache";
 
 
 interface ExpenseVoucherData {
@@ -19,7 +20,7 @@ interface ExpenseVoucherData {
 
 export async function createExpenseVoucher(data: ExpenseVoucherData) {
     const user = await getCurrentUserFromSession();
-    if (!user) {
+    if (!user || !('role' in user)) {
         return { success: false, error: "User not authenticated." };
     }
     

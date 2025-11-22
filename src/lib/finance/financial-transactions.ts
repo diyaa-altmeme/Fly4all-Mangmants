@@ -83,8 +83,7 @@ export async function recordFinancialTransaction(
     sourceId,
     date: resolvedDate,
     description,
-    entries: (
-      options.meta?.entries || [
+    entries: (options.meta?.entries as any[]) || [
         {
           accountId: transaction.debitAccountId,
           debit: amount,
@@ -101,8 +100,7 @@ export async function recordFinancialTransaction(
           relationId: transaction.companyId,
           note: description,
         },
-      ]
-    ),
+      ],
     meta: unifiedMeta,
     actor,
   });
@@ -112,7 +110,7 @@ export async function recordFinancialTransaction(
       userId: actor.uid,
       userName: actor.name || 'System',
       action: 'CREATE',
-      targetType: options.auditTargetType || 'VOUCHER',
+      targetType: (options.auditTargetType as any) || 'VOUCHER',
       targetId: options.auditTargetId || voucherId,
       description: options.auditDescription || `${description} (${amount} ${transaction.currency})`,
       reference: transaction.reference,
