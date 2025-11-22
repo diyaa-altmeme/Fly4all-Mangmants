@@ -5,7 +5,7 @@ import React, { useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { signInWithCustomToken, getIdToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { loginUser } from '@/lib/auth/actions';
+import { createSessionCookie } from '@/app/(auth)/actions';
 import Preloader from '@/components/layout/preloader';
 
 export default function DevLoginPage() {
@@ -22,7 +22,7 @@ export default function DevLoginPage() {
             try {
                 const userCredential = await signInWithCustomToken(auth, token);
                 const idToken = await getIdToken(userCredential.user);
-                await loginUser(idToken);
+                await createSessionCookie(idToken);
                 router.replace('/dashboard');
             } catch (error) {
                 console.error("Dev login failed:", error);
