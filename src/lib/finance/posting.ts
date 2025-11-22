@@ -381,6 +381,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
       transaction.delete(doc.ref);
     }
 
+    const companyId = mergedMeta?.companyId;
     const metaClientId = mergedMeta?.clientId;
     const metaSupplierId = mergedMeta?.supplierId;
     const metaPartnerIds = Array.isArray(mergedMeta?.partners) ? mergedMeta?.partners.map((p: any) => p.partnerId) : [];
@@ -399,7 +400,7 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
         description: entry.description,
         currency: entry.currency,
         relationId,
-        companyId: entry.companyId || null,
+        companyId: companyId || entry.companyId || null,
         createdAt: existingVoucherData?.createdAt || now,
         updatedAt: now,
         isDeleted: false,

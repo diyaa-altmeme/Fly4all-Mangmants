@@ -2,7 +2,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { ReconciliationLog } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 

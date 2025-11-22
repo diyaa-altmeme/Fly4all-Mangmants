@@ -1,6 +1,8 @@
+
+
 'use server';
 
-import { getDb } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/firebase/firebase-admin-sdk";
 import type { VoucherSequence } from "@/lib/types";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
@@ -62,7 +64,7 @@ const SEQUENCE_ALIAS_MAP: Record<string, string> = {
   receipts: 'RC',
   standard_receipt: 'RC',
   distributed_receipt: 'DS',
-  manualexpense: 'EX',
+  manualExpense: 'EX',
   manual_expense: 'EX',
   manualexpensevoucher: 'EX',
   remittance: 'TR',
@@ -85,6 +87,7 @@ const SEQUENCE_ALIAS_MAP: Record<string, string> = {
   profit_distribution: 'PR',
   exchange: 'EXC',
   exchange_transaction: 'EXT',
+  exchanges: 'EXT',
   exchange_payment: 'EXP',
   exchange_expense: 'EXP',
   exchange_revenue: 'EXT',
@@ -317,3 +320,4 @@ export async function getNextVoucherNumber(type: string = 'JE'): Promise<string>
       : new Error('Failed to generate next voucher number.');
   }
 }
+

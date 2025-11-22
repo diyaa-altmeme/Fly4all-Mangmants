@@ -1,7 +1,8 @@
 
+
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { CompanyGroup, WorkType } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 
@@ -16,3 +17,4 @@ export async function getCompanyGroups(): Promise<CompanyGroup[]> {
 export async function getWorkTypes(): Promise<WorkType[]> {
     return [];
 }
+

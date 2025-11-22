@@ -1,5 +1,6 @@
 
-import { getDb } from "@/lib/firebase-admin";
+
+import { getDb } from "@/lib/firebase/firebase-admin-sdk";
 import { getSettings } from "@/app/settings/actions";
 import { NextResponse } from 'next/server';
 import { normalizeFinanceAccounts } from '@/lib/finance/finance-accounts';

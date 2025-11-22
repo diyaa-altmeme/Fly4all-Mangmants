@@ -10,3 +10,4 @@ export async function getSuppliers(options?: { searchTerm?: string, all?: boolea
     const { clients } = await getClients({ ...options, relationType: 'supplier', all: true });
     return clients as Supplier[];
 }
+

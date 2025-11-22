@@ -1,8 +1,9 @@
 
+
 'use server';
 
 import { getFinanceMap, postJournalEntries } from '@/lib/finance/posting';
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { Client, Supplier, Currency, MonthlyProfit, ProfitShare, JournalEntry } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
@@ -11,6 +12,8 @@ import { getNextVoucherNumber } from '@/lib/sequences';
 import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { FieldValue } from "firebase-admin/firestore";
 import { createAuditLog } from '../system/activity-log/actions';
+import { recordFinancialTransaction } from '@/lib/finance/financial-transactions';
+
 
 export async function recordProfitShare(payoutId: string, partnerAccountId: string, amount: number) {
   if (amount <= 0) return;

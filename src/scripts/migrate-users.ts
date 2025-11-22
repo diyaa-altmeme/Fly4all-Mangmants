@@ -1,4 +1,5 @@
 
+
 // scripts/migrate-users.ts
 
 /**
@@ -17,9 +18,9 @@
  *   preserving all original data (except the now-obsolete password).
  */
 
-import { getDb, getAuthAdmin } from '../src/lib/firebase-admin';
+import { getDb, getAuthAdmin } from '@/lib/firebase/firebase-admin-sdk';
 import { randomBytes } from 'crypto';
-import type { User } from '../src/lib/types';
+import type { User } from '../lib/types';
 
 async function migrateUsers() {
     console.log("Starting user migration process...");
@@ -127,3 +128,4 @@ migrateUsers().then(() => {
     console.error("Critical error during migration script:", error);
     process.exit(1);
 });
+

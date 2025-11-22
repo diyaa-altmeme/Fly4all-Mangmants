@@ -1,6 +1,6 @@
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { TreeNode, JournalVoucher } from '@/lib/types';
 import { cache } from 'react';
 import { revalidatePath } from 'next/cache';

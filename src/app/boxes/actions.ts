@@ -2,7 +2,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { Box } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
@@ -79,3 +79,4 @@ export async function deleteBox(id: string): Promise<{ success: boolean; error?:
         return { success: false, error: "Failed to delete box." };
     }
 }
+

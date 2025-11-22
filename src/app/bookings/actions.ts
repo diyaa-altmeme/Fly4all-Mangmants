@@ -2,7 +2,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { unstable_cache } from 'next/cache';
 import type { BookingEntry, Client } from '@/lib/types';
 import { postRevenue, postCost } from "@/lib/finance/posting";
@@ -176,4 +176,5 @@ export async function permanentDeleteBooking(id: string): Promise<{ success: boo
     await batch.commit();
     return { success: true };
 }
+
 

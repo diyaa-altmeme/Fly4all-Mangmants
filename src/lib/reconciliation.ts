@@ -8,7 +8,7 @@
 
 import type { Currency, BookingEntry } from './types';
 import Fuse from 'fuse.js';
-import { getDb } from './firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { normalizeRecord } from './utils';
 import { cache } from 'react';
 
@@ -312,3 +312,4 @@ const applyFilters = (records: any[], filters: FilterRule[]): any[] => {
         });
     });
 };
+

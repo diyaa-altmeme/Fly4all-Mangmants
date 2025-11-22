@@ -2,7 +2,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { BookingEntry, Subscription, SubscriptionInstallment, JournalVoucher } from '@/lib/types';
 import { startOfMonth, endOfMonth, subMonths, format, parseISO, startOfDay, endOfDay, addDays, isWithinInterval } from 'date-fns';
 import { getSettings } from '@/app/settings/actions';
