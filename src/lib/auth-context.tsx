@@ -1,5 +1,5 @@
 
-'use client';
+"use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
@@ -8,16 +8,18 @@ import {
   getIdToken,
   signInWithCustomToken,
   onAuthStateChanged,
+  type User as AuthUser
 } from 'firebase/auth';
-import { collection, query, where, onSnapshot, doc, getDoc, writeBatch, increment } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
 import { createSessionCookie, getCurrentUserFromSession, logoutUser, signInAsUser as signInAsUserAction } from '@/app/(auth)/actions';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/auth/permissions';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import Preloader from '@/components/layout/preloader';
 import { useToast } from '@/hooks/use-toast';
+import { collection, onSnapshot, query, writeBatch, doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface AuthContextType {
   user: (User & { permissions?: string[] }) | (Client & { isClient: true }) | null;
@@ -52,25 +54,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const setupSession = useCallback(async (authUser: AuthUser) => {
+    try {
+        const idToken = await getIdToken(authUser, true); // Force refresh
+        const result = await createSessionCookie(idToken);
+        if (result.error || !result.success || !result.user) {
+            throw new Error(result.error || "Failed to create session or retrieve user data.");
+        }
+        setUser(result.user);
+    } catch (error) {
+        console.error("Auth session setup error:", error);
+        setUser(null); // Clear user on error
+    } finally {
+        setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
-        if(authUser) {
-             try {
-                const sessionUser = await getCurrentUserFromSession();
-                setUser(sessionUser);
-            } catch (error) {
-                console.error("Auth initialization error:", error);
-                setUser(null);
-            } finally {
-                setLoading(false);
-            }
+    const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+        if (authUser) {
+            setupSession(authUser);
         } else {
              setUser(null);
              setLoading(false);
         }
     });
     return () => unsubscribe();
-  }, []);
+  }, [setupSession]);
   
   useEffect(() => {
     if (!user || !('uid' in user)) {
@@ -112,16 +122,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setError('');
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const idToken = await getIdToken(userCredential.user, true); // Force refresh
-      
-      const result = await createSessionCookie(idToken);
-       if (result.error || !result.success || !result.user) {
-          throw new Error(result.error || "Failed to create session or retrieve user data.");
-      }
-      
-      setUser(result.user);
-      setLoading(false);
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle the rest
       return { success: true };
 
     } catch (error: any) {
@@ -154,11 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { success, customToken, error } = await signInAsUserAction(userId);
         if (success && customToken) {
             await signInWithCustomToken(auth, customToken);
-            const idToken = await getIdToken(auth.currentUser!, true); // Force refresh
-            const sessionResult = await createSessionCookie(idToken);
-            if (sessionResult.error || !sessionResult.user) throw new Error(sessionResult.error || "Failed to establish session for user.");
-
-            setUser(sessionResult.user);
+            // onAuthStateChanged will handle the rest
         } else {
             throw new Error(error || "Failed to get custom token.");
         }

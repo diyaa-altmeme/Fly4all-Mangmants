@@ -13,7 +13,7 @@ import type { SiteAsset } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import DeleteAssetDialog from './delete-asset-dialog';
-import { assignAsset } from '@/app/settings/assets/actions';
+import { assignAsset } from '@/app/settings/assets/server-actions';
 
 interface AssetCardProps {
   asset: SiteAsset;

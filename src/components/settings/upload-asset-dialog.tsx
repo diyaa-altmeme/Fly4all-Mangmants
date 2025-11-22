@@ -20,7 +20,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useDropzone } from 'react-dropzone';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { addSiteAsset } from '@/app/settings/assets/actions';
+import { addSiteAsset } from '@/app/settings/assets/server-actions';
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/lib/auth-context';
 import Image from 'next/image';

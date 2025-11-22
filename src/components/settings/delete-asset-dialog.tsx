@@ -18,7 +18,7 @@ import { Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { SiteAsset } from '@/lib/types';
-import { permanentDeleteAsset } from '@/app/settings/assets/actions';
+import { permanentDeleteAsset } from '@/app/settings/assets/server-actions';
 
 interface DeleteAssetDialogProps {
   asset: SiteAsset;
