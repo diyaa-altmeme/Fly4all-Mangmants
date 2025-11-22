@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getAuthAdmin, getDb } from '@/lib/firebase/firebase-admin-sdk';
@@ -95,3 +96,5 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
         return { success: false, error: error.message };
     }
 }
+
+    

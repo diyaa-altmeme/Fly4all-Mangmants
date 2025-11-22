@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getUserByEmail as fetchUserFromDb } from '@/lib/auth/actions';
@@ -16,3 +17,5 @@ export async function fetchUserByEmail(email: string): Promise<(Omit<User, 'perm
         return null;
     }
 }
+
+    

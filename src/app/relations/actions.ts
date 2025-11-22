@@ -2,19 +2,12 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { Client, RelationType, CompanyPaymentType } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { format, parseISO } from 'date-fns';
 import { getSettings } from '@/app/settings/actions';
-import { getBookings } from '../bookings/actions';
-import { getAllVouchers } from '../accounts/vouchers/list/actions';
-import { getVisaBookings } from '../visas/actions';
-import { getSubscriptions } from '../subscriptions/actions';
-import { getSuppliers } from '../suppliers/actions';
-import { getBoxes } from '../boxes/actions';
-import { getUsers } from '../users/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -58,13 +51,14 @@ export async function getClients(options: {
         
         // Apply filters
         if (relationType && relationType !== 'all') {
-            const typesToInclude = relationType === 'client' 
-                ? ['client', 'both'] 
-                : relationType === 'supplier' 
-                    ? ['supplier', 'both']
-                    : [relationType];
-            
-            query = query.where('relationType', 'in', typesToInclude);
+             // If searching for 'client', also include 'both'
+            const typesToInclude = relationType === 'client' ? ['client', 'both'] 
+                                 : relationType === 'supplier' ? ['supplier', 'both']
+                                 : [relationType];
+
+            if (typesToInclude.length > 0) {
+                 query = query.where('relationType', 'in', typesToInclude);
+            }
         }
         if (paymentType && paymentType !== 'all') {
             query = query.where('paymentType', '==', paymentType);
@@ -403,3 +397,5 @@ export async function deleteMultipleClients(ids: string[]): Promise<{ success: b
         return { success: false, error: e.message };
     }
 }
+
+    

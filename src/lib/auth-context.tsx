@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -196,3 +197,5 @@ export function useAuth() {
   }
   return context;
 }
+
+    
