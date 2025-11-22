@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/i18n';
+import { fetchUserByEmail } from '@/app/(auth)/login/actions';
 
 export function LoginForm() {
   const { signIn, loading: authLoading, error: authError } = useAuth();

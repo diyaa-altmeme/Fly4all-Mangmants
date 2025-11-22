@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
@@ -12,10 +11,10 @@ import {
 import { collection, query, where, onSnapshot, doc, getDoc, writeBatch, increment } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
-import { createSessionCookie, getCurrentUserFromSession, loginUser, logoutUser, signInAsUser as signInAsUserAction } from '@/app/auth/actions';
+import { createSessionCookie, getCurrentUserFromSession, logoutUser, signInAsUser as signInAsUserAction } from '@/app/(auth)/actions';
 import { useRouter, usePathname } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/permissions';
-import { PERMISSIONS } from './auth/permissions';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 import Preloader from '@/components/layout/preloader';
 import { useToast } from '@/hooks/use-toast';
 
@@ -34,6 +33,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
+const clientRoutes = ['/clients', '/profile']; // Routes accessible by clients
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const idToken = await getIdToken(userCredential.user, true); // Force refresh
       
-      const result = await loginUser(idToken);
+      const result = await createSessionCookie(idToken);
        if (result.error || !result.success || !result.user) {
           throw new Error(result.error || "Failed to create session or retrieve user data.");
       }
@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (success && customToken) {
             await signInWithCustomToken(auth, customToken);
             const idToken = await getIdToken(auth.currentUser!, true); // Force refresh
-            const sessionResult = await loginUser(idToken);
+            const sessionResult = await createSessionCookie(idToken);
             if (sessionResult.error || !sessionResult.user) throw new Error(sessionResult.error || "Failed to establish session for user.");
 
             setUser(sessionResult.user);
