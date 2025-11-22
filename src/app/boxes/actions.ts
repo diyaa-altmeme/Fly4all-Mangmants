@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
@@ -79,4 +78,3 @@ export async function deleteBox(id: string): Promise<{ success: boolean; error?:
         return { success: false, error: "Failed to delete box." };
     }
 }
-

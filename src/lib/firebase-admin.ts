@@ -1,5 +1,4 @@
 
-
 'use server'
 
 import { App, cert, getApp, getApps, initializeApp, ServiceAccount } from 'firebase-admin/app';
@@ -65,4 +64,3 @@ export async function getStorageAdmin(): Promise<any> {
   const app = await getFirebaseAdminApp();
   return getStorage(app);
 }
-
