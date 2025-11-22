@@ -1,5 +1,4 @@
-
-"use server";
+'use server';
 
 import { App, cert, getApp, getApps, initializeApp, ServiceAccount } from 'firebase-admin/app';
 import { Auth, getAuth } from 'firebase-admin/auth';

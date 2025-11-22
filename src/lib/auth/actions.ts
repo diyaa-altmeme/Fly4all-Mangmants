@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { User, Client } from '@/lib/types';
 import { getRoles } from '@/app/users/actions';
 import { PERMISSIONS } from './permissions';

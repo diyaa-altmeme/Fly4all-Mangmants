@@ -1,12 +1,11 @@
-
 'use server';
 
 import { getAuthAdmin, getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { cookies } from 'next/headers';
 import type { User, Client } from '@/lib/types';
-import { PERMISSIONS } from '@/lib/auth/permissions';
-import { scriptContext } from '@/lib/script-context';
 import { getUserById as fetchUserWithPermissions, getClientById as fetchClientWithPermissions } from '@/lib/auth/actions';
+import { scriptContext } from '@/lib/script-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export async function createSessionCookie(idToken: string): Promise<{ success: boolean; user?: User & { permissions?: string[] }; error?: string }> {
     const expiresIn = 60 * 60 * 24 * 7 * 1000; // 7 days
@@ -27,7 +26,8 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 
         const sessionCookie = await authAdmin.createSessionCookie(idToken, { expiresIn });
         
-        cookies().set('session', sessionCookie, {
+        const cookieStore = cookies();
+        cookieStore.set('session', sessionCookie, {
             maxAge: expiresIn / 1000,
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
@@ -43,7 +43,8 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 }
 
 export async function logoutUser() {
-    cookies().delete('session');
+    const cookieStore = await cookies();
+    cookieStore.delete('session');
 }
 
 export async function getCurrentUserFromSession(): Promise<(User & { permissions?: string[] }) | (Client & { isClient: true }) | null> {
@@ -76,12 +77,14 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
         }
         
         console.warn(`Session cookie for UID ${decodedClaims.uid} is valid, but user not found in Firestore. Logging out.`);
-        cookies().delete('session');
+        const cookieStore = await cookies();
+        cookieStore.delete('session');
         return null;
 
     } catch (error) {
         console.warn("Session verification failed, session is likely invalid. Clearing cookie.", String(error));
-        cookies().delete('session');
+        const cookieStore = await cookies();
+        cookieStore.delete('session');
         return null;
     }
 };
@@ -96,4 +99,3 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
         return { success: false, error: error.message };
     }
 }
-    

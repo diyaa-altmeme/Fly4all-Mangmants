@@ -7,13 +7,14 @@ import {
   signOut as firebaseSignOut,
   getIdToken,
   signInWithCustomToken,
+  onAuthStateChanged,
 } from 'firebase/auth';
 import { collection, query, where, onSnapshot, doc, getDoc, writeBatch, increment } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
 import { createSessionCookie, getCurrentUserFromSession, logoutUser, signInAsUser as signInAsUserAction } from '@/app/(auth)/actions';
 import { useRouter, usePathname } from 'next/navigation';
-import { hasPermission as checkUserPermission } from '@/lib/permissions';
+import { hasPermission as checkUserPermission } from '@/lib/auth/permissions';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import Preloader from '@/components/layout/preloader';
 import { useToast } from '@/hooks/use-toast';
@@ -32,15 +33,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
-const clientRoutes = ['/clients', '/profile']; // Routes accessible by clients
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthContextType['user'] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const router = useRouter();
-  const pathname = usePathname();
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const { toast } = useToast();
   const lastNotificationTimestamp = React.useRef(Date.now());
@@ -57,21 +53,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-        try {
-            const sessionUser = await getCurrentUserFromSession();
-            if (sessionUser) {
+    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
+        if(authUser) {
+             try {
+                const sessionUser = await getCurrentUserFromSession();
                 setUser(sessionUser);
+            } catch (error) {
+                console.error("Auth initialization error:", error);
+                setUser(null);
+            } finally {
+                setLoading(false);
             }
-        } catch (error) {
-            console.error("Auth initialization error:", error);
-            setUser(null);
-        } finally {
-            setLoading(false);
+        } else {
+             setUser(null);
+             setLoading(false);
         }
-    };
-
-    initializeAuth();
+    });
+    return () => unsubscribe();
   }, []);
   
   useEffect(() => {
@@ -185,7 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   return (
       <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser, revalidateUser, unreadChatCount, error }}>
-      {children}
+        {children}
       </AuthContext.Provider>
   );
 }
@@ -197,4 +195,3 @@ export function useAuth() {
   }
   return context;
 }
-    
