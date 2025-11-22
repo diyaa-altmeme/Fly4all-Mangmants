@@ -1,3 +1,4 @@
+
 'use server';
 
 import { getUserByEmail as fetchUserFromDb } from '@/lib/auth/actions';
