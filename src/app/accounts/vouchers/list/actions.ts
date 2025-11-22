@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { JournalVoucher } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { createAuditLog } from '@/app/system/activity-log/actions';

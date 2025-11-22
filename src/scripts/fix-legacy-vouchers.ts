@@ -1,8 +1,10 @@
 
-import { getDb } from "@/lib/firebase-admin";
+
+import { getDb } from "@/lib/firebase/firebase-admin-sdk";
 import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
 import { getFinanceMap } from "@/lib/finance/posting";
 import type { SegmentEntry, DistributedReceiptInput } from "@/lib/types";
+import { scriptContext } from "@/lib/script-context";
 
 async function fixLegacyVouchers() {
   const db = await getDb();
@@ -155,7 +157,7 @@ async function fixLegacyVouchers() {
 }
 
 async function main() {
-  await fixLegacyVouchers();
+  await scriptContext.run({ isScript: true }, fixLegacyVouchers);
 }
 
 main().catch(e => {

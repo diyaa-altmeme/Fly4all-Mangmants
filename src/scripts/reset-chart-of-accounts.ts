@@ -1,3 +1,4 @@
+
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { SEED_ACCOUNTS } from '@/lib/finance/chart-of-accounts-data';
 

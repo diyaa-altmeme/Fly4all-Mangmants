@@ -1,8 +1,7 @@
 
-
 'use server';
 
-import { getDb } from "@/lib/firebase-admin";
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
 import { getNextVoucherNumber } from "@/lib/sequences";
@@ -79,5 +78,3 @@ export async function createJournalVoucher(data: JournalVoucherData) {
         return { success: false, error: error.message };
     }
 }
-
-    

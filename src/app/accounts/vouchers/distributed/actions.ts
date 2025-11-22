@@ -1,6 +1,7 @@
+
 'use server';
 
-import { getDb } from "@/lib/firebase-admin";
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { DistributedReceiptInput } from './schema';
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
 import { revalidatePath } from "next/cache";
@@ -84,7 +85,7 @@ export async function createDistributedVoucher(data: DistributedReceiptInput) {
         }, {
             actorId: user.uid,
             actorName: user.name,
-            meta: { ...data, entries }, // Pass the multi-legged entries in meta
+            meta: { ...data, entries }, // Pass the real multi-legged entries in meta
             auditDescription: `أنشأ سند قبض موزع بمبلغ ${totalAmount} ${data.currency}`,
         });
         

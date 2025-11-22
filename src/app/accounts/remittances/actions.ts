@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { Remittance, ReceiptVoucher, JournalVoucher } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { format, parseISO } from 'date-fns';
@@ -247,5 +247,3 @@ export async function updateRemittance(id: string, data: Partial<Remittance>) {
         return { success: false, error: e.message };
     }
 }
-
-  

@@ -1,6 +1,7 @@
+
 "use server";
 
-import { getDb } from "@/lib/firebase-admin";
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { JournalVoucher } from "@/lib/types";
 import { FieldValue } from "firebase-admin/firestore";
 

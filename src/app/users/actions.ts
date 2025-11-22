@@ -3,7 +3,7 @@
 
 import { getAuth } from 'firebase-admin/auth';
 import type { User, HrData, Role } from '@/lib/types';
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { revalidatePath } from 'next/cache';
 import { getBoxes } from '../boxes/actions';
 import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
