@@ -1,4 +1,5 @@
 
+
 "use server";
 
 import { postJournalEntries } from '@/lib/finance/posting';
@@ -564,3 +565,4 @@ export async function getExchangesDashboardData(): Promise<ExchangeDashboardData
 
     return Promise.all(dashboardDataPromises);
 };
+

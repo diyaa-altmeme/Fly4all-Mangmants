@@ -1,16 +1,17 @@
 
+
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { VisaBookingEntry, JournalEntry, VisaPassenger } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { format, parseISO } from 'date-fns';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getSettings } from '@/app/settings/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '../system/activity-log/actions';
-import { postJournalEntry } from '@/lib/finance/postJournal';
+import { recordFinancialTransaction } from '@/lib/finance/financial-transactions';
 
 export async function getVisaBookings(includeDeleted = false): Promise<VisaBookingEntry[]> {
     const settings = await getSettings();
@@ -49,7 +50,7 @@ export async function getVisaBookings(includeDeleted = false): Promise<VisaBooki
 
 export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 'invoiceNumber' | 'enteredBy' | 'enteredAt' | 'isEntered' | 'isAudited' | 'isDeleted'>): Promise<{ success: boolean; error?: string; newBooking?: VisaBookingEntry }> {
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+    if (!user || !('role' in user)) return { success: false, error: "User not authenticated." };
 
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
@@ -58,6 +59,7 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
 
     try {
         const newInvoiceNumber = await getNextVoucherNumber('VS');
+        const totalSale = bookingData.passengers.reduce((acc, p) => acc + (p.salePrice || 0), 0);
         
         const dataToSave: Omit<VisaBookingEntry, 'id'> = {
             ...bookingData,
@@ -77,16 +79,19 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
             updatedAt: new Date().toISOString(),
         };
         
-        await postJournalEntry({
+        await recordFinancialTransaction({
             invoiceNumber: newInvoiceNumber,
             sourceType: 'visa',
             sourceId: bookingRef.id,
-            description: `قيد طلب فيزا لـ ${dataToSave.passengers[0].name}`,
             date: new Date(dataToSave.submissionDate),
-            userId: user.uid,
-            entries: [], // Will be reconstructed
+            currency: dataToSave.currency,
+            amount: totalSale,
+            debitAccountId: dataToSave.clientId,
+            creditAccountId: dataToSave.supplierId,
+            description: `طلب فيزا لـ ${dataToSave.passengers[0].name}`,
             meta: dataToSave,
-        });
+        }, { actorId: user.uid, actorName: user.name });
+
 
         await bookingRef.set(dataToSave);
         
@@ -136,6 +141,7 @@ export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntr
         const batch = db.batch();
         const newInvoiceNumber = await getNextVoucherNumber('VS');
         const bookingRef = db.collection('visaBookings').doc();
+        const totalSale = bookingData.passengers.reduce((acc, p) => acc + (p.salePrice || 0), 0);
         
         const dataToSave: Omit<VisaBookingEntry, 'id'> = {
             ...bookingData,
@@ -148,16 +154,18 @@ export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntr
             updatedAt: new Date().toISOString(),
         };
 
-        await postJournalEntry({
+        await recordFinancialTransaction({
             invoiceNumber: newInvoiceNumber,
             sourceType: 'visa',
             sourceId: bookingRef.id,
-            description: `قيد طلب فيزا لـ ${dataToSave.passengers[0].name}`,
             date: new Date(dataToSave.submissionDate),
-            userId: user.uid,
-            entries: [],
+            currency: dataToSave.currency,
+            amount: totalSale,
+            debitAccountId: dataToSave.clientId,
+            creditAccountId: dataToSave.supplierId,
+            description: `طلب فيزا لـ ${dataToSave.passengers[0].name}`,
             meta: dataToSave,
-        });
+        }, { actorId: user.uid, actorName: user.name });
 
         batch.set(bookingRef, dataToSave);
 
@@ -260,7 +268,7 @@ export async function softDeleteVisaBooking(bookingId: string): Promise<{ succes
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+    if (!user || !('name' in user)) return { success: false, error: "User not authenticated." };
 
     try {
         const now = new Date().toISOString();
@@ -350,7 +358,7 @@ export async function restoreVisaBooking(bookingId: string): Promise<{ success: 
         revalidatePath('/visas');
         revalidatePath('/system/deleted-log');
         return { success: true };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error restoring visa booking: ", String(error));
         return { success: false, error: "Failed to restore visa booking." };
     }
@@ -405,4 +413,5 @@ export async function getVisaBookingById(id: string): Promise<VisaBookingEntry |
     if (!doc.exists) return null;
     return { id: doc.id, ...doc.data() } as VisaBookingEntry;
 }
+
 

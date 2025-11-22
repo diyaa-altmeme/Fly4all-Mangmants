@@ -5,8 +5,8 @@
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { unstable_cache } from 'next/cache';
 import type { BookingEntry, Client } from '@/lib/types';
-import { postRevenue, postCost } from "@/lib/finance/posting";
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getNextVoucherNumber } from '@/lib/sequences';
 
@@ -76,7 +76,6 @@ export async function addBooking(bookingData: any) {
 
   const totalSale = bookingData.passengers.reduce((acc: number, p: any) => acc + (Number(p.salePrice) || 0), 0);
   const totalPurchase = bookingData.passengers.reduce((acc: number, p: any) => acc + (Number(p.purchasePrice) || 0), 0);
-  const totalProfit = totalSale - totalPurchase;
   
   const newInvoiceNumber = await getNextVoucherNumber('BK');
 
@@ -88,33 +87,19 @@ export async function addBooking(bookingData: any) {
        enteredAt: new Date().toISOString(),
        isDeleted: false,
    });
-
-   await postRevenue({
+   
+    await recordFinancialTransaction({
       invoiceNumber: newInvoiceNumber,
       sourceType: "booking",
       sourceId: bookingRef.id,
       date: bookingData.issueDate,
       currency: bookingData.currency,
       amount: totalSale,
-      clientId: bookingData.clientId,
-      description: `إيراد حجز طيران PNR: ${bookingData.pnr} للعميل ${client.name}`,
+      debitAccountId: bookingData.clientId,
+      creditAccountId: bookingData.supplierId,
+      description: `حجز طيران PNR: ${bookingData.pnr} للعميل ${client.name}`,
       meta: { ...bookingData, bookingId: bookingRef.id },
-    });
-
-    if (totalPurchase > 0) {
-      await postCost({
-        invoiceNumber: newInvoiceNumber,
-        costKey: "tickets",
-        sourceType: "booking",
-        sourceId: bookingRef.id,
-        date: bookingData.issueDate,
-        currency: bookingData.currency,
-        amount: totalPurchase,
-        supplierId: bookingData.supplierId,
-        description: `تكلفة حجز طيران PNR: ${bookingData.pnr}`,
-        meta: { ...bookingData, bookingId: bookingRef.id },
-      });
-    }
+    }, { actorId: user.uid, actorName: user.name });
 
 
   return { success: true, newBooking: { id: bookingRef.id, ...bookingData, invoiceNumber: newInvoiceNumber } };
@@ -176,5 +161,6 @@ export async function permanentDeleteBooking(id: string): Promise<{ success: boo
     await batch.commit();
     return { success: true };
 }
+
 
 
