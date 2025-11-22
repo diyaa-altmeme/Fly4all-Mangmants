@@ -1,6 +1,6 @@
 
 
-"use server";
+'use server';
 
 import { postJournalEntries } from '@/lib/finance/posting';
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
@@ -8,7 +8,7 @@ import type { Exchange, ExchangeTransaction, ExchangePayment, Currency, Notifica
 import type { JournalEntry as PostingJournalEntry } from '@/lib/finance/posting';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
-import { getCurrentUserFromSession } from '@/app/(auth)/actions';
+import { getCurrentUserFromSession } from '@/lib/auth/actions';
 import { FieldValue } from "firebase-admin/firestore";
 import { format, subDays, startOfDay, endOfDay, parseISO, isWithinInterval } from 'date-fns';
 import { getNextVoucherNumber } from '@/lib/sequences';
@@ -51,7 +51,6 @@ export async function exchangeBetweenAccounts(
 
     await postJournalEntries({ sourceType: 'exchanges', sourceId, date: Date.now(), entries });
 }
-
 
  
 const EXCHANGES_COLLECTION = 'exchanges';
@@ -565,4 +564,5 @@ export async function getExchangesDashboardData(): Promise<ExchangeDashboardData
 
     return Promise.all(dashboardDataPromises);
 };
+
 

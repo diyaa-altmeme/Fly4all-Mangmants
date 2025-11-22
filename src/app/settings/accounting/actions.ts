@@ -1,7 +1,8 @@
 
+
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { FinanceAccountsMap } from '@/lib/types';
 import { normalizeFinanceAccounts, serializeFinanceAccounts, type NormalizedFinanceAccounts, type FinanceAccountsInput } from '@/lib/finance/finance-accounts';
 

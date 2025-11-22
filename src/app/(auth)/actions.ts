@@ -44,7 +44,7 @@ export async function createSessionCookie(idToken: string): Promise<{ success: b
 }
 
 export async function logoutUser() {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     cookieStore.delete('session');
 }
 
@@ -78,14 +78,12 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
         }
         
         console.warn(`Session cookie for UID ${decodedClaims.uid} is valid, but user not found in Firestore. Logging out.`);
-        const cookieStore = await cookies();
-        cookieStore.delete('session');
+        logoutUser();
         return null;
 
     } catch (error) {
         console.warn("Session verification failed, session is likely invalid. Clearing cookie.", String(error));
-        const cookieStore = await cookies();
-        cookieStore.delete('session');
+        logoutUser();
         return null;
     }
 };
@@ -100,4 +98,3 @@ export async function signInAsUser(userId: string): Promise<{ success: boolean; 
         return { success: false, error: error.message };
     }
 }
-
