@@ -78,7 +78,7 @@ export async function recordFinancialTransaction(
     },
   });
 
-  const voucherId = await postJournalEntry({
+  const { voucherId } = await postJournalEntry({
     sourceType: transaction.sourceType,
     sourceId,
     date: resolvedDate,
@@ -104,6 +104,7 @@ export async function recordFinancialTransaction(
       ]
     ),
     meta: unifiedMeta,
+    actor,
   });
 
   if (!options.skipAuditLog) {

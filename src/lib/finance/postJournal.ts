@@ -1,12 +1,12 @@
 
 'use server';
 
-import { getDb } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/firebase/firebase-admin-sdk";
 import { FieldValue, FieldPath, Timestamp } from "firebase-admin/firestore";
 import * as admin from 'firebase-admin';
 import { getNextVoucherNumber } from "@/lib/sequences";
 import { normalizeVoucherType } from "@/lib/accounting/voucher-types";
-import type { JournalEntry as LegacyJournalEntry, FinanceAccountsMap, Currency } from "../types";
+import type { JournalEntry as LegacyJournalEntry, FinanceAccountsMap, Currency, User } from "../types";
 import { normalizeFinanceAccounts, type NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
 import { inferAccountCategory, type AccountCategory } from '@/lib/finance/account-categories';
 import { getSettings } from "@/app/settings/actions";
@@ -38,11 +38,12 @@ export type PostJournalPayload = {
   description?: string;
   debitAccountId?: string;
   creditAccountId?: string;
-  creditEntries?: JournalEntry[];
+  creditEntries?: LegacyJournalEntry[];
   amount?: number;
   currency?: Currency;
   userId?: string;
   mergeMeta?: boolean;
+  actor?: { uid: string; name?: string } | null;
 };
 
 const DEFAULT_LEDGER_CURRENCY: Currency = 'USD';
@@ -59,6 +60,7 @@ const SOURCE_SEQUENCE_MAP: Record<string, string> = {
   booking: 'BK',
   tickets: 'BK',
   visa: 'VS',
+  visas: 'VS',
   subscription: 'SUB',
   subscription_installment: 'SUBP',
   subscription_overpayment: 'SUBP',
@@ -70,36 +72,33 @@ const SOURCE_SEQUENCE_MAP: Record<string, string> = {
   'profit-sharing': 'PR',
   profit_sharing: 'PR',
   profit_distribution: 'PR',
-  refund: 'RF',
   exchange: 'EXC',
   exchange_transaction: 'EXT',
   exchanges: 'EXT',
   exchange_payment: 'EXP',
-  exchange_adjustment: 'EXT',
-  exchange_revenue: 'EXT',
   exchange_expense: 'EXP',
+  exchange_revenue: 'EXT',
+  exchange_adjustment: 'EXT',
   void: 'VOID',
+  salary: 'PV',
 };
 
 const resolveSequenceId = (sourceType?: string | null): string | null => {
   if (!sourceType) return null;
-  const directMatch = SOURCE_SEQUENCE_MAP[sourceType];
-  if (directMatch) return directMatch;
-
-  if (sourceType.startsWith('journal_from_')) {
-    const derived = sourceType.replace('journal_from_', '');
-    if (SOURCE_SEQUENCE_MAP[derived]) {
-      return SOURCE_SEQUENCE_MAP[derived];
-    }
+  const trimmed = `${sourceType}`.trim();
+  if (!trimmed) return null;
+  const lower = trimmed.toLowerCase();
+  if (SEQUENCE_ALIAS_MAP[lower]) {
+    return SEQUENCE_ALIAS_MAP[lower];
   }
-
-  const normalized = normalizeVoucherType(sourceType) as string;
-  if (SOURCE_SEQUENCE_MAP[normalized]) {
-    return SOURCE_SEQUENCE_MAP[normalized];
+  const upper = trimmed.toUpperCase();
+  if (DEFAULT_SEQUENCES[upper]) {
+    return upper;
   }
-
-  return null;
+  return upper;
 };
+const DEFAULT_SEQUENCES: Record<string, { label: string; prefix: string; padLength?: number }> = {};
+
 
 const buildEntriesFromLegacyPayload = (payload: PostJournalPayload): JournalEntry[] => {
   const entries: JournalEntry[] = [];
@@ -170,7 +169,6 @@ async function ensureAccountsExist(db: any, entries: JournalEntry[]) {
 function isBalanced(entries: JournalEntry[]) {
   const totalDebit = entries.reduce((s, e) => s + (e.debit || 0), 0);
   const totalCredit = entries.reduce((s, e) => s + (e.credit || 0), 0);
-  // allow tiny float rounding
   return Math.abs(totalDebit - totalCredit) < 0.0001;
 }
 
@@ -217,9 +215,17 @@ function resolveCurrency(entries: JournalEntry[]): Currency {
   return (first?.currency as Currency) || 'USD';
 }
 
-export async function postJournalEntry(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts): Promise<string> {
+export async function postJournalEntry(
+  payload: PostJournalPayload,
+  fa?: NormalizedFinanceAccounts
+): Promise<{ voucherId: string }> {
   const db = await getDb();
-
+  
+  const actor = payload.actor;
+  if (!actor) {
+    throw new Error('Actor (user) is required to post journal entries.');
+  }
+  
   const rawEntries = Array.isArray(payload.entries) && payload.entries.length > 0
     ? payload.entries
     : buildEntriesFromLegacyPayload(payload);
@@ -229,16 +235,6 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
   }
 
   await ensureAccountsExist(db, rawEntries);
-
-  let postingUser: { uid: string; name?: string } | null = null;
-  if (!payload.meta || !payload.meta.system) {
-    const user = await getCurrentUserFromSession();
-    if (!user) throw new Error('Authentication required to post journal entries');
-    if ('isClient' in user && user.isClient) throw new Error('Insufficient permissions');
-    const allowed = user.role === 'admin' || (user.permissions && user.permissions.includes('vouchers:create'));
-    if (!allowed) throw new Error('User lacks vouchers:create permission');
-    postingUser = { uid: user.uid, name: user.name };
-  }
 
   if (!isBalanced(rawEntries)) {
     throw new Error('Entries are not balanced (debit != credit)');
@@ -273,7 +269,6 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
     || existingVoucherData?.invoiceNumber
     || await getNextVoucherNumber(sequenceId ?? 'JE');
   const voucherCurrency = resolveCurrency(rawEntries);
-  const involvedAccounts = Array.from(new Set(rawEntries.map(e => e.accountId)));
 
   const storedEntries = rawEntries.map((entry) => {
     const debit = Number(entry.debit) || 0;
@@ -301,24 +296,16 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
       ? new Date(payload.date).toISOString()
       : new Date().toISOString();
 
-  const createdBy = existingVoucherData?.createdBy || payload.meta?.createdBy || postingUser?.uid || 'system';
-  const officer = existingVoucherData?.officer || payload.meta?.officer || postingUser?.name || 'system';
-
-  const ledgerCollection = db.collection('journal-ledger');
+  const createdBy = existingVoucherData?.createdBy || payload.meta?.createdBy || actor?.uid || 'system';
+  const officer = existingVoucherData?.officer || payload.meta?.officer || actor?.name || 'system';
+  
   const meta = payload.meta || {};
 
   const mergedMeta = payload.mergeMeta && existingVoucherData?.meta
     ? { ...existingVoucherData.meta, ...(meta || {}) }
     : (meta || null);
 
-  await db.runTransaction(async (transaction) => {
-    let ledgerDocsToDelete: FirebaseFirestore.QueryDocumentSnapshot[] = [];
-    if (payload.voucherId) {
-      const ledgerSnap = await transaction.get(ledgerCollection.where('voucherId', '==', voucherRef.id));
-      ledgerDocsToDelete = ledgerSnap.docs;
-    }
-
-    const baseVoucherData: any = {
+  const baseVoucherData: any = {
       id: voucherRef.id,
       invoiceNumber: voucherNumber,
       date: voucherDate,
@@ -361,64 +348,12 @@ export async function postJournalEntry(payload: PostJournalPayload, fa?: Normali
     };
 
     if (payload.voucherId) {
-      transaction.update(voucherRef, baseVoucherData);
+      await voucherRef.update(baseVoucherData);
     } else {
-      transaction.set(voucherRef, baseVoucherData);
+      await voucherRef.set(baseVoucherData);
     }
 
-    for (const doc of ledgerDocsToDelete) {
-      transaction.delete(doc.ref);
-    }
-
-    for (const entry of storedEntries) {
-      const ledgerRef = ledgerCollection.doc();
-      const relationId = entry.relationId || null;
-      const ledgerDoc: Record<string, any> = {
-        id: ledgerRef.id,
-        voucherId: voucherRef.id,
-        accountId: entry.accountId,
-        accountType: entry.accountType,
-        debit: entry.debit,
-        credit: entry.credit,
-        amount: entry.amount,
-        description: entry.description,
-        currency: entry.currency,
-        relationId,
-        companyId: companyId || entry.companyId || null,
-        createdAt: existingVoucherData?.createdAt || now,
-        updatedAt: now,
-        isDeleted: false,
-        deletedAt: null,
-        deletedBy: null,
-        restoredAt: null,
-        restoredBy: null,
-        type: entry.debit > 0 ? 'debit' : 'credit',
-      };
-
-      if (entry.companyId && !ledgerDoc.companyId) {
-        ledgerDoc.companyId = entry.companyId;
-      }
-
-      if (entry.accountType === 'client') {
-        const detectedClientId = relationId || (entry.accountId === metaClientId ? metaClientId : null);
-        if (detectedClientId) ledgerDoc.clientId = detectedClientId;
-      }
-
-      if (entry.accountType === 'supplier') {
-        const detectedSupplierId = relationId || (entry.accountId === metaSupplierId ? metaSupplierId : null);
-        if (detectedSupplierId) ledgerDoc.supplierId = detectedSupplierId;
-      }
-
-      const matchedPartnerId = metaPartnerIds.find((id) => id === relationId || id === entry.accountId);
-      if (matchedPartnerId) {
-        ledgerDoc.partnerId = matchedPartnerId;
-      }
-
-      transaction.set(ledgerRef, ledgerDoc);
-    }
-  });
-
-  return voucherRef.id;
+  return { voucherId: voucherRef.id };
 }
 
 
@@ -435,8 +370,4 @@ export async function getFinanceMap(): Promise<NormalizedFinanceAccounts> {
   const fm = normalizeFinanceAccounts(fmRaw);
   _cache = { at: now, map: fm };
   return fm;
-}
-
-export async function postJournalEntries(payload: PostJournalPayload, fa?: NormalizedFinanceAccounts): Promise<string> {
-    return postJournalEntry(payload, fa);
 }

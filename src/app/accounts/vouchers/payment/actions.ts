@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getCurrentUserFromSession } from "@/lib/auth/actions";
@@ -60,4 +59,3 @@ export async function createPaymentVoucher(data: PaymentVoucherData) {
         return { success: false, error: error.message };
     }
 }
-

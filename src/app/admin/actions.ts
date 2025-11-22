@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
@@ -19,8 +17,8 @@ export async function setInitialAdmin(uid: string): Promise<{ success: boolean; 
     const db = await getDb();
     
     // 1. Set the user's role in the Firestore 'users' collection.
-    const userRef = doc(db, 'users', uid);
-    await setDoc(userRef, { role: 'admin' }, { merge: true });
+    const userRef = db.collection('users').doc(uid);
+    await userRef.set({ role: 'admin' }, { merge: true });
 
     // 2. Set custom claims on the user's authentication token.
     // This makes the 'admin' role available on the client-side immediately after login.

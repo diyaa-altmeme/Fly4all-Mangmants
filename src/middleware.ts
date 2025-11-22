@@ -1,7 +1,6 @@
-
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getCurrentUserFromSession } from '@/app/(auth)/actions'
+import { getCurrentUserFromSession } from '@/lib/auth/actions'
 
 const protectedRoutes = ['/dashboard', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/reports', '/settings', '/users', '/profile', '/hr', '/segments', '/exchanges', '/profit-sharing', '/finance-tools', '/system', '/templates', '/notifications', '/support'];
 const clientRoutes = ['/clients/', '/profile'];
