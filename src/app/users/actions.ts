@@ -124,7 +124,7 @@ export async function getUsers({ includeHrData = false, all = false, from, to }:
 
 
 export async function addUser(data: Omit<User, 'uid' | 'id'>) {
-    const auth = await getAuth();
+    const auth = getAuth();
     const db = await getDb();
 
     const { email, password, name, phone, ...firestoreData } = data;
@@ -160,7 +160,7 @@ export async function addUser(data: Omit<User, 'uid' | 'id'>) {
 }
 
 export async function updateUser(uid: string, data: Partial<User>) {
-    const auth = await getAuth();
+    const auth = getAuth();
     const db = await getDb();
     
     const { 
@@ -195,7 +195,7 @@ export async function updateUser(uid: string, data: Partial<User>) {
 }
 
 export async function deleteUser(uid: string) {
-    const auth = await getAuth();
+    const auth = getAuth();
     const db = await getDb();
 
     await auth.deleteUser(uid);
@@ -235,7 +235,7 @@ export async function listAllAuthUsers(): Promise<{
   error?: string; 
 }> {
   try {
-    const auth = await getAuth();
+    const auth = getAuth();
     const userRecords = await auth.listUsers();
     const users = userRecords.users.map(user => ({
       uid: user.uid,

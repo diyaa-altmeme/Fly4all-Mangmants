@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase/firebase-admin-sdk';
+import { getDb } from '@/lib/firebase-admin';
 import type { User, Client } from '@/lib/types';
 import { getRoles } from '@/app/users/actions';
 import { PERMISSIONS } from './permissions';
@@ -85,4 +85,3 @@ export const getUserByEmail = async (email: string): Promise<(User & { permissio
         return null;
     }
 };
-    

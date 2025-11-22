@@ -1,8 +1,7 @@
 
-
 'use server';
 
-import { getDb } from "@/lib/firebase-admin";
+import { getDb } from "@/lib/firebase/firebase-admin-sdk";
 import { FieldValue, FieldPath, Timestamp } from "firebase-admin/firestore";
 import * as admin from 'firebase-admin';
 import { getNextVoucherNumber } from "@/lib/sequences";
@@ -414,6 +413,8 @@ export async function postRevenue({
   const revenueAccountId = financeMap.revenueMap?.[sourceType] || financeMap.generalRevenueId;
   if (!revenueAccountId) throw new Error(`Revenue account for ${sourceType} is not defined`);
   if (!financeMap.receivableAccountId) throw new Error('Accounts Receivable is not defined');
+  const user = await getCurrentUserFromSession();
+
 
   await postJournalEntry({
     invoiceNumber,
@@ -425,6 +426,7 @@ export async function postRevenue({
       { accountId: revenueAccountId, debit: 0, credit: amount, currency, description },
     ],
     meta,
+    actor: user
   });
 }
 
@@ -455,6 +457,7 @@ export async function postCost({
   const expenseAccountId = financeMap.expenseMap?.[costKey] || financeMap.generalExpenseId;
   if (!expenseAccountId) throw new Error(`Expense account for ${costKey} is not defined`);
   if (!financeMap.payableAccountId) throw new Error('Accounts Payable is not defined');
+  const user = await getCurrentUserFromSession();
 
   await postJournalEntry({
     invoiceNumber,
@@ -466,6 +469,6 @@ export async function postCost({
       { accountId: supplierId, debit: 0, credit: amount, currency, description, relationId: supplierId },
     ],
     meta,
+    actor: user
   });
 }
-    

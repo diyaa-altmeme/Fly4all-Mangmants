@@ -2,12 +2,12 @@
 "use server";
 
 import { postJournalEntries } from '@/lib/finance/posting';
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { Exchange, ExchangeTransaction, ExchangePayment, Currency, Notification, UnifiedLedgerEntry } from '@/lib/types';
 import type { JournalEntry as PostingJournalEntry } from '@/lib/finance/posting';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { FieldValue } from "firebase-admin/firestore";
 import { format, subDays, startOfDay, endOfDay, parseISO, isWithinInterval } from 'date-fns';
 import { getNextVoucherNumber } from '@/lib/sequences';
