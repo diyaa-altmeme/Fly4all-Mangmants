@@ -2,14 +2,14 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { Subscription, SubscriptionInstallment, Payment, Currency, SubscriptionStatus, JournalVoucher, Client, Supplier } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { addMonths, format, parseISO, endOfDay, isWithinInterval, startOfDay } from 'date-fns';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getSettings } from '@/app/settings/actions';
 import { createNotification } from '../notifications/actions';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { cache } from 'react';
@@ -34,7 +34,11 @@ const processDoc = (doc: FirebaseFirestore.DocumentSnapshot): any => {
                     obj[key] = new Date(obj[key]._seconds * 1000).toISOString();
                 } else if (obj[key] instanceof Date) {
                     obj[key] = obj[key].toISOString();
-                } else {
+                } else if (typeof obj[key].toDate === 'function') {
+                    // Handle Firestore Timestamp objects from the Admin SDK
+                    obj[key] = obj[key].toDate().toISOString();
+                }
+                else {
                     convertDates(obj[key]);
                 }
             }
@@ -261,7 +265,7 @@ export async function addSubscription(subscriptionData: Omit<Subscription, 'id' 
             sourceId: subscriptionRef.id,
             description: `قيد متكامل لاشتراك ${finalSubscriptionData.serviceName}`,
             date: new Date(finalSubscriptionData.purchaseDate),
-            userId: user.uid,
+            actor: user,
             entries: entries,
             meta: { ...finalSubscriptionData, subscriptionId: subscriptionRef.id, installments: installmentsToCreate }
         });
@@ -413,7 +417,7 @@ export async function updateSubscription(subscriptionId: string, subscriptionDat
                 sourceId: subscriptionId,
                 description: `(تعديل) قيد اشتراك ${finalSubscriptionData.serviceName}`,
                 date: new Date(finalSubscriptionData.purchaseDate!),
-                userId: user.uid,
+                actor: user,
                 entries: entries,
                 meta: { ...finalSubscriptionData, subscriptionId: subscriptionId, installments: installmentsToCreate }
             });
@@ -787,7 +791,7 @@ export async function softDeleteSubscription(id: string): Promise<{ success: boo
     try {
         await db.runTransaction(async (transaction) => {
             const now = new Date().toISOString();
-            const deletedBy = user.name;
+            const deletedBy = user.name || user.uid;
             
             const subRef = db.collection('subscriptions').doc(id);
             const subDoc = await transaction.get(subRef);
@@ -969,16 +973,6 @@ export async function revalidateSubscriptionsPath() {
     'use server';
     revalidatePath('/subscriptions');
 }
-
-
-
-    
-
-
-
-
-
-
 
 
 
