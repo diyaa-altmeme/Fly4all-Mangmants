@@ -6,13 +6,12 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   getIdToken,
-  signInWithCustomToken,
   onAuthStateChanged,
   type User as AuthUser
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import type { User, Client, Permission } from '@/lib/types';
-import { createSessionCookie, getCurrentUserFromSession, logoutUser, signInAsUser as signInAsUserAction } from '@/app/(auth)/actions';
+import { createSessionCookie, getCurrentUserFromSession, logoutUser } from '@/app/(auth)/actions';
 import { useRouter } from 'next/navigation';
 import { hasPermission as checkUserPermission } from '@/lib/auth/permissions';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -25,7 +24,6 @@ interface AuthContextType {
   user: (User & { permissions?: string[] }) | (Client & { isClient: true }) | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signInAsUser: (userId: string) => Promise<void>;
   signOut: () => Promise<void>;
   hasPermission: (permission: keyof typeof PERMISSIONS) => boolean;
   revalidateUser: () => Promise<void>;
@@ -151,21 +149,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-   const signInAsUser = async (userId: string) => {
-    try {
-        const { success, customToken, error } = await signInAsUserAction(userId);
-        if (success && customToken) {
-            await signInWithCustomToken(auth, customToken);
-            // onAuthStateChanged will handle the rest
-        } else {
-            throw new Error(error || "Failed to get custom token.");
-        }
-    } catch (error: any) {
-        console.error(`Sign in as user ${userId} failed:`, error);
-    }
-  };
-
-
   const signOut = async () => {
     setLoading(true);
     await firebaseSignOut(auth);
@@ -180,7 +163,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
   
   return (
-      <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, signInAsUser, revalidateUser, unreadChatCount, error }}>
+      <AuthContext.Provider value={{ user, loading, signIn, signOut, hasPermission, revalidateUser, unreadChatCount, error }}>
         {children}
       </AuthContext.Provider>
   );
@@ -193,5 +176,3 @@ export function useAuth() {
   }
   return context;
 }
-
-    

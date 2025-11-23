@@ -4,7 +4,6 @@ import { getAuthAdmin, getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { cookies } from 'next/headers';
 import type { User, Client } from '@/lib/types';
 import { getUserById as fetchUserWithPermissions, getClientById as fetchClientWithPermissions } from '@/lib/auth/actions';
-import { scriptContext } from '@/lib/script-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export async function createSessionCookie(idToken: string): Promise<{ success: boolean; user?: User & { permissions?: string[] }; error?: string }> {
@@ -46,15 +45,6 @@ export async function logoutUser() {
 }
 
 export async function getCurrentUserFromSession(): Promise<(User & { permissions?: string[] }) | (Client & { isClient: true }) | null> {
-    if (scriptContext.getStore()?.isScript) {
-        return {
-            uid: 'script_user',
-            name: 'Script User',
-            email: 'script@system.local',
-            role: 'admin',
-            permissions: Object.keys(PERMISSIONS),
-        } as User & { permissions?: string[] };
-    }
 
     const sessionCookie = cookies().get('session');
 
@@ -84,14 +74,3 @@ export async function getCurrentUserFromSession(): Promise<(User & { permissions
         return null;
     }
 };
-
-export async function signInAsUser(userId: string): Promise<{ success: boolean; customToken?: string; error?: string }> {
-    const authAdmin = await getAuthAdmin();
-    try {
-        const customToken = await authAdmin.createCustomToken(userId);
-        return { success: true, customToken };
-    } catch (error: any) {
-        console.error("Error creating custom token for user:", String(error));
-        return { success: false, error: error.message };
-    }
-}
