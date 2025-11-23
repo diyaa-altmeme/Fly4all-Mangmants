@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -16,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { hasPermission as checkUserPermission, PERMISSIONS } from '@/lib/auth/permissions';
 import Preloader from '@/components/layout/preloader';
 import { useToast } from '@/hooks/use-toast';
-import { collection, onSnapshot, query, writeBatch, doc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, writeBatch, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 
@@ -26,9 +25,19 @@ async function createSessionCookie(idToken: string) {
     const res = await fetch("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ idToken }),
+        headers: {
+            'Content-Type': 'application/json',
+        },
     });
+
+    if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Failed to create session cookie: ${res.statusText} - ${errorText}`);
+    }
+
     return res.json();
 }
+
 
 async function logoutUserOnServer() {
     await fetch("/api/auth/logout", { method: "POST" });
