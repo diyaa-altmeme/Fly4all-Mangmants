@@ -15,7 +15,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTranslation } from "@/i18n";
 
 
-const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/'];
+const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/auth/dev-login'];
 const clientRoutes = ['/clients', '/profile']; // Routes accessible by clients
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -108,7 +108,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
                         router.replace('/dashboard');
                     }
                 }
-            } else if (!isPublicPath) {
+            } else if (!isPublicPath && !isLandingPage) {
                 router.replace('/');
             }
         }
@@ -118,17 +118,21 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         return <Preloader />;
     }
 
-    if (!user) {
-        if (isPublicPath || isLandingPage) {
-             return (
-                <>
-                    <TopLoader />
-                    {children}
-                </>
-            );
-        }
-        return <Preloader />; 
+    // Unauthenticated user on public route or landing page
+    if (!user && (isPublicPath || isLandingPage)) {
+        return (
+            <>
+                <TopLoader />
+                {children}
+            </>
+        );
     }
     
-    return <AppLayout>{children}</AppLayout>;
+    // Authenticated user on a protected route
+    if(user && !isPublicPath && !isLandingPage) {
+        return <AppLayout>{children}</AppLayout>;
+    }
+    
+    // Fallback/loading state for transitions
+    return <Preloader />;
 }

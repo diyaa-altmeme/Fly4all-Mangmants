@@ -55,18 +55,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setupSession = useCallback(async (authUser: AuthUser) => {
     try {
         const idToken = await getIdToken(authUser, true); // Force refresh
-        const result = await createSessionCookie(idToken);
-        if (result.error || !result.success || !result.user) {
-            throw new Error(result.error || "Failed to create session or retrieve user data.");
+        const { error } = await createSessionCookie(idToken);
+        if (error) {
+            throw new Error(error);
         }
-        setUser(result.user);
+        await revalidateUser(); // Fetch full user data from server after setting cookie
     } catch (error) {
         console.error("Auth session setup error:", error);
         setUser(null); // Clear user on error
     } finally {
         setLoading(false);
     }
-  }, []);
+  }, [revalidateUser]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (authUser) => {
