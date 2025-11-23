@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -18,7 +19,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import NewStandardReceiptDialog from "@/app/accounts/vouchers/components/new-standard-receipt-dialog";
 import NewDistributedReceiptDialog from "@/components/vouchers/components/new-distributed-receipt-dialog";
 import NewPaymentVoucherDialog from "@/app/accounts/vouchers/components/new-payment-voucher-dialog";
-import NewExpenseVoucherDialog from "@/app/accounts/vouchers/components/new-expense-voucher-dialog";
+import NewExpenseVoucherDialog from "@/components/vouchers/components/new-expense-voucher-dialog";
 import NewJournalVoucherDialog from "@/components/vouchers/components/new-journal-voucher-dialog";
 import { useVoucherNav } from "@/context/voucher-nav-context";
 import { ChevronDown, FileDown, GitBranch, FileUp, Banknote, BookUser } from "lucide-react";
