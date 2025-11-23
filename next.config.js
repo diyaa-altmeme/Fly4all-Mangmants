@@ -3,11 +3,10 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // تمكين Server Actions صراحةً لضمان أن بيئة التطوير تدعمها
   experimental: {
     serverActions: {
-      bodySizeLimit: '2mb', // Using a default object configuration
-    },
+      allowedOrigins: ["*"]
+    }
   },
   eslint: {
     ignoreDuringBuilds: true,
