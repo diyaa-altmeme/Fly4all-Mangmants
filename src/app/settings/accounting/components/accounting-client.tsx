@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useCallback } from 'react';
@@ -7,10 +6,7 @@ import FinanceAccountSettings from '@/app/settings/accounting/components/Finance
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { getChartOfAccounts } from '@/app/settings/accounting/chart-of-accounts/actions';
-import AccountsTreeClient from '../chart-of-accounts/components/accounts-tree-client';
 import type { NormalizedFinanceAccounts } from '@/lib/finance/finance-accounts';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GitBranch, WalletCards } from 'lucide-react';
 
 interface AccountingClientProps {
   initialChartData: TreeNode[];
@@ -37,8 +33,6 @@ export default function AccountingClient(props: AccountingClientProps) {
     props.onSettingsChanged();
   };
 
-  // This component will now only render the FinanceAccountSettings
-  // The tabbing logic has been removed.
   return (
     <Card>
         <CardContent className="pt-6">

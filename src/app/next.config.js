@@ -1,30 +1,14 @@
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   typescript: {
     ignoreBuildErrors: true,
-  },
-  // تمكين Server Actions صراحةً لضمان أن بيئة التطوير تدعمها
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '2mb', // Using a default object configuration
-    },
   },
   eslint: {
     ignoreDuringBuilds: true,
   },
-  webpack: (config) => {
-    config.experiments = { ...config.experiments, asyncWebAssembly: true };
-    return config;
-  },
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
-      },
       {
         protocol: 'https',
         hostname: 'placehold.co',
@@ -88,6 +72,12 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'fly4all-78277122-3cbd0.appspot.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
         port: '',
         pathname: '/**',
       },
