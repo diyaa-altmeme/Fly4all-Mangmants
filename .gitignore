@@ -26,7 +26,7 @@ yarn-error.log*
 
 # local env files
 .env*.local
-!.env.local.example
+.env
 
 # vercel
 .vercel
@@ -35,9 +35,24 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# generated
+src/lib/placeholder-images.json
+src/lib/firebase-admin.ts
+/src/lib/firebase/firebase-admin-sdk.ts
+/src/lib/auth-context.tsx
+/src/firebase
+/src/app/auth/login/futuristic-login.css
+
 # Firebase
-firebase-debug.log
-firebase-debug.*.log
-*.firebase
-*firestore.rules
-*
+/src/firebase/client.ts
+/src/firebase/config.ts
+/src/firebase/provider.tsx
+/src/firebase/client-provider.tsx
+/src/firebase/index.ts
+/src/firebase/auth/use-user.tsx
+/src/firebase/firestore/use-collection.tsx
+/src/firebase/firestore/use-doc.tsx
+/src/firebase/memo.ts
+/src/firebase/errors.ts
+/src/firebase/error-emitter.ts
+/src/components/FirebaseErrorListener.tsx
