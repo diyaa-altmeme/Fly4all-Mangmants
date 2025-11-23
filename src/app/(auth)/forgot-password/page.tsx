@@ -13,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { app } from '@/lib/firebase';
 import { cn } from '@/lib/utils';
 import { useTranslation } from '@/i18n';
-import '../login/futuristic-login.css';
+import '@/app/(auth)/login/futuristic-login.css';
 
 export default function ForgotPasswordPage() {
   const { t, direction } = useTranslation();
