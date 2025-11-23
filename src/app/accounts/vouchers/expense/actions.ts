@@ -2,7 +2,7 @@
 'use server';
 
 import { createAuditLog } from "@/app/system/activity-log/actions";
-import { getCurrentUserFromSession } from "@/lib/auth/actions";
+import { getCurrentUserFromSession } from "@/app/(auth)/actions";
 import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
 import { revalidatePath } from "next/cache";
 

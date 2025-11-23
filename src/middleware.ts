@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 const protectedRoutes = ['/dashboard', '/clients', '/bookings', '/visas', '/subscriptions', '/accounts', '/reports', '/settings', '/users', '/profile', '/hr', '/segments', '/exchanges', '/profit-sharing', '/finance-tools', '/system', '/templates', '/notifications', '/support'];
+const authRoutes = ['/auth/login', '/auth/forgot-password'];
+
 
 export async function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('session');
@@ -13,11 +15,6 @@ export async function middleware(request: NextRequest) {
   // If no session cookie and trying to access a protected route, redirect to login
   if (!sessionCookie && isProtectedRoute) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
-  }
-
-  // If there IS a session cookie and the user is trying to access the landing page, redirect to dashboard
-  if(sessionCookie && pathname === '/') {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   
   // Allow the request to proceed

@@ -1,11 +1,10 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { Client, RelationType, CompanyPaymentType } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { format, parseISO } from 'date-fns';
 import { getSettings } from '@/app/settings/actions';
 import { getBookings } from '../bookings/actions';
@@ -194,7 +193,7 @@ export async function addClient(data: Partial<Omit<Client, 'id'>>): Promise<{ su
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user || !('name' in user)) return { success: false, error: "Unauthorized" };
 
     try {
         const username = user.name;
@@ -243,7 +242,7 @@ export async function addMultipleClients(clientsData: Omit<Client, 'id' | 'creat
     if (!db) return { success: false, count: 0, error: "Database not available." };
     
     const user = await getCurrentUserFromSession();
-     if (!user) return { success: false, count: 0, error: "Unauthorized" };
+     if (!user || !('name' in user)) return { success: false, count: 0, error: "Unauthorized" };
     
     
     try {
@@ -298,7 +297,7 @@ export async function updateClient(id: string, data: Partial<Client>): Promise<{
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user || !('name' in user)) return { success: false, error: "Unauthorized" };
 
     try {
         const dataToUpdate = JSON.parse(JSON.stringify(data));
@@ -342,7 +341,7 @@ export async function deleteClient(id: string): Promise<{ success: boolean; erro
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user || !('name' in user)) return { success: false, error: "Unauthorized" };
 
     try {
         const docRef = await db.collection('clients').doc(id).get();
@@ -377,7 +376,7 @@ export async function deleteMultipleClients(ids: string[]): Promise<{ success: b
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user || !('name' in user)) return { success: false, error: "Unauthorized" };
 
 
     try {
@@ -404,5 +403,3 @@ export async function deleteMultipleClients(ids: string[]): Promise<{ success: b
         return { success: false, error: e.message };
     }
 }
-
-    

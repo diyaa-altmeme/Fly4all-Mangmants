@@ -19,7 +19,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { createAccount, generateAccountCode } from '../actions';
+import { createAccount, generateAccountCode, updateAccount } from '../actions';
 import type { TreeNode } from '@/lib/types';
 import {
   Select,
@@ -28,88 +28,57 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 
 const formSchema = z.object({
   name: z.string().min(2, "اسم الحساب مطلوب."),
   type: z.string().min(1, "نوع الحساب مطلوب."),
   parentId: z.string().nullable(),
-  isLeaf: z.boolean().default(true),
-  code: z.string(),
+  code: z.string().min(1, "الكود مطلوب."),
   description: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-interface AddAccountDialogProps {
+interface AccountFormDialogProps {
   allAccounts: TreeNode[];
   onAccountAdded: () => void;
   children: React.ReactNode;
+  isEditing?: boolean;
+  account?: TreeNode;
+  parentId?: string;
 }
 
-export default function AddAccountDialog({ allAccounts, onAccountAdded, children }: AddAccountDialogProps) {
+export default function AccountFormDialog({ allAccounts, onAccountAdded, children, isEditing = false, account, parentId: initialParentId }: AccountFormDialogProps) {
   const [open, setOpen] = useState(false);
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: '',
-      type: 'asset',
-      parentId: null,
-      isLeaf: true,
-      code: '',
-      description: '',
-    },
   });
 
   const parentId = form.watch('parentId');
-
-  useEffect(() => {
-    if (parentId) {
-      const parentNode = findNodeById(allAccounts, parentId);
-      if (parentNode) {
-        form.setValue('type', parentNode.type);
-      }
-    }
-  }, [parentId, allAccounts, form]);
   
-  useEffect(() => {
-    if(open) {
-        handleGenerateCode();
-    }
-  }, [open, parentId]);
-
-
-  const findNodeById = (nodes: TreeNode[], id: string): TreeNode | null => {
-    for (const node of nodes) {
-      if (node.id === id) return node;
-      if (node.children) {
-        const found = findNodeById(node.children, id);
-        if (found) return found;
-      }
-    }
-    return null;
-  };
-
-  const flattenTree = (nodes: TreeNode[]): { label: string; value: string }[] => {
+  const flattenTree = (nodes: TreeNode[], level = 0): { label: string; value: string }[] => {
     let flat: { label: string; value: string }[] = [];
     nodes.forEach(node => {
-      flat.push({ label: `${node.code} - ${node.name}`, value: node.id });
-      if (node.children) {
-        flat = flat.concat(flattenTree(node.children));
-      }
+        const prefix = '—'.repeat(level);
+        flat.push({ label: `${prefix} ${node.code} - ${node.name}`, value: node.id });
+        if (node.children) {
+            flat = flat.concat(flattenTree(node.children, level + 1));
+        }
     });
     return flat;
   };
+
   const accountOptions = [{ label: 'رئيسي (بدون أب)', value: 'root' }, ...flattenTree(allAccounts)];
 
   const handleGenerateCode = async () => {
     setIsGeneratingCode(true);
     try {
       const parentIdVal = form.getValues('parentId');
-      const code = await generateAccountCode(parentIdVal === 'root' ? undefined : parentIdVal || undefined);
+      const code = await generateAccountCode(parentIdVal === 'root' ? null : parentIdVal);
       form.setValue('code', code);
     } catch (e: any) {
       toast({ title: 'خطأ', description: `فشل إنشاء الكود: ${e.message}`, variant: 'destructive' });
@@ -117,18 +86,49 @@ export default function AddAccountDialog({ allAccounts, onAccountAdded, children
       setIsGeneratingCode(false);
     }
   };
+
+  useEffect(() => {
+    if (open) {
+      if (isEditing && account) {
+        form.reset({
+          name: account.name,
+          type: account.type,
+          parentId: account.parentId,
+          code: account.code,
+          description: account.description
+        });
+      } else {
+        const parentNode = initialParentId ? allAccounts.find(a => a.id === initialParentId) : null;
+        form.reset({
+          name: '',
+          type: parentNode ? parentNode.type : 'asset',
+          parentId: initialParentId || null,
+          code: '',
+          description: ''
+        });
+        handleGenerateCode();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, isEditing, account, initialParentId, allAccounts, form]);
   
+  useEffect(() => {
+      if(parentId && !isEditing) handleGenerateCode();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parentId, isEditing]);
+
+
   const handleSubmit = async (data: FormValues) => {
     try {
-        const payload = {
-            ...data,
-            parentId: data.parentId === 'root' ? null : data.parentId,
-        };
-      await createAccount(payload);
-      toast({ title: 'تمت إضافة الحساب بنجاح' });
-      onAccountAdded();
-      setOpen(false);
-      form.reset();
+        let result;
+        if(isEditing && account) {
+             result = await updateAccount(account.id, data);
+        } else {
+             result = await createAccount(data);
+        }
+        toast({ title: `تم ${isEditing ? 'تحديث' : 'إضافة'} الحساب بنجاح` });
+        onAccountAdded();
+        setOpen(false);
     } catch (error: any) {
       toast({ title: "خطأ", description: error.message, variant: "destructive" });
     }
@@ -141,30 +141,22 @@ export default function AddAccountDialog({ allAccounts, onAccountAdded, children
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)}>
             <DialogHeader>
-              <DialogTitle>إضافة حساب جديد</DialogTitle>
+              <DialogTitle>{isEditing ? `تعديل حساب: ${account?.name}` : 'إضافة حساب جديد'}</DialogTitle>
               <DialogDescription>
                 أدخل تفاصيل الحساب الجديد في شجرة الحسابات.
               </DialogDescription>
             </DialogHeader>
             <div className="py-4 grid gap-4">
-                <FormField
-                    control={form.control}
-                    name="parentId"
-                    render={({ field }) => (
-                        <FormItem>
+                <FormField control={form.control} name="parentId" render={({ field }) => (
+                    <FormItem>
                         <FormLabel>الحساب الأب</FormLabel>
                         <Select onValueChange={(v) => field.onChange(v === 'root' ? null : v)} value={field.value || undefined}>
-                            <FormControl>
-                            <SelectTrigger><SelectValue placeholder="اختر الحساب الأب..." /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                                {accountOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                            </SelectContent>
+                            <FormControl><SelectTrigger><SelectValue placeholder="اختر الحساب الأب..." /></SelectTrigger></FormControl>
+                            <SelectContent><SelectItem value="root">رئيسي (بدون أب)</SelectItem>{accountOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent>
                         </Select>
                         <FormMessage />
-                        </FormItem>
-                    )}
-                />
+                    </FormItem>
+                )} />
                 <div className="grid grid-cols-[1fr,auto] gap-2">
                     <FormField control={form.control} name="code" render={({ field }) => ( <FormItem><FormLabel>كود الحساب</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem> )}/>
                      <Button type="button" onClick={handleGenerateCode} className="self-end" variant="outline" disabled={isGeneratingCode}>
@@ -179,8 +171,8 @@ export default function AddAccountDialog({ allAccounts, onAccountAdded, children
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
                             <SelectItem value="asset">أصول</SelectItem>
-                            <SelectItem value="liability">خصوم</SelectItem>
-                            <SelectItem value="equity">حقوق ملكية</SelectItem>
+                            <SelectItem value="liability">التزامات</SelectItem>
+                            <SelectItem value="equity">حقوق الملكية</SelectItem>
                             <SelectItem value="revenue">إيرادات</SelectItem>
                             <SelectItem value="expense">مصروفات</SelectItem>
                         </SelectContent>
@@ -188,17 +180,12 @@ export default function AddAccountDialog({ allAccounts, onAccountAdded, children
                     <FormMessage />
                     </FormItem>
                 )}/>
-                <FormField control={form.control} name="isLeaf" render={({ field }) => (
-                    <FormItem className="flex items-center gap-2">
-                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                        <FormLabel>هل هو حساب فرعي (Leaf)؟</FormLabel>
-                    </FormItem>
-                )}/>
+                 <FormField control={form.control} name="description" render={({ field }) => ( <FormItem><FormLabel>الوصف (اختياري)</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem> )}/>
             </div>
             <DialogFooter>
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting && <Loader2 className="me-2 h-4 w-4 animate-spin" />}
-                <Save className="me-2 h-4 w-4" /> إضافة الحساب
+                <Save className="me-2 h-4 w-4" /> {isEditing ? 'حفظ التعديلات' : 'إضافة الحساب'}
               </Button>
             </DialogFooter>
           </form>

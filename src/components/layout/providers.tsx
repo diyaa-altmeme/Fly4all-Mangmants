@@ -26,9 +26,7 @@ export function Providers({
                       enableSystem
                       disableTransitionOnChange
                   >
-                      <MainLayout>
-                          {children}
-                      </MainLayout>
+                      {children}
                       <Toaster />
                   </ThemeProvider>
               </ThemeCustomizationProvider>

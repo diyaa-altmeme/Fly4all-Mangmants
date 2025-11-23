@@ -1,5 +1,4 @@
 
-
 import { getDb } from "@/lib/firebase/firebase-admin-sdk";
 import { getSettings } from "@/app/settings/actions";
 import { NextResponse } from 'next/server';
@@ -133,4 +132,3 @@ export async function GET() {
      return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-

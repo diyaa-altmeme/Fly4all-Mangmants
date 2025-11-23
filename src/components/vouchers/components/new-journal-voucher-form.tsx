@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -15,8 +16,8 @@ import { cn } from '@/lib/utils';
 import { DialogFooter } from '@/components/ui/dialog';
 import { useAuth } from '@/lib/auth-context';
 import { Autocomplete } from '@/components/ui/autocomplete';
-import { createJournalVoucher } from '@/app/accounts/vouchers/journal/actions';
-import { updateVoucher } from '@/app/accounts/vouchers/list/actions';
+import { createJournalVoucher } from '../../../app/accounts/vouchers/journal/actions';
+import { updateVoucher } from '../../../app/accounts/vouchers/list/actions';
 import { NumericInput } from '@/components/ui/numeric-input';
 import { useVoucherNav } from '@/context/voucher-nav-context';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
@@ -54,9 +55,9 @@ const AmountInput = ({ ...props }: React.ComponentProps<typeof NumericInput>) =>
 
 export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated, isEditing, initialData }: NewJournalVoucherFormProps) {
   
-  const { toast } } from '@/hooks/use-toast';
-  const { user: currentUser } } = useAuth();
-  const { data: navData } } = useVoucherNav();
+  const { toast } = useToast();
+  const { user: currentUser } = useAuth();
+  const { data: navData } = useVoucherNav();
   
   const accountOptions = React.useMemo(() => {
     if (!navData) return [];
@@ -81,10 +82,10 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
     },
   });
   
-  const { control, handleSubmit, setValue, watch, register, formState: { errors, isSubmitting }, reset } } = form;
+  const { control, handleSubmit, setValue, watch, register, formState: { errors, isSubmitting }, reset } = form;
   const watchedCurrency = watch("currency");
 
-  const { fields, append, remove } } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
       control,
       name: "entries"
   });
@@ -93,6 +94,7 @@ export default function NewJournalVoucherForm({ onVoucherAdded, onVoucherUpdated
    const totalDebit = watchedEntries.reduce((sum, entry) => sum + (Number(entry.debit) || 0), 0);
    const totalCredit = watchedEntries.reduce((sum, entry) => sum + (Number(entry.credit) || 0), 0);
    const balance = totalDebit - totalCredit;
+
 
   const onSubmit = async (data: FormValues) => {
     if (Math.abs(balance) > 0.01) { // Use tolerance for floating point

@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
@@ -50,7 +49,7 @@ export async function getVisaBookings(includeDeleted = false): Promise<VisaBooki
 
 export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 'invoiceNumber' | 'enteredBy' | 'enteredAt' | 'isEntered' | 'isAudited' | 'isDeleted'>): Promise<{ success: boolean; error?: string; newBooking?: VisaBookingEntry }> {
     const user = await getCurrentUserFromSession();
-    if (!user || !('role' in user)) return { success: false, error: "User not authenticated." };
+    if (!user || !('name' in user)) return { success: false, error: "User not authenticated." };
 
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
@@ -129,7 +128,7 @@ export async function addVisaBooking(bookingData: Omit<VisaBookingEntry, 'id' | 
 
 export async function addMultipleVisaBookings(bookingsData: Omit<VisaBookingEntry, 'id' | 'invoiceNumber' | 'enteredBy' | 'enteredAt' | 'isEntered' | 'isAudited' | 'isDeleted'>[]): Promise<{ success: boolean; count: number; error?: string; newBookings?: VisaBookingEntry[] }> {
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, count: 0, error: "User not authenticated." };
+    if (!user || !('name' in user)) return { success: false, count: 0, error: "User not authenticated." };
     
     const db = await getDb();
     if (!db) return { success: false, count: 0, error: "Database not available." };
@@ -209,7 +208,7 @@ export async function updateVisaBooking(bookingId: string, bookingData: Partial<
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
      const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+    if (!user || !('name' in user)) return { success: false, error: "User not authenticated." };
 
     try {
         const dataToUpdate: Partial<VisaBookingEntry> = { 
@@ -312,7 +311,7 @@ export async function restoreVisaBooking(bookingId: string): Promise<{ success: 
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+    if (!user || !('name' in user)) return { success: false, error: "User not authenticated." };
 
     try {
         const restoredBy = user.name || user.uid;
@@ -413,6 +412,3 @@ export async function getVisaBookingById(id: string): Promise<VisaBookingEntry |
     if (!doc.exists) return null;
     return { id: doc.id, ...doc.data() } as VisaBookingEntry;
 }
-
-
-

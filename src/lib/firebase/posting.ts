@@ -1,6 +1,7 @@
+
 'use server';
 
-import { getDb } from "@/lib/firebase/firebase-admin-sdk";
+import { getDb } from "@/lib/firebase-admin";
 import { FieldValue, FieldPath, Timestamp } from "firebase-admin/firestore";
 import * as admin from 'firebase-admin';
 import { getNextVoucherNumber } from "@/lib/sequences";

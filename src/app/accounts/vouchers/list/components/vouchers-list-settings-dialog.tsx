@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -488,5 +489,8 @@ export const navConfig: {
     ],
   },
 };
-
-    
+export function VouchersListSettingsDialog() {
+  // This component is deprecated or has been moved.
+  // This is a placeholder to prevent build errors.
+  return null;
+}

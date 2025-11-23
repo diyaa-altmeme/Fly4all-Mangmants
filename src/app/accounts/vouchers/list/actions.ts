@@ -5,7 +5,7 @@ import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { JournalVoucher } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { createAuditLog } from '@/app/system/activity-log/actions';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { softDeleteVoucherRecord } from '@/lib/finance/voucher-lifecycle';
 
 // This function is kept for any potential remaining dependencies,
@@ -50,7 +50,7 @@ export async function deleteVoucher(id: string): Promise<{ success: boolean, err
   const db = await getDb();
   if (!db) return { success: false, error: 'Database not available' };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+    if (!user || !('name' in user)) return { success: false, error: "User not authenticated." };
 
 
   try {

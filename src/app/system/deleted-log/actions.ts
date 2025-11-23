@@ -1,11 +1,11 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { JournalVoucher } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { createAuditLog } from '../activity-log/actions';
 import { permanentlyDeleteVoucherRecord, restoreVoucherRecord } from '@/lib/finance/voucher-lifecycle';
 
@@ -50,7 +50,7 @@ export async function restoreVoucher(voucherId: string): Promise<{ success: bool
     const db = await getDb();
     if (!db) return { success: false, error: 'Database not available' };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: 'Unauthorized' };
+    if (!user || !('name' in user)) return { success: false, error: 'Unauthorized' };
 
     try {
         const voucherRef = db.collection('journal-vouchers').doc(voucherId);
@@ -115,7 +115,7 @@ export async function permanentDeleteVoucher(voucherId: string): Promise<{ succe
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized." };
+    if (!user || !('name' in user)) return { success: false, error: "Unauthorized." };
 
     try {
         const voucherRef = db.collection('journal-vouchers').doc(voucherId);

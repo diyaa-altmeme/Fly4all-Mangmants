@@ -3,7 +3,7 @@
 
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { DistributedReceiptInput } from './schema';
-import { getCurrentUserFromSession } from "@/lib/auth/actions";
+import { getCurrentUserFromSession } from "@/app/(auth)/actions";
 import { revalidatePath } from "next/cache";
 import type { AppSettings } from "@/lib/types";
 import { getSettings } from "@/app/settings/actions";

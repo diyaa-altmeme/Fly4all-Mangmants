@@ -67,6 +67,7 @@
     "fuse.js": "^7.0.0",
     "genkit": "^1.21.0",
     "immer": "^10.1.1",
+    "js-cookie": "^3.0.5",
     "lenis": "^1.0.45",
     "lodash": "^4.17.21",
     "lucide-react": "^0.475.0",
@@ -88,6 +89,7 @@
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
+    "@types/js-cookie": "^3.0.6",
     "@types/lodash": "^4.17.6",
     "@types/node": "^20",
     "@types/nprogress": "^0.2.3",
@@ -101,5 +103,3 @@
     "typescript": "5.9.3"
   }
 }
-
-    

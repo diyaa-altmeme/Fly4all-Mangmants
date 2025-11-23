@@ -1,14 +1,13 @@
 
-
 'use server';
 
 import { postJournalEntries } from '@/lib/finance/posting';
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { Exchange, ExchangeTransaction, ExchangePayment, Currency, Notification, UnifiedLedgerEntry } from '@/lib/types';
-import type { JournalEntry as PostingJournalEntry } from '@/lib/finance/posting';
+import type { JournalEntry as PostingJournalEntry } from '@/lib/finance/postJournal';
 import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { FieldValue } from "firebase-admin/firestore";
 import { format, subDays, startOfDay, endOfDay, parseISO, isWithinInterval } from 'date-fns';
 import { getNextVoucherNumber } from '@/lib/sequences';
@@ -148,7 +147,7 @@ export async function saveTransactions(
     const db = await getDb();
     if (!db) return { success: false, error: 'Database not available' };
     const user = await getCurrentUserFromSession();
-    if (!user) throw new Error("User not authenticated.");
+    if (!user || !('name' in user)) throw new Error("User not authenticated.");
     
     const isEditing = !!batchId;
     
@@ -279,7 +278,7 @@ export async function savePayments(
     const db = await getDb();
     if (!db) return { success: false, error: 'Database not available' };
     const user = await getCurrentUserFromSession();
-    if (!user) throw new Error("User not authenticated.");
+    if (!user || !('name' in user)) throw new Error("User not authenticated.");
     
     const isEditing = !!batchId;
 
@@ -456,7 +455,7 @@ export async function updateBatch(batchId: string, batchType: 'transaction' | 'p
     const db = await getDb();
     if (!db) return { success: false, error: 'Database not available' };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated" };
+    if (!user || !('name' in user)) return { success: false, error: "User not authenticated" };
 
     const collectionName = batchType === 'transaction' ? 'exchange_transaction_batches' : 'exchange_payment_batches';
     const batchRef = db.collection(collectionName).doc(batchId);
@@ -564,5 +563,3 @@ export async function getExchangesDashboardData(): Promise<ExchangeDashboardData
 
     return Promise.all(dashboardDataPromises);
 };
-
-

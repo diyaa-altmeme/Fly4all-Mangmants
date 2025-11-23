@@ -1,8 +1,7 @@
 
-
 'use server';
 
-import { getDb } from "@/lib/firebase/firebase-admin-sdk";
+import { getDb } from "@/lib/firebase-admin";
 import type { VoucherSequence } from "@/lib/types";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
@@ -320,4 +319,3 @@ export async function getNextVoucherNumber(type: string = 'JE'): Promise<string>
       : new Error('Failed to generate next voucher number.');
   }
 }
-

@@ -4,7 +4,7 @@
 import { getDb, getStorageAdmin } from '@/lib/firebase-admin';
 import type { AppSettings, HealthCheckResult, DatabaseStatusSettings, CurrencySetting } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { createAuditLog } from '../system/activity-log/actions';
 import { defaultSettingsData } from '@/lib/defaults';
 import { cache } from 'react';
@@ -118,5 +118,3 @@ export async function checkSystemHealth(): Promise<HealthCheckResult[]> {
     ]);
     return results;
 }
-
-    

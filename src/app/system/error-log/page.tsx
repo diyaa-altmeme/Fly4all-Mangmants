@@ -1,12 +1,11 @@
 
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { getErrorLogs } from '../activity-log/actions';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Terminal, Users, ShieldCheck, FileWarning } from 'lucide-react';
 import AuditLogContent from '../activity-log/components/audit-log-content';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { hasPermission } from '@/lib/permissions';
 import type { User } from '@/lib/types';
 
@@ -14,7 +13,7 @@ import type { User } from '@/lib/types';
 export default async function ErrorLogPage() {
     const user = await getCurrentUserFromSession();
 
-    if (!user || !hasPermission(user as User, 'system:error_log:read')) {
+    if (!user || !('permissions' in user) || !hasPermission(user as User, 'system:error_log:read')) {
         return (
             <Alert variant="destructive">
                 <Terminal className="h-4 w-4" />
@@ -55,4 +54,3 @@ export default async function ErrorLogPage() {
         </Card>
     );
 }
-

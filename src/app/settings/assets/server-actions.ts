@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { getDb, getStorageAdmin } from '@/lib/firebase/firebase-admin-sdk';
@@ -6,6 +7,7 @@ import type { SiteAsset } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { FieldValue } from 'firebase-admin/firestore';
 import { updateSettings } from '@/app/settings/actions';
+import { cache } from 'react';
 
 
 export async function addSiteAsset(assetData: SiteAsset): Promise<{ success: boolean, error?: string }> {
@@ -111,3 +113,24 @@ export async function assignAsset(assetId: string, fullPath: string, assignmentP
         return { success: false, error: error.message };
     }
 }
+
+
+export const getSiteAssets = cache(async (): Promise<SiteAsset[]> => {
+    const db = await getDb();
+    if (!db) return [];
+    try {
+        const snapshot = await db.collection('site_assets').orderBy('uploadedAt', 'desc').get();
+        if (snapshot.empty) return [];
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                ...data,
+                uploadedAt: data.uploadedAt?.toDate ? data.uploadedAt.toDate().toISOString() : data.uploadedAt
+            } as SiteAsset;
+        });
+    } catch (e) {
+        console.error('Error fetching site assets:', e);
+        return [];
+    }
+});

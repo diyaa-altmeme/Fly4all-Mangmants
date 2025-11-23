@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Upload, ImageIcon, Link as LinkIcon, Wallpaper } from 'lucide-react';
 import type { AppSettings, SiteAsset } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getSiteAssets, assignAsset } from '@/app/settings/assets/server-actions';
+import { assignAsset, getSiteAssets } from '@/app/settings/assets/server-actions';
 import AssetCard from '@/components/settings/asset-card';
 import UploadAssetDialog from '@/components/settings/upload-asset-dialog';
 import {
@@ -170,6 +170,3 @@ export default function AssetManagementSettings({ settings, onSettingsChanged }:
         </Card>
     );
 }
-    
-
-    

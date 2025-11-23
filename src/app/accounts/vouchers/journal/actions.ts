@@ -2,7 +2,7 @@
 'use server';
 
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
-import { getCurrentUserFromSession } from "@/lib/auth/actions";
+import { getCurrentUserFromSession } from "@/app/(auth)/actions";
 import { revalidatePath } from "next/cache";
 import { getNextVoucherNumber } from "@/lib/sequences";
 import { createAuditLog } from "@/app/system/activity-log/actions";
@@ -23,7 +23,7 @@ interface JournalVoucherData {
 
 export async function createJournalVoucher(data: JournalVoucherData) {
     const user = await getCurrentUserFromSession();
-    if (!user) {
+    if (!user || !('name' in user)) {
         return { success: false, error: "User not authenticated." };
     }
     

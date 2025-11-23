@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { getFinanceMap, postJournalEntries } from '@/lib/finance/posting';
@@ -9,7 +8,7 @@ import { revalidatePath } from 'next/cache';
 import { cache } from 'react';
 import { format, parseISO } from 'date-fns';
 import { getNextVoucherNumber } from '@/lib/sequences';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { FieldValue } from "firebase-admin/firestore";
 import { createAuditLog } from '../system/activity-log/actions';
 import { recordFinancialTransaction } from '@/lib/finance/financial-transactions';
@@ -274,7 +273,7 @@ export async function deleteManualProfitPeriod(id: string): Promise<{ success: b
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available" };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user || !('name' in user)) return { success: false, error: "Unauthorized" };
 
     const batch = db.batch();
     try {
