@@ -15,18 +15,10 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
-  const isAuthRoute = authRoutes.includes(pathname);
-  const isLandingPage = pathname === '/';
-
+  
   // If no session cookie and trying to access a protected route, redirect to login
   if (!sessionCookie && isProtectedRoute) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
-  }
-
-  // If there IS a session cookie and the user is trying to access an auth route or the landing page,
-  // redirect them to the dashboard.
-  if (sessionCookie && (isAuthRoute || isLandingPage)) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
   }
   
   // Allow the request to proceed
@@ -46,5 +38,3 @@ export const config = {
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
 }
-
-    
