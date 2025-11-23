@@ -18,7 +18,7 @@ import { hasPermission as checkUserPermission } from '@/lib/auth/permissions';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import Preloader from '@/components/layout/preloader';
 import { useToast } from '@/hooks/use-toast';
-import { collection, onSnapshot, query, writeBatch, doc, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, writeBatch, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface AuthContextType {
@@ -193,3 +193,5 @@ export function useAuth() {
   }
   return context;
 }
+
+    

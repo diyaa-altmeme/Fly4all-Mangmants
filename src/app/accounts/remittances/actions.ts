@@ -247,3 +247,5 @@ export async function updateRemittance(id: string, data: Partial<Remittance>) {
         return { success: false, error: e.message };
     }
 }
+
+    

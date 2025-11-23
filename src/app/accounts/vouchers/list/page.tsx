@@ -55,7 +55,7 @@ const VouchersListContent = () => {
                 exchangesRes,
                 chartData,
             ] = await Promise.all([
-                getClients({ all: true, includeInactive: true }),
+                getClients({ all: true, includeInactive: true, relationType: 'all' }),
                 getUsers(),
                 getBoxes(),
                 getSuppliers({all: true}),
@@ -201,3 +201,5 @@ export default function VouchersListPage() {
         </div>
     );
 }
+
+    
