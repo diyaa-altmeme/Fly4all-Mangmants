@@ -1,11 +1,10 @@
-
 'use server';
 
 import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import type { Remittance, ReceiptVoucher, JournalVoucher } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { format, parseISO } from 'date-fns';
-import { getCurrentUserFromSession } from '@/lib/auth/actions';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 import { getSettings } from '@/app/settings/actions';
 import { getNextVoucherNumber } from '@/lib/sequences';
 import { createAuditLog } from '@/app/system/activity-log/actions';
@@ -75,7 +74,7 @@ export const getRemittances = async (): Promise<Remittance[]> => {
 
 export async function addRemittance(remittanceData: Omit<Remittance, 'id' | 'createdAt' | 'createdBy' | 'status' | 'isAudited' | 'updatedAt'>): Promise<{ success: boolean; error?: string; newRemittance?: Remittance }> {
     const user = await getCurrentUserFromSession();
-    if (!user) {
+    if (!user || !('role' in user)) {
         return { success: false, error: "User not authenticated." };
     }
     
@@ -116,7 +115,7 @@ export async function addRemittance(remittanceData: Omit<Remittance, 'id' | 'cre
 
 export async function auditRemittance(remittanceId: string, auditNotes: string) {
     const user = await getCurrentUserFromSession();
-    if (!user) {
+     if (!user || !('role' in user)) {
         return { success: false, error: "User not authenticated." };
     }
 
@@ -152,7 +151,7 @@ export async function auditRemittance(remittanceId: string, auditNotes: string) 
 
 export async function receiveRemittance(remittance: Remittance, boxId: string) {
     const user = await getCurrentUserFromSession();
-    if (!user) {
+    if (!user || !('role' in user)) {
         return { success: false, error: "User not authenticated." };
     }
     
@@ -225,7 +224,7 @@ export async function updateRemittance(id: string, data: Partial<Remittance>) {
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "User not authenticated." };
+     if (!user || !('role' in user)) return { success: false, error: "User not authenticated." };
 
     try {
         await db.collection('remittances').doc(id).update({

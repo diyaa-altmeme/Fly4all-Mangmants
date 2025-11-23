@@ -1,3 +1,4 @@
+'use server';
 
 import { getDb } from "@/lib/firebase/firebase-admin-sdk";
 
@@ -22,7 +23,7 @@ async function initFinanceSettings() {
   } else {
     // If the document exists, check if financeAccountsSettings field exists
     const data = snap.data();
-    if (!data.financeAccountsSettings) {
+    if (!data?.financeAccountsSettings) {
       await ref.update({
         'financeAccountsSettings': {
           defaultCashAccount: null,
