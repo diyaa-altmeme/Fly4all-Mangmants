@@ -21,7 +21,7 @@
     "fix:vouchers": "tsx scripts/fix-legacy-vouchers.ts"
   },
   "engines": {
-    "node": "20",
+    "node": ">=18",
     "npm": ">=8.0.0"
   },
   "dependencies": {

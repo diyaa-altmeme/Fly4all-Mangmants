@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -9,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { PlusCircle, FileText, Search, Filter, Loader2, RefreshCw } from "lucide-react";
 import VouchersTable from './components/vouchers-table';
 import { useRouter } from 'next/navigation';
-import VouchersListSettingsDialog from './components/vouchers-list-settings-dialog';
+import { VouchersListSettingsDialog } from './components/vouchers-list-settings-dialog';
 import { updateSettings, getSettings } from '@/app/settings/actions';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
