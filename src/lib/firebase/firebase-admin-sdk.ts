@@ -10,17 +10,19 @@ import 'server-only';
 
 let app: App;
 
+// If the environment variable is not set, or is an empty string, this will be undefined.
 const serviceAccountString = process.env.FIREBASE_ADMIN_KEY
   ? Buffer.from(process.env.FIREBASE_ADMIN_KEY, 'base64').toString('utf-8').trim()
   : undefined;
 
+// The service account object for the Firebase Admin SDK.
 const serviceAccount = serviceAccountString
   ? JSON.parse(serviceAccountString)
   : undefined;
 
 
 if (!serviceAccount) {
-  console.warn("Firebase Admin Key is not set or is malformed. Admin SDK features will be disabled. Check your .env file.");
+  console.warn("Firebase Admin Key is not set. Check your .env file.");
 }
 
 if (getApps().length === 0 && serviceAccount) {
@@ -54,4 +56,6 @@ export async function getStorageAdmin(): Promise<any> {
   return getStorage(app);
 }
 
+// We keep this export for any server-side files that might still use it directly,
+// though getAuthAdmin() is preferred in most 'use server' actions.
 export const authAdmin = getAuthAdmin();
