@@ -6,7 +6,7 @@ import { Tajawal } from "next/font/google";
 import { Providers } from "@/components/layout/providers";
 import "./globals.css";
 import "./landing-page.css";
-import "./auth/login/futuristic-login.css";
+import "./(auth)/login/futuristic-login.css";
 
 
 const tajawal = Tajawal({ 
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: { 
   children: React.ReactNode;
 }) {
   return (
