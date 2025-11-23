@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import * as admin from 'firebase-admin';
@@ -12,18 +11,23 @@ import 'server-only';
 let app: App;
 
 // The service account object for the Firebase Admin SDK.
-const serviceAccount = process.env.FIREBASE_ADMIN_KEY
-  ? JSON.parse(process.env.FIREBASE_ADMIN_KEY)
+const serviceAccountString = process.env.FIREBASE_ADMIN_KEY
+  ? Buffer.from(process.env.FIREBASE_ADMIN_KEY, 'base64').toString('utf-8')
   : undefined;
 
+const serviceAccount = serviceAccountString
+  ? JSON.parse(serviceAccountString)
+  : undefined;
+
+
 if (!serviceAccount) {
-  console.warn("Firebase Admin Key is not set. Admin SDK features will be disabled. Check your .env.local file.");
+  console.warn("Firebase Admin Key is not set or is malformed. Admin SDK features will be disabled. Check your .env.local file.");
 }
 
 if (getApps().length === 0 && serviceAccount) {
   app = initializeApp({
     credential: cert(serviceAccount),
-    storageBucket: `${serviceAccount.projectId}.appspot.com`,
+    storageBucket: `${serviceAccount.project_id}.appspot.com`,
   });
 } else if (serviceAccount) {
   app = getApp();
