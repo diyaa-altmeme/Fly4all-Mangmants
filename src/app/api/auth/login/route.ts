@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { authAdmin } from "@/lib/firebase/firebase-admin-sdk";
+import { getAuthAdmin } from "@/lib/firebase/firebase-admin-sdk";
 
 export async function POST(req: Request) {
   try {
+    const authAdmin = await getAuthAdmin();
     const { idToken } = await req.json();
     if (!idToken) {
         return NextResponse.json({ error: "idToken is required" }, { status: 400 });

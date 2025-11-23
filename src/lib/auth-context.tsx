@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
@@ -15,9 +16,9 @@ import { useRouter } from 'next/navigation';
 import { hasPermission as checkUserPermission, PERMISSIONS } from '@/lib/auth/permissions';
 import Preloader from '@/components/layout/preloader';
 import { useToast } from '@/hooks/use-toast';
-import { collection, onSnapshot, query, writeBatch, doc, getDoc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, writeBatch, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { authAdmin } from '@/lib/firebase/firebase-admin-sdk';
+import { getCurrentUserFromSession } from '@/app/(auth)/actions';
 
 
 // Server-side action imports
@@ -72,12 +73,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const revalidateUser = useCallback(async () => {
         try {
-            const { authenticated, user: sessionUser } = await checkSessionOnServer();
-            if (authenticated && sessionUser) {
-                setUser(sessionUser);
-            } else {
-                setUser(null);
-            }
+            const sessionUser = await getCurrentUserFromSession();
+            setUser(sessionUser || null);
         } catch (error) {
             console.error("Failed to revalidate user session:", error);
             setUser(null);
@@ -103,24 +100,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // Initial load and session check
     useEffect(() => {
-        checkSessionOnServer().then(({ authenticated, user: sessionUser }) => {
-            setUser(sessionUser || null);
-        }).finally(() => setLoading(false));
-    }, []);
+        revalidateUser().finally(() => setLoading(false));
+    }, [revalidateUser]);
 
 
     // Listen for client-side auth state changes to sync server session
     useEffect(() => {
         const unsubscribe = onIdTokenChanged(auth, async (authUser) => {
             if (authUser) {
-                await setupSession(authUser);
+                // If there's a client-side user but potentially no server-side session yet
+                if (!user) {
+                    await setupSession(authUser);
+                }
             } else {
                 await logoutUserOnServer();
                 setUser(null);
             }
         });
         return () => unsubscribe();
-    }, [setupSession]);
+    }, [setupSession, user]);
   
     useEffect(() => {
         if (!user || !('uid' in user)) {
@@ -164,7 +162,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             setLoading(true); // Set loading while session is being set up
             await setupSession(userCredential.user);
-            router.push('/dashboard');
             return { success: true };
 
         } catch (error: any) {

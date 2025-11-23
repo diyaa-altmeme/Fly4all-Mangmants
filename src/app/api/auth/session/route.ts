@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
-import { authAdmin } from "@/lib/firebase/firebase-admin-sdk";
+import { getAuthAdmin } from "@/lib/firebase/firebase-admin-sdk";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
+    const authAdmin = await getAuthAdmin();
     const cookie = cookies().get("session")?.value;
     if (!cookie) return NextResponse.json({ authenticated: false });
 

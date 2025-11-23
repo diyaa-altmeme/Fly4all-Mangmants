@@ -29,7 +29,6 @@ if (getApps().length === 0 && serviceAccount) {
   app = getApp();
 }
 
-export const authAdmin: Auth = app ? getAuth(app) : ({} as Auth);
 
 export async function getDb(): Promise<Firestore> {
   if (!app) {

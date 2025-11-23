@@ -1,5 +1,4 @@
 
-
 // scripts/migrate-users.ts
 
 /**
@@ -128,4 +127,3 @@ migrateUsers().then(() => {
     console.error("Critical error during migration script:", error);
     process.exit(1);
 });
-    

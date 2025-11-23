@@ -1,15 +1,15 @@
 
+
 'use server';
 
 import { cookies } from "next/headers";
-import { getAuth } from "firebase-admin/auth";
-import { getDb } from "@/lib/firebase/firebase-admin-sdk";
+import { getDb, getAuthAdmin } from "@/lib/firebase/firebase-admin-sdk";
 import type { User, Client } from '@/lib/types';
-import { authAdmin } from "@/lib/firebase/firebase-admin-sdk";
 import { ROLES_PERMISSIONS } from "@/lib/auth/roles";
 import { cache } from 'react';
 
 export async function createSessionCookie(idToken: string) {
+    const authAdmin = await getAuthAdmin();
     try {
         const expiresIn = 60 * 60 * 24 * 7 * 1000; // 7 days
         const sessionCookie = await authAdmin.createSessionCookie(idToken, { expiresIn });
@@ -32,6 +32,7 @@ export async function logoutUser() {
 }
 
 export const getCurrentUserFromSession = cache(async (): Promise<(User & { permissions: string[] }) | (Client & { isClient: true }) | null> => {
+    const authAdmin = await getAuthAdmin();
     try {
         const sessionCookie = cookies().get('session')?.value;
         if (!sessionCookie) return null;

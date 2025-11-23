@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       username,
       role,
       status: 'active', // Or 'pending' if you want an approval step
-      createdAt: adminDb.FieldValue.serverTimestamp(),
+      createdAt: (adminDb.FieldValue as any).serverTimestamp(),
     });
 
     // Generate a password reset link to act as an "invite"
@@ -68,4 +68,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, msg: errorMessage }, { status: 500 });
   }
 }
-
