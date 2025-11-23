@@ -17,7 +17,7 @@ const serviceAccount = process.env.FIREBASE_ADMIN_KEY
   : undefined;
 
 if (!serviceAccount) {
-  console.warn("Firebase Admin Key is not set. Admin SDK features will be disabled.");
+  console.warn("Firebase Admin Key is not set. Admin SDK features will be disabled. Check your .env.local file.");
 }
 
 if (getApps().length === 0 && serviceAccount) {
@@ -32,21 +32,21 @@ if (getApps().length === 0 && serviceAccount) {
 
 export async function getDb(): Promise<Firestore> {
   if (!app) {
-    throw new Error("Firebase Admin SDK is not initialized.");
+    throw new Error("Firebase Admin SDK is not initialized. Make sure FIREBASE_ADMIN_KEY is set in your environment variables.");
   }
   return getFirestore(app);
 }
 
 export async function getAuthAdmin(): Promise<Auth> {
   if (!app) {
-    throw new Error("Firebase Admin SDK is not initialized.");
+    throw new Error("Firebase Admin SDK is not initialized. Make sure FIREBASE_ADMIN_KEY is set in your environment variables.");
   }
   return getAuth(app);
 }
 
 export async function getStorageAdmin(): Promise<any> {
   if (!app) {
-    throw new Error("Firebase Admin SDK is not initialized.");
+    throw new Error("Firebase Admin SDK is not initialized. Make sure FIREBASE_ADMIN_KEY is set in your environment variables.");
   }
   return getStorage(app);
 }
