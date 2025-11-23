@@ -1,7 +1,8 @@
 
+
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { LandingPage } from '@/components/landing-page';
 import { useAuth } from '@/lib/auth-context';
@@ -16,9 +17,7 @@ export default function IndexPage() {
     const [settingsLoading, setSettingsLoading] = React.useState(true);
 
     useEffect(() => {
-        if (!loading && user) {
-            router.replace('/dashboard');
-        } else if (!loading && !user) {
+        if (!loading && !user) {
             getSettings()
                 .then(settings => {
                     setLandingPageSettings(settings.theme?.landingPage || defaultSettingsData.theme.landingPage);
@@ -30,13 +29,18 @@ export default function IndexPage() {
         }
     }, [user, loading, router]);
     
+    // The middleware now handles redirecting authenticated users from the landing page.
+    // This component only needs to handle the state for unauthenticated users.
+
     if (loading || (!user && settingsLoading)) {
         return <Preloader />;
     }
     
-    if (!user) {
-        return <LandingPage settings={landingPageSettings} />;
+    // If there's a user, middleware will redirect, so we can just show a preloader
+    // to avoid a flash of the landing page.
+    if (user) {
+        return <Preloader />;
     }
     
-    return null; // Should be redirected
+    return <LandingPage settings={landingPageSettings} />;
 }
