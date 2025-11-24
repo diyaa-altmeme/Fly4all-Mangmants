@@ -1,3 +1,4 @@
+
 'use server';
 
 import { initializeApp, cert, getApps, App } from 'firebase-admin/app';
@@ -5,49 +6,50 @@ import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 
-// Since firebase-admin.ts is now the primary initializer, this file can be simplified
-// to just export the functions that get the services.
+let app: App;
 
-let _app: App | undefined;
+function initializeFirebaseAdmin() {
+    if (!getApps().length) {
+        try {
+            const serviceAccountString = process.env.FIREBASE_ADMIN_KEY;
+            if (!serviceAccountString) {
+                console.error("FIREBASE_ADMIN_KEY environment variable is not set.");
+                return;
+            }
+            
+            const serviceAccount = JSON.parse(serviceAccountString);
 
-function getAdminApp(): App {
-    if (_app) {
-        return _app;
-    }
-
-    if (getApps().length > 0) {
-        _app = getApps()[0]!;
-        return _app;
-    }
-    
-    // Fallback initialization if it hasn't happened for some reason.
-    try {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_KEY || "{}");
-         if (!serviceAccount.project_id) {
-            throw new Error('FIREBASE_ADMIN_KEY is not set or is invalid.');
+            app = initializeApp({
+                credential: cert(serviceAccount),
+            });
+        } catch (e: any) {
+            console.error("Firebase Admin SDK Initialization Error:", e.stack);
         }
-        _app = initializeApp({
-            credential: cert(serviceAccount),
-        });
-        return _app;
-
-    } catch(e: any) {
-         console.error("Fallback Firebase Admin SDK Initialization Error:", e.stack);
-         throw new Error("Failed to initialize Firebase Admin SDK. Check server logs and environment variables.");
+    } else {
+        app = getApps()[0]!;
     }
 }
 
 export async function getDb(): Promise<Firestore> {
-  const app = getAdminApp();
+  initializeFirebaseAdmin();
+  if (!app) {
+    throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
+  }
   return getFirestore(app);
 }
 
 export async function getAuthAdmin(): Promise<Auth> {
-  const app = getAdminApp();
+  initializeFirebaseAdmin();
+  if (!app) {
+    throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
+  }
   return getAuth(app);
 }
 
 export async function getStorageAdmin() {
-    const app = getAdminApp();
+    initializeFirebaseAdmin();
+    if (!app) {
+        throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
+    }
     return getStorage(app);
 }
