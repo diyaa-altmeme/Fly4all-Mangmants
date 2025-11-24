@@ -12196,3 +12196,6 @@ io.netty.handler.codec.http2.Http2Exception: HTTP/2 client preface string missin
 [error] Failed to fetch Firebase Project from Studio Workspace because WORKSPACE_SLUG environment variable is empty
 [debug] [2025-11-24T10:49:43.944Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform","https://www.googleapis.com/auth/userinfo.email"]
 [debug] [2025-11-24T10:49:43.944Z] > authorizing via signed-in user (acc.alrwdaten@gmail.com)
+[debug] [2025-11-24T10:50:54.200Z] Nov 24, 2025 10:50:54 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel
+INFO: Connected to new websocket client
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Nov 24, 2025 10:50:54 AM com.google.cloud.datastore.emulator.firestore.websocket.WebSocketChannelHandler initChannel\nINFO: Connected to new websocket client\n"}}
