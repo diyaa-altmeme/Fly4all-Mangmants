@@ -1,73 +1,68 @@
-/**
- * @file This file is the server-side Firebase Admin SDK initialization.
- *
- * It is used by server-side code, such as API routes and server components.
- */
+
 'use server';
-import { App, applicationDefault, getApp, getApps, initializeApp } from 'firebase-admin/app';
+
+import admin, { App } from 'firebase-admin';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 
-// Decode the base64 encoded service account key from the environment variable.
-const serviceAccountString = process.env.FIREBASE_ADMIN_KEY
-  ? Buffer.from(process.env.FIREBASE_ADMIN_KEY, 'base64').toString('utf-8')
-  : undefined;
-
-// The service account object for the Firebase Admin SDK.
-const serviceAccount = serviceAccountString
-  // Clean the string of any bad control characters before parsing.
-  ? JSON.parse(serviceAccountString)
-  : undefined;
-
+// Import the service account key directly from a JSON file.
+// IMPORTANT: Ensure this file is included in .gitignore
+import serviceAccount from '../../../firebase-admin-key.json';
 
 let app: App | undefined;
 
-if (!getApps().length) {
-  if (!serviceAccount) {
-    // In a production environment, you should not log this error message.
-    // Instead, you should have a proper error handling mechanism.
-    console.error(
-      'Firebase Admin SDK service account is not configured. ' +
-      'Make sure to set the FIREBASE_ADMIN_KEY environment variable.'
-    );
-  } else {
-    app = initializeApp({
-      credential: applicationDefault(),
-      databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`,
-    });
+function initializeFirebaseAdmin() {
+  if (admin.apps.length > 0) {
+    app = admin.apps[0]!;
+    return;
   }
-} else {
-  app = getApp();
+
+  if (!serviceAccount || !serviceAccount.project_id) {
+    console.error("Firebase Admin SDK: Service account key is missing or invalid in firebase-admin-key.json.");
+    return;
+  }
+  
+  try {
+    app = admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount as any),
+      databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
+    });
+  } catch (error: any) {
+    console.error("Firebase Admin SDK initialization failed:", error.message);
+    // Optionally re-throw or handle the error as needed
+    // throw error; 
+  }
 }
 
-/**
- * Returns an initialized Firebase Admin SDK App instance.
- *
- * @returns {App} An initialized Firebase Admin SDK App instance.
- */
+// Call initialization right away
+initializeFirebaseAdmin();
+
+
 export async function getDb(): Promise<Firestore> {
   if (!app) {
-    throw new Error('Firebase Admin SDK is not initialized. Make sure firebase-admin-key.json is configured correctly.');
+    throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
   }
   return getFirestore(app);
 }
 
-/**
- * Returns an initialized Firebase Admin SDK Auth instance.
- *
- * @returns {Auth} An initialized Firebase Admin SDK Auth instance.
- */
 export async function getAuthAdmin(): Promise<Auth> {
   if (!app) {
-    throw new Error('Firebase Admin SDK is not initialized. Make sure firebase-admin-key.json is configured correctly.');
+    throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
   }
   return getAuth(app);
 }
 
 export async function getStorageAdmin(): Promise<any> {
-  if (!app) {
-    throw new Error('Firebase Admin SDK is not initialized. Make sure firebase-admin-key.json is configured correctly.');
-  }
-  return getStorage(app);
+    if (!app) {
+        throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
+    }
+    return getStorage(app);
 }
+
+export { app as adminApp };
+export const authAdmin = {
+    verifyIdToken: (token: string) => getAuth(app).verifyIdToken(token),
+    createSessionCookie: (token: string, options: any) => getAuth(app).createSessionCookie(token, options),
+    verifySessionCookie: (cookie: string, checkRevoked?: boolean) => getAuth(app).verifySessionCookie(cookie, checkRevoked),
+};
