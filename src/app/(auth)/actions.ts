@@ -1,19 +1,20 @@
 
-
 'use server';
 
 import { cookies } from "next/headers";
-import { getDb, getAuthAdmin } from "@/lib/firebase-admin";
+import { getDb, getAuthAdmin } from "@/lib/firebase/firebase-admin-sdk";
 import type { User, Client } from '@/lib/types';
 import { ROLES_PERMISSIONS } from "@/lib/auth/roles";
 import { cache } from 'react';
+import { cleanUser } from "@/lib/cleanUser";
 
 export async function createSessionCookie(idToken: string) {
     const authAdmin = await getAuthAdmin();
     try {
         const expiresIn = 60 * 60 * 24 * 7 * 1000; // 7 days
         const sessionCookie = await authAdmin.createSessionCookie(idToken, { expiresIn });
-        cookies().set('session', sessionCookie, {
+        const cookieStore = await cookies();
+        cookieStore.set('session', sessionCookie, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             maxAge: expiresIn,
@@ -28,15 +29,17 @@ export async function createSessionCookie(idToken: string) {
 }
 
 export async function logoutUser() {
-    cookies().delete('session');
+    const cookieStore = await cookies();
+    cookieStore.delete('session');
 }
 
 export const getCurrentUserFromSession = cache(async (): Promise<(User & { permissions: string[] }) | (Client & { isClient: true }) | null> => {
-    const authAdmin = await getAuthAdmin();
     try {
-        const sessionCookie = cookies().get('session')?.value;
+        const cookieStore = await cookies();
+        const sessionCookie = cookieStore.get('session')?.value;
         if (!sessionCookie) return null;
 
+        const authAdmin = await getAuthAdmin();
         const decodedToken = await authAdmin.verifySessionCookie(sessionCookie, true);
         const db = await getDb();
         
@@ -48,34 +51,35 @@ export const getCurrentUserFromSession = cache(async (): Promise<(User & { permi
             userData = { uid: userDoc.id, ...userDoc.data() } as User;
             
             if (userData.role === 'admin') {
-                userData.permissions = Object.keys(ROLES_PERMISSIONS).flatMap(key => ROLES_PERMISSIONS[key]);
+                userData.permissions = Object.keys(ROLES_PERMISSIONS).flatMap(key => ROLES_PERMISSIONS[key as keyof typeof ROLES_PERMISSIONS]);
             } else if (userData.role && ROLES_PERMISSIONS[userData.role]) {
                 userData.permissions = ROLES_PERMISSIONS[userData.role];
             } else {
                 userData.permissions = []; // Default to no permissions if role is not found
             }
             
-            return userData as User & { permissions: string[] };
+            return cleanUser(userData) as User & { permissions: string[] };
         }
 
         // If not found in 'users', try 'clients' collection
         userDoc = await db.collection('clients').doc(decodedToken.uid).get();
         if (userDoc.exists) {
             userData = { id: userDoc.id, ...userDoc.data(), isClient: true } as Client & { isClient: true };
-            return userData;
+            return cleanUser(userData);
         }
 
         // If user exists in Auth but not in any database collection
         if (decodedToken.email) {
             console.warn(`User with email ${decodedToken.email} exists in Auth but not in database.`);
             // Fallback user object
-            return {
+            const fallbackUser = {
                 uid: decodedToken.uid,
                 email: decodedToken.email,
                 name: decodedToken.name || 'Unknown User',
                 role: 'viewer', // Assign a default, least-privileged role
                 permissions: ROLES_PERMISSIONS['viewer'] || [],
             } as User & { permissions: string[] };
+             return cleanUser(fallbackUser);
         }
         
         return null;
