@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { getAuthAdmin } from "@/lib/firebase/firebase-admin-sdk";
 

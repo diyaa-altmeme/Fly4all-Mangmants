@@ -33,3 +33,4 @@ export async function setInitialAdmin(uid: string): Promise<{ success: boolean; 
     return { success: false, message: `Failed to set admin role: ${error.message}` };
   }
 }
+

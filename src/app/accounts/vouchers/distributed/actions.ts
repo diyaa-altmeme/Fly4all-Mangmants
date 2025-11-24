@@ -105,3 +105,4 @@ export async function updateDistributedVoucher(voucherId: string, data: Distribu
     // For now, it's a placeholder. A full implementation would require deleting the old voucher and creating a new one.
     return { success: false, error: "Updating distributed vouchers is not fully implemented yet." };
 }
+

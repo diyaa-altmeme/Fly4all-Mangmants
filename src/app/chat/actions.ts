@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getDb } from '@/lib/firebase-admin';
+import { getDb } from '@/lib/firebase/firebase-admin-sdk';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export async function createOrGetDirectChat(userId1: string, userId2: string): Promise<string> {
