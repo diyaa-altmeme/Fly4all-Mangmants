@@ -1,55 +1,56 @@
 
 'use server';
 
-import { initializeApp, cert, getApps, App } from 'firebase-admin/app';
-import { getAuth, Auth } from 'firebase-admin/auth';
-import { getFirestore, Firestore } from 'firebase-admin/firestore';
-import { getStorage } from 'firebase-admin/storage';
+import { initializeApp, cert, getApps, App } from "firebase-admin/app";
+import { getAuth, Auth } from "firebase-admin/auth";
+import { getFirestore, Firestore } from "firebase-admin/firestore";
+import { getStorage, Storage } from "firebase-admin/storage";
 
-let app: App;
+// نحافظ على instance واحدة فقط مهما تعددت البيئات أو إعادة تحميل السيرفر
+let firebaseAdminApp: App | null = null;
 
-function initializeFirebaseAdmin() {
-    if (!getApps().length) {
-        try {
-            const serviceAccountString = process.env.FIREBASE_ADMIN_KEY;
-            if (!serviceAccountString) {
-                console.error("FIREBASE_ADMIN_KEY environment variable is not set.");
-                return;
-            }
-            
-            const serviceAccount = JSON.parse(serviceAccountString);
+function getOrInitAdminApp(): App {
+  if (firebaseAdminApp) {
+    return firebaseAdminApp;
+  }
 
-            app = initializeApp({
-                credential: cert(serviceAccount),
-            });
-        } catch (e: any) {
-            console.error("Firebase Admin SDK Initialization Error:", e.stack);
-        }
-    } else {
-        app = getApps()[0]!;
-    }
+  // نقرأ مفتاح الخدمة
+  const key = process.env.FIREBASE_ADMIN_KEY;
+  if (!key) {
+    console.error("FIREBASE_ADMIN_KEY is missing from environment variables.");
+    throw new Error("Missing FIREBASE_ADMIN_KEY");
+  }
+
+  const serviceAccount = JSON.parse(key);
+
+  // إذا يوجد App جاهز → استخدمه
+  if (getApps().length > 0) {
+    firebaseAdminApp = getApps()[0]!;
+    return firebaseAdminApp;
+  }
+
+  // إنشاء App جديد
+  firebaseAdminApp = initializeApp({
+    credential: cert(serviceAccount),
+  });
+
+  return firebaseAdminApp;
 }
 
+// Firestore instance
 export async function getDb(): Promise<Firestore> {
-  initializeFirebaseAdmin();
-  if (!app) {
-    throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
-  }
+  const app = getOrInitAdminApp();
   return getFirestore(app);
 }
 
+// Auth instance
 export async function getAuthAdmin(): Promise<Auth> {
-  initializeFirebaseAdmin();
-  if (!app) {
-    throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
-  }
+  const app = getOrInitAdminApp();
   return getAuth(app);
 }
 
-export async function getStorageAdmin() {
-    initializeFirebaseAdmin();
-    if (!app) {
-        throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
-    }
-    return getStorage(app);
+// Storage instance
+export async function getStorageAdmin(): Promise<Storage> {
+  const app = getOrInitAdminApp();
+  return getStorage(app);
 }
