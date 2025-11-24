@@ -1,11 +1,10 @@
 
-'use server';
-
+#!/usr/bin/env tsx
 /* eslint-disable no-console */
 import { getDb } from "@/lib/firebase/firebase-admin-sdk";
 import type { AccountType, ChartAccount } from "@/lib/types";
-import { Timestamp } from "firebase-admin/firestore";
-import { chartOfAccountsData } from "@/lib/finance/chart-of-accounts-data";
+import { Timestamp } from 'firebase-admin/firestore';
+import { chartOfAccountsData } from '@/lib/finance/chart-of-accounts-data';
 
 const CHART_OF_ACCOUNTS_COLLECTION = 'chart_of_accounts';
 

@@ -31,7 +31,7 @@ export default function ProfitabilityAnalysisPage() {
 
       vouchersSnap.forEach((doc) => {
         const voucher = doc.data();
-        const clientId = voucher.clientId;
+        const clientId = (voucher.originalData?.clientId || voucher.clientId) as string | undefined;
 
         if (!clientId) return;
 
@@ -85,4 +85,3 @@ export default function ProfitabilityAnalysisPage() {
     </div>
   );
 }
-

@@ -1,7 +1,7 @@
 
 'use server';
 
-import { getDb, getStorageAdmin } from '@/lib/firebase-admin';
+import { getDb, getStorageAdmin } from '@/lib/firebase/firebase-admin-sdk';
 import type { AppSettings, HealthCheckResult, DatabaseStatusSettings, CurrencySetting } from '@/lib/types';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUserFromSession } from '@/app/(auth)/actions';
@@ -61,7 +61,7 @@ export async function updateSettings(settingsData: Partial<AppSettings>): Promis
     const db = await getDb();
     if (!db) return { success: false, error: "Database not available." };
     const user = await getCurrentUserFromSession();
-    if (!user) return { success: false, error: "Unauthorized" };
+    if (!user || !('name' in user)) return { success: false, error: "Unauthorized" };
 
     const settingsRef = db.collection('settings').doc(SETTINGS_DOC_ID);
 

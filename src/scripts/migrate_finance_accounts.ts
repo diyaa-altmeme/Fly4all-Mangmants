@@ -1,5 +1,4 @@
 
-
 /**
  * سكربت ترحيل العمليات القديمة إلى النظام المالي الجديد
  * ----------------------------------------------
@@ -62,7 +61,7 @@ async function migrateFinanceAccounts() {
           currency,
           date,
           userId,
-        } as any);
+        });
 
         totalPosted++;
       } catch (err: any) {

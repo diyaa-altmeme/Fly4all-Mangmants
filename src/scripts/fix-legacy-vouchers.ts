@@ -1,5 +1,4 @@
 
-
 import { getDb } from "@/lib/firebase/firebase-admin-sdk";
 import { recordFinancialTransaction } from "@/lib/finance/financial-transactions";
 import { getFinanceMap } from "@/lib/finance/posting";
