@@ -1,15 +1,10 @@
-
 'use server';
 
 import admin, { App } from 'firebase-admin';
 import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
-
-// IMPORTANT: Ensure this file is included in .gitignore
-// The service account key from a JSON file.
 import serviceAccount from '../../../firebase-admin-key.json';
-
 
 let app: App | undefined;
 
@@ -19,7 +14,7 @@ function initializeFirebaseAdmin() {
     return;
   }
 
-  if (!serviceAccount || !serviceAccount.project_id) {
+  if (!serviceAccount || !(serviceAccount as any).project_id) {
     console.error("Firebase Admin SDK: Service account key is missing or invalid in firebase-admin-key.json.");
     return;
   }
@@ -27,18 +22,15 @@ function initializeFirebaseAdmin() {
   try {
     app = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount as any),
-      databaseURL: `https://${serviceAccount.project_id}.firebaseio.com`
+      databaseURL: `https://${(serviceAccount as any).project_id}.firebaseio.com`
     });
   } catch (error: any) {
     console.error("Firebase Admin SDK initialization failed:", error.message);
   }
 }
 
-// Call initialization right away
-initializeFirebaseAdmin();
-
-
 export async function getDb(): Promise<Firestore> {
+  initializeFirebaseAdmin();
   if (!app) {
     throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
   }
@@ -46,6 +38,7 @@ export async function getDb(): Promise<Firestore> {
 }
 
 export async function getAuthAdmin(): Promise<Auth> {
+  initializeFirebaseAdmin();
   if (!app) {
     throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
   }
@@ -53,6 +46,7 @@ export async function getAuthAdmin(): Promise<Auth> {
 }
 
 export async function getStorageAdmin() {
+    initializeFirebaseAdmin();
     if (!app) {
         throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
     }
