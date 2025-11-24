@@ -15,7 +15,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useTranslation } from "@/i18n";
 
 
-const publicRoutes = ['/auth/login', '/auth/forgot-password', '/setup-admin', '/auth/dev-login'];
+const publicRoutes = ['/login', '/forgot-password', '/setup-admin', '/dev-login'];
 const clientRoutes = ['/clients', '/profile']; // Routes accessible by clients
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {

@@ -138,7 +138,7 @@ export default function ForgotPasswordPage() {
                 </button>
             )}
              <Button variant="link" asChild className="w-full text-indigo-400 hover:text-indigo-300">
-                <Link href="/auth/login">
+                <Link href="/login">
                     <ArrowRight className="me-2 h-4 w-4 rtl:rotate-180" />
                     {t('auth.forgotPassword.backToLogin')}
                 </Link>
@@ -148,3 +148,4 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
+

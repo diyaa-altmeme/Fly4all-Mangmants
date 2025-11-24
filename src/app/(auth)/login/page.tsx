@@ -5,7 +5,7 @@ import { LoginForm } from "@/components/auth/login-form";
 import Script from 'next/script';
 import { useEffect } from 'react';
 import { useTheme } from 'next-themes';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { ThemeToggle } from '@/components/layout/theme-toggle';
 
 
 declare global {
@@ -84,3 +84,4 @@ export default function LoginPage() {
         </div>
     );
 }
+

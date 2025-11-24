@@ -156,7 +156,7 @@ export function LoginForm() {
             </label>
           </div>
           <Link
-            href="/auth/forgot-password"
+            href="/forgot-password"
             className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors duration-300"
           >
             {t('auth.login.forgotPassword')}
@@ -203,3 +203,4 @@ export function LoginForm() {
     </div>
   );
 }
+

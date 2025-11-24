@@ -16,7 +16,7 @@ export default function DevLoginPage() {
     useEffect(() => {
         const signInWithToken = async () => {
             if (!token) {
-                router.replace('/auth/login?error=No+token+provided');
+                router.replace('/login?error=No+token+provided');
                 return;
             }
             try {
@@ -26,7 +26,7 @@ export default function DevLoginPage() {
                 router.replace('/dashboard');
             } catch (error) {
                 console.error("Dev login failed:", error);
-                router.replace('/auth/login?error=Invalid+token');
+                router.replace('/login?error=Invalid+token');
             }
         };
 

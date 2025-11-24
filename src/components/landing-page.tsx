@@ -67,7 +67,7 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
                         {languageLabel}
                     </Button>
                     <Button asChild>
-                        <Link href="/auth/login">
+                        <Link href="/login">
                            {t('common.login')}
                         </Link>
                     </Button>
@@ -96,7 +96,7 @@ const LandingHeader = ({ isScrolled }: { isScrolled: boolean }) => {
                                         {languageLabel}
                                     </Button>
                                     <Button asChild className="mt-2">
-                                       <Link href="/auth/login">
+                                       <Link href="/login">
                                          {t('common.login')}
                                        </Link>
                                     </Button>
@@ -179,7 +179,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
         { href: '#features', label: t('landing.footer.quickLinks.links.features') },
         { href: '#how-it-works', label: t('landing.footer.quickLinks.links.howItWorks') },
         { href: '#pricing', label: t('landing.footer.quickLinks.links.pricing') },
-        { href: '/auth/login', label: t('landing.footer.quickLinks.links.login') },
+        { href: '/login', label: t('landing.footer.quickLinks.links.login') },
     ];
     const companyLinks = [
         { href: '#', label: t('landing.footer.company.links.about') },
@@ -221,7 +221,7 @@ export function LandingPage({ settings }: { settings: LandingPageSettings }) {
                             
                             <div className="flex flex-col sm:flex-row justify-center gap-4">
                                 <Button asChild size="lg" className="px-8 py-4 text-lg transition-all transform hover:scale-105 shadow-lg shadow-primary/20">
-                                    <Link href="/auth/login">
+                                    <Link href="/login">
                                         {t('landing.hero.primaryCta')}
                                     </Link>
                                 </Button>
