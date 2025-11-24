@@ -6,9 +6,10 @@ import { getAuth, Auth } from 'firebase-admin/auth';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 
-// Import the service account key directly from a JSON file.
 // IMPORTANT: Ensure this file is included in .gitignore
+// The service account key from a JSON file.
 import serviceAccount from '../../../firebase-admin-key.json';
+
 
 let app: App | undefined;
 
@@ -30,8 +31,6 @@ function initializeFirebaseAdmin() {
     });
   } catch (error: any) {
     console.error("Firebase Admin SDK initialization failed:", error.message);
-    // Optionally re-throw or handle the error as needed
-    // throw error; 
   }
 }
 
@@ -53,16 +52,9 @@ export async function getAuthAdmin(): Promise<Auth> {
   return getAuth(app);
 }
 
-export async function getStorageAdmin(): Promise<any> {
+export async function getStorageAdmin() {
     if (!app) {
         throw new Error("Firebase Admin SDK is not initialized. Check server logs for details.");
     }
     return getStorage(app);
 }
-
-export { app as adminApp };
-export const authAdmin = {
-    verifyIdToken: (token: string) => getAuth(app).verifyIdToken(token),
-    createSessionCookie: (token: string, options: any) => getAuth(app).createSessionCookie(token, options),
-    verifySessionCookie: (cookie: string, checkRevoked?: boolean) => getAuth(app).verifySessionCookie(cookie, checkRevoked),
-};
