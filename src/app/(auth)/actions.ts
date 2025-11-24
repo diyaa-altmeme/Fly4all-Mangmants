@@ -3,7 +3,7 @@
 'use server';
 
 import { cookies } from "next/headers";
-import { getDb, getAuthAdmin } from "@/lib/firebase/firebase-admin-sdk";
+import { getDb, getAuthAdmin } from "@/lib/firebase-admin";
 import type { User, Client } from '@/lib/types';
 import { ROLES_PERMISSIONS } from "@/lib/auth/roles";
 import { cache } from 'react';
