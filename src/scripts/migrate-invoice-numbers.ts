@@ -1,4 +1,3 @@
-
 // تشغيل: NODE_ENV=production node --loader ts-node/esm scripts/migrate-invoice-numbers.ts
 import { getDb, getAuthAdmin } from "@/lib/firebase/firebase-admin-sdk"; // مسار init الخاص بك
 import fs from "fs";
@@ -21,9 +20,9 @@ const BACKUP_PREFIX = "migration_backups/invoice_fix";
 
 
 async function backupDoc(collection: string, id: string, data: any) {
-    const db = await getDb();
-    const path = `${BACKUP_PREFIX}/${collection}/${id}`;
-    return db.doc(path).set({ original: data, migratedAt: admin.firestore.FieldValue.serverTimestamp() });
+  const db = await getDb();
+  const path = `${BACKUP_PREFIX}/${collection}/${id}`;
+  return db.doc(path).set({ original: data, migratedAt: admin.firestore.FieldValue.serverTimestamp() });
 }
 
 async function processCollection(collection: string) {
