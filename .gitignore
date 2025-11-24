@@ -25,21 +25,17 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-# .env*.local
-.env*
-!.env.local
+.env*.local
 
 # vercel
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# turbo
+.turbo
 
-# generated files
-/public/reports/
-/public/assets/
-/generated/
-
-# Sensitive files
-firebase-admin-key.json
+# firebase
+.firebase
+*#firebase-debug.log
+*#firestore-debug.log
+*#ui-debug.log
+*#functions-debug.log
